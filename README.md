@@ -1,5 +1,12 @@
 # Homelab
 
+## Doppler Secrets
+The following secrets are required to run the HomeLab
+
+| Name             | Description | Example                                |
+|------------------|-------------|----------------------------------------|
+| `DUCKDNS_TOKEN`  | DuckDNS token | `12345678-1234-1234-1234-1234567890ab` |
+
 ## Setup Guide
 ### Install Ubuntu Server
 1. Download the Ubuntu Server ISO from the [official website](https://ubuntu.com/download/server).
@@ -36,4 +43,36 @@ cd homelab
 ```bash
 chmod +x setup.sh
 sudo ./setup.sh
+```
+### Connect to the Server
+The setup.sh script configures the firewall to allow SSH connections. You can now connect to the server using the command printed in the end of the script.
+
+### Configure Doppler
+1. [Install Doppler CLI](https://docs.doppler.com/docs/install-cli)
+2. Verify the installation:
+```bash
+doppler --version
+```
+3. Authenticate with Doppler:
+```bash
+doppler login
+```
+4. Set the Doppler project:
+```bash
+doppler setup
+```
+5. Print the Doppler configuration and verify all secrets above are set:
+```bash
+doppler configs
+doppler secrets
+```
+### Configure DuckDNS
+1. [Sign up for DuckDNS](https://www.duckdns.org/)
+2. Create a domain and token
+3. Set the DuckDNS token in Doppler
+4. Add the DuckDNS domain in the setup-duckdns.sh script
+5. Run the setup-duckdns.sh script with sudo:
+```bash
+chmod +x setup-duckdns.sh
+sudo ./setup-duckdns.sh
 ```
