@@ -74,5 +74,5 @@ doppler secrets
 5. Run the setup-duckdns.sh script with sudo:
 ```bash
 chmod +x setup-duckdns.sh
-sudo ./setup-duckdns.sh
+doppler run --command="sudo -E ./setup-duckdns.sh"
 ```
