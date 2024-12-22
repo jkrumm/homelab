@@ -33,30 +33,48 @@ else
 fi
 
 # Secure SSH configuration: Disable root login and change SSH port
-echo "Securing SSH configuration..."
+local SSH_CONFIG="/etc/ssh/sshd_config"
+local NEW_PORT=2222
 
-# Disable root login
-if grep -q "^PermitRootLogin" /etc/ssh/sshd_config; then
-  sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+# Update SSH configuration
+echo "Updating SSH configuration..."
+if grep -q "^#Port" "$SSH_CONFIG"; then
+  sed -i "s/^#Port.*/Port $NEW_PORT/" "$SSH_CONFIG"
+elif grep -q "^Port" "$SSH_CONFIG"; then
+  sed -i "s/^Port.*/Port $NEW_PORT/" "$SSH_CONFIG"
 else
-  echo "PermitRootLogin no" >> /etc/ssh/sshd_config
+  echo "Port $NEW_PORT" >> "$SSH_CONFIG"
 fi
 
-# Set SSH port to 2222
-if grep -q "^Port" /etc/ssh/sshd_config; then
-  sed -i 's/^Port.*/Port 2222/' /etc/ssh/sshd_config
+if grep -q "^PermitRootLogin" "$SSH_CONFIG"; then
+  sed -i "s/^PermitRootLogin.*/PermitRootLogin no/" "$SSH_CONFIG"
 else
-  echo "Port 2222" >> /etc/ssh/sshd_config
+  echo "PermitRootLogin no" >> "$SSH_CONFIG"
 fi
 
-sudo sshd -t
-
-if sudo sshd -t; then
-  sudo systemctl restart ssh
-else
-  echo "SSH configuration has errors. Please fix them before restarting."
+# Verify SSH configuration syntax
+if ! sshd -t; then
+  echo "SSH configuration has errors. Please check ${SSH_CONFIG}."
   exit 1
 fi
+
+# Ensure /run/sshd directory exists
+echo "Ensuring /run/sshd directory exists..."
+mkdir -p /run/sshd
+chmod 0755 /run/sshd
+
+# Reload systemd manager configuration
+echo "Reloading systemd manager configuration..."
+systemctl daemon-reload
+
+# Restart SSH service using socket activation
+echo "Restarting SSH service..."
+systemctl restart ssh.socket
+
+# Check status of SSH service
+systemctl status ssh.socket --no-pager
+
+echo "SSH configuration updated and service restarted. You can now SSH using port $NEW_PORT."
 
 # Set up SSH key for the user
 USER_HOME="/home/jkrumm"
