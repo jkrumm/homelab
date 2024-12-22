@@ -12,9 +12,14 @@ if ! command -v doppler &> /dev/null; then
   exit 1
 fi
 
-# Retrieve DuckDNS credentials from Doppler
+# Check if the DUCKDNS_TOKEN environment variable is set
+if [ -z "$DUCKDNS_TOKEN" ]; then
+  echo "DUCKDNS_TOKEN environment variable is not set. Please set it using Doppler."
+  exit 1
+fi
+
+# Set the domain
 DOMAIN="jkrumm.duckdns.org"
-TOKEN=$(doppler secrets get DUCKDNS_TOKEN --plain)
 
 # Path for the DuckDNS update script
 DUCKDNS_SCRIPT="/usr/local/bin/duckdns_update.sh"
@@ -24,17 +29,17 @@ if [ ! -f "$DUCKDNS_SCRIPT" ]; then
   echo "Creating DuckDNS update script..."
   cat <<EOL > "$DUCKDNS_SCRIPT"
 #!/bin/bash
-URL="https://www.duckdns.org/update?domains=$DOMAIN&token=$TOKEN&ip="
+URL="https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ip="
 curl -s "\$URL" > /var/log/duckdns.log
 EOL
 else
   echo "DuckDNS update script already exists, updating if necessary..."
   CURRENT_DOMAIN=$(grep -oP '(?<=domains=)[^&]*' "$DUCKDNS_SCRIPT")
   CURRENT_TOKEN=$(grep -oP '(?<=token=)[^&]*' "$DUCKDNS_SCRIPT")
-  if [ "$CURRENT_DOMAIN" != "$DOMAIN" ] || [ "$CURRENT_TOKEN" != "$TOKEN" ]; then
+  if [ "$CURRENT_DOMAIN" != "$DOMAIN" ] || [ "$CURRENT_TOKEN" != "$DUCKDNS_TOKEN" ]; then
     echo "Updating DuckDNS credentials in script..."
     sed -i "s/domains=$CURRENT_DOMAIN/domains=$DOMAIN/" "$DUCKDNS_SCRIPT"
-    sed -i "s/token=$CURRENT_TOKEN/token=$TOKEN/" "$DUCKDNS_SCRIPT"
+    sed -i "s/token=$CURRENT_TOKEN/token=$DUCKDNS_TOKEN/" "$DUCKDNS_SCRIPT"
   fi
 fi
 
