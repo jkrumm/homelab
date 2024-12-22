@@ -34,19 +34,29 @@ fi
 
 # Secure SSH configuration: Disable root login and change SSH port
 echo "Securing SSH configuration..."
-if grep -q "^PermitRootLogin yes" /etc/ssh/sshd_config; then
-  sed -i '/^PermitRootLogin/s/yes/no/' /etc/ssh/sshd_config
+
+# Disable root login
+if grep -q "^PermitRootLogin" /etc/ssh/sshd_config; then
+  sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+else
+  echo "PermitRootLogin no" >> /etc/ssh/sshd_config
 fi
 
-if grep -q "^#Port 22" /etc/ssh/sshd_config; then
-  sed -i '/^#Port 22/s/^#//' /etc/ssh/sshd_config
+# Set SSH port to 2222
+if grep -q "^Port" /etc/ssh/sshd_config; then
+  sed -i 's/^Port.*/Port 2222/' /etc/ssh/sshd_config
+else
+  echo "Port 2222" >> /etc/ssh/sshd_config
 fi
 
-if grep -q "^Port 22" /etc/ssh/sshd_config; then
-  sed -i '/^Port/s/22/2222/' /etc/ssh/sshd_config
-fi
+sudo sshd -t
 
-sudo systemctl restart ssh
+if sudo sshd -t; then
+  sudo systemctl restart ssh
+else
+  echo "SSH configuration has errors. Please fix them before restarting."
+  exit 1
+fi
 
 # Set up SSH key for the user
 USER_HOME="/home/jkrumm"
