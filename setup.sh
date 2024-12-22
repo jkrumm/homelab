@@ -46,7 +46,7 @@ if grep -q "^Port 22" /etc/ssh/sshd_config; then
   sed -i '/^Port/s/22/2222/' /etc/ssh/sshd_config
 fi
 
-systemctl restart sshd
+sudo systemctl restart ssh
 
 # Set up SSH key for the user
 USER_HOME="/home/jkrumm"
@@ -99,4 +99,31 @@ if ! systemctl is-active --quiet fail2ban; then
   systemctl start fail2ban
 fi
 
-echo "Setup complete. Please verify the configurations."
+# Verify configurations
+echo "Verifying configurations..."
+
+# Check SSH service status
+if systemctl is-active --quiet ssh; then
+  echo "SSH service is active."
+  ip = $(hostname -I | cut -d' ' -f1)
+  echo "Connect to the server using the following command: ssh -p 2222 jkrumm@$ip"
+else
+  echo "SSH service is not active. Please check the configuration."
+fi
+
+# Check UFW status
+if ufw status | grep -q "Status: active"; then
+  echo "UFW is active."
+  sudo ufw status
+else
+  echo "UFW is not active. Please check the configuration."
+fi
+
+# Check Fail2Ban status
+if systemctl is-active --quiet fail2ban; then
+  echo "Fail2Ban is running."
+else
+  echo "Fail2Ban is not running. Please check the configuration."
+fi
+
+echo "Setup complete. Please verify the configurations if necessary."

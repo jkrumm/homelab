@@ -34,5 +34,6 @@ cd homelab
 4. Adjust your public SSH key in the setup.sh script:
 5. Run the setup script with sudo:
 ```bash
+chmod +x setup.sh
 sudo ./setup.sh
 ```
