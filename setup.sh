@@ -61,17 +61,20 @@ fi
 
 # Configure UFW (firewall)
 echo "Configuring UFW..."
+
+# Set default policies
 ufw default deny incoming
 ufw default allow outgoing
 
-# Ensure required ports are open
+# Ensure required ports are open for TCP
 declare -a PORTS=("22" "80" "443")
 for PORT in "${PORTS[@]}"; do
-  if ! ufw status | grep -qw "$PORT"; then
-    ufw allow "$PORT"
+  if ! ufw status | grep -qw "$PORT/tcp"; then
+    ufw allow "$PORT/tcp"
   fi
 done
 
+# Enable UFW with forced confirmation
 ufw --force enable
 
 # Configure Fail2Ban
