@@ -32,50 +32,6 @@ else
   echo "Docker Compose is already installed."
 fi
 
-# Secure SSH configuration: Disable root login and change SSH port
-local SSH_CONFIG="/etc/ssh/sshd_config"
-local NEW_PORT=2222
-
-# Update SSH configuration
-echo "Updating SSH configuration..."
-if grep -q "^#Port" "$SSH_CONFIG"; then
-  sed -i "s/^#Port.*/Port $NEW_PORT/" "$SSH_CONFIG"
-elif grep -q "^Port" "$SSH_CONFIG"; then
-  sed -i "s/^Port.*/Port $NEW_PORT/" "$SSH_CONFIG"
-else
-  echo "Port $NEW_PORT" >> "$SSH_CONFIG"
-fi
-
-if grep -q "^PermitRootLogin" "$SSH_CONFIG"; then
-  sed -i "s/^PermitRootLogin.*/PermitRootLogin no/" "$SSH_CONFIG"
-else
-  echo "PermitRootLogin no" >> "$SSH_CONFIG"
-fi
-
-# Verify SSH configuration syntax
-if ! sshd -t; then
-  echo "SSH configuration has errors. Please check ${SSH_CONFIG}."
-  exit 1
-fi
-
-# Ensure /run/sshd directory exists
-echo "Ensuring /run/sshd directory exists..."
-mkdir -p /run/sshd
-chmod 0755 /run/sshd
-
-# Reload systemd manager configuration
-echo "Reloading systemd manager configuration..."
-systemctl daemon-reload
-
-# Restart SSH service using socket activation
-echo "Restarting SSH service..."
-systemctl restart ssh.socket
-
-# Check status of SSH service
-systemctl status ssh.socket --no-pager
-
-echo "SSH configuration updated and service restarted. You can now SSH using port $NEW_PORT."
-
 # Set up SSH key for the user
 USER_HOME="/home/jkrumm"
 SSH_DIR="$USER_HOME/.ssh"
@@ -91,14 +47,15 @@ if [ ! -d "$SSH_DIR" ]; then
 fi
 
 if [ ! -f "$AUTHORIZED_KEYS" ]; then
-  echo "Adding SSH key..."
-  echo "$PUB_KEY" >> "$AUTHORIZED_KEYS"
+  echo "Creating authorized_keys file and adding SSH key..."
+  echo "$PUB_KEY" > "$AUTHORIZED_KEYS"
   chown jkrumm:jkrumm "$AUTHORIZED_KEYS"
   chmod 600 "$AUTHORIZED_KEYS"
 else
   if ! grep -q "$PUB_KEY" "$AUTHORIZED_KEYS"; then
     echo "Appending SSH key..."
     echo "$PUB_KEY" >> "$AUTHORIZED_KEYS"
+    chown jkrumm:jkrumm "$AUTHORIZED_KEYS"
   fi
 fi
 
@@ -108,9 +65,9 @@ ufw default deny incoming
 ufw default allow outgoing
 
 # Ensure required ports are open
-declare -a PORTS=("2222" "80" "443") # Add more ports to this array as needed
+declare -a PORTS=("22" "80" "443")
 for PORT in "${PORTS[@]}"; do
-  if ! ufw status | grep -q "$PORT"; then
+  if ! ufw status | grep -qw "$PORT"; then
     ufw allow "$PORT"
   fi
 done
@@ -133,8 +90,8 @@ echo "Verifying configurations..."
 # Check SSH service status
 if systemctl is-active --quiet ssh; then
   echo "SSH service is active."
-  ip = $(hostname -I | cut -d' ' -f1)
-  echo "Connect to the server using the following command: ssh -p 2222 jkrumm@$ip"
+  ip=$(hostname -I | cut -d' ' -f1)
+  echo "Connect to the server using the following command: ssh -p 22 jkrumm@$ip"
 else
   echo "SSH service is not active. Please check the configuration."
 fi
@@ -142,7 +99,7 @@ fi
 # Check UFW status
 if ufw status | grep -q "Status: active"; then
   echo "UFW is active."
-  sudo ufw status
+  ufw status
 else
   echo "UFW is not active. Please check the configuration."
 fi
