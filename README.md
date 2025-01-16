@@ -249,3 +249,77 @@ Access the Jellyfin web interface:
 Test Transcoding:
 Try playing a video that requires transcoding to see if the server's CPU usage is reduced. If transcoding is offloaded
 to the GPU, you should notice a decrease in CPU load and smoother playback experience.
+
+#### Prepare Docker Compose
+Ensure docker is installed:
+
+```bash
+sudo apt update
+sudo apt install -y docker.io
+```
+
+Create the Docker Group manually:
+
+```bash
+sudo groupadd docker
+```
+
+Add your user to the Docker group: (adjust username)
+
+```bash
+sudo usermod -aG docker jkrumm
+```
+
+Log out a nd log back in to apply the changes.
+
+Verify that you can run Docker commands without sudo:
+```bash
+docker ps
+```
+Restart the Docker service if necessary:
+
+```bash
+sudo systemctl restart docker
+```
+
+#### Start Jellyfin
+
+Start Jellyfin using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+Access the Jellyfin web interface:
+
+- Open a web browser and navigate to http://<your-server-ip>:8096.
+- Follow the on-screen instructions to set up Jellyfin.
+  - Username: jkrumm
+  - Password: You can find the secret in 1Password
+  - Library:
+    - Set Language to english
+    - Refresh metadata every 30 days
+    - Save images in media folders
+    - No trickplay or chapter images
+    - Libraries
+      - Movies -> /media/movies (Should be existent)
+      - Shows -> /media/shows (Should be existent)
+- Activate automatic port mapping UPnP
+- Change "Anzeige" settings
+  - Language: English
+  - Dates: German
+- Change Home settings to remove Kids
+- Change Playback
+  - Maximum Audio Channels: Stereo
+  - Preferred Audio Language: English
+  - Uncheck Play default audio track
+  - Home Streaming Quality: 60 Mbps
+  - Googles Cast: 10 Mbps
+  - Maximum allowed streaming resolution: 1080p
+  - Check Limit maximum supported video resolution
+- Change Subtitles
+  - Subtitle mode: No
+- Under Admiinistration go to Playback
+  - Transcoding
+    - Enable hardware acceleration using VA-API
+  - General --> Rename the server to Jellyfin
