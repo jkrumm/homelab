@@ -74,6 +74,14 @@ for PORT in "${PORTS[@]}"; do
   fi
 done
 
+# Ports to be denied (not exposed globally)
+declare -a DENIED_PORTS=("8096")
+for PORT in "${DENIED_PORTS[@]}"; do
+  if ufw status | grep -qw "$PORT/tcp"; then
+    ufw deny "$PORT/tcp"
+  fi
+done
+
 # Enable UFW with forced confirmation
 ufw --force enable
 
