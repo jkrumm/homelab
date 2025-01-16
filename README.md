@@ -111,6 +111,7 @@ doppler secrets
 chmod +x setup-duckdns.sh
 doppler run --command="sudo -E ./setup-duckdns.sh"
 ```
+
 6. Make sure you see both the IPv4 and IPv6 address in the DuckDNS dashboard
 
 ### Reusing my Existing Encrypted HDD
@@ -252,6 +253,7 @@ Try playing a video that requires transcoding to see if the server's CPU usage i
 to the GPU, you should notice a decrease in CPU load and smoother playback experience.
 
 #### Prepare Docker Compose
+
 Ensure docker is installed:
 
 ```bash
@@ -274,9 +276,11 @@ sudo usermod -aG docker jkrumm
 Log out a nd log back in to apply the changes.
 
 Verify that you can run Docker commands without sudo:
+
 ```bash
 docker ps
 ```
+
 Restart the Docker service if necessary:
 
 ```bash
@@ -295,38 +299,39 @@ Access the Jellyfin web interface:
 
 - Open a web browser and navigate to http://<your-server-ip>:8096.
 - Follow the on-screen instructions to set up Jellyfin.
-  - Username: jkrumm
-  - Password: You can find the secret in 1Password
-  - Library:
-    - Set Language to english
-    - Refresh metadata every 30 days
-    - Save images in media folders
-    - No trickplay or chapter images
-    - Libraries
-      - Movies -> /media/movies (Should be existent)
-      - Shows -> /media/shows (Should be existent)
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password
+    - Library:
+        - Set Language to english
+        - Refresh metadata every 30 days
+        - Save images in media folders
+        - No trickplay or chapter images
+        - Libraries
+            - Movies -> /media/movies (Should be existent)
+            - Shows -> /media/shows (Should be existent)
 - Activate automatic port mapping UPnP
 - Change "Anzeige" settings
-  - Language: English
-  - Dates: German
+    - Language: English
+    - Dates: German
 - Change Home settings to remove Kids
 - Change Playback
-  - Maximum Audio Channels: Stereo
-  - Preferred Audio Language: English
-  - Uncheck Play default audio track
-  - Home Streaming Quality: 60 Mbps
-  - Googles Cast: 10 Mbps
-  - Maximum allowed streaming resolution: 1080p
-  - Check Limit maximum supported video resolution
+    - Maximum Audio Channels: Stereo
+    - Preferred Audio Language: English
+    - Uncheck Play default audio track
+    - Home Streaming Quality: 60 Mbps
+    - Googles Cast: 10 Mbps
+    - Maximum allowed streaming resolution: 1080p
+    - Check Limit maximum supported video resolution
 - Change Subtitles
-  - Subtitle mode: No
+    - Subtitle mode: No
 - Under Administration go to Playback
-  - Transcoding
-    - Enable hardware acceleration using VA-API
-  - General
-    - Rename the server to Jellyfin
+    - Transcoding
+        - Enable hardware acceleration using VA-API
+    - General
+        - Rename the server to Jellyfin
 
 ### Enable Jellyfin SSH
+
 Configure a CNAME record in your DNS provider to point to your DuckDNS domain.
 
 `CNAME jellyfin.jkrumm.dev -> jkrumm.duckdns.org`
@@ -334,6 +339,7 @@ Configure a CNAME record in your DNS provider to point to your DuckDNS domain.
 With Caddy already configured you should then be fully good
 
 ### Enable Jellyfin Hardware Acceleration
+
 Install the Intel GPU drivers:
 
 ```bash
@@ -345,9 +351,51 @@ Validate with connected HDMI monitor:
 ```bash
 vainfo
 ```
+
 Export the following environment variables:
 
 ```bash
 export DISPLAY=:0
 export LIBVA_DRIVER_NAME=iHD  # or `i965` depending on your driver
+```
+
+Verify Device Node Permissions:
+
+```bash
+ls -l /dev/dri
+```
+
+Ensure `renderD128`  is accessible by the `render` group and `card1` by the `video` group. The permissions should look
+something like:
+
+```text
+crw-rw---- 1 root render 226, 128 Jan 16 15:59 renderD128
+crw-rw---- 1 root video  226, 1 Jan 16 19:24 card1
+  ```
+
+Join the video and render group:
+
+```bash
+sudo usermod -aG video,render jkrumm
+```
+
+Reastablish the session and verify the groups:
+
+```bash
+groups
+```
+
+Set the render group in the Docker Compose file:
+
+```bash
+getent group render
+```
+
+```text
+render:x:993:jkrumm
+```
+
+```yaml
+group_add:
+  - "993"  # Use the render group ID
 ```
