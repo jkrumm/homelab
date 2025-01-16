@@ -111,6 +111,7 @@ doppler secrets
 chmod +x setup-duckdns.sh
 doppler run --command="sudo -E ./setup-duckdns.sh"
 ```
+6. Make sure you see both the IPv4 and IPv6 address in the DuckDNS dashboard
 
 ### Reusing my Existing Encrypted HDD
 
@@ -319,7 +320,15 @@ Access the Jellyfin web interface:
   - Check Limit maximum supported video resolution
 - Change Subtitles
   - Subtitle mode: No
-- Under Admiinistration go to Playback
+- Under Administration go to Playback
   - Transcoding
     - Enable hardware acceleration using VA-API
-  - General --> Rename the server to Jellyfin
+  - General
+    - Rename the server to Jellyfin
+
+### Enable Jellyfin SSH
+Configure a CNAME record in your DNS provider to point to your DuckDNS domain.
+
+`CNAME jellyfin.jkrumm.dev -> jkrumm.duckdns.org`
+
+With Caddy already configured you should then be fully good

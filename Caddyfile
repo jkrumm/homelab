@@ -1,0 +1,7 @@
+jellyfin.jkrumm.dev {
+    reverse_proxy jellyfin:8096
+    encode gzip
+    log {
+        output file /data/access.log
+    }
+}
