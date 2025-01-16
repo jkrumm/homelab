@@ -233,18 +233,15 @@ id
 
 Adjust `docker-compose.yml` accordingly with the user ID.
 
-Create the `jellyfin_data` folder:
+Create the `jellyfin` folders:
 
 ```bash
-mkdir -p ~/jellyfin/config
-mkdir -p ~/jellyfin/cache
-sudo usermod -aG docker jkrumm
-sudo chown -R jkrumm:jkrumm ~/jellyfin
-sudo chmod -R 755 ~/jellyfin
-sudo chown -R 1000:1000 ~/jellyfin/config
-sudo chown -R 1000:1000 ~/jellyfin/cache
-sudo chmod -R 755 ~/jellyfin/config
-sudo chmod -R 755 ~/jellyfin/cache
+mkdir -p /jellyfin/config
+mkdir -p /jellyfin/cache
+sudo chown -R 1000:1000 /jellyfin/config
+sudo chown -R 1000:1000 /jellyfin/cache
+sudo chmod -R 755 /jellyfin/config
+sudo chmod -R 755 /jellyfin/cache
 ```
 
 ### Prepare Docker Compose

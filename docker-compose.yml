@@ -6,19 +6,21 @@ services:
     restart: unless-stopped
     ports:
       - 8096:8096
-    security_opt:
-      - no-new-privileges:true
+#    security_opt:
+#      - no-new-privileges:true
     user: "1000:1000"  # Replace with your actual user and group ID
-    group_add:
-      - "993"  # Use the render group ID
+#    group_add:
+#      - "993"  # Use the render group ID
     environment:
+      - PUID=1000
+      - PGID=1000
       - TZ=Europe/Berlin
       - UMASK_SET=022
       - DISPLAY=:0
       - LIBVA_DRIVER_NAME=iHD
     volumes:
-      - ~/jellyfin/config:/config
-      - ~/jellyfin/cache:/cache
+      - /jellyfin/config:/config
+      - /jellyfin/cache:/cache
       - /mnt/hdd/Filme/Movies:/media/movies
       - /mnt/hdd/Filme/Shows:/media/shows
       - /mnt/hdd/Filme/Kids:/media/kids
