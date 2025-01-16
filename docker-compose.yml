@@ -12,6 +12,8 @@ services:
     environment:
       - TZ=Europe/Berlin
       - UMASK_SET=022
+      - DISPLAY=:0
+      - LIBVA_DRIVER_NAME=iHD
     volumes:
       - /mnt/hdd/Filme/jellyfin_data:/config
       - /mnt/hdd/Filme/Movies:/media/movies

@@ -332,3 +332,22 @@ Configure a CNAME record in your DNS provider to point to your DuckDNS domain.
 `CNAME jellyfin.jkrumm.dev -> jkrumm.duckdns.org`
 
 With Caddy already configured you should then be fully good
+
+### Enable Jellyfin Hardware Acceleration
+Install the Intel GPU drivers:
+
+```bash
+sudo apt install intel-media-va-driver i965-va-driver vainfo
+```
+
+Validate with connected HDMI monitor:
+
+```bash
+vainfo
+```
+Export the following environment variables:
+
+```bash
+export DISPLAY=:0
+export LIBVA_DRIVER_NAME=iHD  # or `i965` depending on your driver
+```
