@@ -21,12 +21,7 @@
 
 ## TODOS
 
-Start the Docker service and enable it to start on boot:
-
-```bash
-sudo systemctl start docker
-sudo systemctl enable docker
-```
+Backup Jellyfin configuration und jellyfin/config folder.
 
 ## Doppler Secrets
 
@@ -241,33 +236,16 @@ Adjust `docker-compose.yml` accordingly with the user ID.
 Create the `jellyfin_data` folder:
 
 ```bash
-sudo mkdir -p /mnt/hdd/Filme/jellyfin_data
-sudo chown -R 1000:1000 /mnt/hdd/Filme/jellyfin_data
+mkdir -p ~/jellyfin/config
+mkdir -p ~/jellyfin/cache
+sudo usermod -aG docker jkrumm
+sudo chown -R jkrumm:jkrumm ~/jellyfin
+sudo chmod -R 755 ~/jellyfin
+sudo chown -R 1000:1000 ~/jellyfin/config
+sudo chown -R 1000:1000 ~/jellyfin/cache
+sudo chmod -R 755 ~/jellyfin/config
+sudo chmod -R 755 ~/jellyfin/cache
 ```
-
-#### Install Intel GPU Drivers
-
-```bash
-sudo apt update
-sudo apt install -y intel-media-va-driver-non-free
-```
-
-Verify the installation:
-
-```bash
-ls /dev/dri
-```
-
-#### Enable Hardware Acceleration in Jellyfin
-
-Access the Jellyfin web interface:
-
-- Open a web browser and navigate to `http://<your-server-ip>:8096`.
-- Go to Dashboard > Playback.
-- Under Hardware Acceleration, enable VA-API and apply the changes.
-
-Test Transcoding: Try playing a video that requires transcoding to see if the server's CPU usage is reduced. If
-transcoding is offloaded to the GPU, you should notice a decrease in CPU load and smoother playback experience.
 
 ### Prepare Docker Compose
 

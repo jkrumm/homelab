@@ -17,7 +17,8 @@ services:
       - DISPLAY=:0
       - LIBVA_DRIVER_NAME=iHD
     volumes:
-      - /mnt/hdd/Filme/jellyfin_data:/config
+      - ~/jellyfin/config:/config
+      - ~/jellyfin/cache:/cache
       - /mnt/hdd/Filme/Movies:/media/movies
       - /mnt/hdd/Filme/Shows:/media/shows
       - /mnt/hdd/Filme/Kids:/media/kids
