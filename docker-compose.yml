@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - 8096:8096
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"  # Replace with your actual user and group ID
+    environment:
+      - TZ=Europe/Berlin
+      - UMASK_SET=022
+    volumes:
+      - /mnt/hdd/Filme/jellyfin_data:/config
+      - /mnt/hdd/Filme/Movies:/media/movies
+      - /mnt/hdd/Filme/Shows:/media/shows
+      - /mnt/hdd/Filme/Kids:/media/kids
+      - /dev/shm:/transcode
+    devices:
+      - /dev/dri:/dev/dri
