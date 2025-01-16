@@ -29,11 +29,11 @@ LOG_FILE="/var/log/duckdns.log"
 echo "Creating or updating DuckDNS update script..."
 cat <<EOL > "$DUCKDNS_SCRIPT"
 #!/bin/bash
-URL="https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ip="
+URL="https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ipv6=yes"
 /usr/bin/echo "Updating DuckDNS at \$(date)" >> $LOG_FILE
 RESPONSE=\$(/usr/bin/curl -s "\$URL")
 /usr/bin/echo "Response: \$RESPONSE" >> $LOG_FILE
-/usr/bin/echo "Update completed at \$(date)" >> $LOG_FILE
+/usr/bin/echo "IPv6 Update completed at \$(date)" >> $LOG_FILE
 EOL
 
 # Make the script executable
@@ -50,4 +50,4 @@ CRON_JOB="*/5 * * * * /usr/local/bin/duckdns_update.sh"
   (crontab -u jkrumm -l 2>/dev/null; echo "$CRON_JOB") | crontab -u jkrumm -
 }
 
-echo "DuckDNS setup complete. Your IP will be updated every 5 minutes."
+echo "DuckDNS setup complete. Your IPv6 will be updated every 5 minutes."
