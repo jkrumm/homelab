@@ -190,7 +190,7 @@ sudo vim /etc/fstab
 Add the following line to mount the decrypted partition, adjusting the mount point as needed:
 
 ```bash
-/dev/mapper/encrypted_partition /mnt/hdd ext4 defaults 0 2
+/dev/mapper/encrypted_partition /mnt/hdd ext4 defaults,uid=1000,gid=1000 0 2
 ```
 
 Make sure the mount point directory exists:
@@ -213,11 +213,80 @@ After rebooting, verify that the partition is automatically decrypted and mounte
 df -h | grep hdd
 ```
 
+Update the permissions of the mounted partition:
+
+```bash
+sudo chown -R 1000:1000 /mnt/hdd
+sudo chmod -R 755 /mnt/hdd
+```
+
 If it doesn't mount automatically, check the system logs for errors:
 
 ```bash
 sudo journalctl -xe
 ```
+
+### Mount automatically with new systemd service
+For a more automated and reliable solution, follow the steps to create a `systemd` service:
+
+1. **Create a Mount Script:**
+
+   Save the following script as `/usr/local/bin/mount_hdd.sh`:
+
+   ```bash
+   #!/bin/bash
+   if ! mount | grep -q '/mnt/hdd'; then
+       mount /dev/mapper/encrypted_partition /mnt/hdd
+   fi
+   ```
+
+   Make the script executable:
+
+   ```bash
+   sudo chmod +x /usr/local/bin/mount_hdd.sh
+   ```
+
+2. **Create a Systemd Service File:**
+
+   Create a service file at `/etc/systemd/system/mount-hdd.service`:
+
+   ```ini
+   [Unit]
+   Description=Mount Encrypted HDD
+   Before=jellyfin.service docker.service
+   After=systemd-cryptsetup@encrypted_partition.service
+
+   [Service]
+   Type=oneshot
+   ExecStart=/usr/local/bin/mount_hdd.sh
+   RemainAfterExit=yes
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+3. **Enable the Systemd Service:**
+
+   Enable the service to start at boot:
+
+   ```bash
+   sudo systemctl enable mount-hdd.service
+   ```
+
+4. **Reboot and Verify:**
+
+   Reboot your system to ensure the service works:
+
+   ```bash
+   sudo reboot
+   ```
+
+   After reboot, check if the partition is mounted:
+
+   ```bash
+   mount | grep /mnt/hdd
+   ```
+   
 
 ## Enable Jellyfin
 
@@ -236,12 +305,17 @@ Adjust `docker-compose.yml` accordingly with the user ID.
 Create the `jellyfin` folders:
 
 ```bash
-mkdir -p /jellyfin/config
-mkdir -p /jellyfin/cache
-sudo chown -R 1000:1000 /jellyfin/config
-sudo chown -R 1000:1000 /jellyfin/cache
-sudo chmod -R 755 /jellyfin/config
-sudo chmod -R 755 /jellyfin/cache
+mkdir -p /mnt/hdd/jellyfin/config
+mkdir -p /mnt/hdd/jellyfin/cache
+```
+
+Change the ownership and permissions of the folders:
+
+```bash
+sudo chown -R 1000:1000 /mnt/hdd/jellyfin/config
+sudo chown -R 1000:1000 /mnt/hdd/jellyfin/cache
+sudo chmod -R 755 /mnt/hdd/jellyfin/config
+sudo chmod -R 755 /mnt/hdd/jellyfin/cache
 ```
 
 ### Prepare Docker Compose
