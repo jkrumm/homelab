@@ -1,33 +1,25 @@
-version: '2' # We need v2 because of https://github.com/docker/compose/issues/3328 (group_add)
+version: '3'
+
 services:
   jellyfin:
-    image: jellyfin/jellyfin
+    image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     restart: unless-stopped
     ports:
       - 8096:8096
-#    security_opt:
-#      - no-new-privileges:true
-    user: "1000:1000"  # Replace with your actual user and group ID
-#    group_add:
-#      - "993"  # Use the render group ID
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Berlin
-      - UMASK_SET=022
-      - DISPLAY=:0
-      - LIBVA_DRIVER_NAME=iHD
+      - JELLYFIN_PublishedServerUrl=https://jellyfin.jkrumm.dev
     volumes:
-      - /jellyfin/config:/config
-      - /jellyfin/cache:/cache
+      - /mnt/hdd/jellyfin/config:/config
+      - /mnt/hdd/jellyfin/cache:/cache
       - /mnt/hdd/Filme/Movies:/media/movies
       - /mnt/hdd/Filme/Shows:/media/shows
       - /mnt/hdd/Filme/Kids:/media/kids
-      - /dev/shm:/transcode
     devices:
-      - /dev/dri/renderD128:/dev/dri/renderD128
-      - /dev/dri/card1:/dev/dri/card1
+      - /dev/dri:/dev/dri
 
   caddy:
     image: caddy
