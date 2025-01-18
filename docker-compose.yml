@@ -55,10 +55,8 @@ services:
     image: henrygd/beszel
     container_name: beszel
     restart: unless-stopped
-    #    extra_hosts:
-    #      - host.docker.internal:host-gateway
     ports:
-      - "8090:8090"
+      - 8090:8090
     volumes:
       - /mnt/hdd/beszel:/beszel_data
 
@@ -66,12 +64,10 @@ services:
     image: "henrygd/beszel-agent"
     container_name: beszel-agent
     restart: unless-stopped
-    #    network_mode: host
     ports:
-      - "45876:45876"
+      - 45876:45876
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # monitor other disks / partitions by mounting a folder in /extra-filesystems
       - /mnt/hdd/.beszel:/extra-filesystems/hdd:ro
     environment:
       PORT: 45876

@@ -20,6 +20,7 @@
     - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
 
 ## TODOS
+
 - [ ] Backup Jellyfin configuration und jellyfin/config folder continuously
 - [ ] Backup SSD folder continuously
 - [ ] Configure Glance Dashboard https://docs.techdox.nz/glance/
@@ -411,6 +412,8 @@ Configure a CNAME record in your DNS provider to point to your DuckDNS domain.
 
 `CNAME jellyfin.jkrumm.dev -> jkrumm.duckdns.org`
 
+Allow internal IP routing to the Jellyfin server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen -> DNS-Rebind-Schutz)
+
 With Caddy already configured, you should then be fully set up.
 
 ### Enable Jellyfin Hardware Acceleration
@@ -505,3 +508,12 @@ navigation.
     sudo chown -R 1000:1000 /mnt/hdd/beszel
     chmod 755 /mnt/hdd/beszel
     ```
+2. Setup correct drives for SSD and HDD
+3. Allow internal IP routing to the Beszel server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen ->
+   DNS-Rebind-Schutz)
+4. Configure a new CNAME record in your DNS provider to point to your DuckDNS domain.
+   `CNAME beszel.jkrumm.dev -> jkrumm.duckdns.org`
+5. Access the Beszel server using the following credentials:
+    - Host: `https://beszel.jkrumm.dev`
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password and Doppler
