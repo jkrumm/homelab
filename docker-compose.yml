@@ -51,6 +51,15 @@ services:
       - /home/jkrumm/ssd:/mnt/ssd
       - /mnt/hdd:/mnt/hdd
 
+  beszel:
+    image: henrygd/beszel
+    container_name: beszel
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - /mnt/hdd/beszel:/beszel_data
+
 volumes:
   caddy_data:
   caddy_config:

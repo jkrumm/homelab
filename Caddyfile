@@ -1,3 +1,6 @@
 jellyfin.jkrumm.dev {
     reverse_proxy jellyfin:8096
 }
+beszel.jkrumm.dev {
+  reverse_proxy localhost:8090
+}

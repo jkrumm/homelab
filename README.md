@@ -20,8 +20,11 @@
     - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
 
 ## TODOS
-
-Backup Jellyfin configuration und jellyfin/config folder.
+- [ ] Backup Jellyfin configuration und jellyfin/config folder continuously
+- [ ] Backup SSD folder continuously
+- [ ] Configure Glance Dashboard https://docs.techdox.nz/glance/
+- [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
+- [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
 
 ## Doppler Secrets
 
@@ -494,3 +497,11 @@ navigation.
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
 
+### Setup Beszel
+
+1. Create a specific folder for Beszel data on the HDD:
+    ```bash
+    sudo mkdir -p /mnt/hdd/beszel
+    sudo chown -R 1000:1000 /mnt/hdd/beszel
+    chmod 755 /mnt/hdd/beszel
+    ```
