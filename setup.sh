@@ -67,7 +67,8 @@ ufw default deny incoming
 ufw default allow outgoing
 
 # Ensure required ports are open for TCP
-declare -a PORTS=("22" "80" "443")
+# 22: SSH, 80: HTTP, 443: HTTPS, 139: NetBIOS, 445: SMB
+declare -a PORTS=("22" "80" "443" "139" "445")
 for PORT in "${PORTS[@]}"; do
   if ! ufw status | grep -qw "$PORT/tcp"; then
     ufw allow "$PORT/tcp"

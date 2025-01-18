@@ -474,3 +474,13 @@ group_add:
 
 This version should be easier to read and follow, with a clear hierarchy and a comprehensive table of contents for easy
 navigation.
+
+### Setup Samba
+
+Create a specific SSD folder for Samba:
+
+```bash
+sudo mkdir -p /home/jkrumm/ssd
+sudo chown -R 1000:1000 /mnt/ssd/samba
+sudo chmod -R 755 /mnt/ssd/samba
+```
