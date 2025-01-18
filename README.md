@@ -227,6 +227,7 @@ sudo journalctl -xe
 ```
 
 ### Mount automatically with new systemd service
+
 For a more automated and reliable solution, follow the steps to create a `systemd` service:
 
 1. **Create a Mount Script:**
@@ -286,7 +287,6 @@ For a more automated and reliable solution, follow the steps to create a `system
    ```bash
    mount | grep /mnt/hdd
    ```
-   
 
 ## Enable Jellyfin
 
@@ -477,10 +477,20 @@ navigation.
 
 ### Setup Samba
 
-Create a specific SSD folder for Samba:
+1. Create a specific SSD folder for Samba:
+    ```bash
+    sudo mkdir -p /home/jkrumm/ssd
+    sudo chown -R 1000:1000 /mnt/ssd/samba
+    sudo chmod -R 755 /mnt/ssd/samba
+    ```
+2. Configure a new CNAME record in your DNS provider to point to your DuckDNS domain.
+   `CNAME samba.jkrumm.dev -> jkrumm.duckdns.org`
+3. Allow the Samba service through the router port forwarding.
+    - IPv6 only (IPv4 is not supported DSLite)
+    - Port: 445
+    - Protocol: TCP
+4. Access the Samba share using the following credentials:
+    - Host: `smb://[samba.jkrumm.dev]`
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password and Doppler
 
-```bash
-sudo mkdir -p /home/jkrumm/ssd
-sudo chown -R 1000:1000 /mnt/ssd/samba
-sudo chmod -R 755 /mnt/ssd/samba
-```

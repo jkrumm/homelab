@@ -36,7 +36,6 @@ services:
     image: ghcr.io/servercontainers/samba
     container_name: samba
     restart: unless-stopped
-    # Expose ports directly instead of using host network mode for better security
     ports:
       - "139:139"
       - "445:445"
@@ -44,21 +43,13 @@ services:
       AVAHI_NAME: StorageServer
       MODEL: 'Macmini'
       SAMBA_CONF_LOG_LEVEL: 3
-
-      # User configuration
       ACCOUNT_jkrumm: ${SAMBA_PASSWORD}
-      UID_jkrumm: 1000
-
-      # Global configuration for macOS compatibility inline
       SAMBA_GLOBAL_CONFIG: "[global]; min protocol=SMB2; ea support=yes; vfs objects=fruit streams_xattr; fruit:metadata=stream; fruit:model=MacSamba; fruit:veto_appledouble=no; fruit:nfs_aces=no; fruit:wipe_intentionally_left_blank_rfork=yes; fruit:delete_empty_adfiles=yes; fruit:posix_rename=yes"
-
-      # Share configurations inline
-      SAMBA_VOLUME_CONFIG_ssd: "[SSD]; path=/mnt/ssd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes"
-      SAMBA_VOLUME_CONFIG_hdd: "[HDD]; path=/mnt/hdd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes"
-
+      SAMBA_VOLUME_CONFIG_ssd: "[SSD]; path=/mnt/ssd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=SSD"
+      SAMBA_VOLUME_CONFIG_hdd: "[HDD]; path=/mnt/hdd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=HDD"
     volumes:
-      - /home/jkrumm/ssd:/mnt/ssd  # Path to SSD
-      - /mnt/hdd:/mnt/hdd          # Path to HDD
+      - /home/jkrumm/ssd:/mnt/ssd
+      - /mnt/hdd:/mnt/hdd
 
 volumes:
   caddy_data:
