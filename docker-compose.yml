@@ -42,42 +42,19 @@ services:
       - "445:445"
     environment:
       AVAHI_NAME: StorageServer
-      MODEL: 'MacSamba'
+      MODEL: 'Macmini'
       SAMBA_CONF_LOG_LEVEL: 3
 
       # User configuration
       ACCOUNT_jkrumm: ${SAMBA_PASSWORD}
       UID_jkrumm: 1000
-      GROUP_jkrumm: 1000
 
-      # Global configuration for macOS compatibility
-      SAMBA_GLOBAL_CONFIG: |
-        [global]
-        min protocol = SMB2
-        ea support = yes
-        vfs objects = fruit streams_xattr
-        fruit:metadata = stream
-        fruit:model = MacSamba
-        fruit:veto_appledouble = no
-        fruit:nfs_aces = no
-        fruit:wipe_intentionally_left_blank_rfork = yes
-        fruit:delete_empty_adfiles = yes
-        fruit:posix_rename = yes
+      # Global configuration for macOS compatibility inline
+      SAMBA_GLOBAL_CONFIG: "[global]; min protocol=SMB2; ea support=yes; vfs objects=fruit streams_xattr; fruit:metadata=stream; fruit:model=MacSamba; fruit:veto_appledouble=no; fruit:nfs_aces=no; fruit:wipe_intentionally_left_blank_rfork=yes; fruit:delete_empty_adfiles=yes; fruit:posix_rename=yes"
 
-      # Share configurations
-      SAMBA_VOLUME_CONFIG_ssd: "[SSD]
-        path = /mnt/ssd
-        valid users = jkrumm
-        guest ok = no
-        read only = no
-        browseable = yes"
-
-      SAMBA_VOLUME_CONFIG_hdd: "[HDD]
-        path = /mnt/hdd
-        valid users = jkrumm
-        guest ok = no
-        read only = no
-        browseable = yes"
+      # Share configurations inline
+      SAMBA_VOLUME_CONFIG_ssd: "[SSD]; path=/mnt/ssd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes"
+      SAMBA_VOLUME_CONFIG_hdd: "[HDD]; path=/mnt/hdd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes"
 
     volumes:
       - /home/jkrumm/ssd:/mnt/ssd  # Path to SSD

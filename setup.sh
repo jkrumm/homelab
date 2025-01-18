@@ -76,6 +76,7 @@ for PORT in "${PORTS[@]}"; do
 done
 
 # Ports to be denied (not exposed globally)
+# 8096: Jellyfin
 declare -a DENIED_PORTS=("8096")
 for PORT in "${DENIED_PORTS[@]}"; do
   if ufw status | grep -qw "$PORT/tcp"; then
