@@ -60,6 +60,19 @@ services:
     volumes:
       - /mnt/hdd/beszel:/beszel_data
 
+  beszel-agent:
+    image: "henrygd/beszel-agent"
+    container_name: "beszel-agent"
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # monitor other disks / partitions by mounting a folder in /extra-filesystems
+      - /mnt/hdd/.beszel:/extra-filesystems/hdd:ro
+    environment:
+      PORT: 45876
+      KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf"
+
 volumes:
   caddy_data:
   caddy_config:
