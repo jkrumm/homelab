@@ -25,14 +25,23 @@ DOMAIN="jkrumm.duckdns.org"
 DUCKDNS_SCRIPT="/usr/local/bin/duckdns_update.sh"
 LOG_FILE="/var/log/duckdns.log"
 
-# Extract the preferred IPv6 address
-IPV6_ADDRESS=$(ip -6 addr show scope global | grep "inet6 [^ ]* scope global dynamic" | grep -v deprecated | awk '{print $2}' | cut -d/ -f1 | head -n 1)
-
 # Create or update the DuckDNS update script
 echo "Creating or updating DuckDNS update script..."
 cat <<EOL > "$DUCKDNS_SCRIPT"
 #!/bin/bash
-URL="https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ipv6=$IPV6_ADDRESS"
+
+# Fetch the current external IPv6 address
+IPV6_ADDRESS=\$(curl -6 -s https://ifconfig.co)
+
+echo "IPv6 address: \$IPV6_ADDRESS"
+
+# Check if the IPv6 address was retrieved successfully
+if [ -z "\$IPV6_ADDRESS" ]; then
+  echo "Failed to retrieve IPv6 address at \$(date)" >> $LOG_FILE
+  exit 1
+fi
+
+URL="https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ipv6=\$IPV6_ADDRESS"
 /usr/bin/echo "Updating DuckDNS at \$(date)" >> $LOG_FILE
 RESPONSE=\$(/usr/bin/curl -s "\$URL")
 /usr/bin/echo "Response: \$RESPONSE" >> $LOG_FILE

@@ -21,11 +21,14 @@
 
 ## TODOS
 
+- [ ] Change hostname to homelab
+- [ ] Setup Duplicati https://docs.techdox.nz/duplicati/
 - [ ] Backup Jellyfin configuration und jellyfin/config folder continuously
 - [ ] Backup SSD folder continuously
 - [ ] Configure Glance Dashboard https://docs.techdox.nz/glance/
 - [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
+- [ ] Move SnowFinder App to the server
 
 ## Doppler Secrets
 
@@ -130,7 +133,19 @@ command printed at the end of the script.
    doppler run --command="sudo -E ./setup-duckdns.sh"
    ```
 
-6. Make sure you see both the IPv4 and IPv6 address in the DuckDNS dashboard.
+6. Check your IP address with:
+
+   ```bash
+    curl -6 -s https://ifconfig.co
+    ```
+
+7. Check the logs in /var/log/duckdns.log and verify that the IP address is the same:
+
+   ```bash
+   tail -f /var/log/duckdns.log
+   ```
+
+8. Check in duckdns.org if the IP address is updated.
 
 ## Reusing an Existing Encrypted HDD
 
@@ -412,7 +427,8 @@ Configure a CNAME record in your DNS provider to point to your DuckDNS domain.
 
 `CNAME jellyfin.jkrumm.dev -> jkrumm.duckdns.org`
 
-Allow internal IP routing to the Jellyfin server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen -> DNS-Rebind-Schutz)
+Allow internal IP routing to the Jellyfin server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen ->
+DNS-Rebind-Schutz)
 
 With Caddy already configured, you should then be fully set up.
 
