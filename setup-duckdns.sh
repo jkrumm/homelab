@@ -33,7 +33,7 @@ cat <<EOL > "$DUCKDNS_SCRIPT"
 # Fetch the current external IPv6 address
 IPV6_ADDRESS=\$(curl -6 -s https://ifconfig.co)
 
-echo "IPv6 address: \$IPV6_ADDRESS"
+/usr/bin/echo "IPv6 address: \$IPV6_ADDRESS" >> $LOG_FILE
 
 # Check if the IPv6 address was retrieved successfully
 if [ -z "\$IPV6_ADDRESS" ]; then
