@@ -1,0 +1,151 @@
+branding:
+  logo-text: HomeLab
+
+theme:
+  background-color: 225 7 11
+  primary-color: 0 0 95
+  contrast-multiplier: 1
+  positive-color: 132 52 35
+  negative-color: 0 65 48
+
+pages:
+  - name: Home
+    columns:
+      - size: small
+        widgets:
+          - type: calendar
+
+          - type: weather
+            units: metric
+            hour-format: 24h
+            location: Munich, Germany
+
+          - type: releases
+            repositories:
+              - jellyfin/jellyfin
+              - glanceapp/glance
+              - henrygd/beszel
+
+      - size: full
+        widgets:
+          - type: search
+            search-engine: google
+            bangs:
+              - title: YouTube
+                shortcut: "!yt"
+                url: https://www.youtube.com/results?search_query={QUERY}
+              - title: Amazon
+                shortcut: "!a"
+                url: https://www.amazon.de/s?k={QUERY}
+
+          - type: rss
+            title: News RSS
+            limit: 20
+            style: horizontal-cards
+            collapse-after: 20
+            cache: 3h
+            feeds:
+              - url: https://www.tagesschau.de/index~rss2.xml
+                title: Tagesschau
+#              - url: https://www.spiegel.de/schlagzeilen/index.rss
+#                title: Spiegel
+#              - url: https://newsfeed.zeit.de/index
+#                title: Zeit
+              - url: https://rss.sueddeutsche.de/rss/Topthemen
+                title: Süddeutsche
+
+          - type: videos
+            channels:
+              - UCswG6FSbgZjbWtdf_hMLaow # Matt Peacock
+              - UCqMJ4mBGALhW4Z9-BBxivRw # Highperformer Henning
+              - UCsBjURrPoezykLs9EqgamOA # Fireship
+              - UCfe_znKY1ukrqlGActlFmaQ # Healthy Software Developer
+              - UC2D2CMWXMOVWx7giW1n3LIg # Andrew Huberman
+              - UCGq-a57w-aPwyi3pW7XLiHw # The Diary of a Ceo
+              - UCRvqjQPSeaWn-uEx-w0XOIg # Benjamin Cowen
+              - UCSHZKyawb77ixDdsGog4iWA # Lex Fridman
+              - UCaSCt8s_4nfkRglWCvNSDrg # Code Aesthetics
+              - UCbRP3c757lWg9M-U7TyEkXA # Theo
+              - UCZgt6AzoyjslHTC9dz0UoTw # ByteByteGo
+
+          - type: group
+            widgets:
+              - type: rss
+                title: Dev RSS
+                limit: 20
+                collapse-after: 5
+                cache: 3h
+                feeds:
+                  - url: https://dev.to/feed/
+                    title: Dev.to
+              - type: hacker-news
+                limit: 20
+                collapse-after: 5
+              - type: reddit
+                limit: 20
+                collapse-after: 5
+                subreddit: selfhosted
+
+      - size: small
+        widgets:
+          - type: monitor
+            title: Apps
+            cache: 1m
+            sites:
+              - title: FreePlanningPoker
+                url: https://free-planning-poker.com
+                same-tab: true
+                icon: https://free-planning-poker.com/favicon.ico
+              - title: SnowFinder
+                url: https://snow-finder.jkrumm.dev
+                same-tab: true
+                icon: https://snow-finder.jkrumm.dev/favicon.ico
+
+          - type: monitor
+            title: Services
+            cache: 1m
+            sites:
+              - title: Jellyfin
+                url: https://jellyfin.jkrumm.dev/web/#/home.html
+                same-tab: true
+                icon: si:jellyfin
+              - title: Beszel
+                url: https://beszel.jkrumm.dev
+                same-tab: true
+                icon: si:brevo
+
+          - type: markets
+            markets:
+              - symbol: BTC-USD
+                name: Bitcoin
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3ABTCUSD
+              - symbol: ETH-USD
+                name: Ethereum
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHUSD
+              - symbol: ETH-BTC
+                name: ETH/BTC
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHBTC
+              - symbol: EUNL.DE
+                name: MSCI World
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=EUNL
+              - symbol: SPY
+                name: S&P 500
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=SPX
+              - symbol: DAX
+                name: DAX
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=DAX
+  - name: Beszel
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://beszel.jkrumm.dev/system/HomeLab
+            height: 1200
+
+  - name: FPP Analytics
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://free-planning-poker.com/analytics
+            height: 1200

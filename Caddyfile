@@ -5,3 +5,7 @@ jellyfin.jkrumm.dev {
 beszel.jkrumm.dev {
   reverse_proxy beszel:8090
 }
+
+home.jkrumm.dev {
+  reverse_proxy home:8080
+}

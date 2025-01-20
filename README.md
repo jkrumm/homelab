@@ -21,14 +21,15 @@
 
 ## TODOS
 
-- [ ] Change hostname to homelab
+- [x] Change hostname to homelab
+- [x] Configure Glance Dashboard https://docs.techdox.nz/glance/
 - [ ] Setup Duplicati https://docs.techdox.nz/duplicati/
 - [ ] Backup Jellyfin configuration und jellyfin/config folder continuously
 - [ ] Backup SSD folder continuously
-- [ ] Configure Glance Dashboard https://docs.techdox.nz/glance/
 - [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
+- [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 
 ## Doppler Secrets
 
