@@ -7,5 +7,5 @@ beszel.jkrumm.dev {
 }
 
 home.jkrumm.dev {
-  reverse_proxy home:8080
+  reverse_proxy glance:8080
 }
