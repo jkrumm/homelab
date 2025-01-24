@@ -567,4 +567,26 @@ navigation.
     - Host: `https://duplicati.jkrumm.dev`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
+5. Backups I run with Duplicati:
+    - SSD
+      -  To HDD at 04:00
+        - Source: /source/mnt/ssd/SSD
+        - Destination: /source/mnt/hdd/duplicati/backups/SSD
+      - TO OneDrive at 04:30
+        - Source: /source/mnt/ssd/SSD
+        - Destination: OneDrive /backups/SSD
+    - Jellyfin Config
+      - To HDD at 05:00
+        - Source: /source/mnt/hdd/jellyfin/config
+        - Destination: /source/mnt/hdd/duplicati/backups/jellyfin
+      - To OneDrive at 05:10
+        - Source: /source/mnt/hdd/jellyfin/config
+        - Destination: OneDrive /backups/jellyfin
+    - Duplicati config
+      - To HDD at 05:20
+        - Source: /source/mnt/hdd/duplicati/config
+        - Destination: /source/mnt/hdd/duplicati/backups/duplicati
+      - To OneDrive at 05:30
+        - Source: /source/mnt/hdd/duplicati/config
+        - Destination: OneDrive /backups/duplicati
 
