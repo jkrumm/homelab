@@ -85,6 +85,24 @@ services:
       - 8080:8080
     restart: unless-stopped
 
+  duplicati:
+    image: lscr.io/linuxserver/duplicati:latest
+    container_name: duplicati
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_ENCRYPTION_KEY}
+      - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_WEBSERVICE_PASSWORD}
+    # - CLI_ARGS= #optional
+    volumes:
+      - /mnt/hdd/duplicati/config:/config
+      - /mnt/hdd/duplicati/backups:/backups
+      - /:/source
+    ports:
+      - 8200:8200
+    restart: unless-stopped
+
 volumes:
   caddy_data:
   caddy_config:

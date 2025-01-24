@@ -30,6 +30,15 @@
 - [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
+- [ ] Use duckdns docker https://docs.linuxserver.io/images/docker-duckdns/
+
+## Subdomain
+
+- home.jkrumm.dev (glance)
+- jellyfin.jkrumm.dev
+- samba.jkrumm.dev
+- beszel.jkrumm.dev
+- duplicati.jkrumm.dev
 
 ## Doppler Secrets
 
@@ -534,3 +543,28 @@ navigation.
     - Host: `https://beszel.jkrumm.dev`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
+
+### Setup Duplicati
+
+1. Create a specific folder for Duplicati data on the HDD:
+    ```bash
+    sudo mkdir -p /mnt/hdd/duplicati
+    sudo chown -R 1000:1000 /mnt/hdd/duplicati
+    chmod 755 /mnt/hdd/duplicati
+    ```
+2. create a config and a backups folder in the duplicati folder
+    ```bash
+    sudo mkdir -p /mnt/hdd/duplicati/config
+    sudo mkdir -p /mnt/hdd/duplicati/backups
+    sudo chown -R 1000:1000 /mnt/hdd/duplicati/config
+    sudo chown -R 1000:1000 /mnt/hdd/duplicati/backups
+    sudo chmod -R 755 /mnt/hdd/duplicati/config
+    sudo chmod -R 755 /mnt/hdd/duplicati/backups
+    ```
+3. Configure a new CNAME record in your DNS provider to point to your DuckDNS domain.
+   `CNAME duplicati.jkrumm.dev -> jkrumm.duckdns.org`
+4. Access the Duplicati server using the following credentials:
+    - Host: `https://duplicati.jkrumm.dev`
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password and Doppler
+

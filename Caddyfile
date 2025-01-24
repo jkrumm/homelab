@@ -9,3 +9,7 @@ beszel.jkrumm.dev {
 home.jkrumm.dev {
   reverse_proxy glance:8080
 }
+
+duplicati.jkrumm.dev {
+  reverse_proxy duplicati:8200
+}
