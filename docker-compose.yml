@@ -98,7 +98,9 @@ services:
     volumes:
       - /mnt/hdd/duplicati/config:/config
       - /mnt/hdd/duplicati/backups:/backups
-      - /:/source
+      - /:/source/root
+      - /home/jkrumm:/source/home/jkrumm
+      - /mnt:/source/mnt
     ports:
       - 8200:8200
     restart: unless-stopped
