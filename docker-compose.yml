@@ -98,8 +98,7 @@ services:
     volumes:
       - /mnt/hdd/duplicati/config:/config
       - /mnt/hdd/duplicati/backups:/backups
-      - /:/source/root
-      - /home/jkrumm:/source/home/jkrumm
+      - /home/jkrumm/ssd:/source/ssd
       - /mnt:/source/mnt
     ports:
       - 8200:8200
