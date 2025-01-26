@@ -29,7 +29,7 @@
 - [x] Use Porkbun API DDNS
 - [ ] Reconfigure Duplicati to use Transfer partition and joined HDD folder backup
 - [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
-- [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
+- [x] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 

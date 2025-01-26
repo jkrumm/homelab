@@ -118,6 +118,14 @@ services:
     networks:
       - porkbun_ddns_network
 
+  watchtower:
+    image: containrrr/watchtower
+    command:
+      - --cleanup=true
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
 volumes:
   caddy_data:
   caddy_config:
