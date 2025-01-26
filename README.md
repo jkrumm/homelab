@@ -9,7 +9,6 @@
     - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
     - [Connect to the Server](#connect-to-the-server)
     - [Configure Doppler](#configure-doppler)
-    - [Configure DuckDNS](#configure-duckdns)
 4. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
     - [Prerequisites](#prerequisites)
     - [Step-by-Step Configuration](#step-by-step-configuration)
@@ -27,13 +26,18 @@
 - [x] Backup Jellyfin configuration und jellyfin/config folder continuously
 - [x] Backup SSD folder continuously
 - [ ] Backup to OneDrive
-- [ ] Use Porkbun API DDNS https://docs.linuxserver.io/images/docker-duckdns/
+- [x] Use Porkbun API DDNS
 - [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 
 ## Subdomain
+
+All setup in Porkbun DNS and automatically IPv6 with [porkbun-ddns](https://github.com/mietzen/porkbun-ddns).
+Allow internal IP routing to the Jellyfin server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen ->
+DNS-Rebind-Schutz).
+With Caddy already configured, we should then be fully set up.
 
 - home.jkrumm.dev (glance)
 - jellyfin.jkrumm.dev
@@ -130,33 +134,6 @@ command printed at the end of the script.
    doppler configs
    doppler secrets
    ```
-
-### Configure DuckDNS
-
-1. [Sign up for DuckDNS](https://www.duckdns.org/)
-2. Create a domain and token.
-3. Set the DuckDNS token in Doppler.
-4. Add the DuckDNS domain in the `setup-duckdns.sh` script.
-5. Run the `setup-duckdns.sh` script with sudo:
-
-   ```bash
-   chmod +x setup-duckdns.sh
-   doppler run --command="sudo -E ./setup-duckdns.sh"
-   ```
-
-6. Check your IP address with:
-
-   ```bash
-    curl -6 -s https://ifconfig.co
-    ```
-
-7. Check the logs in /var/log/duckdns.log and verify that the IP address is the same:
-
-   ```bash
-   tail -f /var/log/duckdns.log
-   ```
-
-8. Check in duckdns.org if the IP address is updated.
 
 ## Reusing an Existing Encrypted HDD
 
@@ -432,17 +409,6 @@ Access the Jellyfin web interface:
     - General:
         - Rename the server to Jellyfin
 
-### Enable Jellyfin SSH
-
-Configure a CNAME record in your DNS provider to point to your DuckDNS domain.
-
-`CNAME jellyfin.jkrumm.dev -> jkrumm.duckdns.org`
-
-Allow internal IP routing to the Jellyfin server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen ->
-DNS-Rebind-Schutz)
-
-With Caddy already configured, you should then be fully set up.
-
 ### Enable Jellyfin Hardware Acceleration
 
 Install the Intel GPU drivers:
@@ -516,8 +482,6 @@ navigation.
     sudo chown -R 1000:1000 /mnt/ssd/samba
     sudo chmod -R 755 /mnt/ssd/samba
     ```
-2. Configure a new CNAME record in your DNS provider to point to your DuckDNS domain.
-   `CNAME samba.jkrumm.dev -> jkrumm.duckdns.org`
 3. Allow the Samba service through the router port forwarding.
     - IPv6 only (IPv4 is not supported DSLite)
     - Port: 445
@@ -536,11 +500,8 @@ navigation.
     chmod 755 /mnt/hdd/beszel
     ```
 2. Setup correct drives for SSD and HDD
-3. Allow internal IP routing to the Beszel server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen ->
-   DNS-Rebind-Schutz)
-4. Configure a new CNAME record in your DNS provider to point to your DuckDNS domain.
-   `CNAME beszel.jkrumm.dev -> jkrumm.duckdns.org`
-5. Access the Beszel server using the following credentials:
+
+3. Access the Beszel server using the following credentials:
     - Host: `https://beszel.jkrumm.dev`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
@@ -562,32 +523,30 @@ navigation.
     sudo chmod -R 755 /mnt/hdd/duplicati/config
     sudo chmod -R 755 /mnt/hdd/duplicati/backups
     ```
-3. Configure a new CNAME record in your DNS provider to point to your DuckDNS domain.
-   `CNAME duplicati.jkrumm.dev -> jkrumm.duckdns.org`
-4. Access the Duplicati server using the following credentials:
+3. Access the Duplicati server using the following credentials:
     - Host: `https://duplicati.jkrumm.dev`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
-5. Backups I run with Duplicati:
+4. Backups I run with Duplicati:
     - SSD
-      -  To HDD at 04:00
+        - To HDD at 04:00
         - Source: /source/mnt/ssd/SSD
         - Destination: /source/mnt/hdd/duplicati/backups/SSD
-      - TO OneDrive at 04:30
-        - Source: /source/mnt/ssd/SSD
-        - Destination: OneDrive /backups/SSD
+        - TO OneDrive at 04:30
+            - Source: /source/mnt/ssd/SSD
+            - Destination: OneDrive /backups/SSD
     - Jellyfin Config
-      - To HDD at 05:00
-        - Source: /source/mnt/hdd/jellyfin/config
-        - Destination: /source/mnt/hdd/duplicati/backups/jellyfin
-      - To OneDrive at 05:10
-        - Source: /source/mnt/hdd/jellyfin/config
-        - Destination: OneDrive /backups/jellyfin
+        - To HDD at 05:00
+            - Source: /source/mnt/hdd/jellyfin/config
+            - Destination: /source/mnt/hdd/duplicati/backups/jellyfin
+        - To OneDrive at 05:10
+            - Source: /source/mnt/hdd/jellyfin/config
+            - Destination: OneDrive /backups/jellyfin
     - Duplicati config
-      - To HDD at 05:20
-        - Source: /source/mnt/hdd/duplicati/config
-        - Destination: /source/mnt/hdd/duplicati/backups/duplicati
-      - To OneDrive at 05:30
-        - Source: /source/mnt/hdd/duplicati/config
-        - Destination: OneDrive /backups/duplicati
+        - To HDD at 05:20
+            - Source: /source/mnt/hdd/duplicati/config
+            - Destination: /source/mnt/hdd/duplicati/backups/duplicati
+        - To OneDrive at 05:30
+            - Source: /source/mnt/hdd/duplicati/config
+            - Destination: OneDrive /backups/duplicati
 
