@@ -25,8 +25,9 @@
 - [x] Setup Duplicati https://docs.techdox.nz/duplicati/
 - [x] Backup Jellyfin configuration und jellyfin/config folder continuously
 - [x] Backup SSD folder continuously
-- [ ] Backup to OneDrive
+- [x] Backup to OneDrive
 - [x] Use Porkbun API DDNS
+- [ ] Reconfigure Duplicati to use Transfer partition and joined HDD folder backup
 - [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
@@ -295,6 +296,65 @@ For a more automated and reliable solution, follow the steps to create a `system
    mount | grep /mnt/hdd
    ```
 
+## Mount the `TRANSFER` Partition
+
+1. Create the Mount Point
+
+First, create the directory where you want to mount the `TRANSFER` partition:
+
+```bash
+sudo mkdir -p /mnt/transfer
+```
+
+2. Update `/etc/fstab`
+
+Edit your `/etc/fstab` file to ensure the `TRANSFER` partition is mounted at boot:
+
+```bash
+sudo vim /etc/fstab
+```
+
+Add the following line at the end of the file to mount the `TRANSFER` partition. Replace `6785-1A1C` with the UUID of your `TRANSFER` partition if it's different:
+
+```bash
+UUID=6785-1A1C /mnt/transfer exfat defaults,uid=1000,gid=1000 0 0
+```
+
+This line will mount the `TRANSFER` partition using the `exfat` filesystem with default options and set the owner to the user with UID 1000 and group GID 1000.
+
+3. Mount the Partition
+
+To mount the partition immediately without rebooting, use the following command:
+
+```bash
+sudo mount /mnt/transfer
+```
+
+4. Verify the Mount
+
+Check that the partition is correctly mounted using:
+
+```bash
+df -h | grep transfer
+```
+
+This command should show the `TRANSFER` partition mounted at `/mnt/transfer`.
+
+5. Set Permissions (Optional)
+
+If you need to adjust the permissions for the mounted partition, you can do so with:
+
+```bash
+sudo chown -R 1000:1000 /mnt/transfer
+sudo chmod -R 755 /mnt/transfer
+```
+
+These commands set the owner and group to UID 1000 and GID 1000, and assign read, write, and execute permissions to the owner, and read and execute permissions to the group and others.
+
+### Summary
+
+By following these steps, your `TRANSFER` partition will be automatically mounted at `/mnt/transfer` upon system boot. You can adjust the options in `/etc/fstab` as needed to customize the mount behavior.
+
 ## Enable Jellyfin
 
 ### Install Intel GPU Drivers
@@ -388,24 +448,18 @@ Access the Jellyfin web interface:
         - Libraries:
             - Movies -> /media/movies (Should be existent)
             - Shows -> /media/shows (Should be existent)
-- Activate automatic port mapping UPnP
+            - Kids -> /media/kids (Should be existent)
 - Change "Anzeige" settings:
     - Language: English
     - Dates: German
 - Change Home settings to remove Kids
 - Change Playback:
-    - Maximum Audio Channels: Stereo
     - Preferred Audio Language: English
-    - Uncheck Play default audio track
-    - Home Streaming Quality: 60 Mbps
-    - Google Cast: 10 Mbps
-    - Maximum allowed streaming resolution: 1080p
-    - Check Limit maximum supported video resolution
 - Change Subtitles:
     - Subtitle mode: No
 - Under Administration go to Playback:
     - Transcoding:
-        - Enable hardware acceleration using VA-API
+        - Enable hardware acceleration using Intel Quick Sync Video
     - General:
         - Rename the server to Jellyfin
 
@@ -517,36 +571,36 @@ navigation.
 2. create a config and a backups folder in the duplicati folder
     ```bash
     sudo mkdir -p /mnt/hdd/duplicati/config
-    sudo mkdir -p /mnt/hdd/duplicati/backups
+    sudo mkdir -p /mnt/transfer/duplicati_backups
     sudo chown -R 1000:1000 /mnt/hdd/duplicati/config
-    sudo chown -R 1000:1000 /mnt/hdd/duplicati/backups
+    sudo chown -R 1000:1000 /mnt/transfer/duplicati_backups
     sudo chmod -R 755 /mnt/hdd/duplicati/config
-    sudo chmod -R 755 /mnt/hdd/duplicati/backups
+    sudo chmod -R 755 /mnt/transfer/duplicati_backups
     ```
 3. Access the Duplicati server using the following credentials:
     - Host: `https://duplicati.jkrumm.dev`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
+
 4. Backups I run with Duplicati:
+    - Jellyfin Config
+        - To HDD at 03:00
+            - Source: /source/mnt/hdd/jellyfin/config/
+            - Destination: /source/mnt/hdd/duplicati/backups/jellyfin/
+        - To OneDrive at 03:10
+            - Source: /source/mnt/hdd/jellyfin/config
+            - Destination: OneDrive jkrumm_duplicati_ssd
+    - Duplicati config
+        - To HDD at 03:20
+            - Source: /source/mnt/hdd/duplicati/config/
+            - Destination: /source/mnt/hdd/duplicati/backups/duplicati/
+        - To OneDrive at 03:30
+            - Source: /source/mnt/hdd/duplicati/config/
+            - Destination: OneDrive /backups/duplicati
     - SSD
         - To HDD at 04:00
-        - Source: /source/mnt/ssd/SSD
+        - Source: /source/ssd/SSD/
         - Destination: /source/mnt/hdd/duplicati/backups/SSD
         - TO OneDrive at 04:30
-            - Source: /source/mnt/ssd/SSD
-            - Destination: OneDrive /backups/SSD
-    - Jellyfin Config
-        - To HDD at 05:00
-            - Source: /source/mnt/hdd/jellyfin/config
-            - Destination: /source/mnt/hdd/duplicati/backups/jellyfin
-        - To OneDrive at 05:10
-            - Source: /source/mnt/hdd/jellyfin/config
-            - Destination: OneDrive /backups/jellyfin
-    - Duplicati config
-        - To HDD at 05:20
-            - Source: /source/mnt/hdd/duplicati/config
-            - Destination: /source/mnt/hdd/duplicati/backups/duplicati
-        - To OneDrive at 05:30
-            - Source: /source/mnt/hdd/duplicati/config
-            - Destination: OneDrive /backups/duplicati
-
+            - Source: /source/ssd/SSD/
+            - Destination: OneDrive jkrumm_duplicati_ssd

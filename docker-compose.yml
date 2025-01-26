@@ -97,7 +97,7 @@ services:
     # - CLI_ARGS= #optional
     volumes:
       - /mnt/hdd/duplicati/config:/config
-      - /mnt/hdd/duplicati/backups:/backups
+      - /mnt/transfer/duplicati_backups:/backups
       - /home/jkrumm/ssd:/source/ssd
       - /mnt:/source/mnt
     ports:
