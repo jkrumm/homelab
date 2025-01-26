@@ -121,7 +121,19 @@ services:
       # IPV4: "TRUE" # Set IPv4 address
       # DEBUG: "FALSE" # DEBUG LOGGING
     restart: unless-stopped
+    networks:
+      - porkbun_ddns_network
 
 volumes:
   caddy_data:
   caddy_config:
+
+networks:
+  porkbun_ddns_network:
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
