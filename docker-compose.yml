@@ -104,6 +104,24 @@ services:
       - 8200:8200
     restart: unless-stopped
 
+  porkbun-ddns:
+    image: "mietzen/porkbun-ddns:latest"
+    container_name: porkbun-ddns
+    environment:
+      DOMAIN: "jkrumm.dev" # Your Porkbun domain
+      # SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba" # Subdomains comma spreaded
+      SUBDOMAINS: "beszel,duplicati,home,samba" # Subdomains comma spreaded
+      SECRETAPIKEY: ${PORKBUN_API_SECRET} # Your Porkbun Secret-API-Key
+      APIKEY: ${PORKBUN_API_KEY} # Your Porkbun API-Key
+      IPV6: "TRUE" # Set IPv6 address
+      IPV4: "FALSE" # Set IPv4 address
+      # PUBLIC_IPS: "1.2.3.4,2001:043e::1" # Set if you got static IP's
+      # FRITZBOX: "192.168.178.1" # Use Fritz!BOX to obtain Public IP's
+      # SLEEP: "300" # Seconds to sleep between DynDNS runs
+      # IPV4: "TRUE" # Set IPv4 address
+      # DEBUG: "FALSE" # DEBUG LOGGING
+    restart: unless-stopped
+
 volumes:
   caddy_data:
   caddy_config:

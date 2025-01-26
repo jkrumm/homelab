@@ -23,14 +23,15 @@
 
 - [x] Change hostname to homelab
 - [x] Configure Glance Dashboard https://docs.techdox.nz/glance/
-- [ ] Setup Duplicati https://docs.techdox.nz/duplicati/
-- [ ] Backup Jellyfin configuration und jellyfin/config folder continuously
-- [ ] Backup SSD folder continuously
+- [x] Setup Duplicati https://docs.techdox.nz/duplicati/
+- [x] Backup Jellyfin configuration und jellyfin/config folder continuously
+- [x] Backup SSD folder continuously
+- [ ] Backup to OneDrive
+- [ ] Use Porkbun API DDNS https://docs.linuxserver.io/images/docker-duckdns/
 - [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [ ] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
-- [ ] Use duckdns docker https://docs.linuxserver.io/images/docker-duckdns/
 
 ## Subdomain
 
