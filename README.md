@@ -314,13 +314,15 @@ Edit your `/etc/fstab` file to ensure the `TRANSFER` partition is mounted at boo
 sudo vim /etc/fstab
 ```
 
-Add the following line at the end of the file to mount the `TRANSFER` partition. Replace `6785-1A1C` with the UUID of your `TRANSFER` partition if it's different:
+Add the following line at the end of the file to mount the `TRANSFER` partition. Replace `6785-1A1C` with the UUID of
+your `TRANSFER` partition if it's different:
 
 ```bash
 UUID=6785-1A1C /mnt/transfer exfat defaults,uid=1000,gid=1000 0 0
 ```
 
-This line will mount the `TRANSFER` partition using the `exfat` filesystem with default options and set the owner to the user with UID 1000 and group GID 1000.
+This line will mount the `TRANSFER` partition using the `exfat` filesystem with default options and set the owner to the
+user with UID 1000 and group GID 1000.
 
 3. Mount the Partition
 
@@ -349,11 +351,13 @@ sudo chown -R 1000:1000 /mnt/transfer
 sudo chmod -R 755 /mnt/transfer
 ```
 
-These commands set the owner and group to UID 1000 and GID 1000, and assign read, write, and execute permissions to the owner, and read and execute permissions to the group and others.
+These commands set the owner and group to UID 1000 and GID 1000, and assign read, write, and execute permissions to the
+owner, and read and execute permissions to the group and others.
 
 ### Summary
 
-By following these steps, your `TRANSFER` partition will be automatically mounted at `/mnt/transfer` upon system boot. You can adjust the options in `/etc/fstab` as needed to customize the mount behavior.
+By following these steps, your `TRANSFER` partition will be automatically mounted at `/mnt/transfer` upon system boot.
+You can adjust the options in `/etc/fstab` as needed to customize the mount behavior.
 
 ## Enable Jellyfin
 
@@ -583,24 +587,24 @@ navigation.
     - Password: You can find the secret in 1Password and Doppler
 
 4. Backups I run with Duplicati:
-    - Jellyfin Config
-        - To HDD at 03:00
-            - Source: /source/mnt/hdd/jellyfin/config/
-            - Destination: /source/mnt/hdd/duplicati/backups/jellyfin/
-        - To OneDrive at 03:10
-            - Source: /source/mnt/hdd/jellyfin/config
-            - Destination: OneDrive jkrumm_duplicati_ssd
-    - Duplicati config
-        - To HDD at 03:20
-            - Source: /source/mnt/hdd/duplicati/config/
-            - Destination: /source/mnt/hdd/duplicati/backups/duplicati/
-        - To OneDrive at 03:30
-            - Source: /source/mnt/hdd/duplicati/config/
-            - Destination: OneDrive /backups/duplicati
     - SSD
-        - To HDD at 04:00
-        - Source: /source/ssd/SSD/
-        - Destination: /source/mnt/hdd/duplicati/backups/SSD
-        - TO OneDrive at 04:30
+        - SSD LOCAL at 03:00
+            - Destination: /source/mnt/transfer/duplicati_backups/SSD/
             - Source: /source/ssd/SSD/
-            - Destination: OneDrive jkrumm_duplicati_ssd
+            - Config: 100 MByte and intelligent persistence
+        - SSD OneDrive at 03:30
+            - Destination: jkrumm_duplicati_ssd
+            - Source: /source/ssd/SSD/
+            - Config: 50 MByte and intelligent persistence
+    - HDD
+        - HDD LOCAL at 02:30
+            - Destination: /source/mnt/transfer/duplicati_backups/HDD/
+            - Source: /source/mnt/hdd/
+            - IGNORE: /source/mnt/hdd/Filme/
+            - Config: 100 MByte and intelligent persistence
+        - HDD OneDrive at 02:40
+            - Destination: jkrumm_duplicati_hdd
+            - Source: /source/mnt/hdd/
+            - IGNORE: /source/mnt/hdd/Filme/
+            - Config: 50 MByte and intelligent persistence
+    

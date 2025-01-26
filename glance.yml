@@ -13,18 +13,56 @@ pages:
     columns:
       - size: small
         widgets:
-          - type: calendar
+          - type: monitor
+            title: Apps
+            cache: 1m
+            sites:
+              - title: FreePlanningPoker
+                url: https://free-planning-poker.com
+                same-tab: true
+                icon: https://free-planning-poker.com/favicon.ico
+              - title: SnowFinder
+                url: https://snow-finder.jkrumm.dev
+                same-tab: true
+                icon: https://snow-finder.jkrumm.dev/favicon.ico
 
-          - type: weather
-            units: metric
-            hour-format: 24h
-            location: Munich, Germany
+          - type: monitor
+            title: Services
+            cache: 1m
+            sites:
+              - title: Jellyfin
+                url: https://jellyfin.jkrumm.dev/web/#/home.html
+                same-tab: true
+                icon: si:jellyfin
+              - title: Beszel
+                url: https://beszel.jkrumm.dev
+                same-tab: true
+                icon: si:brevo
+              - title: Duplicati
+                url: https://duplicati.jkrumm.dev
+                same-tab: true
+                icon: si:duplicati
 
-          - type: releases
-            repositories:
-              - jellyfin/jellyfin
-              - glanceapp/glance
-              - henrygd/beszel
+          - type: markets
+            markets:
+              - symbol: BTC-USD
+                name: Bitcoin
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3ABTCUSD
+              - symbol: ETH-USD
+                name: Ethereum
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHUSD
+              - symbol: ETH-BTC
+                name: ETH/BTC
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHBTC
+              - symbol: EUNL.DE
+                name: MSCI World
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=EUNL
+              - symbol: SPY
+                name: S&P 500
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=SPX
+              - symbol: DAX
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=DAX
+                name: DAX
 
       - size: full
         widgets:
@@ -47,10 +85,10 @@ pages:
             feeds:
               - url: https://www.tagesschau.de/index~rss2.xml
                 title: Tagesschau
-#              - url: https://www.spiegel.de/schlagzeilen/index.rss
-#                title: Spiegel
-#              - url: https://newsfeed.zeit.de/index
-#                title: Zeit
+              #              - url: https://www.spiegel.de/schlagzeilen/index.rss
+              #                title: Spiegel
+              #              - url: https://newsfeed.zeit.de/index
+              #                title: Zeit
               - url: https://rss.sueddeutsche.de/rss/Topthemen
                 title: Süddeutsche
 
@@ -88,52 +126,20 @@ pages:
 
       - size: small
         widgets:
-          - type: monitor
-            title: Apps
-            cache: 1m
-            sites:
-              - title: FreePlanningPoker
-                url: https://free-planning-poker.com
-                same-tab: true
-                icon: https://free-planning-poker.com/favicon.ico
-              - title: SnowFinder
-                url: https://snow-finder.jkrumm.dev
-                same-tab: true
-                icon: https://snow-finder.jkrumm.dev/favicon.ico
+          - type: calendar
 
-          - type: monitor
-            title: Services
-            cache: 1m
-            sites:
-              - title: Jellyfin
-                url: https://jellyfin.jkrumm.dev/web/#/home.html
-                same-tab: true
-                icon: si:jellyfin
-              - title: Beszel
-                url: https://beszel.jkrumm.dev
-                same-tab: true
-                icon: si:brevo
+          - type: weather
+            units: metric
+            hour-format: 24h
+            location: Munich, Germany
 
-          - type: markets
-            markets:
-              - symbol: BTC-USD
-                name: Bitcoin
-                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3ABTCUSD
-              - symbol: ETH-USD
-                name: Ethereum
-                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHUSD
-              - symbol: ETH-BTC
-                name: ETH/BTC
-                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHBTC
-              - symbol: EUNL.DE
-                name: MSCI World
-                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=EUNL
-              - symbol: SPY
-                name: S&P 500
-                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=SPX
-              - symbol: DAX
-                name: DAX
-                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=DAX
+          - type: releases
+            repositories:
+              - linuxserver/docker-jellyfin
+              - glanceapp/glance
+              - henrygd/beszel
+              - mietzen/porkbun-ddns
+
   - name: Beszel
     columns:
       - size: full
