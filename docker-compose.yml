@@ -109,7 +109,7 @@ services:
     container_name: porkbun-ddns
     environment:
       DOMAIN: "jkrumm.dev"
-      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba"
+      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime"
       SECRETAPIKEY: ${PORKBUN_API_SECRET}
       APIKEY: ${PORKBUN_API_KEY}
       FRITZBOX_IP: "169.254.1.1"
