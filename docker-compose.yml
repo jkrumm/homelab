@@ -121,10 +121,21 @@ services:
 
   watchtower:
     image: containrrr/watchtower
+    container_name: watchtower
     command:
       - --cleanup=true
     restart: unless-stopped
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3010:3001"
+    volumes:
+      - /mnt/hdd/uptimekuma:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:

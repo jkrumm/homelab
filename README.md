@@ -27,7 +27,7 @@
 - [x] Backup SSD folder continuously
 - [x] Backup to OneDrive
 - [x] Use Porkbun API DDNS
-- [ ] Reconfigure Duplicati to use Transfer partition and joined HDD folder backup
+- [x] Reconfigure Duplicati to use Transfer partition and joined HDD folder backup
 - [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [x] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
@@ -563,6 +563,14 @@ navigation.
     - Host: `https://beszel.jkrumm.dev`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
+
+### Setup UptimeKuma
+1. Create a specific folder for UptimeKuma data on the HDD:
+    ```bash
+    sudo mkdir -p /mnt/hdd/uptimekuma
+    sudo chown -R 1000:1000 /mnt/hdd/uptimekuma
+    chmod 755 /mnt/hdd/uptimekuma
+    ```
 
 ### Setup Duplicati
 
