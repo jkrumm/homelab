@@ -19,5 +19,5 @@ duplicati.jkrumm.dev {
 }
 
 uptime.jkrumm.dev {
-  reverse_proxy uptime:3001
+  reverse_proxy uptime-kuma:3001
 }

@@ -42,6 +42,10 @@ pages:
                 url: https://duplicati.jkrumm.dev
                 same-tab: true
                 icon: si:duplicati
+              - title: Uptime Kuma
+                url: https://uptime.jkrumm.dev
+                same-tab: true
+                icon: si:uptimekuma
 
           - type: markets
             markets:
@@ -139,6 +143,7 @@ pages:
               - glanceapp/glance
               - henrygd/beszel
               - mietzen/porkbun-ddns
+              - louislam/uptime-kuma
 
   - name: Beszel
     columns:
