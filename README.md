@@ -28,7 +28,7 @@
 - [x] Backup to OneDrive
 - [x] Use Porkbun API DDNS
 - [x] Reconfigure Duplicati to use Transfer partition and joined HDD folder backup
-- [ ] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
+- [x] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [x] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
@@ -102,6 +102,24 @@ The following secrets are required to run the HomeLab:
    chmod +x setup.sh
    sudo ./setup.sh
    ```
+
+7. TODO: Add a good guide to Secure VPS
+8. Disable Root Login:
+    ```bash
+    sudo vim /etc/ssh/sshd_config
+    ```
+   Set following lines:
+    ```text
+    Port 22
+    AddressFamily any
+    PermitRootLogin no
+    PubkeyAuthentication yes
+    PasswordAuthentication no
+   ```
+   Restart the SSH service:
+    ```bash
+    sudo systemctl restart sshd
+    ```
 
 ### Connect to the Server
 
