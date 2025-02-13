@@ -18,8 +18,6 @@ pages:
               - type: local
                 name: HomeLab
                 mountpoints:
-                  "/":
-                    name: System
                   "/home/jkrumm/ssd":
                     name: SSD
                   "/mnt/hdd":
@@ -37,27 +35,6 @@ pages:
                 url: https://snow-finder.jkrumm.dev
                 same-tab: true
                 icon: https://snow-finder.jkrumm.dev/favicon.ico
-
-          - type: monitor
-            title: Services
-            cache: 1m
-            sites:
-              - title: Jellyfin
-                url: https://jellyfin.jkrumm.dev/web/#/home.html
-                same-tab: true
-                icon: si:jellyfin
-              - title: Beszel
-                url: https://beszel.jkrumm.dev
-                same-tab: true
-                icon: si:brevo
-              - title: Duplicati
-                url: https://duplicati.jkrumm.dev
-                same-tab: true
-                icon: si:duplicati
-              - title: Uptime Kuma
-                url: https://uptime.jkrumm.dev
-                same-tab: true
-                icon: si:uptimekuma
 
           - type: markets
             markets:
@@ -93,7 +70,6 @@ pages:
                 url: https://www.amazon.de/s?k={QUERY}
 
           - type: docker-containers
-            hide-by-default: true
 
           - type: rss
             title: News RSS
