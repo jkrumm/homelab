@@ -19,6 +19,11 @@ services:
       - /mnt/hdd/Filme/Kids:/media/kids
     devices:
       - /dev/dri:/dev/dri
+    labels:
+      glance.name: Jellyfin
+      glance.icon: si:jellyfin
+      glance.url: https://jellyfin.jkrumm.dev
+      glance.description: Media Server
 
   caddy:
     image: caddy
@@ -50,6 +55,11 @@ services:
     volumes:
       - /home/jkrumm/ssd:/mnt/ssd
       - /mnt/hdd:/mnt/hdd
+    labels:
+      glance.name: Samba
+      glance.icon: si:samba
+      glance.url: https://samba.jkrumm.dev
+      glance.description: File Sharing
 
   beszel:
     image: henrygd/beszel
@@ -59,6 +69,12 @@ services:
       - 8090:8090
     volumes:
       - /mnt/hdd/beszel:/beszel_data
+    labels:
+      glance.name: Beszel
+      glance.icon: sh:beszel
+      glance.url: https://beszel.jkrumm.dev
+      glance.description: Monitoring
+      glance.id: beszel
 
   beszel-agent:
     image: "henrygd/beszel-agent"
@@ -73,12 +89,16 @@ services:
       PORT: 45876
       KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf"
       FILESYSTEMS: /sda/sda3
+    labels:
+      glance.parent: beszel
+      glance.name: Agent
 
   glance:
     image: glanceapp/glance
     container_name: glance
     volumes:
-      - ./glance.yml:/app/glance.yml
+      - ./config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -103,6 +123,11 @@ services:
     ports:
       - 8200:8200
     restart: unless-stopped
+    labels:
+      glance.name: Duplicati
+      glance.icon: si:duplicati
+      glance.url: https://duplicati.jkrumm.dev
+      glance.description: Backup Solution
 
   porkbun-ddns:
     image: "mietzen/porkbun-ddns:latest"
@@ -118,6 +143,10 @@ services:
     restart: unless-stopped
     networks:
       - porkbun_ddns_network
+    labels:
+      glance.name: Porkbun DDNS
+      glance.icon: si:porkbun
+      glance.description: DNS Updates
 
   watchtower:
     image: containrrr/watchtower
@@ -127,6 +156,10 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      glance.name: Watchtower
+      glance.icon: si:docker
+      glance.description: Auto Updates
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -137,6 +170,11 @@ services:
     volumes:
       - /mnt/hdd/uptimekuma:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      glance.name: Uptime Kuma
+      glance.icon: si:uptimekuma
+      glance.url: https://uptime.jkrumm.dev
+      glance.description: Uptime Monitoring
 
 volumes:
   caddy_data:

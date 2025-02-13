@@ -13,6 +13,16 @@ pages:
     columns:
       - size: small
         widgets:
+          - type: server-stats
+            servers:
+              - type: local
+                name: HomeLab
+                # mountpoints:
+                #   - name: HDD
+                #     path: /mnt/hdd
+                #   - name: SSD
+                #     path: /home/jkrumm/ssd
+
           - type: monitor
             title: Apps
             cache: 1m
@@ -79,6 +89,21 @@ pages:
               - title: Amazon
                 shortcut: "!a"
                 url: https://www.amazon.de/s?k={QUERY}
+
+          - type: docker-containers
+            groups:
+              - name: Services
+                containers:
+                  - jellyfin
+                  - duplicati
+                  - uptime-kuma
+                  - samba
+              - name: Infrastructure
+                containers:
+                  - beszel
+                  - beszel-agent
+                  - watchtower
+                  - porkbun-ddns
 
           - type: rss
             title: News RSS
