@@ -70,6 +70,7 @@ pages:
                 url: https://www.amazon.de/s?k={QUERY}
 
           - type: docker-containers
+            hide-by-default: true
 
           - type: rss
             title: News RSS

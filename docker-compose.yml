@@ -23,7 +23,7 @@ services:
       glance.name: Jellyfin
       glance.icon: si:jellyfin
       glance.url: https://jellyfin.jkrumm.dev
-      glance.description: Media Server
+      glance.hide: false
 
   caddy:
     image: caddy
@@ -40,7 +40,7 @@ services:
       glance.parent: uptime
       glance.name: Caddy
       glance.icon: si:caddy
-      glance.description: Reverse Proxy
+      glance.hide: false
 
   samba:
     image: ghcr.io/servercontainers/samba
@@ -64,7 +64,7 @@ services:
       glance.name: Samba
       glance.icon: si:protondrive
       glance.url: https://samba.jkrumm.dev
-      glance.description: File Sharing
+      glance.hide: false
 
   beszel:
     image: henrygd/beszel
@@ -78,8 +78,7 @@ services:
       glance.name: Beszel
       glance.icon: sh:graylog
       glance.url: https://beszel.jkrumm.dev
-      glance.description: Monitoring
-      glance.parent: uptime
+      glance.hide: false
 
   beszel-agent:
     image: "henrygd/beszel-agent"
@@ -95,8 +94,7 @@ services:
       KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf"
       FILESYSTEMS: /sda/sda3
     labels:
-      glance.parent: uptime
-      glance.name: Agent
+      glance.hide: false
 
   glance:
     image: glanceapp/glance
@@ -113,8 +111,7 @@ services:
       glance.name: Glance
       glance.icon: si:hashnode
       glance.url: https://home.jkrumm.dev
-      glance.description: Dashboard
-      glance.parent: uptime
+      glance.hide: false
 
   duplicati:
     image: lscr.io/linuxserver/duplicati:latest
@@ -138,7 +135,7 @@ services:
       glance.name: Duplicati
       glance.icon: si:duplicati
       glance.url: https://duplicati.jkrumm.dev
-      glance.description: Backup Solution
+      glance.hide: false
 
   porkbun-ddns:
     image: "mietzen/porkbun-ddns:latest"
@@ -158,7 +155,7 @@ services:
       glance.parent: uptime
       glance.name: Porkbun DDNS
       glance.icon: si:porkbun
-      glance.description: DNS Updates
+      glance.hide: false
 
   watchtower:
     image: containrrr/watchtower
@@ -172,7 +169,7 @@ services:
       glance.parent: uptime
       glance.name: Watchtower
       glance.icon: si:watchtower
-      glance.description: Auto Updates
+      glance.hide: false
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -187,7 +184,7 @@ services:
       glance.name: Uptime Kuma
       glance.icon: si:uptimekuma
       glance.url: https://uptime.jkrumm.dev
-      glance.description: Uptime Monitoring
+      glance.hide: false
       glance.id: uptime
 
 volumes:
