@@ -17,11 +17,11 @@ pages:
             servers:
               - type: local
                 name: HomeLab
-                # mountpoints:
-                #   - name: HDD
-                #     path: /mnt/hdd
-                #   - name: SSD
-                #     path: /home/jkrumm/ssd
+                mountpoints:
+                  - name: HDD
+                    path: /mnt/hdd
+                  - name: SSD
+                    path: /home/jkrumm/ssd
 
           - type: monitor
             title: Apps
@@ -91,19 +91,7 @@ pages:
                 url: https://www.amazon.de/s?k={QUERY}
 
           - type: docker-containers
-            groups:
-              - name: Services
-                containers:
-                  - jellyfin
-                  - duplicati
-                  - uptime-kuma
-                  - samba
-              - name: Infrastructure
-                containers:
-                  - beszel
-                  - beszel-agent
-                  - watchtower
-                  - porkbun-ddns
+            hide-by-default: true
 
           - type: rss
             title: News RSS
