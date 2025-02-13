@@ -18,10 +18,12 @@ pages:
               - type: local
                 name: HomeLab
                 mountpoints:
-                  - name: HDD
-                    path: /mnt/hdd
-                  - name: SSD
-                    path: /home/jkrumm/ssd
+                  "/":
+                    name: System
+                  "/home/jkrumm/ssd":
+                    name: SSD
+                  "/mnt/hdd":
+                    name: HDD
 
           - type: monitor
             title: Apps
