@@ -39,7 +39,6 @@ services:
     labels:
       glance.parent: uptime
       glance.name: Caddy
-      glance.icon: si:caddy
       glance.hide: false
 
   samba:
@@ -76,7 +75,7 @@ services:
       - /mnt/hdd/beszel:/beszel_data
     labels:
       glance.name: Beszel
-      glance.icon: sh:graylog
+      glance.icon: si:graylog
       glance.url: https://beszel.jkrumm.dev
       glance.hide: false
 
@@ -94,7 +93,7 @@ services:
       KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf"
       FILESYSTEMS: /sda/sda3
     labels:
-      glance.hide: false
+      glance.hide: true
 
   glance:
     image: glanceapp/glance
@@ -109,6 +108,7 @@ services:
     restart: unless-stopped
     labels:
       glance.name: Glance
+      glance.parent: uptime
       glance.icon: si:hashnode
       glance.url: https://home.jkrumm.dev
       glance.hide: false
