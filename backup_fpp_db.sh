@@ -65,6 +65,35 @@ perform_backup() {
         --password="$DB_ROOT_PW" \
         free-planning-poker
 
+    # Validate backup success
+    if [ ! -f "$BACKUP_FILE" ]; then
+        echo "Error: Backup file was not created!"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Backup+file+not+created"
+        exit 1
+    fi
+
+    # Check if file was modified in the last minute
+    FILE_MOD_TIME=$(stat -c %Y "$BACKUP_FILE")
+    if [ $((START_TIME - FILE_MOD_TIME)) -gt 60 ]; then
+        echo "Error: Backup file was not updated recently!"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Backup+file+not+updated"
+        exit 1
+    fi
+
+    # Check if file is empty or too small (less than 1KB)
+    if [ ! -s "$BACKUP_FILE" ] || [ $(stat -c %s "$BACKUP_FILE") -lt 1024 ]; then
+        echo "Error: Backup file is empty or too small!"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Backup+file+empty+or+too+small"
+        exit 1
+    fi
+
+    # Check if file is readable and contains SQL
+    if ! grep -q "CREATE TABLE" "$BACKUP_FILE"; then
+        echo "Error: Backup file does not contain valid SQL!"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Invalid+SQL+backup"
+        exit 1
+    fi
+
     chown jkrumm:jkrumm "$BACKUP_FILE"
     chmod 644 "$BACKUP_FILE"
     
@@ -72,10 +101,15 @@ perform_backup() {
     END_DATETIME=$(date '+%Y-%m-%d %H:%M:%S')
     DURATION=$((END_TIME - START_TIME))
     
+    BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+    
     echo "Backup completed at $END_DATETIME"
     echo "Backup file: $BACKUP_FILE"
-    echo "Backup size: $(du -h "$BACKUP_FILE" | cut -f1)"
+    echo "Backup size: $BACKUP_SIZE"
     echo "Duration: ${DURATION} seconds"
+
+    # Notify success with backup details
+    curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=up&msg=Backup+completed:+${BACKUP_SIZE}+in+${DURATION}s"
 }
 
 # Main execution
