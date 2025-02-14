@@ -7,8 +7,17 @@ set -e
 check_mysql_client() {
     if ! command -v mysql &> /dev/null; then
         echo "MySQL client not found. Installing MySQL 8 client tools..."
+        
+        # Add MySQL repository key
+        curl -fsSL https://repo.mysql.com/RPM-GPG-KEY-mysql-2023 | gpg --dearmor | sudo tee /usr/share/keyrings/mysql.gpg > /dev/null
+        
+        # Download and install MySQL repository configuration
         wget https://repo.mysql.com/mysql-apt-config_0.8.24-1_all.deb
         DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.24-1_all.deb
+        
+        # Add MySQL repository with signed-by option
+        echo "deb [signed-by=/usr/share/keyrings/mysql.gpg] http://repo.mysql.com/apt/ubuntu $(lsb_release -cs) mysql-8.0" | sudo tee /etc/apt/sources.list.d/mysql.list
+        
         apt update
         DEBIAN_FRONTEND=noninteractive apt install -y mysql-client
         rm mysql-apt-config_0.8.24-1_all.deb
