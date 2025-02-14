@@ -44,8 +44,10 @@ create_backup_dir() {
 # Function to perform the backup
 perform_backup() {
     BACKUP_FILE="$BACKUP_DIR/fpp.sql"
+    START_TIME=$(date +%s)
+    START_DATETIME=$(date '+%Y-%m-%d %H:%M:%S')
     
-    echo "Starting database backup..."
+    echo "Backup started at $START_DATETIME"
     echo "Connecting to MySQL server at $DB_HOST:3306..."
     
     mysqldump \
@@ -66,7 +68,14 @@ perform_backup() {
     chown jkrumm:jkrumm "$BACKUP_FILE"
     chmod 644 "$BACKUP_FILE"
     
-    echo "Backup completed: $BACKUP_FILE"
+    END_TIME=$(date +%s)
+    END_DATETIME=$(date '+%Y-%m-%d %H:%M:%S')
+    DURATION=$((END_TIME - START_TIME))
+    
+    echo "Backup completed at $END_DATETIME"
+    echo "Backup file: $BACKUP_FILE"
+    echo "Backup size: $(du -h "$BACKUP_FILE" | cut -f1)"
+    echo "Duration: ${DURATION} seconds"
 }
 
 # Main execution

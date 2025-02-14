@@ -52,9 +52,11 @@ With Caddy already configured, we should then be fully set up.
 
 The following secrets are required to run the HomeLab:
 
-| Name            | Description   | Example                                |
-| --------------- | ------------- | -------------------------------------- |
-| `DUCKDNS_TOKEN` | DuckDNS token | `12345678-1234-1234-1234-1234567890ab` |
+| Name            | Description                   | Example                                |
+| --------------- | ----------------------------- | -------------------------------------- |
+| `DUCKDNS_TOKEN` | DuckDNS token                 | `12345678-1234-1234-1234-1234567890ab` |
+| `DB_HOST`       | MySQL server host for backups | `5.75.178.196`                         |
+| `DB_ROOT_PW`    | MySQL root password           | `your-secure-password`                 |
 
 ## Setup Guide
 
@@ -658,7 +660,16 @@ This guide explains how to set up automated MySQL database backups for the Free 
    chmod +x backup_fpp_db.sh
    ```
 
-2. Run the initial setup with sudo to install MySQL client tools:
+2. Create the backup directory and log file with proper permissions:
+
+   ```bash
+   sudo mkdir -p /mnt/hdd/backups
+   sudo touch /mnt/hdd/backups/backup.log
+   sudo chown -R jkrumm:jkrumm /mnt/hdd/backups
+   sudo chmod 644 /mnt/hdd/backups/backup.log
+   ```
+
+3. Run the initial setup with sudo to install MySQL client tools:
    ```bash
    doppler run --project homelab --config prod -- sudo -E ./backup_fpp_db.sh
    ```
@@ -678,7 +689,7 @@ This guide explains how to set up automated MySQL database backups for the Free 
 2. Add the following line to run the backup daily at 2 AM UTC:
 
    ```bash
-   0 2 * * * cd /home/jkrumm/homelab && /usr/local/bin/doppler run --project homelab --config prod -- /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
+   0 2 * * * cd /home/jkrumm/homelab && /usr/bin/doppler run --project homelab --config prod -- /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
    ```
 
 3. Verify the cron job is set up:
@@ -709,3 +720,17 @@ You can monitor the backup process by:
    ```
 
 The backup file is automatically included in your configured Duplicati backups of the HDD partition.
+
+#### Testing the Cron Job
+
+Before leaving it to run automatically, you can test the cron command manually:
+
+```bash
+# Run the cron command directly
+cd /home/jkrumm/homelab && /usr/bin/doppler run --project homelab --config prod -- sudo -E /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
+
+# Then check the log file
+tail -f /mnt/hdd/backups/backup.log
+```
+
+If the backup completes successfully, you should see the backup process details in the log file and a new `fpp.sql` file in `/mnt/hdd/backups/`.
