@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Exit on error
+set -e
+
+# Function to check if MySQL 8 client is installed
+check_mysql_client() {
+    if ! command -v mysql &> /dev/null; then
+        echo "MySQL client not found. Installing MySQL 8 client tools..."
+        wget https://repo.mysql.com/mysql-apt-config_0.8.24-1_all.deb
+        DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.24-1_all.deb
+        apt update
+        DEBIAN_FRONTEND=noninteractive apt install -y mysql-client
+        rm mysql-apt-config_0.8.24-1_all.deb
+        mysql --version
+    else
+        echo "MySQL client is already installed"
+    fi
+}
+
+# Function to load Doppler secrets
+load_doppler_secrets() {
+    if ! command -v doppler &> /dev/null; then
+        echo "Doppler CLI not found. Please install it first."
+        exit 1
+    fi
+    
+    eval $(doppler secrets get DB_HOST -p homelab -c prod --plain)
+    eval $(doppler secrets get DB_ROOT_PW -p homelab -c prod --plain)
+    
+    if [ -z "$DB_HOST" ] || [ -z "$DB_ROOT_PW" ]; then
+        echo "Failed to load required secrets from Doppler"
+        exit 1
+    fi
+}
+
+# Function to create backup directory
+create_backup_dir() {
+    BACKUP_DIR="/mnt/hdd/backups"
+    mkdir -p "$BACKUP_DIR"
+    chown -R 1000:1000 "$BACKUP_DIR"
+    chmod -R 755 "$BACKUP_DIR"
+}
+
+# Function to perform the backup
+perform_backup() {
+    BACKUP_FILE="$BACKUP_DIR/fpp.sql"
+    
+    echo "Starting database backup..."
+    mysqldump \
+        --result-file="$BACKUP_FILE" \
+        --skip-lock-tables \
+        --skip-add-locks \
+        --no-tablespaces \
+        --create-options \
+        --column-statistics=0 \
+        --add-drop-table \
+        --user=root \
+        --host="$DB_HOST" \
+        --port=3306 \
+        --password="$DB_ROOT_PW" \
+        free-planning-poker
+
+    chown 1000:1000 "$BACKUP_FILE"
+    chmod 644 "$BACKUP_FILE"
+    
+    echo "Backup completed: $BACKUP_FILE"
+}
+
+# Main execution
+echo "Starting FPP database backup process..."
+check_mysql_client
+load_doppler_secrets
+create_backup_dir
+perform_backup
+echo "Backup process completed successfully!" 
