@@ -40,6 +40,8 @@ perform_backup() {
     BACKUP_FILE="$BACKUP_DIR/fpp.sql"
     
     echo "Starting database backup..."
+    echo "Connecting to MySQL at $DB_HOST:3306..."
+    
     mysqldump \
         --result-file="$BACKUP_FILE" \
         --protocol=TCP \
@@ -49,10 +51,10 @@ perform_backup() {
         --create-options \
         --column-statistics=0 \
         --add-drop-table \
-        --user=root \
-        --host="$DB_HOST" \
+        --host="${DB_HOST}" \
         --port=3306 \
-        --password="$DB_ROOT_PW" \
+        --user=root \
+        --password="${DB_ROOT_PW}" \
         free-planning-poker
 
     chown 1000:1000 "$BACKUP_FILE"
