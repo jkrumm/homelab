@@ -40,10 +40,9 @@ perform_backup() {
     BACKUP_FILE="$BACKUP_DIR/fpp.sql"
     
     echo "Starting database backup..."
+    echo "Connecting to MySQL server at $DB_HOST:3306..."
     
-    echo "Connecting to MySQL server..."
-    
-    doppler run --project homelab --config prod -- mysqldump \
+    mysqldump \
         --result-file="$BACKUP_FILE" \
         --protocol=TCP \
         --skip-lock-tables \
