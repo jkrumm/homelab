@@ -43,7 +43,7 @@ perform_backup() {
     
     echo "Connecting to MySQL server..."
     
-    doppler run -- mysqldump \
+    doppler run --project homelab --config prod -- mysqldump \
         --result-file="$BACKUP_FILE" \
         --protocol=TCP \
         --skip-lock-tables \
