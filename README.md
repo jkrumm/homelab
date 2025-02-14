@@ -5,18 +5,19 @@
 1. [TODOs](#todos)
 2. [Doppler Secrets](#doppler-secrets)
 3. [Setup Guide](#setup-guide)
-    - [Install Ubuntu Server](#install-ubuntu-server)
-    - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
-    - [Connect to the Server](#connect-to-the-server)
-    - [Configure Doppler](#configure-doppler)
+   - [Install Ubuntu Server](#install-ubuntu-server)
+   - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
+   - [Connect to the Server](#connect-to-the-server)
+   - [Configure Doppler](#configure-doppler)
 4. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
-    - [Prerequisites](#prerequisites)
-    - [Step-by-Step Configuration](#step-by-step-configuration)
+   - [Prerequisites](#prerequisites)
+   - [Step-by-Step Configuration](#step-by-step-configuration)
 5. [Enable Jellyfin](#enable-jellyfin)
-    - [Prepare Docker Compose](#prepare-docker-compose)
-    - [Start Jellyfin](#start-jellyfin)
-    - [Enable Jellyfin SSH](#enable-jellyfin-ssh)
-    - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
+   - [Prepare Docker Compose](#prepare-docker-compose)
+   - [Start Jellyfin](#start-jellyfin)
+   - [Enable Jellyfin SSH](#enable-jellyfin-ssh)
+   - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
+6. [Setup Database Backup](#setup-database-backup)
 
 ## TODOS
 
@@ -30,6 +31,7 @@
 - [x] Reconfigure Duplicati to use Transfer partition and joined HDD folder backup
 - [x] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [x] Configure Watchtower https://docs.techdox.nz/watchtower/
+- [x] Configure FPP database backup
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 
@@ -51,7 +53,7 @@ With Caddy already configured, we should then be fully set up.
 The following secrets are required to run the HomeLab:
 
 | Name            | Description   | Example                                |
-|-----------------|---------------|----------------------------------------|
+| --------------- | ------------- | -------------------------------------- |
 | `DUCKDNS_TOKEN` | DuckDNS token | `12345678-1234-1234-1234-1234567890ab` |
 
 ## Setup Guide
@@ -62,18 +64,18 @@ The following secrets are required to run the HomeLab:
 2. Create a bootable USB drive using [Rufus](https://rufus.ie/) or [Balena Etcher](https://www.balena.io/etcher/).
 3. Boot from the USB drive and install Ubuntu Server.
 4. Follow the on-screen instructions to complete the installation:
-    - Hostname: homelab
-    - Username: jkrumm
-    - Password: Use a strong password
-    - Partitioning: Use the entire disk and set up LVM
-    - Software selection: OpenSSH server, standard system utilities
-    - Additional packages: Install security updates automatically
+   - Hostname: homelab
+   - Username: jkrumm
+   - Password: Use a strong password
+   - Partitioning: Use the entire disk and set up LVM
+   - Software selection: OpenSSH server, standard system utilities
+   - Additional packages: Install security updates automatically
 5. Reboot the server and log in using the credentials you created during the installation.
 6. Update the system using the following commands:
-    ```bash
-    sudo apt update
-    sudo apt upgrade -y
-    ```
+   ```bash
+   sudo apt update
+   sudo apt upgrade -y
+   ```
 
 ### Initial Setup on Ubuntu Server
 
@@ -103,23 +105,23 @@ The following secrets are required to run the HomeLab:
    sudo ./setup.sh
    ```
 
-7. TODO: Add a good guide to Secure VPS
-8. Disable Root Login:
-    ```bash
-    sudo vim /etc/ssh/sshd_config
-    ```
+6. TODO: Add a good guide to Secure VPS
+7. Disable Root Login:
+   ```bash
+   sudo vim /etc/ssh/sshd_config
+   ```
    Set following lines:
-    ```text
-    Port 22
-    AddressFamily any
-    PermitRootLogin no
-    PubkeyAuthentication yes
-    PasswordAuthentication no
+   ```text
+   Port 22
+   AddressFamily any
+   PermitRootLogin no
+   PubkeyAuthentication yes
+   PasswordAuthentication no
    ```
    Restart the SSH service:
-    ```bash
-    sudo systemctl restart sshd
-    ```
+   ```bash
+   sudo systemctl restart sshd
+   ```
 
 ### Connect to the Server
 
@@ -460,30 +462,30 @@ Access the Jellyfin web interface:
 
 - Open a web browser and navigate to `http://<your-server-ip>:8096`.
 - Follow the on-screen instructions to set up Jellyfin.
-    - Username: jkrumm
-    - Password: You can find the secret in 1Password
-    - Library:
-        - Set Language to English
-        - Refresh metadata every 30 days
-        - Save images in media folders
-        - No trickplay or chapter images
-        - Libraries:
-            - Movies -> /media/movies (Should be existent)
-            - Shows -> /media/shows (Should be existent)
-            - Kids -> /media/kids (Should be existent)
+  - Username: jkrumm
+  - Password: You can find the secret in 1Password
+  - Library:
+    - Set Language to English
+    - Refresh metadata every 30 days
+    - Save images in media folders
+    - No trickplay or chapter images
+    - Libraries:
+      - Movies -> /media/movies (Should be existent)
+      - Shows -> /media/shows (Should be existent)
+      - Kids -> /media/kids (Should be existent)
 - Change "Anzeige" settings:
-    - Language: English
-    - Dates: German
+  - Language: English
+  - Dates: German
 - Change Home settings to remove Kids
 - Change Playback:
-    - Preferred Audio Language: English
+  - Preferred Audio Language: English
 - Change Subtitles:
-    - Subtitle mode: No
+  - Subtitle mode: No
 - Under Administration go to Playback:
-    - Transcoding:
-        - Enable hardware acceleration using Intel Quick Sync Video
-    - General:
-        - Rename the server to Jellyfin
+  - Transcoding:
+    - Enable hardware acceleration using Intel Quick Sync Video
+  - General:
+    - Rename the server to Jellyfin
 
 ### Enable Jellyfin Hardware Acceleration
 
@@ -544,7 +546,7 @@ render:x:993:jkrumm
 
 ```yaml
 group_add:
-  - "993"  # Use the render group ID
+  - "993" # Use the render group ID
 ```
 
 This version should be easier to read and follow, with a clear hierarchy and a comprehensive table of contents for easy
@@ -553,84 +555,157 @@ navigation.
 ### Setup Samba
 
 1. Create a specific SSD folder for Samba:
-    ```bash
-    sudo mkdir -p /home/jkrumm/ssd
-    sudo chown -R 1000:1000 /mnt/ssd/samba
-    sudo chmod -R 755 /mnt/ssd/samba
-    ```
-3. Allow the Samba service through the router port forwarding.
-    - IPv6 only (IPv4 is not supported DSLite)
-    - Port: 445
-    - Protocol: TCP
-4. Access the Samba share using the following credentials:
-    - Host: `smb://[samba.jkrumm.dev]`
-    - Username: jkrumm
-    - Password: You can find the secret in 1Password and Doppler
+   ```bash
+   sudo mkdir -p /home/jkrumm/ssd
+   sudo chown -R 1000:1000 /mnt/ssd/samba
+   sudo chmod -R 755 /mnt/ssd/samba
+   ```
+2. Allow the Samba service through the router port forwarding.
+   - IPv6 only (IPv4 is not supported DSLite)
+   - Port: 445
+   - Protocol: TCP
+3. Access the Samba share using the following credentials:
+   - Host: `smb://[samba.jkrumm.dev]`
+   - Username: jkrumm
+   - Password: You can find the secret in 1Password and Doppler
 
 ### Setup Beszel
 
 1. Create a specific folder for Beszel data on the HDD:
-    ```bash
-    sudo mkdir -p /mnt/hdd/beszel
-    sudo chown -R 1000:1000 /mnt/hdd/beszel
-    chmod 755 /mnt/hdd/beszel
-    ```
+   ```bash
+   sudo mkdir -p /mnt/hdd/beszel
+   sudo chown -R 1000:1000 /mnt/hdd/beszel
+   chmod 755 /mnt/hdd/beszel
+   ```
 2. Setup correct drives for SSD and HDD
 
 3. Access the Beszel server using the following credentials:
-    - Host: `https://beszel.jkrumm.dev`
-    - Username: jkrumm
-    - Password: You can find the secret in 1Password and Doppler
+   - Host: `https://beszel.jkrumm.dev`
+   - Username: jkrumm
+   - Password: You can find the secret in 1Password and Doppler
 
 ### Setup UptimeKuma
+
 1. Create a specific folder for UptimeKuma data on the HDD:
-    ```bash
-    sudo mkdir -p /mnt/hdd/uptimekuma
-    sudo chown -R 1000:1000 /mnt/hdd/uptimekuma
-    chmod 755 /mnt/hdd/uptimekuma
-    ```
+   ```bash
+   sudo mkdir -p /mnt/hdd/uptimekuma
+   sudo chown -R 1000:1000 /mnt/hdd/uptimekuma
+   chmod 755 /mnt/hdd/uptimekuma
+   ```
 
 ### Setup Duplicati
 
 1. Create a specific folder for Duplicati data on the HDD:
-    ```bash
-    sudo mkdir -p /mnt/hdd/duplicati
-    sudo chown -R 1000:1000 /mnt/hdd/duplicati
-    chmod 755 /mnt/hdd/duplicati
-    ```
+   ```bash
+   sudo mkdir -p /mnt/hdd/duplicati
+   sudo chown -R 1000:1000 /mnt/hdd/duplicati
+   chmod 755 /mnt/hdd/duplicati
+   ```
 2. create a config and a backups folder in the duplicati folder
-    ```bash
-    sudo mkdir -p /mnt/hdd/duplicati/config
-    sudo mkdir -p /mnt/transfer/duplicati_backups
-    sudo chown -R 1000:1000 /mnt/hdd/duplicati/config
-    sudo chown -R 1000:1000 /mnt/transfer/duplicati_backups
-    sudo chmod -R 755 /mnt/hdd/duplicati/config
-    sudo chmod -R 755 /mnt/transfer/duplicati_backups
-    ```
+   ```bash
+   sudo mkdir -p /mnt/hdd/duplicati/config
+   sudo mkdir -p /mnt/transfer/duplicati_backups
+   sudo chown -R 1000:1000 /mnt/hdd/duplicati/config
+   sudo chown -R 1000:1000 /mnt/transfer/duplicati_backups
+   sudo chmod -R 755 /mnt/hdd/duplicati/config
+   sudo chmod -R 755 /mnt/transfer/duplicati_backups
+   ```
 3. Access the Duplicati server using the following credentials:
-    - Host: `https://duplicati.jkrumm.dev`
-    - Username: jkrumm
-    - Password: You can find the secret in 1Password and Doppler
+
+   - Host: `https://duplicati.jkrumm.dev`
+   - Username: jkrumm
+   - Password: You can find the secret in 1Password and Doppler
 
 4. Backups I run with Duplicati:
-    - SSD
-        - SSD LOCAL at 03:00
-            - Destination: /source/mnt/transfer/duplicati_backups/SSD/
-            - Source: /source/ssd/SSD/
-            - Config: 100 MByte and intelligent persistence
-        - SSD OneDrive at 03:30
-            - Destination: jkrumm_duplicati_ssd
-            - Source: /source/ssd/SSD/
-            - Config: 50 MByte and intelligent persistence
-    - HDD
-        - HDD LOCAL at 02:30
-            - Destination: /source/mnt/transfer/duplicati_backups/HDD/
-            - Source: /source/mnt/hdd/
-            - IGNORE: /source/mnt/hdd/Filme/
-            - Config: 100 MByte and intelligent persistence
-        - HDD OneDrive at 02:40
-            - Destination: jkrumm_duplicati_hdd
-            - Source: /source/mnt/hdd/
-            - IGNORE: /source/mnt/hdd/Filme/
-            - Config: 50 MByte and intelligent persistence
-    
+   - SSD
+     - SSD LOCAL at 03:00
+       - Destination: /source/mnt/transfer/duplicati_backups/SSD/
+       - Source: /source/ssd/SSD/
+       - Config: 100 MByte and intelligent persistence
+     - SSD OneDrive at 03:30
+       - Destination: jkrumm_duplicati_ssd
+       - Source: /source/ssd/SSD/
+       - Config: 50 MByte and intelligent persistence
+   - HDD
+     - HDD LOCAL at 02:30
+       - Destination: /source/mnt/transfer/duplicati_backups/HDD/
+       - Source: /source/mnt/hdd/
+       - IGNORE: /source/mnt/hdd/Filme/
+       - Config: 100 MByte and intelligent persistence
+     - HDD OneDrive at 02:40
+       - Destination: jkrumm_duplicati_hdd
+       - Source: /source/mnt/hdd/
+       - IGNORE: /source/mnt/hdd/Filme/
+       - Config: 50 MByte and intelligent persistence
+
+## Setup Database Backup
+
+This guide explains how to set up automated MySQL database backups for the Free Planning Poker database.
+
+#### Prerequisites
+
+- Root access to the server
+- Doppler CLI installed and configured
+- The following Doppler secrets configured:
+  - `DB_HOST`: The MySQL server host
+  - `DB_ROOT_PW`: The MySQL root password
+
+#### Installation
+
+1. The backup script is located in the repository at `backup_fpp_db.sh`. Make it executable:
+
+   ```bash
+   chmod +x backup_fpp_db.sh
+   ```
+
+2. Run the initial setup with sudo to install MySQL client tools:
+   ```bash
+   doppler run --project homelab --config prod -- sudo -E ./backup_fpp_db.sh
+   ```
+   This will:
+   - Install MySQL 8 client if not present
+   - Create the backup directory at `/mnt/hdd/backups`
+   - Perform an initial backup
+
+#### Setting up Automated Backups
+
+1. Edit the root's crontab to set up nightly backups:
+
+   ```bash
+   sudo crontab -e
+   ```
+
+2. Add the following line to run the backup daily at 2 AM UTC:
+
+   ```bash
+   0 2 * * * cd /home/jkrumm/homelab && /usr/local/bin/doppler run --project homelab --config prod -- /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
+   ```
+
+3. Verify the cron job is set up:
+   ```bash
+   sudo crontab -l
+   ```
+
+#### Backup Details
+
+- Location: Backups are stored in `/mnt/hdd/backups/fpp.sql`
+- Frequency: Daily at 2 AM UTC
+- Logging: All backup operations are logged to `/mnt/hdd/backups/backup.log`
+- Retention: Each backup overwrites the previous one (Duplicati handles versioning)
+
+#### Monitoring
+
+You can monitor the backup process by:
+
+1. Checking the log file:
+
+   ```bash
+   tail -f /mnt/hdd/backups/backup.log
+   ```
+
+2. Verifying the backup file exists and is recent:
+   ```bash
+   ls -l /mnt/hdd/backups/fpp.sql
+   ```
+
+The backup file is automatically included in your configured Duplicati backups of the HDD partition.
