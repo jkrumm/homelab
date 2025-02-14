@@ -27,29 +27,6 @@ check_mysql_client() {
     fi
 }
 
-# Function to load Doppler secrets
-load_doppler_secrets() {
-    if ! command -v doppler &> /dev/null; then
-        echo "Doppler CLI not found. Please install it first."
-        exit 1
-    fi
-    
-    # Check if running under doppler run
-    if [ -z "$DOPPLER_PROJECT" ]; then
-        echo "This script must be run using 'doppler run --project homelab --config prod -- sudo $0'"
-        exit 1
-    fi
-    
-    # Use environment variables set by doppler run
-    DB_HOST=$DB_HOST
-    DB_ROOT_PW=$DB_ROOT_PW
-    
-    if [ -z "$DB_HOST" ] || [ -z "$DB_ROOT_PW" ]; then
-        echo "Required secrets DB_HOST or DB_ROOT_PW not found in Doppler configuration"
-        exit 1
-    fi
-}
-
 # Function to create backup directory
 create_backup_dir() {
     BACKUP_DIR="/mnt/hdd/backups"
@@ -86,7 +63,6 @@ perform_backup() {
 # Main execution
 echo "Starting FPP database backup process..."
 check_mysql_client
-load_doppler_secrets
 create_backup_dir
 perform_backup
 echo "Backup process completed successfully!" 
