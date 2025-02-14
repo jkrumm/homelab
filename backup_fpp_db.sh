@@ -42,6 +42,7 @@ perform_backup() {
     echo "Starting database backup..."
     mysqldump \
         --result-file="$BACKUP_FILE" \
+        --protocol=TCP \
         --skip-lock-tables \
         --skip-add-locks \
         --no-tablespaces \
