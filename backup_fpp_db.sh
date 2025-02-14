@@ -40,7 +40,12 @@ perform_backup() {
     BACKUP_FILE="$BACKUP_DIR/fpp.sql"
     
     echo "Starting database backup..."
-    echo "Connecting to MySQL at $DB_HOST:3306..."
+    
+    # Get secrets directly from doppler
+    DB_HOST=$(doppler secrets get DB_HOST --plain)
+    DB_ROOT_PW=$(doppler secrets get DB_ROOT_PW --plain)
+    
+    echo "Connecting to MySQL at ${DB_HOST}:3306..."
     
     mysqldump \
         --result-file="$BACKUP_FILE" \
