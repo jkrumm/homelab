@@ -41,13 +41,9 @@ perform_backup() {
     
     echo "Starting database backup..."
     
-    # Get secrets directly from doppler
-    DB_HOST=$(doppler secrets get DB_HOST --plain)
-    DB_ROOT_PW=$(doppler secrets get DB_ROOT_PW --plain)
+    echo "Connecting to MySQL server..."
     
-    echo "Connecting to MySQL at ${DB_HOST}:3306..."
-    
-    mysqldump \
+    doppler run -- mysqldump \
         --result-file="$BACKUP_FILE" \
         --protocol=TCP \
         --skip-lock-tables \
@@ -56,10 +52,10 @@ perform_backup() {
         --create-options \
         --column-statistics=0 \
         --add-drop-table \
-        --host="${DB_HOST}" \
+        --host="$DB_HOST" \
         --port=3306 \
         --user=root \
-        --password="${DB_ROOT_PW}" \
+        --password="$DB_ROOT_PW" \
         free-planning-poker
 
     chown 1000:1000 "$BACKUP_FILE"
