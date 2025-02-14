@@ -34,11 +34,18 @@ load_doppler_secrets() {
         exit 1
     fi
     
-    eval $(doppler secrets get DB_HOST -p homelab -c prod --plain)
-    eval $(doppler secrets get DB_ROOT_PW -p homelab -c prod --plain)
+    # Check if running under doppler run
+    if [ -z "$DOPPLER_PROJECT" ]; then
+        echo "This script must be run using 'doppler run --project homelab --config prod -- sudo $0'"
+        exit 1
+    fi
+    
+    # Use environment variables set by doppler run
+    DB_HOST=$DB_HOST
+    DB_ROOT_PW=$DB_ROOT_PW
     
     if [ -z "$DB_HOST" ] || [ -z "$DB_ROOT_PW" ]; then
-        echo "Failed to load required secrets from Doppler"
+        echo "Required secrets DB_HOST or DB_ROOT_PW not found in Doppler configuration"
         exit 1
     fi
 }
