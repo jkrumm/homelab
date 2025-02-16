@@ -660,7 +660,18 @@ This guide explains how to set up automated MySQL database backups for the Free 
    chmod +x backup_fpp_db.sh
    ```
 
-2. Create the backup directory and log file with proper permissions:
+2. Move the script to a secure location and set proper permissions:
+
+   ```bash
+   sudo mkdir -p /usr/local/sbin/homelab
+   sudo cp backup_fpp_db.sh /usr/local/sbin/homelab/
+   sudo chown root:root /usr/local/sbin/homelab/backup_fpp_db.sh
+   sudo chmod 700 /usr/local/sbin/homelab/backup_fpp_db.sh
+   # Make sure the script is executable in its new location
+   sudo chmod +x /usr/local/sbin/homelab/backup_fpp_db.sh
+   ```
+
+3. Create the backup directory and log file with proper permissions:
 
    ```bash
    sudo mkdir -p /mnt/hdd/backups
@@ -669,9 +680,9 @@ This guide explains how to set up automated MySQL database backups for the Free 
    sudo chmod 644 /mnt/hdd/backups/backup.log
    ```
 
-3. Run the initial setup with sudo to install MySQL client tools:
+4. Run the initial setup to install MySQL client tools:
    ```bash
-   doppler run --project homelab --config prod -- sudo -E ./backup_fpp_db.sh
+   /usr/bin/doppler run --project homelab --config prod -- sudo -E /usr/local/sbin/homelab/backup_fpp_db.sh
    ```
    This will:
    - Install MySQL 8 client if not present
@@ -689,13 +700,10 @@ This guide explains how to set up automated MySQL database backups for the Free 
 2. Add the following line to run the backup daily at 2 AM UTC:
 
    ```bash
-   0 2 * * * cd /home/jkrumm/homelab && /usr/bin/doppler run --project homelab --config prod -- /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
+   0 2 * * * /usr/bin/doppler run --project homelab --config prod -- sudo -E /usr/local/sbin/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
    ```
 
-3. Verify the cron job is set up:
-   ```bash
-   sudo crontab -l
-   ```
+   Note: We don't need sudo in the crontab entry because it's already running as root.
 
 #### Backup Details
 
@@ -726,8 +734,8 @@ The backup file is automatically included in your configured Duplicati backups o
 Before leaving it to run automatically, you can test the cron command manually:
 
 ```bash
-# Run the cron command directly
-cd /home/jkrumm/homelab && /usr/bin/doppler run --project homelab --config prod -- sudo -E /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
+# Run the cron command directly (with sudo since we're running as jkrumm)
+/usr/bin/doppler run --project homelab --config prod -- sudo -E /usr/local/sbin/homelab/backup_fpp_db.sh
 
 # Then check the log file
 tail -f /mnt/hdd/backups/backup.log
