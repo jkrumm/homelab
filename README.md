@@ -18,6 +18,7 @@
    - [Enable Jellyfin SSH](#enable-jellyfin-ssh)
    - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
 6. [Setup Database Backup](#setup-database-backup)
+7. [Dozzle Authentication Setup](#dozzle-authentication-setup)
 
 ## TODOS
 
@@ -32,10 +33,40 @@
 - [x] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [x] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [x] Configure FPP database backup
-- [ ] Setup Dozzle for Docker logs
+- [x] Setup Dozzle for Docker logs
 - [ ] Get Dozzle Logs from SideprojectDockerStack
 - [ ] Get Beszel stats from SideprojectDockerStack
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
+
+## Dozzle Authentication Setup
+
+To enable authentication for Dozzle:
+
+1. Create a directory for Dozzle data:
+
+   ```bash
+   mkdir dozzle
+   ```
+
+2. Generate the password hash and create users.yml:
+
+   ```bash
+   # Generate password hash
+   docker run amir20/dozzle generate --name "Johannes Krumm" --email your@email.com --password your_password jkrumm > dozzle/users.yml
+   ```
+
+3. The docker-compose.yml is already configured with:
+
+   - Simple authentication enabled
+   - 48-hour login session
+   - Volume mount for users.yml
+
+4. After making these changes, restart Dozzle:
+   ```bash
+   docker compose up -d dozzle
+   ```
+
+You can now access Dozzle at https://dozzle.jkrumm.dev and log in with username `jkrumm` and your chosen password.
 
 ## Subdomain
 
