@@ -192,12 +192,20 @@ services:
   dozzle:
     image: amir20/dozzle:latest
     container_name: dozzle
+    restart: unless-stopped
     environment:
-      - DOZZLE_ADDR=8081
+      DOZZLE_HOSTNAME: jkrumm.dev
+      DOZZLE_ADDR: :8081
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - 8081:8081
+    labels:
+      glance.name: Dozzle
+      glance.parent: uptime
+      glance.icon: si:logstash
+      glance.url: https://dozzle.jkrumm.dev
+      glance.hide: false
 
 volumes:
   caddy_data:
