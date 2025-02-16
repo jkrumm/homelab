@@ -142,7 +142,7 @@ services:
     container_name: porkbun-ddns
     environment:
       DOMAIN: "jkrumm.dev"
-      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime,homelab"
+      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime,homelab,dozzle"
       SECRETAPIKEY: ${PORKBUN_API_SECRET}
       APIKEY: ${PORKBUN_API_KEY}
       FRITZBOX_IP: "169.254.1.1"
@@ -188,6 +188,13 @@ services:
       glance.url: https://uptime.jkrumm.dev
       glance.hide: false
       glance.id: uptime
+
+  dozzle:
+    image: amir20/dozzle:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 8080:8081
 
 volumes:
   caddy_data:

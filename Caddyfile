@@ -21,3 +21,7 @@ duplicati.jkrumm.dev {
 uptime.jkrumm.dev {
   reverse_proxy uptime-kuma:3001
 }
+
+dozzle.jkrumm.dev {
+  reverse_proxy dozzle:8081
+}

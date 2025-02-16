@@ -32,7 +32,9 @@
 - [x] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
 - [x] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [x] Configure FPP database backup
-- [ ] Move SnowFinder App to the server
+- [ ] Setup Dozzle for Docker logs
+- [ ] Get Dozzle Logs from SideprojectDockerStack
+- [ ] Get Beszel stats from SideprojectDockerStack
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 
 ## Subdomain
