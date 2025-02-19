@@ -36,6 +36,7 @@
 - [x] Setup Dozzle for Docker logs
 - [ ] Get Dozzle Logs from SideprojectDockerStack
 - [ ] Get Beszel stats from SideprojectDockerStack
+- [ ] Fail2Ban for SSH, Jellyfin, Samba, MariaDB
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 
@@ -52,9 +53,14 @@ To enable authentication for Dozzle:
 2. Generate the password hash and create users.yml:
 
    ```bash
-   # Generate password hash
-   docker run amir20/dozzle generate --name "Johannes Krumm" --email your@email.com --password your_password jkrumm > dozzle/users.yml
+   # Generate password hash and copy the output
+   docker run amir20/dozzle generate --name "Johannes Krumm" --email your@email.com --password your_password jkrumm
+
+   # Create and edit users.yml file
+   vim dozzle/users.yml
    ```
+
+   Paste the output from the generate command into users.yml and save the file.
 
 3. The docker-compose.yml is already configured with:
 
