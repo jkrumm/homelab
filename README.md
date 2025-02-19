@@ -740,10 +740,16 @@ This guide explains how to set up automated MySQL database backups for the Free 
    0 2 * * * cd /home/jkrumm/homelab && /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
    ```
 
+3. Add the following line to run the backup hourly:
+
+   ```bash
+   0 * * * * cd /home/jkrumm/homelab && /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
+   ```
+
 #### Backup Details
 
 - Location: Backups are stored in `/mnt/hdd/backups/fpp.sql`
-- Frequency: Daily at 2 AM UTC
+- Frequency: Hourly (every hour at minute 0)
 - Logging: All backup operations are logged to `/mnt/hdd/backups/backup.log`
 - Retention: Each backup overwrites the previous one (Duplicati handles versioning)
 - Security: Credentials are stored in a root-only accessible file
