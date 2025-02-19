@@ -112,8 +112,53 @@ perform_backup() {
     curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=up&msg=Backup+completed:+${BACKUP_SIZE}+in+${DURATION}s"
 }
 
+# Function to check credentials file
+check_credentials() {
+    CREDS_FILE="/root/.fpp-db-credentials"
+    
+    # Check if file exists
+    if [ ! -f "$CREDS_FILE" ]; then
+        echo "Error: Credentials file not found at $CREDS_FILE"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+not+found"
+        exit 1
+    fi
+    
+    # Check file permissions
+    FILE_PERMS=$(stat -c "%a" "$CREDS_FILE")
+    if [ "$FILE_PERMS" != "600" ]; then
+        echo "Error: Credentials file has incorrect permissions: $FILE_PERMS (should be 600)"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+wrong+permissions"
+        exit 1
+    fi
+    
+    # Check file ownership
+    FILE_OWNER=$(stat -c "%U:%G" "$CREDS_FILE")
+    if [ "$FILE_OWNER" != "root:root" ]; then
+        echo "Error: Credentials file has incorrect ownership: $FILE_OWNER (should be root:root)"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+wrong+ownership"
+        exit 1
+    }
+    
+    # Source the credentials file
+    source "$CREDS_FILE"
+    
+    # Verify required variables are set and not empty
+    if [ -z "$DB_HOST" ]; then
+        echo "Error: DB_HOST is missing from credentials file"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=DB_HOST+missing+from+credentials"
+        exit 1
+    fi
+    
+    if [ -z "$DB_ROOT_PW" ]; then
+        echo "Error: DB_ROOT_PW is missing from credentials file"
+        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=DB_ROOT_PW+missing+from+credentials"
+        exit 1
+    fi
+}
+
 # Main execution
 echo "Starting FPP database backup process..."
+check_credentials
 check_mysql_client
 create_backup_dir
 perform_backup

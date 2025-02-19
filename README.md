@@ -36,6 +36,7 @@
 - [x] Setup Dozzle for Docker logs
 - [ ] Get Dozzle Logs from SideprojectDockerStack
 - [ ] Get Beszel stats from SideprojectDockerStack
+- [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 
 ## Dozzle Authentication Setup
@@ -677,14 +678,6 @@ navigation.
 
 This guide explains how to set up automated MySQL database backups for the Free Planning Poker database.
 
-#### Prerequisites
-
-- Root access to the server
-- Doppler CLI installed and configured
-- The following Doppler secrets configured:
-  - `DB_HOST`: The MySQL server host
-  - `DB_ROOT_PW`: The MySQL root password
-
 #### Installation
 
 1. The backup script is located in the repository at `backup_fpp_db.sh`. Make it executable:
@@ -693,18 +686,7 @@ This guide explains how to set up automated MySQL database backups for the Free 
    chmod +x backup_fpp_db.sh
    ```
 
-2. Move the script to a secure location and set proper permissions:
-
-   ```bash
-   sudo mkdir -p /usr/local/sbin/homelab
-   sudo cp backup_fpp_db.sh /usr/local/sbin/homelab/
-   sudo chown root:root /usr/local/sbin/homelab/backup_fpp_db.sh
-   sudo chmod 700 /usr/local/sbin/homelab/backup_fpp_db.sh
-   # Make sure the script is executable in its new location
-   sudo chmod +x /usr/local/sbin/homelab/backup_fpp_db.sh
-   ```
-
-3. Create the backup directory and log file with proper permissions:
+2. Create the backup directory and log file with proper permissions:
 
    ```bash
    sudo mkdir -p /mnt/hdd/backups
@@ -713,14 +695,36 @@ This guide explains how to set up automated MySQL database backups for the Free 
    sudo chmod 644 /mnt/hdd/backups/backup.log
    ```
 
-4. Run the initial setup to install MySQL client tools:
+3. Create and secure the credentials file:
    ```bash
-   /usr/bin/doppler run --project homelab --config prod -- sudo -E /usr/local/sbin/homelab/backup_fpp_db.sh
+   sudo bash -c 'cat > /root/.fpp-db-credentials << EOL
+   DB_HOST=""
+   DB_ROOT_PW=""
+   EOL'
    ```
-   This will:
-   - Install MySQL 8 client if not present
-   - Create the backup directory at `/mnt/hdd/backups`
-   - Perform an initial backup
+4. Secure the credentials file
+
+   ```bash
+   sudo chmod 600 /root/.fpp-db-credentials
+   sudo chown root:root /root/.fpp-db-credentials
+   ```
+
+5. Verify the security of the credentials file:
+
+   ```bash
+   # This should show only root can read/write the file
+   sudo ls -l /root/.fpp-db-credentials
+   # Expected output: -rw------- 1 root root ...
+
+   # This should fail (permission denied) - confirming non-root users can't read it
+   cat /root/.fpp-db-credentials
+   # Expected output: cat: /root/.fpp-db-credentials: Permission denied
+   ```
+
+6. Test the backup script:
+   ```bash
+   sudo ./backup_fpp_db.sh
+   ```
 
 #### Setting up Automated Backups
 
@@ -733,10 +737,8 @@ This guide explains how to set up automated MySQL database backups for the Free 
 2. Add the following line to run the backup daily at 2 AM UTC:
 
    ```bash
-   0 2 * * * /usr/bin/doppler run --project homelab --config prod -- sudo -E /usr/local/sbin/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
+   0 2 * * * cd /home/jkrumm/homelab && /home/jkrumm/homelab/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
    ```
-
-   Note: We don't need sudo in the crontab entry because it's already running as root.
 
 #### Backup Details
 
@@ -744,6 +746,8 @@ This guide explains how to set up automated MySQL database backups for the Free 
 - Frequency: Daily at 2 AM UTC
 - Logging: All backup operations are logged to `/mnt/hdd/backups/backup.log`
 - Retention: Each backup overwrites the previous one (Duplicati handles versioning)
+- Security: Credentials are stored in a root-only accessible file
+- Monitoring: Backup status is reported to UptimeKuma
 
 #### Monitoring
 
@@ -752,26 +756,15 @@ You can monitor the backup process by:
 1. Checking the log file:
 
    ```bash
-   tail -f /mnt/hdd/backups/backup.log
+   sudo tail -f /mnt/hdd/backups/backup.log
    ```
 
 2. Verifying the backup file exists and is recent:
+
    ```bash
    ls -l /mnt/hdd/backups/fpp.sql
    ```
 
+3. Checking UptimeKuma dashboard for backup status notifications
+
 The backup file is automatically included in your configured Duplicati backups of the HDD partition.
-
-#### Testing the Cron Job
-
-Before leaving it to run automatically, you can test the cron command manually:
-
-```bash
-# Run the cron command directly (with sudo since we're running as jkrumm)
-/usr/bin/doppler run --project homelab --config prod -- sudo -E /usr/local/sbin/homelab/backup_fpp_db.sh
-
-# Then check the log file
-tail -f /mnt/hdd/backups/backup.log
-```
-
-If the backup completes successfully, you should see the backup process details in the log file and a new `fpp.sql` file in `/mnt/hdd/backups/`.
