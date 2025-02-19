@@ -137,7 +137,7 @@ check_credentials() {
         echo "Error: Credentials file has incorrect ownership: $FILE_OWNER (should be root:root)"
         curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+wrong+ownership"
         exit 1
-    }
+    fi
     
     # Source the credentials file
     source "$CREDS_FILE"
