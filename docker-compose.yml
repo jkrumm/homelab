@@ -142,7 +142,7 @@ services:
     container_name: porkbun-ddns
     environment:
       DOMAIN: "jkrumm.dev"
-      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime,homelab,dozzle"
+      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime,homelab,dozzle,calibre,books"
       SECRETAPIKEY: ${PORKBUN_API_SECRET}
       APIKEY: ${PORKBUN_API_KEY}
       FRITZBOX_IP: "169.254.1.1"
@@ -208,6 +208,49 @@ services:
       glance.parent: uptime
       glance.icon: si:logstash
       glance.url: https://dozzle.jkrumm.dev
+      glance.hide: false
+
+  calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - CUSTOM_USER=jkrumm
+      - PASSWORD=${CALIBRE_PASSWORD}
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bücher/calibre/config:/config
+      - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/library
+    ports:
+      - 8085:8080
+    restart: unless-stopped
+    labels:
+      glance.name: Calibre
+      glance.icon: si:gitbook
+      glance.url: https://calibre.jkrumm.dev
+      glance.hide: false
+
+  calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - DOCKER_MODS=linuxserver/mods:universal-calibre
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bücher/calibre-web/config:/config
+      - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/books
+    ports:
+      - 8083:8083
+    restart: unless-stopped
+    labels:
+      glance.name: Calibre Web
+      glance.icon: si:calibreweb
+      glance.url: https://books.jkrumm.dev
       glance.hide: false
 
 volumes:

@@ -19,6 +19,7 @@
    - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
 6. [Setup Database Backup](#setup-database-backup)
 7. [Dozzle Authentication Setup](#dozzle-authentication-setup)
+8. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
 
 ## TODOS
 
@@ -780,3 +781,61 @@ You can monitor the backup process by:
 3. Checking UptimeKuma dashboard for backup status notifications
 
 The backup file is automatically included in your configured Duplicati backups of the HDD partition.
+
+## Setup Calibre and Calibre-Web
+
+### Directory Structure
+
+First, create the necessary directory structure:
+
+```bash
+mkdir -p /home/jkrumm/ssd/SSD/Bücher/{calibre,calibre-web}/{config,library}
+```
+
+The Calibre setup uses the following directory structure in the SSD:
+
+```bash
+/home/jkrumm/ssd/SSD/Bücher/
+├── calibre/
+│   ├── config/     # Calibre configuration
+│   └── library/    # Calibre book library
+└── calibre-web/
+    └── config/     # Calibre-Web configuration
+```
+
+### Calibre Setup
+
+1. Access Calibre at `https://calibre.jkrumm.dev`
+2. Login with:
+   - Username: abc
+   - Password: Set in `CALIBRE_PASSWORD` environment variable
+
+### Calibre-Web Setup
+
+1. Access Calibre-Web at `https://books.jkrumm.dev`
+2. Initial setup:
+   - Default login: admin/admin123
+   - Change the admin password immediately
+   - Set library path to: `/books`
+   - Configure metadata sources
+   - Set up user accounts and permissions
+
+### Features
+
+- Calibre provides full library management capabilities
+- Calibre-Web offers a user-friendly interface for browsing and reading
+- Both services share the same library folder
+- Automatic updates via Watchtower
+- Monitoring via Glance dashboard
+- Reverse proxy through Caddy with automatic HTTPS
+
+### Security Notes
+
+- Both services run with PUID=1000 and PGID=1000
+- Calibre requires seccomp=unconfined for proper GUI operation
+- All configurations are backed up via Duplicati
+
+### Ports Used
+
+- Calibre: 8085 (internal: 8080)
+- Calibre-Web: 8083
