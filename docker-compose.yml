@@ -243,6 +243,8 @@ services:
       - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/books
     ports:
       - 8083:8083
+    networks:
+      - porkbun_ddns_network
     restart: unless-stopped
     labels:
       glance.name: Calibre Web
