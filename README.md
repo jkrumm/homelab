@@ -35,6 +35,8 @@
 - [x] Configure Watchtower https://docs.techdox.nz/watchtower/
 - [x] Configure FPP database backup
 - [x] Setup Dozzle for Docker logs
+- [x] Setup Calibre and Calibre-Web
+- [ ] Setup Kobo sync with Calibre https://code.mendhak.com/kobo-customizations/
 - [ ] Get Dozzle Logs from SideprojectDockerStack
 - [ ] Get Beszel stats from SideprojectDockerStack
 - [ ] Fail2Ban for SSH, Jellyfin, Samba, MariaDB

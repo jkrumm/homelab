@@ -228,10 +228,7 @@ services:
       - 8085:8080
     restart: unless-stopped
     labels:
-      glance.name: Calibre
-      glance.icon: si:gitbook
-      glance.url: https://calibre.jkrumm.dev
-      glance.hide: false
+      glance.hide: true
 
   calibre-web:
     image: lscr.io/linuxserver/calibre-web:latest
