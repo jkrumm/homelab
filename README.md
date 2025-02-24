@@ -786,29 +786,57 @@ The backup file is automatically included in your configured Duplicati backups o
 
 ### Directory Structure
 
-First, create the necessary directory structure:
+1. Create the base directory structure:
 
-```bash
-mkdir -p /home/jkrumm/ssd/SSD/Bücher/{calibre,calibre-web}/{config,library}
-```
+   ```bash
+   # Create main directories
+   mkdir -p /home/jkrumm/ssd/SSD/Bücher/{calibre,calibre-web}/{config,library}
 
-The Calibre setup uses the following directory structure in the SSD:
+   # Create incoming folder for automatic book imports
+   mkdir -p /home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming
+   ```
 
-```bash
-/home/jkrumm/ssd/SSD/Bücher/
-├── calibre/
-│   ├── config/     # Calibre configuration
-│   └── library/    # Calibre book library
-└── calibre-web/
-    └── config/     # Calibre-Web configuration
-```
+2. Final directory layout:
+
+   ```bash
+   /home/jkrumm/ssd/SSD/Bücher/
+   ├── calibre/
+   │   ├── config/     # Calibre configuration
+   │   └── library/    # Calibre book library
+   │       └── incoming/   # Drop your books here for automatic import
+   └── calibre-web/
+       └── config/     # Calibre-Web configuration
+   ```
+
+3. Directory mappings in containers:
+   - Calibre sees:
+     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre/config`
+     - `/library` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
+   - Calibre-Web sees:
+     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre-web/config`
+     - `/books` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
 
 ### Calibre Setup
 
 1. Access Calibre at `https://calibre.jkrumm.dev`
 2. Login with:
-   - Username: abc
+   - Username: jkrumm
    - Password: Set in `CALIBRE_PASSWORD` environment variable
+3. During initial setup:
+   - When prompted for library location, set it to: `/library`
+   - This maps to `/home/jkrumm/ssd/SSD/Bücher/calibre/library` on your host system
+   - Do not use the default `/config/Calibre Library` path
+4. Managing Books:
+   - Using Auto-Add folder:
+     - In Calibre, go to Preferences > Adding books
+     - Enable "Automatically add books" and set the folder to `/library/incoming`
+     - Now any books you place in `/home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming` will be automatically imported
+     - Calibre will move the books to the appropriate location in the library after import
+   - After adding books:
+     - Calibre will automatically fetch metadata
+     - You can edit metadata by selecting a book and clicking "Edit metadata"
+     - Configure metadata download sources in Preferences > Metadata download
+     - Books will be available in both Calibre and Calibre-Web
 
 ### Calibre-Web Setup
 
@@ -817,8 +845,25 @@ The Calibre setup uses the following directory structure in the SSD:
    - Default login: admin/admin123
    - Change the admin password immediately
    - Set library path to: `/books`
-   - Configure metadata sources
-   - Set up user accounts and permissions
+   - This will use the same library that you manage with Calibre
+3. Configure Calibre Binaries:
+   - Go to Admin > Basic Configuration > External Binaries
+   - Set "Path to Calibre Binaries" to: `/usr/bin`
+   - Save the settings
+   - Features enabled by binaries:
+     - Ebook format conversion
+     - Metadata embedding
+     - Email sending with conversion
+     - Enhanced cover generation
+4. Additional Configuration:
+   - Set up user accounts and permissions under Admin > Users
+   - Calibre-Web uses the metadata that was fetched by Calibre
+   - No additional metadata configuration needed as this is handled by Calibre
+5. Test Format Conversion:
+   - Select any book
+   - Click on "Convert" button
+   - Choose a different format
+   - If conversion works, the binaries are correctly configured
 
 ### Features
 

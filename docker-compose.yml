@@ -240,7 +240,7 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Berlin
-      - DOCKER_MODS=linuxserver/mods:universal-calibre
+      - DOCKER_MODS=linuxserver/mods:universal-calibre|linuxserver/mods:calibre-web-calibre
     volumes:
       - /home/jkrumm/ssd/SSD/Bücher/calibre-web/config:/config
       - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/books
