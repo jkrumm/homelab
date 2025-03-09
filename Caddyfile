@@ -33,3 +33,7 @@ calibre.jkrumm.dev {
 books.jkrumm.dev {
   reverse_proxy calibre-web:8083
 }
+
+immich.jkrumm.dev {
+  reverse_proxy immich-server:2283
+}

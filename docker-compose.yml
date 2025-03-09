@@ -142,7 +142,7 @@ services:
     container_name: porkbun-ddns
     environment:
       DOMAIN: "jkrumm.dev"
-      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime,homelab,dozzle,calibre,books"
+      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime,homelab,dozzle,calibre,books,immich"
       SECRETAPIKEY: ${PORKBUN_API_SECRET}
       APIKEY: ${PORKBUN_API_KEY}
       FRITZBOX_IP: "169.254.1.1"
@@ -250,9 +250,69 @@ services:
       glance.url: https://books.jkrumm.dev
       glance.hide: false
 
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:release
+    restart: unless-stopped
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bilder/immich/upload:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "2283:2283"
+    environment:
+      - UPLOAD_LOCATION=/usr/src/app/upload
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${POSTGRES_DB_PASSWORD}
+      - DB_DATABASE_NAME=immich
+      - DB_HOSTNAME=immich_postgres
+      - REDIS_HOSTNAME=immich_redis
+      - TZ=Europe/Berlin
+    depends_on:
+      - immich_redis
+      - immich_postgres
+    labels:
+      glance.name: Immich
+      glance.icon: si:immich
+      glance.url: https://immich.jkrumm.dev
+      glance.hide: false
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:release
+    restart: unless-stopped
+    volumes:
+      - model-cache:/cache
+    environment:
+      - REDIS_HOSTNAME=immich_redis
+      - TZ=Europe/Berlin
+    labels:
+      glance.hide: true
+
+  immich_redis:
+    container_name: immich_redis
+    image: docker.io/redis:6.2-alpine@sha256:148bb5411c184abd288d9aaed139c98123eeb8824c5d3fce03cf721db58066d8
+    restart: unless-stopped
+    labels:
+      glance.hide: true
+
+  immich_postgres:
+    container_name: immich_postgres
+    image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:739cdd626151ff1f796dc95a6591b55a714f341c737e27f045019ceabf8e8c52
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bilder/immich/postgres:/var/lib/postgresql/data
+    labels:
+      glance.hide: true
+
 volumes:
   caddy_data:
   caddy_config:
+  model-cache:
 
 networks:
   porkbun_ddns_network:

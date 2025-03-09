@@ -20,6 +20,13 @@
 6. [Setup Database Backup](#setup-database-backup)
 7. [Dozzle Authentication Setup](#dozzle-authentication-setup)
 8. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
+9. [Setup Immich](#setup-immich)
+   - [Directory Structure](#directory-structure-1)
+   - [Initial Setup](#initial-setup)
+   - [Immich Configuration](#immich-configuration)
+   - [Features](#features-1)
+   - [Resource Usage](#resource-usage)
+   - [Backup Considerations](#backup-considerations)
 
 ## TODOS
 
@@ -95,11 +102,12 @@ With Caddy already configured, we should then be fully set up.
 
 The following secrets are required to run the HomeLab:
 
-| Name            | Description                   | Example                                |
-| --------------- | ----------------------------- | -------------------------------------- |
-| `DUCKDNS_TOKEN` | DuckDNS token                 | `12345678-1234-1234-1234-1234567890ab` |
-| `DB_HOST`       | MySQL server host for backups | `5.75.178.196`                         |
-| `DB_ROOT_PW`    | MySQL root password           | `your-secure-password`                 |
+| Name                   | Description                   | Example                                |
+| ---------------------- | ----------------------------- | -------------------------------------- |
+| `DUCKDNS_TOKEN`        | DuckDNS token                 | `12345678-1234-1234-1234-1234567890ab` |
+| `DB_HOST`              | MySQL server host for backups | `5.75.178.196`                         |
+| `DB_ROOT_PW`           | MySQL root password           | `your-secure-password`                 |
+| `POSTGRES_DB_PASSWORD` | Immich Postgres password      | `your-secure-postgres-password`        |
 
 ## Setup Guide
 
@@ -886,3 +894,69 @@ The backup file is automatically included in your configured Duplicati backups o
 
 - Calibre: 8085 (internal: 8080)
 - Calibre-Web: 8083
+
+## Setup Immich
+
+[Immich](https://immich.app/) is a self-hosted photo and video backup solution designed to be a Google Photos alternative.
+
+### Directory Structure
+
+1. Create necessary directories for Immich:
+
+   ```bash
+   # Create immich directories
+   mkdir -p /home/jkrumm/ssd/SSD/Bilder/immich/{upload,postgres}
+   sudo chown -R 1000:1000 /home/jkrumm/ssd/SSD/Bilder/immich
+   sudo chmod -R 755 /home/jkrumm/ssd/SSD/Bilder/immich
+   ```
+
+### Initial Setup
+
+1. Make sure the POSTGRES_DB_PASSWORD is set in Doppler
+
+2. Start the Immich services using Docker Compose:
+
+   ```bash
+   doppler run -- docker compose up -d
+   ```
+
+3. Access Immich at `https://immich.jkrumm.dev`
+
+4. On first access, you will need to create an admin account:
+   - Enter a valid email address
+   - Create a secure password
+   - Enter your name
+
+### Immich Configuration
+
+1. **Import Settings:** After logging in, go to Administration > Import Settings and configure:
+
+   - Enable background jobs
+   - Set concurrent batch size (recommended 5-10)
+   - Configure asset upload path (defaults to `/usr/src/app/upload`)
+
+2. **Machine Learning:** Go to Administration > Machine Learning:
+
+   - Verify that the machine learning service is connected
+   - Enable Smart Search and People Recognition as needed
+
+### Features
+
+- Mobile apps for iOS and Android
+- Automatic backup when connected to WiFi
+- AI-powered object and face recognition
+- Geolocation support and map view
+- Timeline and album view
+- Shared albums and partner access
+- Multi-user support with admin controls
+
+### Resource Usage
+
+- Database size will grow over time with your photo collection
+- ML model caching requires additional space
+
+### Backup Considerations
+
+1. Duplicati should already include the immich directory for backups
+
+2. Consider monitoring SSD space using Beszel as your photo collection grows
