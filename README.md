@@ -910,6 +910,37 @@ The backup file is automatically included in your configured Duplicati backups o
    sudo chmod -R 755 /home/jkrumm/ssd/SSD/Bilder/immich
    ```
 
+### Hardware Acceleration Prerequisites
+
+1. Install required packages for Intel GPU support:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y intel-media-va-driver i965-va-driver vainfo
+   ```
+
+2. Verify GPU detection:
+
+   ```bash
+   vainfo
+   ```
+
+   This should show information about your Intel GPU capabilities.
+
+3. Add your user to the required groups:
+
+   ```bash
+   sudo usermod -aG video,render jkrumm
+   ```
+
+4. Verify device permissions:
+
+   ```bash
+   ls -la /dev/dri
+   ```
+
+   Make sure the devices are accessible to the video and render groups.
+
 ### Initial Setup
 
 1. Make sure the POSTGRES_DB_PASSWORD is set in Doppler
@@ -939,6 +970,20 @@ The backup file is automatically included in your configured Duplicati backups o
 
    - Verify that the machine learning service is connected
    - Enable Smart Search and People Recognition as needed
+
+3. **Hardware Acceleration:** The system is configured with hardware acceleration for better performance:
+
+   - **Video Transcoding:** Uses Intel Quick Sync Video via the integrated GPU
+   - **Machine Learning:** Uses OpenVINO for accelerated AI processing
+   - To verify hardware acceleration is working:
+
+     ```bash
+     # Check container logs for transcoding hardware detection
+     docker logs immich_server | grep -i 'hardware'
+
+     # Check machine learning container for OpenVINO initialization
+     docker logs immich_machine_learning | grep -i 'openvino'
+     ```
 
 ### Features
 

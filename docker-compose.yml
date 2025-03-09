@@ -254,6 +254,9 @@ services:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:release
     restart: unless-stopped
+    extends:
+      file: hwaccel.transcoding.yml
+      service: quicksync
     volumes:
       - /home/jkrumm/ssd/SSD/Bilder/immich/upload:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
@@ -278,8 +281,11 @@ services:
 
   immich-machine-learning:
     container_name: immich_machine_learning
-    image: ghcr.io/immich-app/immich-machine-learning:release
+    image: ghcr.io/immich-app/immich-machine-learning:release-openvino
     restart: unless-stopped
+    extends:
+      file: hwaccel.ml.yml
+      service: openvino
     volumes:
       - model-cache:/cache
     environment:
