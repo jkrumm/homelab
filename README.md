@@ -51,7 +51,7 @@
   - Update Caddy config on both ends
 - [ ] Get Dozzle Logs from SideprojectDockerStack
 - [ ] Get Beszel stats from SideprojectDockerStack
-- [ ] Fail2Ban for SSH, Jellyfin, Samba, MariaDB
+- [ ] Fail2Ban for SSH, Jellyfin, Samba, Immich, MariaDB
 - [ ] Move SnowFinder App to the server
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev
 
@@ -680,10 +680,22 @@ navigation.
        - Destination: /source/mnt/transfer/duplicati_backups/SSD/
        - Source: /source/ssd/SSD/
        - Config: 100 MByte and intelligent persistence
+       - IGNORE:
+         - /source/ssd/SSD/Bilder/immich/upload/library 
+         - /source/ssd/SSD/Bilder/immich/postgres 
+         - /source/ssd/SSD/Bilder/immich/upload/encoded-video 
+         - /source/ssd/SSD/Bilder/immich/upload/profile 
+         - /source/ssd/SSD/Bilder/immich/upload/thumbs
      - SSD OneDrive at 03:30
        - Destination: jkrumm_duplicati_ssd
        - Source: /source/ssd/SSD/
        - Config: 50 MByte and intelligent persistence
+       - IGNORE:
+           - /source/ssd/SSD/Bilder/immich/upload/library
+           - /source/ssd/SSD/Bilder/immich/postgres
+           - /source/ssd/SSD/Bilder/immich/upload/encoded-video
+           - /source/ssd/SSD/Bilder/immich/upload/profile
+           - /source/ssd/SSD/Bilder/immich/upload/thumbs
    - HDD
      - HDD LOCAL at 02:30
        - Destination: /source/mnt/transfer/duplicati_backups/HDD/
@@ -1030,48 +1042,11 @@ For more detailed information about Kobo sync setup and troubleshooting, refer t
 
 ### Immich Configuration
 
-1. **Import Settings:** After logging in, go to Administration > Import Settings and configure:
-
-   - Enable background jobs
-   - Set concurrent batch size (recommended 5-10)
-   - Configure asset upload path (defaults to `/usr/src/app/upload`)
-
-2. **Machine Learning:** Go to Administration > Machine Learning:
-
+1. **Machine Learning:** Go to Administration > Machine Learning:
    - Verify that the machine learning service is connected
    - Enable Smart Search and People Recognition as needed
 
-3. **Hardware Acceleration:** The system is configured with hardware acceleration for better performance:
-
+2. **Hardware Acceleration:** The system is configured with hardware acceleration for better performance:
    - **Video Transcoding:** Uses Intel Quick Sync Video via the integrated GPU
    - **Machine Learning:** Uses OpenVINO for accelerated AI processing
    - To verify hardware acceleration is working:
-
-     ```bash
-     # Check container logs for transcoding hardware detection
-     docker logs immich_server | grep -i 'hardware'
-
-     # Check machine learning container for OpenVINO initialization
-     docker logs immich_machine_learning | grep -i 'openvino'
-     ```
-
-### Features
-
-- Mobile apps for iOS and Android
-- Automatic backup when connected to WiFi
-- AI-powered object and face recognition
-- Geolocation support and map view
-- Timeline and album view
-- Shared albums and partner access
-- Multi-user support with admin controls
-
-### Resource Usage
-
-- Database size will grow over time with your photo collection
-- ML model caching requires additional space
-
-### Backup Considerations
-
-1. Duplicati should already include the immich directory for backups
-
-2. Consider monitoring SSD space using Beszel as your photo collection grows
