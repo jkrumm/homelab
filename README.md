@@ -43,7 +43,12 @@
 - [x] Configure FPP database backup
 - [x] Setup Dozzle for Docker logs
 - [x] Setup Calibre and Calibre-Web
-- [ ] Setup Kobo sync with Calibre https://code.mendhak.com/kobo-customizations/
+- [x] Setup Kobo sync with Calibre https://code.mendhak.com/kobo-customizations/
+- [ ] Setup VPS as IPv4 proxy for Kobo sync:
+  - Use VPS with IPv4 as reverse proxy
+  - Forward traffic to HomeLab IPv6
+  - Configure Kobo to use VPS IPv4 address
+  - Update Caddy config on both ends
 - [ ] Get Dozzle Logs from SideprojectDockerStack
 - [ ] Get Beszel stats from SideprojectDockerStack
 - [ ] Fail2Ban for SSH, Jellyfin, Samba, MariaDB
@@ -875,6 +880,81 @@ The backup file is automatically included in your configured Duplicati backups o
    - Choose a different format
    - If conversion works, the binaries are correctly configured
 
+### Kobo Sync Setup
+
+Due to IPv6-only connectivity (DS-Lite) from the ISP and Kobo's limited IPv6 support, we need a specific setup for Kobo sync to work properly.
+
+#### Calibre-Web Configuration
+
+1. Enable Kobo Sync in Admin Settings:
+
+   - Go to Admin > Configuration > Edit Basic Configuration
+   - Expand "Feature Configuration"
+   - Enable "Kobo sync"
+   - Enable "Proxy unknown requests to Kobo Store"
+   - Set "Server External Port" to match Calibre-Web's port (8083)
+
+2. Configure User Settings:
+   - Go to your user profile
+   - Enable "Sync only books in selected shelves with Kobo" (recommended)
+   - Create and configure shelves for syncing:
+     - Click "Create a Shelf"
+     - Name your shelf (e.g., "Fantasy", "Science", etc.)
+     - Check "Sync this shelf with Kobo device"
+   - Click "Create/View" under "Kobo Sync Token"
+   - Copy the generated API endpoint URL
+
+#### Kobo Device Configuration
+
+1. Connect Kobo to Computer:
+
+   - Connect via USB
+   - Enable connection on Kobo screen
+   - Access Kobo's root directory
+
+2. Edit Configuration File:
+
+   ```bash
+   # Navigate to the hidden .kobo folder
+   cd .kobo/Kobo/
+   # Backup original config
+   cp "Kobo eReader.conf" "Kobo eReader.conf.backup"
+   # Edit the config file
+   vim "Kobo eReader.conf"
+   ```
+
+3. Update API Endpoint:
+
+   - Find the [OneStoreServices] section
+   - Replace or add the api_endpoint line:
+
+   ```ini
+   api_endpoint=http://192.168.1.100:8083/kobo/YOURTOKEN
+   ```
+
+   - Use your local IPv4 address instead of the domain due to IPv6 limitations
+   - Replace YOURTOKEN with your actual token from Calibre-Web
+
+4. Sync Your Device:
+   - Safely eject the Kobo
+   - On the Kobo home screen, tap the Sync icon
+   - First sync may take longer as it builds the database
+
+#### Known Limitations
+
+1. IPv6 Connectivity:
+
+   - Our setup uses local IPv4 addressing due to Kobo's limited IPv6 support
+   - External access through books.jkrumm.dev won't work for Kobo sync
+   - This is a limitation of DS-Lite internet connection and Kobo's networking capabilities
+
+2. Store Integration:
+   - Book covers in Kobo Store may show as generic white pages
+   - Overdrive section might have missing covers
+   - These are known limitations of the sync implementation
+
+For more detailed information about Kobo sync setup and troubleshooting, refer to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo-sync-with-calibre-web/).
+
 ### Features
 
 - Calibre provides full library management capabilities
@@ -883,17 +963,7 @@ The backup file is automatically included in your configured Duplicati backups o
 - Automatic updates via Watchtower
 - Monitoring via Glance dashboard
 - Reverse proxy through Caddy with automatic HTTPS
-
-### Security Notes
-
-- Both services run with PUID=1000 and PGID=1000
-- Calibre requires seccomp=unconfined for proper GUI operation
-- All configurations are backed up via Duplicati
-
-### Ports Used
-
-- Calibre: 8085 (internal: 8080)
-- Calibre-Web: 8083
+- All configurations and library are backed up via Duplicati
 
 ## Setup Immich
 
