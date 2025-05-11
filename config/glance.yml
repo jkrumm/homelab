@@ -26,7 +26,7 @@ pages:
           - type: custom-api
             title: Immich stats
             cache: 1d
-            url: https://immich.jkrumm.dev/api/server/statistics
+            url: localhost:2283/api/server/statistics
             headers:
               x-api-key: ${IMMICH_API_KEY}
               Accept: application/json
