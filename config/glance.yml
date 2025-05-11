@@ -26,7 +26,7 @@ pages:
           - type: custom-api
             title: Immich stats
             cache: 1d
-            url: http://localhost:2283/api/server/statistics
+            url: http://immich_server:2283/api/server/statistics
             headers:
               x-api-key: ${IMMICH_API_KEY}
               Accept: application/json
