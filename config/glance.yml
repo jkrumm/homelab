@@ -83,7 +83,7 @@ pages:
                 {{ $hbArray := $hb.JSON.Array (print "heartbeatList." $id) }}
                 {{ $latest := index $hbArray (toInt (sub ((len $hbArray) | toFloat) 1)) }}
                 <div class="flex items-center gap-12">
-                  <a class="size-title-dynamic color-highlight text-truncate block grow" href="${UPTIME_KUMA_URL}/dashboard/{{ $id }}"
+                  <a class="size-title-dynamic color-highlight text-truncate block grow" href="https://uptime.jkrumm.dev//dashboard/{{ $id }}"
                     target="_blank" rel="noreferrer">
                     {{ .String "name" }} </a>
                   {{ if eq ($latest.Int "status") 1 }}
