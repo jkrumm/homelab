@@ -23,6 +23,29 @@ pages:
                   "/mnt/hdd":
                     name: HDD
 
+          - type: custom-api
+            title: Immich stats
+            cache: 1d
+            url: https://immich.jkrumm.dev/api/server/statistics
+            headers:
+              x-api-key: ${IMMICH_API_KEY}
+              Accept: application/json
+            template: |
+              <div class="flex justify-between text-center">
+                <div>
+                    <div class="color-highlight size-h3">{{ .JSON.Int "photos" | formatNumber }}</div>
+                    <div class="size-h6">PHOTOS</div>
+                </div>
+                <div>
+                    <div class="color-highlight size-h3">{{ .JSON.Int "videos" | formatNumber }}</div>
+                    <div class="size-h6">VIDEOS</div>
+                </div>
+                <div>
+                    <div class="color-highlight size-h3">{{ div (.JSON.Int "usage" | toFloat) 1073741824 | toInt | formatNumber }}GB</div>
+                    <div class="size-h6">USAGE</div>
+                </div>
+              </div>
+
           - type: monitor
             title: Apps
             cache: 1m
@@ -137,15 +160,23 @@ pages:
               - mietzen/porkbun-ddns
               - louislam/uptime-kuma
 
-  - name: Beszel
+  - name: TradingView
     columns:
       - size: full
         widgets:
           - type: iframe
-            source: https://beszel.jkrumm.dev/system/HomeLab
+            source: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3ABTCUSD
             height: 1200
 
   - name: FPP Analytics
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://free-planning-poker.com/analytics
+            height: 1200
+
+  - name: Status
     columns:
       - size: full
         widgets:
