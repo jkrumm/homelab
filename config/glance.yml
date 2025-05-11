@@ -62,10 +62,10 @@ pages:
           - type: custom-api
             title: Uptime Kuma
             title-url: https://uptime.jkrumm.dev/
-            url: https://uptime-kuma:3001/api/status-page/jkrumm
+            url: http://uptime-kuma:3001/api/status-page/jkrumm
             subrequests:
               heartbeats:
-                url: https://uptime-kuma:3001/api/status-page/jkrumm
+                url: http://uptime-kuma:3001/api/status-page/jkrumm
             cache: 10m
             template: |
               {{ $hb := .Subrequest "heartbeats" }}
