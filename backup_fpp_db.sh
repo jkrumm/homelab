@@ -48,7 +48,7 @@ perform_backup() {
     START_DATETIME=$(date '+%Y-%m-%d %H:%M:%S')
     
     echo "Backup started at $START_DATETIME"
-    echo "Connecting to MySQL server at $DB_HOST:3306..."
+    echo "Connecting to MySQL server at $DB_HOST:33306..."
     
     mysqldump \
         --result-file="$BACKUP_FILE" \
@@ -60,7 +60,7 @@ perform_backup() {
         --column-statistics=0 \
         --add-drop-table \
         --host="$DB_HOST" \
-        --port=3306 \
+        --port=33306 \
         --user=root \
         --password="$DB_ROOT_PW" \
         free-planning-poker
