@@ -26,7 +26,7 @@ readonly HOMELAB_DIR="/home/jkrumm/homelab"
 readonly HEALTH_CHECK_TIMEOUT=30
 readonly DOCKER_RESTART_WAIT=120
 readonly INTERNET_CHECK_TIMEOUT=20
-readonly FRITZBOX_REBOOT_WAIT=180
+readonly FRITZBOX_REBOOT_WAIT=300
 
 # Create directories with proper permissions
 mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$LOG_FILE")"
@@ -382,67 +382,177 @@ reboot_system() {
 }
 
 # --------------------------------------------------
-# Main recovery logic with graduated escalation
+# Intelligent failure analysis and targeted recovery
 # --------------------------------------------------
-handle_failure() {
+analyze_failure_and_recover() {
+    log "=== Analyzing failure pattern for targeted recovery ==="
+
+    # Re-run individual checks to understand the failure scope
+    local internet_ok=false
+    local external_ok=false
+    local internal_ok=false
+    local docker_ok=false
+
+    if check_internet_connectivity; then
+        internet_ok=true
+    fi
+
+    if check_external_monitor; then
+        external_ok=true
+    fi
+
+    if check_internal_monitor; then
+        internal_ok=true
+    fi
+
+    if check_docker_health; then
+        docker_ok=true
+    fi
+
     local current_state
     current_state=$(get_current_state)
-    
-    # Ensure current_state is a valid number
+
+    # Ensure current_state is valid
     if [[ ! "$current_state" =~ ^[0-4]$ ]]; then
-        log "Invalid state detected: '$current_state', resetting to 0"
         current_state=0
         set_state 0
     fi
 
+    log "Failure analysis: Internet=$internet_ok, External=$external_ok, Internal=$internal_ok, Docker=$docker_ok"
     log "Current escalation state: $current_state"
 
+    # Smart recovery logic based on failure pattern
+    if ! $internet_ok; then
+        # No internet = network issue, try Fritz!Box restart first
+        log "🔍 DIAGNOSIS: Internet connectivity failure - network issue likely"
+
+        case "$current_state" in
+            0|1)
+                log "RECOVERY ACTION: Restarting Fritz!Box (network-focused)"
+                notify "🌐 Network Issue" "Internet down - restarting Fritz!Box"
+
+                if restart_fritzbox; then
+                    notify "✅ Network Restored" "Fritz!Box restart resolved internet issue"
+                    set_state 0
+                    return 0
+                else
+                    set_state 2
+                    return 1
+                fi
+                ;;
+            2)
+                log "RECOVERY ACTION: Restarting network interface"
+                notify "🔄 Network Interface" "Fritz!Box restart failed - trying network interface"
+
+                if restart_network_interface; then
+                    notify "✅ Network Restored" "Network interface restart resolved the issue"
+                    set_state 0
+                    return 0
+                else
+                    set_state 4
+                    return 1
+                fi
+                ;;
+            *)
+                log "RECOVERY ACTION: System reboot (network recovery exhausted)"
+                notify "🚨 Network Critical" "All network recovery methods failed - system reboot"
+                reboot_system
+                ;;
+        esac
+
+    elif $internet_ok && ! $docker_ok; then
+        # Internet OK but Docker problems = service issue
+        log "🔍 DIAGNOSIS: Docker service failure - containers down"
+
+        case "$current_state" in
+            0|1)
+                log "RECOVERY ACTION: Restarting Docker services"
+                notify "🐳 Docker Issue" "Containers down - restarting Docker services"
+
+                if restart_docker_services; then
+                    notify "✅ Services Restored" "Docker restart resolved container issues"
+                    set_state 0
+                    return 0
+                else
+                    set_state 3
+                    return 1
+                fi
+                ;;
+            3)
+                log "RECOVERY ACTION: Aggressive Docker cleanup"
+                notify "🔄 Deep Docker Cleanup" "Standard restart failed - performing deep cleanup"
+
+                if force_docker_cleanup; then
+                    notify "✅ Services Restored" "Docker cleanup resolved the issue"
+                    set_state 0
+                    return 0
+                else
+                    set_state 4
+                    return 1
+                fi
+                ;;
+            *)
+                log "RECOVERY ACTION: System reboot (Docker recovery exhausted)"
+                notify "🚨 Docker Critical" "All Docker recovery methods failed - system reboot"
+                reboot_system
+                ;;
+        esac
+
+    elif $internet_ok && $docker_ok && (! $external_ok || ! $internal_ok); then
+        # Local services OK but monitoring reports issues = possible network routing or service accessibility
+        log "🔍 DIAGNOSIS: Monitoring discrepancy - services running but not accessible"
+
+        case "$current_state" in
+            0|1)
+                log "RECOVERY ACTION: Light Docker restart (fix service accessibility)"
+                notify "🔄 Service Access" "Services running but not accessible - restarting containers"
+
+                if restart_docker_services; then
+                    notify "✅ Access Restored" "Service accessibility restored"
+                    set_state 0
+                    return 0
+                else
+                    set_state 2
+                    return 1
+                fi
+                ;;
+            2)
+                log "RECOVERY ACTION: Network interface restart (fix routing)"
+                notify "🔄 Network Routing" "Restarting network interface to fix routing"
+
+                if restart_network_interface; then
+                    notify "✅ Routing Fixed" "Network routing restored"
+                    set_state 0
+                    return 0
+                else
+                    set_state 3
+                    return 1
+                fi
+                ;;
+            *)
+                log "RECOVERY ACTION: Escalated recovery"
+                return escalated_recovery
+                ;;
+        esac
+
+    else
+        # Multiple or complex failure = escalated response
+        log "🔍 DIAGNOSIS: Complex failure pattern - using escalated recovery"
+        return escalated_recovery
+    fi
+}
+
+escalated_recovery() {
+    local current_state
+    current_state=$(get_current_state)
+
     case "$current_state" in
-        0)  # Level 1: Fritz!Box restart (network issues are often root cause)
-            log "ESCALATION LEVEL 1: Restarting Fritz!Box"
-            notify "🔄 Network Recovery" "Restarting Fritz!Box (Level 1/5)"
-
-            if restart_fritzbox; then
-                notify "✅ Recovery Success" "Fritz!Box restart resolved the issue"
-                set_state 0
-                return 0
-            else
-                set_state 1
-                return 1
-            fi
-            ;;
-        1)  # Level 2: Docker services restart
-            log "ESCALATION LEVEL 2: Restarting Docker services"
-            notify "🔄 Service Recovery" "Restarting Docker services (Level 2/5)"
-
-            if restart_docker_services; then
-                notify "✅ Recovery Success" "Docker restart resolved the issue"
-                set_state 0
-                return 0
-            else
-                set_state 2
-                return 1
-            fi
-            ;;
-        2)  # Level 3: Network interface restart
-            log "ESCALATION LEVEL 3: Restarting network interface"
-            notify "🔄 Network Interface" "Restarting network interface (Level 3/5)"
-
-            if restart_network_interface; then
-                notify "✅ Recovery Success" "Network interface restart resolved the issue"
-                set_state 0
-                return 0
-            else
-                set_state 3
-                return 1
-            fi
-            ;;
-        3)  # Level 4: Aggressive Docker cleanup
-            log "ESCALATION LEVEL 4: Force Docker restart with cleanup"
-            notify "🔄 Deep Cleanup" "Force Docker cleanup and restart (Level 4/5)"
+        3)
+            log "ESCALATION: Force Docker cleanup and restart"
+            notify "🔄 Deep Cleanup" "Complex failure - performing deep Docker cleanup"
 
             if force_docker_cleanup; then
-                notify "✅ Recovery Success" "Docker cleanup resolved the issue"
+                notify "✅ System Recovered" "Deep cleanup resolved complex issues"
                 set_state 0
                 return 0
             else
@@ -450,15 +560,24 @@ handle_failure() {
                 return 1
             fi
             ;;
-        4)  # Level 5: System reboot (last resort)
-            log "ESCALATION LEVEL 5: System reboot (last resort)"
-            notify "🚨 CRITICAL" "System reboot initiated - all other methods failed"
+        4)
+            log "ESCALATION: System reboot (last resort)"
+            notify "🚨 CRITICAL" "System reboot - all recovery methods exhausted"
             reboot_system
             ;;
-        *)  # Invalid state - reset to 0
-            log "Invalid escalation state: $current_state, resetting to 0"
-            set_state 0
-            return 1
+        *)
+            # Start escalated recovery
+            log "ESCALATION: Starting with Fritz!Box restart"
+            notify "🔄 Complex Recovery" "Complex failure detected - starting systematic recovery"
+
+            if restart_fritzbox; then
+                notify "✅ Network Reset" "Fritz!Box restart helped with complex issue"
+                set_state 0
+                return 0
+            else
+                set_state 3
+                return 1
+            fi
             ;;
     esac
 }
@@ -552,7 +671,7 @@ main() {
         log "=== HomeLab WatchDog completed successfully ==="
     else
         log "=== System failures detected - initiating recovery ==="
-        if handle_failure; then
+        if analyze_failure_and_recover; then
             log "=== Recovery successful ==="
         else
             log "=== Recovery failed - escalation continues ==="
