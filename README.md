@@ -5,28 +5,28 @@
 1. [TODOs](#todos)
 2. [Doppler Secrets](#doppler-secrets)
 3. [Setup Guide](#setup-guide)
-   - [Install Ubuntu Server](#install-ubuntu-server)
-   - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
-   - [Connect to the Server](#connect-to-the-server)
-   - [Configure Doppler](#configure-doppler)
+    - [Install Ubuntu Server](#install-ubuntu-server)
+    - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
+    - [Connect to the Server](#connect-to-the-server)
+    - [Configure Doppler](#configure-doppler)
 4. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
-   - [Prerequisites](#prerequisites)
-   - [Step-by-Step Configuration](#step-by-step-configuration)
+    - [Prerequisites](#prerequisites)
+    - [Step-by-Step Configuration](#step-by-step-configuration)
 5. [Enable Jellyfin](#enable-jellyfin)
-   - [Prepare Docker Compose](#prepare-docker-compose)
-   - [Start Jellyfin](#start-jellyfin)
-   - [Enable Jellyfin SSH](#enable-jellyfin-ssh)
-   - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
+    - [Prepare Docker Compose](#prepare-docker-compose)
+    - [Start Jellyfin](#start-jellyfin)
+    - [Enable Jellyfin SSH](#enable-jellyfin-ssh)
+    - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
 6. [Setup Database Backup](#setup-database-backup)
 7. [Dozzle Authentication Setup](#dozzle-authentication-setup)
 8. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
 9. [Setup Immich](#setup-immich)
-   - [Directory Structure](#directory-structure-1)
-   - [Initial Setup](#initial-setup)
-   - [Immich Configuration](#immich-configuration)
-   - [Features](#features-1)
-   - [Resource Usage](#resource-usage)
-   - [Backup Considerations](#backup-considerations)
+    - [Directory Structure](#directory-structure-1)
+    - [Initial Setup](#initial-setup)
+    - [Immich Configuration](#immich-configuration)
+    - [Features](#features-1)
+    - [Resource Usage](#resource-usage)
+    - [Backup Considerations](#backup-considerations)
 
 ## TODOS
 
@@ -45,15 +45,20 @@
 - [x] Setup Calibre and Calibre-Web
 - [x] Setup Kobo sync with Calibre https://code.mendhak.com/kobo-customizations/
 - [ ] Setup VPS as IPv4 proxy for Kobo sync:
-  - Use VPS with IPv4 as reverse proxy
-  - Forward traffic to HomeLab IPv6
-  - Configure Kobo to use VPS IPv4 address
-  - Update Caddy config on both ends
+    - Use VPS with IPv4 as reverse proxy
+    - Forward traffic to HomeLab IPv6
+    - Configure Kobo to use VPS IPv4 address
+    - Update Caddy config on both ends
 - [ ] Get Dozzle Logs from SideprojectDockerStack
 - [ ] Get Beszel stats from SideprojectDockerStack
 - [ ] Fail2Ban for SSH, Jellyfin, Samba, Immich, MariaDB
-- [ ] Move SnowFinder App to the server
-- [ ] Plausible for analytics of SnowFinder and jkrumm.dev
+- [ ] Plausible for analytics of SnowFinder and jkrumm.dev and photos.jkrumm.dev
+- [ ] Selfhealing
+    - [ ] Restart Fritzbox in case it has no connection to interent
+    - [ ] Restart Docker containers in case Jellyfin login is not working from outside (Better Uptime)
+    - [ ] Restart HomeLab incase internet connection etc still not possible
+- [ ] Backup files in clear to Backblaze not SharePoint encrypted
+- [ ] Backup my Photoflow images to HomeLab and there to Backblaze
 
 ## Dozzle Authentication Setup
 
@@ -79,9 +84,9 @@ To enable authentication for Dozzle:
 
 3. The docker-compose.yml is already configured with:
 
-   - Simple authentication enabled
-   - 48-hour login session
-   - Volume mount for users.yml
+    - Simple authentication enabled
+    - 48-hour login session
+    - Volume mount for users.yml
 
 4. After making these changes, restart Dozzle:
    ```bash
@@ -108,7 +113,7 @@ With Caddy already configured, we should then be fully set up.
 The following secrets are required to run the HomeLab:
 
 | Name                   | Description                   | Example                                |
-| ---------------------- | ----------------------------- | -------------------------------------- |
+|------------------------|-------------------------------|----------------------------------------|
 | `DUCKDNS_TOKEN`        | DuckDNS token                 | `12345678-1234-1234-1234-1234567890ab` |
 | `DB_HOST`              | MySQL server host for backups | `5.75.178.196`                         |
 | `DB_ROOT_PW`           | MySQL root password           | `your-secure-password`                 |
@@ -122,12 +127,12 @@ The following secrets are required to run the HomeLab:
 2. Create a bootable USB drive using [Rufus](https://rufus.ie/) or [Balena Etcher](https://www.balena.io/etcher/).
 3. Boot from the USB drive and install Ubuntu Server.
 4. Follow the on-screen instructions to complete the installation:
-   - Hostname: homelab
-   - Username: jkrumm
-   - Password: Use a strong password
-   - Partitioning: Use the entire disk and set up LVM
-   - Software selection: OpenSSH server, standard system utilities
-   - Additional packages: Install security updates automatically
+    - Hostname: homelab
+    - Username: jkrumm
+    - Password: Use a strong password
+    - Partitioning: Use the entire disk and set up LVM
+    - Software selection: OpenSSH server, standard system utilities
+    - Additional packages: Install security updates automatically
 5. Reboot the server and log in using the credentials you created during the installation.
 6. Update the system using the following commands:
    ```bash
@@ -520,30 +525,30 @@ Access the Jellyfin web interface:
 
 - Open a web browser and navigate to `http://<your-server-ip>:8096`.
 - Follow the on-screen instructions to set up Jellyfin.
-  - Username: jkrumm
-  - Password: You can find the secret in 1Password
-  - Library:
-    - Set Language to English
-    - Refresh metadata every 30 days
-    - Save images in media folders
-    - No trickplay or chapter images
-    - Libraries:
-      - Movies -> /media/movies (Should be existent)
-      - Shows -> /media/shows (Should be existent)
-      - Kids -> /media/kids (Should be existent)
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password
+    - Library:
+        - Set Language to English
+        - Refresh metadata every 30 days
+        - Save images in media folders
+        - No trickplay or chapter images
+        - Libraries:
+            - Movies -> /media/movies (Should be existent)
+            - Shows -> /media/shows (Should be existent)
+            - Kids -> /media/kids (Should be existent)
 - Change "Anzeige" settings:
-  - Language: English
-  - Dates: German
+    - Language: English
+    - Dates: German
 - Change Home settings to remove Kids
 - Change Playback:
-  - Preferred Audio Language: English
+    - Preferred Audio Language: English
 - Change Subtitles:
-  - Subtitle mode: No
+    - Subtitle mode: No
 - Under Administration go to Playback:
-  - Transcoding:
-    - Enable hardware acceleration using Intel Quick Sync Video
-  - General:
-    - Rename the server to Jellyfin
+    - Transcoding:
+        - Enable hardware acceleration using Intel Quick Sync Video
+    - General:
+        - Rename the server to Jellyfin
 
 ### Enable Jellyfin Hardware Acceleration
 
@@ -619,13 +624,13 @@ navigation.
    sudo chmod -R 755 /mnt/ssd/samba
    ```
 2. Allow the Samba service through the router port forwarding.
-   - IPv6 only (IPv4 is not supported DSLite)
-   - Port: 445
-   - Protocol: TCP
+    - IPv6 only (IPv4 is not supported DSLite)
+    - Port: 445
+    - Protocol: TCP
 3. Access the Samba share using the following credentials:
-   - Host: `smb://[samba.jkrumm.dev]`
-   - Username: jkrumm
-   - Password: You can find the secret in 1Password and Doppler
+    - Host: `smb://[samba.jkrumm.dev]`
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password and Doppler
 
 ### Setup Beszel
 
@@ -638,9 +643,9 @@ navigation.
 2. Setup correct drives for SSD and HDD
 
 3. Access the Beszel server using the following credentials:
-   - Host: `https://beszel.jkrumm.dev`
-   - Username: jkrumm
-   - Password: You can find the secret in 1Password and Doppler
+    - Host: `https://beszel.jkrumm.dev`
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password and Doppler
 
 ### Setup UptimeKuma
 
@@ -670,43 +675,43 @@ navigation.
    ```
 3. Access the Duplicati server using the following credentials:
 
-   - Host: `https://duplicati.jkrumm.dev`
-   - Username: jkrumm
-   - Password: You can find the secret in 1Password and Doppler
+    - Host: `https://duplicati.jkrumm.dev`
+    - Username: jkrumm
+    - Password: You can find the secret in 1Password and Doppler
 
 4. Backups I run with Duplicati:
-   - SSD
-     - SSD LOCAL at 03:00
-       - Destination: /source/mnt/transfer/duplicati_backups/SSD/
-       - Source: /source/ssd/SSD/
-       - Config: 100 MByte and intelligent persistence
-       - IGNORE:
-         - /source/ssd/SSD/Bilder/immich/upload/library 
-         - /source/ssd/SSD/Bilder/immich/postgres 
-         - /source/ssd/SSD/Bilder/immich/upload/encoded-video 
-         - /source/ssd/SSD/Bilder/immich/upload/profile 
-         - /source/ssd/SSD/Bilder/immich/upload/thumbs
-     - SSD OneDrive at 03:30
-       - Destination: jkrumm_duplicati_ssd
-       - Source: /source/ssd/SSD/
-       - Config: 50 MByte and intelligent persistence
-       - IGNORE:
-           - /source/ssd/SSD/Bilder/immich/upload/library
-           - /source/ssd/SSD/Bilder/immich/postgres
-           - /source/ssd/SSD/Bilder/immich/upload/encoded-video
-           - /source/ssd/SSD/Bilder/immich/upload/profile
-           - /source/ssd/SSD/Bilder/immich/upload/thumbs
-   - HDD
-     - HDD LOCAL at 02:30
-       - Destination: /source/mnt/transfer/duplicati_backups/HDD/
-       - Source: /source/mnt/hdd/
-       - IGNORE: /source/mnt/hdd/Filme/
-       - Config: 100 MByte and intelligent persistence
-     - HDD OneDrive at 02:40
-       - Destination: jkrumm_duplicati_hdd
-       - Source: /source/mnt/hdd/
-       - IGNORE: /source/mnt/hdd/Filme/
-       - Config: 50 MByte and intelligent persistence
+    - SSD
+        - SSD LOCAL at 03:00
+            - Destination: /source/mnt/transfer/duplicati_backups/SSD/
+            - Source: /source/ssd/SSD/
+            - Config: 100 MByte and intelligent persistence
+            - IGNORE:
+                - /source/ssd/SSD/Bilder/immich/upload/library
+                - /source/ssd/SSD/Bilder/immich/postgres
+                - /source/ssd/SSD/Bilder/immich/upload/encoded-video
+                - /source/ssd/SSD/Bilder/immich/upload/profile
+                - /source/ssd/SSD/Bilder/immich/upload/thumbs
+        - SSD OneDrive at 03:30
+            - Destination: jkrumm_duplicati_ssd
+            - Source: /source/ssd/SSD/
+            - Config: 50 MByte and intelligent persistence
+            - IGNORE:
+                - /source/ssd/SSD/Bilder/immich/upload/library
+                - /source/ssd/SSD/Bilder/immich/postgres
+                - /source/ssd/SSD/Bilder/immich/upload/encoded-video
+                - /source/ssd/SSD/Bilder/immich/upload/profile
+                - /source/ssd/SSD/Bilder/immich/upload/thumbs
+    - HDD
+        - HDD LOCAL at 02:30
+            - Destination: /source/mnt/transfer/duplicati_backups/HDD/
+            - Source: /source/mnt/hdd/
+            - IGNORE: /source/mnt/hdd/Filme/
+            - Config: 100 MByte and intelligent persistence
+        - HDD OneDrive at 02:40
+            - Destination: jkrumm_duplicati_hdd
+            - Source: /source/mnt/hdd/
+            - IGNORE: /source/mnt/hdd/Filme/
+            - Config: 50 MByte and intelligent persistence
 
 ## Setup Database Backup
 
@@ -809,6 +814,72 @@ You can monitor the backup process by:
 
 The backup file is automatically included in your configured Duplicati backups of the HDD partition.
 
+## Setup HomeLab self healing watchdog
+
+1. The backup script is located in the repository at `homelab_watchdog.sh`. Make it executable:
+
+   ```bash
+   chmod +x homelab_watchdog.sh
+   ```
+
+2. Create the log and state directories with proper permissions:
+```text
+/var/lib/ → stateful
+/var/log/ → logs
+/var/run/ → lock & pid
+```
+```bash
+# State + Queue
+sudo mkdir -p /var/lib/homelab_watchdog
+sudo touch /var/lib/homelab_watchdog/state
+sudo touch /var/lib/homelab_watchdog/pushover_queue
+sudo chown -R root:root /var/lib/homelab_watchdog
+sudo chmod 700 /var/lib/homelab_watchdog
+
+# Log
+sudo touch /var/log/homelab_watchdog.log
+sudo chown root:root /var/log/homelab_watchdog.log
+sudo chmod 644 /var/log/homelab_watchdog.log
+
+# Lockfile wird im Skript selbst erzeugt
+# -> kein manuelles Touch nötig, nur Verzeichnis sicherstellen
+sudo mkdir -p /var/run
+```
+
+3. Create and secure the credentials file:
+   ```bash
+   sudo bash -c 'cat > /root/.homelab-watchdog-credentials << EOL
+   BETTERSTACK_TOKEN=""
+   PUSHOVER_USER_KEY=""
+   PUSHOVER_API_TOKEN=""
+   FRITZ_USER=""
+   FRITZ_PASSWORD=""
+   EOL'
+   ```
+4. Secure the credentials file
+
+   ```bash
+   sudo chmod 600 /root/.homelab-watchdog-credentials
+   sudo chown root:root /root/.homelab-watchdog-credentials
+   ```
+
+5. Verify the security of the credentials file:
+
+   ```bash
+   # This should show only root can read/write the file
+   sudo ls -l /root/.homelab-watchdog-credentials
+   # Expected output: -rw------- 1 root root ...
+
+   # This should fail (permission denied) - confirming non-root users can't read it
+   cat /root/.homelab-watchdog-credentials
+   # Expected output: cat: /root/.homelab-watchdog-credentials: Permission denied
+   ```
+
+6. Test the self-healing script:
+   ```bash
+   sudo ./homelab_watchdog.sh
+   ```
+
 ## Setup Calibre and Calibre-Web
 
 ### Directory Structure
@@ -836,93 +907,95 @@ The backup file is automatically included in your configured Duplicati backups o
    ```
 
 3. Directory mappings in containers:
-   - Calibre sees:
-     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre/config`
-     - `/library` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
-   - Calibre-Web sees:
-     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre-web/config`
-     - `/books` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
+    - Calibre sees:
+        - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre/config`
+        - `/library` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
+    - Calibre-Web sees:
+        - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre-web/config`
+        - `/books` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
 
 ### Calibre Setup
 
 1. Access Calibre at `https://calibre.jkrumm.dev`
 2. Login with:
-   - Username: jkrumm
-   - Password: Set in `CALIBRE_PASSWORD` environment variable
+    - Username: jkrumm
+    - Password: Set in `CALIBRE_PASSWORD` environment variable
 3. During initial setup:
-   - When prompted for library location, set it to: `/library`
-   - This maps to `/home/jkrumm/ssd/SSD/Bücher/calibre/library` on your host system
-   - Do not use the default `/config/Calibre Library` path
+    - When prompted for library location, set it to: `/library`
+    - This maps to `/home/jkrumm/ssd/SSD/Bücher/calibre/library` on your host system
+    - Do not use the default `/config/Calibre Library` path
 4. Managing Books:
-   - Using Auto-Add folder:
-     - In Calibre, go to Preferences > Adding books
-     - Enable "Automatically add books" and set the folder to `/library/incoming`
-     - Now any books you place in `/home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming` will be automatically imported
-     - Calibre will move the books to the appropriate location in the library after import
-   - After adding books:
-     - Calibre will automatically fetch metadata
-     - You can edit metadata by selecting a book and clicking "Edit metadata"
-     - Configure metadata download sources in Preferences > Metadata download
-     - Books will be available in both Calibre and Calibre-Web
+    - Using Auto-Add folder:
+        - In Calibre, go to Preferences > Adding books
+        - Enable "Automatically add books" and set the folder to `/library/incoming`
+        - Now any books you place in `/home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming` will be automatically
+          imported
+        - Calibre will move the books to the appropriate location in the library after import
+    - After adding books:
+        - Calibre will automatically fetch metadata
+        - You can edit metadata by selecting a book and clicking "Edit metadata"
+        - Configure metadata download sources in Preferences > Metadata download
+        - Books will be available in both Calibre and Calibre-Web
 
 ### Calibre-Web Setup
 
 1. Access Calibre-Web at `https://books.jkrumm.dev`
 2. Initial setup:
-   - Default login: admin/admin123
-   - Change the admin password immediately
-   - Set library path to: `/books`
-   - This will use the same library that you manage with Calibre
+    - Default login: admin/admin123
+    - Change the admin password immediately
+    - Set library path to: `/books`
+    - This will use the same library that you manage with Calibre
 3. Configure Calibre Binaries:
-   - Go to Admin > Basic Configuration > External Binaries
-   - Set "Path to Calibre Binaries" to: `/usr/bin`
-   - Save the settings
-   - Features enabled by binaries:
-     - Ebook format conversion
-     - Metadata embedding
-     - Email sending with conversion
-     - Enhanced cover generation
+    - Go to Admin > Basic Configuration > External Binaries
+    - Set "Path to Calibre Binaries" to: `/usr/bin`
+    - Save the settings
+    - Features enabled by binaries:
+        - Ebook format conversion
+        - Metadata embedding
+        - Email sending with conversion
+        - Enhanced cover generation
 4. Additional Configuration:
-   - Set up user accounts and permissions under Admin > Users
-   - Calibre-Web uses the metadata that was fetched by Calibre
-   - No additional metadata configuration needed as this is handled by Calibre
+    - Set up user accounts and permissions under Admin > Users
+    - Calibre-Web uses the metadata that was fetched by Calibre
+    - No additional metadata configuration needed as this is handled by Calibre
 5. Test Format Conversion:
-   - Select any book
-   - Click on "Convert" button
-   - Choose a different format
-   - If conversion works, the binaries are correctly configured
+    - Select any book
+    - Click on "Convert" button
+    - Choose a different format
+    - If conversion works, the binaries are correctly configured
 
 ### Kobo Sync Setup
 
-Due to IPv6-only connectivity (DS-Lite) from the ISP and Kobo's limited IPv6 support, we need a specific setup for Kobo sync to work properly.
+Due to IPv6-only connectivity (DS-Lite) from the ISP and Kobo's limited IPv6 support, we need a specific setup for Kobo
+sync to work properly.
 
 #### Calibre-Web Configuration
 
 1. Enable Kobo Sync in Admin Settings:
 
-   - Go to Admin > Configuration > Edit Basic Configuration
-   - Expand "Feature Configuration"
-   - Enable "Kobo sync"
-   - Enable "Proxy unknown requests to Kobo Store"
-   - Set "Server External Port" to match Calibre-Web's port (8083)
+    - Go to Admin > Configuration > Edit Basic Configuration
+    - Expand "Feature Configuration"
+    - Enable "Kobo sync"
+    - Enable "Proxy unknown requests to Kobo Store"
+    - Set "Server External Port" to match Calibre-Web's port (8083)
 
 2. Configure User Settings:
-   - Go to your user profile
-   - Enable "Sync only books in selected shelves with Kobo" (recommended)
-   - Create and configure shelves for syncing:
-     - Click "Create a Shelf"
-     - Name your shelf (e.g., "Fantasy", "Science", etc.)
-     - Check "Sync this shelf with Kobo device"
-   - Click "Create/View" under "Kobo Sync Token"
-   - Copy the generated API endpoint URL
+    - Go to your user profile
+    - Enable "Sync only books in selected shelves with Kobo" (recommended)
+    - Create and configure shelves for syncing:
+        - Click "Create a Shelf"
+        - Name your shelf (e.g., "Fantasy", "Science", etc.)
+        - Check "Sync this shelf with Kobo device"
+    - Click "Create/View" under "Kobo Sync Token"
+    - Copy the generated API endpoint URL
 
 #### Kobo Device Configuration
 
 1. Connect Kobo to Computer:
 
-   - Connect via USB
-   - Enable connection on Kobo screen
-   - Access Kobo's root directory
+    - Connect via USB
+    - Enable connection on Kobo screen
+    - Access Kobo's root directory
 
 2. Edit Configuration File:
 
@@ -937,35 +1010,36 @@ Due to IPv6-only connectivity (DS-Lite) from the ISP and Kobo's limited IPv6 sup
 
 3. Update API Endpoint:
 
-   - Find the [OneStoreServices] section
-   - Replace or add the api_endpoint line:
+    - Find the [OneStoreServices] section
+    - Replace or add the api_endpoint line:
 
    ```ini
    api_endpoint=http://192.168.1.100:8083/kobo/YOURTOKEN
    ```
 
-   - Use your local IPv4 address instead of the domain due to IPv6 limitations
-   - Replace YOURTOKEN with your actual token from Calibre-Web
+    - Use your local IPv4 address instead of the domain due to IPv6 limitations
+    - Replace YOURTOKEN with your actual token from Calibre-Web
 
 4. Sync Your Device:
-   - Safely eject the Kobo
-   - On the Kobo home screen, tap the Sync icon
-   - First sync may take longer as it builds the database
+    - Safely eject the Kobo
+    - On the Kobo home screen, tap the Sync icon
+    - First sync may take longer as it builds the database
 
 #### Known Limitations
 
 1. IPv6 Connectivity:
 
-   - Our setup uses local IPv4 addressing due to Kobo's limited IPv6 support
-   - External access through books.jkrumm.dev won't work for Kobo sync
-   - This is a limitation of DS-Lite internet connection and Kobo's networking capabilities
+    - Our setup uses local IPv4 addressing due to Kobo's limited IPv6 support
+    - External access through books.jkrumm.dev won't work for Kobo sync
+    - This is a limitation of DS-Lite internet connection and Kobo's networking capabilities
 
 2. Store Integration:
-   - Book covers in Kobo Store may show as generic white pages
-   - Overdrive section might have missing covers
-   - These are known limitations of the sync implementation
+    - Book covers in Kobo Store may show as generic white pages
+    - Overdrive section might have missing covers
+    - These are known limitations of the sync implementation
 
-For more detailed information about Kobo sync setup and troubleshooting, refer to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo-sync-with-calibre-web/).
+For more detailed information about Kobo sync setup and troubleshooting, refer
+to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo-sync-with-calibre-web/).
 
 ### Features
 
@@ -979,7 +1053,8 @@ For more detailed information about Kobo sync setup and troubleshooting, refer t
 
 ## Setup Immich
 
-[Immich](https://immich.app/) is a self-hosted photo and video backup solution designed to be a Google Photos alternative.
+[Immich](https://immich.app/) is a self-hosted photo and video backup solution designed to be a Google Photos
+alternative.
 
 ### Directory Structure
 
@@ -1036,17 +1111,17 @@ For more detailed information about Kobo sync setup and troubleshooting, refer t
 3. Access Immich at `https://immich.jkrumm.dev`
 
 4. On first access, you will need to create an admin account:
-   - Enter a valid email address
-   - Create a secure password
-   - Enter your name
+    - Enter a valid email address
+    - Create a secure password
+    - Enter your name
 
 ### Immich Configuration
 
 1. **Machine Learning:** Go to Administration > Machine Learning:
-   - Verify that the machine learning service is connected
-   - Enable Smart Search and People Recognition as needed
+    - Verify that the machine learning service is connected
+    - Enable Smart Search and People Recognition as needed
 
 2. **Hardware Acceleration:** The system is configured with hardware acceleration for better performance:
-   - **Video Transcoding:** Uses Intel Quick Sync Video via the integrated GPU
-   - **Machine Learning:** Uses OpenVINO for accelerated AI processing
-   - To verify hardware acceleration is working:
+    - **Video Transcoding:** Uses Intel Quick Sync Video via the integrated GPU
+    - **Machine Learning:** Uses OpenVINO for accelerated AI processing
+    - To verify hardware acceleration is working:
