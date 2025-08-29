@@ -180,21 +180,54 @@ check_external_monitor() {
 
 check_internal_monitor() {
     log "Checking internal monitor (UptimeKuma)..."
-    
+
     local resp
     if ! resp=$(timeout "$HEALTH_CHECK_TIMEOUT" curl -s \
-                http://localhost:3010/api/status-page/homelab 2>/dev/null); then
+                http://localhost:3010/api/status-page/homelab-watchdog 2>/dev/null); then
         log "Failed to reach internal UptimeKuma API"
         return 1
     fi
-    
-    # Basic check for internal status - adjust based on your UptimeKuma setup
-    if echo "$resp" | grep -q '"status".*[12]' || echo "$resp" | grep -qi "up\|online\|ok"; then
-        log "UptimeKuma reports: HEALTHY"
-        return 0
-    else
-        log "UptimeKuma reports: UNHEALTHY"
+
+    # Check if we got a valid JSON response
+    if ! echo "$resp" | grep -q '"config".*"incident"'; then
+        log "Invalid response format from UptimeKuma API"
         return 1
+    fi
+
+    # Parse JSON response - check for incidents and maintenance
+    if command -v jq &>/dev/null; then
+        # Use jq for proper JSON parsing
+        local incident_status maintenance_count
+        incident_status=$(echo "$resp" | jq -r '.incident // "null"')
+        maintenance_count=$(echo "$resp" | jq -r '.maintenanceList | length')
+
+        if [[ "$incident_status" == "null" && "$maintenance_count" == "0" ]]; then
+            log "UptimeKuma reports: HEALTHY (no incidents or maintenance)"
+            return 0
+        else
+            if [[ "$incident_status" != "null" ]]; then
+                log "UptimeKuma reports: INCIDENT DETECTED"
+            fi
+            if [[ "$maintenance_count" != "0" ]]; then
+                log "UptimeKuma reports: MAINTENANCE ACTIVE ($maintenance_count items)"
+            fi
+            return 1
+        fi
+    else
+        # Fallback to grep if jq not available
+        if echo "$resp" | grep -q '"incident":null' && echo "$resp" | grep -q '"maintenanceList":\[\]'; then
+            log "UptimeKuma reports: HEALTHY (no incidents or maintenance)"
+            return 0
+        else
+            # Check what's wrong
+            if echo "$resp" | grep -vq '"incident":null'; then
+                log "UptimeKuma reports: INCIDENT DETECTED"
+            fi
+            if echo "$resp" | grep -vq '"maintenanceList":\[\]'; then
+                log "UptimeKuma reports: MAINTENANCE ACTIVE"
+            fi
+            return 1
+        fi
     fi
 }
 
