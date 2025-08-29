@@ -2,31 +2,44 @@
 
 ## Table of Contents
 
+## Table of Contents
+
 1. [TODOs](#todos)
-2. [Doppler Secrets](#doppler-secrets)
-3. [Setup Guide](#setup-guide)
+2. [Dozzle Authentication Setup](#dozzle-authentication-setup)
+3. [Subdomain](#subdomain)
+4. [Doppler Secrets](#doppler-secrets)
+5. [Setup Guide](#setup-guide)
     - [Install Ubuntu Server](#install-ubuntu-server)
     - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
     - [Connect to the Server](#connect-to-the-server)
     - [Configure Doppler](#configure-doppler)
-4. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
+6. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
     - [Prerequisites](#prerequisites)
     - [Step-by-Step Configuration](#step-by-step-configuration)
-5. [Enable Jellyfin](#enable-jellyfin)
+    - [Mount automatically with new systemd service](#mount-automatically-with-new-systemd-service)
+7. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
+8. [Enable Jellyfin](#enable-jellyfin)
+    - [Install Intel GPU Drivers](#install-intel-gpu-drivers)
     - [Prepare Docker Compose](#prepare-docker-compose)
     - [Start Jellyfin](#start-jellyfin)
-    - [Enable Jellyfin SSH](#enable-jellyfin-ssh)
     - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
-6. [Setup Database Backup](#setup-database-backup)
-7. [Dozzle Authentication Setup](#dozzle-authentication-setup)
-8. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
-9. [Setup Immich](#setup-immich)
+9. [Setup Samba](#setup-samba)
+10. [Setup Beszel](#setup-beszel)
+11. [Setup UptimeKuma](#setup-uptimekuma)
+12. [Setup Duplicati](#setup-duplicati)
+13. [Setup Database Backup](#setup-database-backup)
+14. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
+15. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
+    - [Directory Structure](#directory-structure)
+    - [Calibre Setup](#calibre-setup)
+    - [Calibre-Web Setup](#calibre-web-setup)
+    - [Kobo Sync Setup](#kobo-sync-setup)
+    - [Features](#features)
+16. [Setup Immich](#setup-immich)
     - [Directory Structure](#directory-structure-1)
+    - [Hardware Acceleration Prerequisites](#hardware-acceleration-prerequisites)
     - [Initial Setup](#initial-setup)
     - [Immich Configuration](#immich-configuration)
-    - [Features](#features-1)
-    - [Resource Usage](#resource-usage)
-    - [Backup Considerations](#backup-considerations)
 
 ## TODOS
 
@@ -53,10 +66,11 @@
 - [ ] Get Beszel stats from SideprojectDockerStack
 - [ ] Fail2Ban for SSH, Jellyfin, Samba, Immich, MariaDB
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev and photos.jkrumm.dev
-- [ ] Selfhealing
-    - [ ] Restart Fritzbox in case it has no connection to interent
-    - [ ] Restart Docker containers in case Jellyfin login is not working from outside (Better Uptime)
-    - [ ] Restart HomeLab incase internet connection etc still not possible
+- [x] Selfhealing
+    - [x] Restart Fritzbox in case it has no connection to interent
+    - [x] Restart Docker containers in case Containers not available
+    - [x] Restart HomeLab incase internet or container etc still not working
+    - [x] Report using Pushover
 - [ ] Backup files in clear to Backblaze not SharePoint encrypted
 - [ ] Backup my Photoflow images to HomeLab and there to Backblaze
 
@@ -615,7 +629,7 @@ group_add:
 This version should be easier to read and follow, with a clear hierarchy and a comprehensive table of contents for easy
 navigation.
 
-### Setup Samba
+## Setup Samba
 
 1. Create a specific SSD folder for Samba:
    ```bash
@@ -632,7 +646,7 @@ navigation.
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
 
-### Setup Beszel
+## Setup Beszel
 
 1. Create a specific folder for Beszel data on the HDD:
    ```bash
@@ -647,7 +661,7 @@ navigation.
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
 
-### Setup UptimeKuma
+## Setup UptimeKuma
 
 1. Create a specific folder for UptimeKuma data on the HDD:
    ```bash
@@ -656,7 +670,7 @@ navigation.
    chmod 755 /mnt/hdd/uptimekuma
    ```
 
-### Setup Duplicati
+## Setup Duplicati
 
 1. Create a specific folder for Duplicati data on the HDD:
    ```bash
@@ -823,11 +837,13 @@ The backup file is automatically included in your configured Duplicati backups o
    ```
 
 2. Create the log and state directories with proper permissions:
+
 ```text
 /var/lib/ → stateful
 /var/log/ → logs
 /var/run/ → lock & pid
 ```
+
 ```bash
 # State + Queue
 sudo mkdir -p /var/lib/homelab_watchdog
@@ -878,6 +894,46 @@ sudo mkdir -p /var/run
 6. Test the self-healing script:
    ```bash
    sudo ./homelab_watchdog.sh
+   ```
+
+#### Setting up Automated Backups
+
+1. Edit the root's crontab to set up nightly backups:
+
+   ```bash
+   sudo crontab -e
+   ```
+
+2. Add the following line to run the self healing every 10 minutes:
+
+   ```bash
+    */10 * * * * /home/jkrumm/homelab/homelab_watchdog.sh
+   ```
+
+#### WatchDog Automation Details
+
+- **Location**: Script runs from `/home/jkrumm/homelab/homelab_watchdog.sh`
+- **Frequency**: Every 5 minutes (adjustable based on your needs)
+- **Logging**: All operations are logged to `/var/log/homelab_watchdog.log`
+- **Locking**: Built-in file locking prevents overlapping executions
+- **State Management**: Persistent state tracking prevents unnecessary Fritz!Box restarts
+- **Security**: Credentials stored in root-only accessible file
+- **Notifications**: Real-time push notifications via Pushover
+
+#### Monitoring
+
+You can monitor the backup process by:
+
+1. Checking the log file:
+
+   ```bash
+   sudo tail -f /var/log/homelab_watchdog.log
+   ```
+
+2. Check current escalation state:
+
+   ```bash
+    sudo cat /var/lib/homelab_watchdog/state
    ```
 
 ## Setup Calibre and Calibre-Web
