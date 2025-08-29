@@ -108,8 +108,15 @@ flush_notifications() {
 }
 
 get_current_state() {
-    if [[ -f "$STATE_FILE" ]]; then
-        cat "$STATE_FILE"
+    if [[ -f "$STATE_FILE" && -s "$STATE_FILE" ]]; then
+        local state
+        state=$(cat "$STATE_FILE")
+        # Validate that state is a number
+        if [[ "$state" =~ ^[0-4]$ ]]; then
+            echo "$state"
+        else
+            echo "0"
+        fi
     else
         echo "0"
     fi
@@ -239,22 +246,22 @@ check_docker_health() {
         return 1
     fi
     
-    # Check if key containers are running
-    local key_containers=("jellyfin" "caddy" "uptime-kuma", "porkbun-ddns")
+    # Check if key containers are running - removed trailing comma
+    local key_containers=("jellyfin" "caddy" "uptime-kuma" "porkbun-ddns")
     local failed_containers=()
-    
+
     for container in "${key_containers[@]}"; do
         if ! docker ps --filter "name=$container" --filter "status=running" \
              --format "{{.Names}}" | grep -q "^$container$"; then
             failed_containers+=("$container")
         fi
     done
-    
+
     if [[ ${#failed_containers[@]} -gt 0 ]]; then
         log "Failed containers: ${failed_containers[*]}"
         return 1
     fi
-    
+
     log "Docker and key containers are healthy"
     return 0
 }
@@ -381,13 +388,20 @@ handle_failure() {
     local current_state
     current_state=$(get_current_state)
     
+    # Ensure current_state is a valid number
+    if [[ ! "$current_state" =~ ^[0-4]$ ]]; then
+        log "Invalid state detected: '$current_state', resetting to 0"
+        current_state=0
+        set_state 0
+    fi
+
     log "Current escalation state: $current_state"
-    
+
     case "$current_state" in
         0)  # Level 1: Fritz!Box restart (network issues are often root cause)
             log "ESCALATION LEVEL 1: Restarting Fritz!Box"
             notify "🔄 Network Recovery" "Restarting Fritz!Box (Level 1/5)"
-            
+
             if restart_fritzbox; then
                 notify "✅ Recovery Success" "Fritz!Box restart resolved the issue"
                 set_state 0
@@ -400,7 +414,7 @@ handle_failure() {
         1)  # Level 2: Docker services restart
             log "ESCALATION LEVEL 2: Restarting Docker services"
             notify "🔄 Service Recovery" "Restarting Docker services (Level 2/5)"
-            
+
             if restart_docker_services; then
                 notify "✅ Recovery Success" "Docker restart resolved the issue"
                 set_state 0
@@ -413,7 +427,7 @@ handle_failure() {
         2)  # Level 3: Network interface restart
             log "ESCALATION LEVEL 3: Restarting network interface"
             notify "🔄 Network Interface" "Restarting network interface (Level 3/5)"
-            
+
             if restart_network_interface; then
                 notify "✅ Recovery Success" "Network interface restart resolved the issue"
                 set_state 0
@@ -426,7 +440,7 @@ handle_failure() {
         3)  # Level 4: Aggressive Docker cleanup
             log "ESCALATION LEVEL 4: Force Docker restart with cleanup"
             notify "🔄 Deep Cleanup" "Force Docker cleanup and restart (Level 4/5)"
-            
+
             if force_docker_cleanup; then
                 notify "✅ Recovery Success" "Docker cleanup resolved the issue"
                 set_state 0
@@ -441,9 +455,9 @@ handle_failure() {
             notify "🚨 CRITICAL" "System reboot initiated - all other methods failed"
             reboot_system
             ;;
-        *)  # Max escalation reached
-            log "CRITICAL: Maximum escalation level reached, manual intervention required"
-            notify "🚨 MANUAL INTERVENTION" "All automated recovery methods exhausted - manual attention required"
+        *)  # Invalid state - reset to 0
+            log "Invalid escalation state: $current_state, resetting to 0"
+            set_state 0
             return 1
             ;;
     esac
