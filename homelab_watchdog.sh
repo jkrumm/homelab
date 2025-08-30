@@ -303,7 +303,7 @@ restart_docker_services() {
         sleep "$DOCKER_RESTART_WAIT"
         
         # Start docker-compose services
-        if cd "$HOMELAB_DIR" && docker compose up -d; then
+        if cd "$HOMELAB_DIR" && doppler run -- docker compose up -d; then
             log "Docker Compose services started"
             return 0
         else
@@ -358,7 +358,7 @@ force_docker_cleanup() {
     sleep "$DOCKER_RESTART_WAIT"
     
     # Restart services
-    if cd "$HOMELAB_DIR" && docker compose down && docker compose up -d; then
+    if cd "$HOMELAB_DIR" && docker compose down && doppler run -- docker compose up -d; then
         log "Docker services restarted after cleanup"
         return 0
     else
