@@ -212,6 +212,20 @@ services:
       glance.url: https://dozzle.jkrumm.dev
       glance.hide: false
 
+  dozzle-from-file:
+    container_name: homelab-watchdog-logs
+    image: alpine
+    volumes:
+      - /var/log/homelab_watchdog.log:/var/log/stream.log
+    command:
+      - tail
+      - -f
+      - /var/log/stream.log
+    network_mode: none
+    restart: unless-stopped
+    labels:
+      glance.hide: true
+
   calibre:
     image: lscr.io/linuxserver/calibre:latest
     container_name: calibre
