@@ -200,8 +200,14 @@ services:
       DOZZLE_ADDR: :8081
       DOZZLE_AUTH_PROVIDER: simple
       DOZZLE_AUTH_TTL: 87600h
+      DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007
+    secrets:
+      - source: cert
+        target: /dozzle_cert.pem
+      - source: key
+        target: /dozzle_key.pem
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./dozzle:/data
     ports:
       - 8081:8081
@@ -332,6 +338,12 @@ services:
     labels:
       glance.hide: true
       com.centurylinklabs.watchtower.enable: "false"
+
+secrets:
+  cert:
+    file: ./cert.pem
+  key:
+    file: ./key.pem
 
 volumes:
   caddy_data:
