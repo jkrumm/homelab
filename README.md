@@ -5,26 +5,26 @@
 ## Table of Contents
 
 1. [TODOs](#todos)
-2. [Dozzle Authentication Setup](#dozzle-authentication-setup)
-3. [Subdomain](#subdomain)
-4. [Doppler Secrets](#doppler-secrets)
-5. [Setup Guide](#setup-guide)
+2. [Subdomain](#subdomain)
+3. [Doppler Secrets](#doppler-secrets)
+4. [Setup Guide](#setup-guide)
     - [Install Ubuntu Server](#install-ubuntu-server)
     - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
     - [Connect to the Server](#connect-to-the-server)
     - [Configure Doppler](#configure-doppler)
-6. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
+5. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
     - [Prerequisites](#prerequisites)
     - [Step-by-Step Configuration](#step-by-step-configuration)
     - [Mount automatically with new systemd service](#mount-automatically-with-new-systemd-service)
-7. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
-8. [Enable Jellyfin](#enable-jellyfin)
+6. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
+7. [Enable Jellyfin](#enable-jellyfin)
     - [Install Intel GPU Drivers](#install-intel-gpu-drivers)
     - [Prepare Docker Compose](#prepare-docker-compose)
     - [Start Jellyfin](#start-jellyfin)
     - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
-9. [Setup Samba](#setup-samba)
-10. [Setup Beszel](#setup-beszel)
+8. [Setup Samba](#setup-samba)
+9. [Setup Beszel](#setup-beszel)
+10. [Setup Dozzle](#setup-dozzle)
 11. [Setup UptimeKuma](#setup-uptimekuma)
 12. [Setup Duplicati](#setup-duplicati)
 13. [Setup Database Backup](#setup-database-backup)
@@ -73,41 +73,6 @@
     - [x] Report using Pushover
 - [ ] Backup files in clear to Backblaze not SharePoint encrypted
 - [ ] Backup my Photoflow images to HomeLab and there to Backblaze
-
-## Dozzle Authentication Setup
-
-To enable authentication for Dozzle:
-
-1. Create a directory for Dozzle data:
-
-   ```bash
-   mkdir dozzle
-   ```
-
-2. Generate the password hash and create users.yml:
-
-   ```bash
-   # Generate password hash and copy the output
-   docker run amir20/dozzle generate --name "Johannes Krumm" --email your@email.com --password your_password jkrumm
-
-   # Create and edit users.yml file
-   vim dozzle/users.yml
-   ```
-
-   Paste the output from the generate command into users.yml and save the file.
-
-3. The docker-compose.yml is already configured with:
-
-    - Simple authentication enabled
-    - 48-hour login session
-    - Volume mount for users.yml
-
-4. After making these changes, restart Dozzle:
-   ```bash
-   docker compose up -d dozzle
-   ```
-
-You can now access Dozzle at https://dozzle.jkrumm.dev and log in with username `jkrumm` and your chosen password.
 
 ## Subdomain
 
@@ -669,6 +634,53 @@ navigation.
    sudo chown -R 1000:1000 /mnt/hdd/uptimekuma
    chmod 755 /mnt/hdd/uptimekuma
    ```
+
+## Setup Dozzle
+
+### Setup certificates
+
+1. Download cert.pem and key.pem from 1Password HomeLab
+2. RSync them too the HomeLab and all VPS
+
+    ```bash
+    rsync -avz cert.pem key.pem jkrumm@{IP_OF_VPS}:/home/jkrumm/homelab 
+    ```
+3. Validate looking into the container logs if all good
+
+### Dozzle Authentication Setup
+
+To enable authentication for Dozzle:
+
+1. Create a directory for Dozzle data:
+
+   ```bash
+   mkdir dozzle
+   ```
+
+2. Generate the password hash and create users.yml:
+
+   ```bash
+   # Generate password hash and copy the output
+   docker run amir20/dozzle generate --name "Johannes Krumm" --email your@email.com --password your_password jkrumm
+
+   # Create and edit users.yml file
+   vim dozzle/users.yml
+   ```
+
+   Paste the output from the generate command into users.yml and save the file.
+
+3. The docker-compose.yml is already configured with:
+
+    - Simple authentication enabled
+    - 48-hour login session
+    - Volume mount for users.yml
+
+4. After making these changes, restart Dozzle:
+   ```bash
+   docker compose up -d dozzle
+   ```
+
+You can now access Dozzle at https://dozzle.jkrumm.dev and log in with username `jkrumm` and your chosen password.
 
 ## Setup Duplicati
 
