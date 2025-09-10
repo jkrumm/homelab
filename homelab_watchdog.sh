@@ -1,3 +1,4 @@
+
 #!/bin/bash
 set -euo pipefail
 
@@ -25,8 +26,14 @@ readonly HOMELAB_DIR="/home/jkrumm/homelab"
 # Timeouts and intervals (in seconds)
 readonly HEALTH_CHECK_TIMEOUT=30
 readonly DOCKER_RESTART_WAIT=120
+readonly DOCKER_COMPOSE_STABILIZE_WAIT=60  # Time for containers to fully start
 readonly INTERNET_CHECK_TIMEOUT=20
 readonly FRITZBOX_REBOOT_WAIT=300
+readonly FRITZBOX_VERIFY_WAIT=60  # Time to wait before verifying router is back
+readonly NETWORK_STABILIZE_WAIT=60  # Extended time for network to stabilize
+readonly EXTERNAL_MONITOR_PATIENCE_WAIT=260  # Only used after recovery actions
+readonly RECOVERY_VERIFICATION_RETRIES=3
+readonly RECOVERY_VERIFICATION_INTERVAL=30
 
 # Create directories with proper permissions
 mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$LOG_FILE")"
@@ -52,17 +59,17 @@ load_credentials() {
         log "ERROR: Credentials file missing: $CREDS_FILE"
         exit 1
     fi
-    
+
     # Check file permissions (should be 600)
     local perms
     perms=$(stat -c "%a" "$CREDS_FILE")
     if [[ "$perms" != "600" ]]; then
         log "WARNING: Credentials file has incorrect permissions: $perms (should be 600)"
     fi
-    
+
     # shellcheck source=/dev/null
     source "$CREDS_FILE"
-    
+
     # Validate required variables
     local required_vars=("BETTERSTACK_TOKEN" "PUSHOVER_USER_KEY" "PUSHOVER_API_TOKEN" "FRITZ_USER" "FRITZ_PASSWORD")
     for var in "${required_vars[@]}"; do
@@ -78,6 +85,11 @@ load_credentials() {
 # --------------------------------------------------
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$LOG_FILE"
+}
+
+log_quiet() {
+    # Only logs to file, not to stdout (for success cases)
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG_FILE"
 }
 
 notify() {
@@ -101,7 +113,7 @@ flush_notifications() {
            -F "title=HomeLab WatchDog" \
            -F "message=• $msgs" > /dev/null 2>&1; then
         > "$QUEUE_FILE"  # Clear queue on success
-        log "Notifications sent successfully"
+        log_quiet "Notifications sent successfully"
     else
         log "Failed to send notifications, keeping in queue"
     fi
@@ -131,31 +143,35 @@ set_state() {
 # Health check functions
 # --------------------------------------------------
 check_internet_connectivity() {
-    log "Checking internet connectivity..."
-    
+    local verbose="${1:-true}"
+
+    if [[ "$verbose" == "true" ]]; then
+        log_quiet "Checking internet connectivity..."
+    fi
+
     # Try multiple DNS servers
     local dns_servers=("8.8.8.8" "1.1.1.1" "9.9.9.9")
-    
+
     for dns in "${dns_servers[@]}"; do
         if timeout "$INTERNET_CHECK_TIMEOUT" ping -c 1 "$dns" &>/dev/null; then
-            log "Internet connectivity confirmed via $dns"
             return 0
         fi
     done
-    
+
     # Try DNS resolution as fallback
     if timeout "$INTERNET_CHECK_TIMEOUT" nslookup google.com &>/dev/null; then
-        log "Internet connectivity confirmed via DNS resolution"
         return 0
     fi
-    
-    log "No internet connectivity detected"
+
     return 1
 }
 
 check_external_monitor() {
-    log "Checking external monitor (BetterStack)..."
-    
+    local wait_for_recovery="${1:-false}"
+
+    log_quiet "Checking external monitor (BetterStack)..."
+
+    # First attempt
     local resp
     if ! resp=$(timeout "$HEALTH_CHECK_TIMEOUT" curl -s \
                 -H "Authorization: Bearer $BETTERSTACK_TOKEN" \
@@ -164,29 +180,58 @@ check_external_monitor() {
         return 1
     fi
 
-    # Parse JSON response
+    # Parse JSON response for first attempt
+    local first_result=false
     if command -v jq &>/dev/null; then
         if echo "$resp" | jq -e '.data.attributes.status == "up"' &>/dev/null; then
-            log "BetterStack reports: UP"
-            return 0
-        else
-            log "BetterStack reports: DOWN or unknown status"
-            return 1
+            first_result=true
         fi
     else
         # Fallback to grep if jq not available
         if echo "$resp" | grep -q '"status":"up"'; then
-            log "BetterStack reports: UP"
-            return 0
-        else
-            log "BetterStack reports: DOWN or unknown status"
-            return 1
+            first_result=true
         fi
     fi
+
+    # If first attempt succeeded
+    if [[ "$first_result" == "true" ]]; then
+        return 0
+    fi
+
+    # First attempt failed - only wait if we're checking after recovery
+    if [[ "$wait_for_recovery" == "true" ]]; then
+        log "BetterStack reports down after recovery - waiting for monitor cycle to detect changes..."
+        sleep "$EXTERNAL_MONITOR_PATIENCE_WAIT"
+
+        log "Re-checking external monitor after patience period..."
+        if ! resp=$(timeout "$HEALTH_CHECK_TIMEOUT" curl -s \
+                    -H "Authorization: Bearer $BETTERSTACK_TOKEN" \
+                    https://uptime.betterstack.com/api/v2/monitors/3000673 2>/dev/null); then
+            log "Failed to reach BetterStack API on second attempt"
+            return 1
+        fi
+
+        # Parse JSON response for second attempt
+        if command -v jq &>/dev/null; then
+            if echo "$resp" | jq -e '.data.attributes.status == "up"' &>/dev/null; then
+                log "BetterStack reports: UP (recovered during patience period)"
+                return 0
+            fi
+        else
+            if echo "$resp" | grep -q '"status":"up"'; then
+                log "BetterStack reports: UP (recovered during patience period)"
+                return 0
+            fi
+        fi
+
+        log "BetterStack still reports down after patience period"
+    fi
+
+    return 1
 }
 
 check_internal_monitor() {
-    log "Checking internal monitor (UptimeKuma)..."
+    log_quiet "Checking internal monitor (UptimeKuma)..."
 
     local resp
     if ! resp=$(timeout "$HEALTH_CHECK_TIMEOUT" curl -s \
@@ -209,7 +254,6 @@ check_internal_monitor() {
         maintenance_count=$(echo "$resp" | jq -r '.maintenanceList | length')
 
         if [[ "$incident_status" == "null" && "$maintenance_count" == "0" ]]; then
-            log "UptimeKuma reports: HEALTHY (no incidents or maintenance)"
             return 0
         else
             if [[ "$incident_status" != "null" ]]; then
@@ -223,7 +267,6 @@ check_internal_monitor() {
     else
         # Fallback to grep if jq not available
         if echo "$resp" | grep -q '"incident":null' && echo "$resp" | grep -q '"maintenanceList":\[\]'; then
-            log "UptimeKuma reports: HEALTHY (no incidents or maintenance)"
             return 0
         else
             # Check what's wrong
@@ -239,14 +282,14 @@ check_internal_monitor() {
 }
 
 check_docker_health() {
-    log "Checking Docker service health..."
-    
+    log_quiet "Checking Docker service health..."
+
     if ! systemctl is-active --quiet docker; then
         log "Docker service is not running"
         return 1
     fi
-    
-    # Check if key containers are running - removed trailing comma
+
+    # Check if key containers are running
     local key_containers=("jellyfin" "caddy" "uptime-kuma" "porkbun-ddns")
     local failed_containers=()
 
@@ -262,22 +305,72 @@ check_docker_health() {
         return 1
     fi
 
-    log "Docker and key containers are healthy"
     return 0
 }
 
 # --------------------------------------------------
-# Recovery actions
+# Recovery verification with retries
+# --------------------------------------------------
+verify_recovery() {
+    log "Verifying recovery..."
+
+    local attempt=1
+    while [[ $attempt -le $RECOVERY_VERIFICATION_RETRIES ]]; do
+        log "Recovery verification attempt $attempt/$RECOVERY_VERIFICATION_RETRIES"
+
+        # Check all systems
+        local internet_ok=false
+        local external_ok=false
+        local internal_ok=false
+        local docker_ok=false
+
+        if check_internet_connectivity "false"; then
+            internet_ok=true
+        fi
+
+        if check_external_monitor "true"; then  # Use patience for post-recovery checks
+            external_ok=true
+        fi
+
+        if check_internal_monitor; then
+            internal_ok=true
+        fi
+
+        if check_docker_health; then
+            docker_ok=true
+        fi
+
+        if $internet_ok && $external_ok && $internal_ok && $docker_ok; then
+            log "✅ Recovery verification successful"
+            return 0
+        fi
+
+        log "Recovery verification failed: Internet=$internet_ok, External=$external_ok, Internal=$internal_ok, Docker=$docker_ok"
+
+        if [[ $attempt -lt $RECOVERY_VERIFICATION_RETRIES ]]; then
+            log "Waiting ${RECOVERY_VERIFICATION_INTERVAL} seconds before next verification attempt..."
+            sleep "$RECOVERY_VERIFICATION_INTERVAL"
+        fi
+
+        ((attempt++))
+    done
+
+    log "❌ Recovery verification failed after $RECOVERY_VERIFICATION_RETRIES attempts"
+    return 1
+}
+
+# --------------------------------------------------
+# Recovery actions with proper timing and verification
 # --------------------------------------------------
 restart_fritzbox() {
     log "Attempting Fritz!Box reboot via TR-064 protocol..."
-    
+
     # TR-064 SOAP request parameters
     local location="/upnp/control/deviceconfig"
     local uri="urn:dslforum-org:service:DeviceConfig:1"
     local action="Reboot"
     local soap_request="<?xml version='1.0' encoding='utf-8'?><s:Envelope s:encodingStyle='http://schemas.xmlsoap.org/soap/encoding/' xmlns:s='http://schemas.xmlsoap.org/soap/envelope/'><s:Body><u:$action xmlns:u='$uri'></u:$action></s:Body></s:Envelope>"
-    
+
     # Execute TR-064 reboot command
     if curl -k -m 10 --anyauth -u "$FRITZ_USER:$FRITZ_PASSWORD" \
        "http://$FRITZ_IP:49000$location" \
@@ -288,7 +381,23 @@ restart_fritzbox() {
         log "Fritz!Box reboot command sent successfully"
         log "Waiting ${FRITZBOX_REBOOT_WAIT} seconds for Fritz!Box to restart..."
         sleep "$FRITZBOX_REBOOT_WAIT"
-        return 0
+
+        # Verify Fritz!Box is back online
+        log "Verifying Fritz!Box connectivity..."
+        local retry_count=0
+        while [[ $retry_count -lt 5 ]]; do
+            if ping -c 1 "$FRITZ_IP" &>/dev/null; then
+                log "Fritz!Box is responding to ping"
+                sleep "$FRITZBOX_VERIFY_WAIT"  # Additional stabilization time
+                return verify_recovery
+            fi
+            log "Fritz!Box not responding yet, retrying in 30 seconds..."
+            sleep 30
+            ((retry_count++))
+        done
+
+        log "Fritz!Box not responding after reboot"
+        return 1
     else
         log "Fritz!Box reboot command failed"
         return 1
@@ -297,15 +406,31 @@ restart_fritzbox() {
 
 restart_docker_services() {
     log "Restarting Docker services..."
-    
+
     if systemctl restart docker; then
         log "Docker service restarted successfully"
         sleep "$DOCKER_RESTART_WAIT"
-        
+
         # Start docker-compose services
         if cd "$HOMELAB_DIR" && doppler run -- docker compose up -d; then
-            log "Docker Compose services started"
-            return 0
+            log "Docker Compose services started, waiting for containers to stabilize..."
+            sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
+
+            # Verify containers are actually ready (not just started)
+            log "Verifying container readiness..."
+            local ready_count=0
+            while [[ $ready_count -lt 3 ]]; do
+                if check_docker_health; then
+                    log "All containers are running and healthy"
+                    return verify_recovery
+                fi
+                log "Containers not ready yet, waiting..."
+                sleep 20
+                ((ready_count++))
+            done
+
+            log "Containers failed to become ready"
+            return 1
         else
             log "Failed to start Docker Compose services"
             return 1
@@ -318,16 +443,25 @@ restart_docker_services() {
 
 restart_network_interface() {
     log "Restarting network interface..."
-    
+
     # Get the default network interface
     local interface
     interface=$(ip route show default | awk '/default/ {print $5; exit}')
-    
+
     if [[ -n "$interface" ]]; then
         if ip link set "$interface" down && sleep 5 && ip link set "$interface" up; then
             log "Network interface $interface restarted"
-            sleep 30  # Wait for network to stabilize
-            return 0
+            log "Waiting ${NETWORK_STABILIZE_WAIT} seconds for network to stabilize..."
+            sleep "$NETWORK_STABILIZE_WAIT"
+
+            # Verify network connectivity is restored
+            if check_internet_connectivity "false"; then
+                log "Network connectivity restored"
+                return verify_recovery
+            else
+                log "Network connectivity not restored after interface restart"
+                return 1
+            fi
         else
             log "Failed to restart network interface $interface"
             return 1
@@ -340,27 +474,29 @@ restart_network_interface() {
 
 force_docker_cleanup() {
     log "Performing aggressive Docker cleanup and restart..."
-    
+
     # Stop all containers gracefully first
     if docker ps -q | grep -q .; then
         log "Stopping all running containers..."
         docker stop $(docker ps -q) || true
     fi
-    
+
     # System cleanup (safe - preserves volumes and bind mounts)
     log "Cleaning up unused Docker resources..."
     docker system prune -f &>/dev/null || true
-    
+
     # Stop and restart Docker daemon
     systemctl stop docker
     sleep 10
     systemctl start docker
     sleep "$DOCKER_RESTART_WAIT"
-    
+
     # Restart services
     if cd "$HOMELAB_DIR" && docker compose down && doppler run -- docker compose up -d; then
-        log "Docker services restarted after cleanup"
-        return 0
+        log "Docker services restarted after cleanup, waiting for stabilization..."
+        sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
+
+        return verify_recovery
     else
         log "Failed to restart Docker services after cleanup"
         return 1
@@ -369,14 +505,14 @@ force_docker_cleanup() {
 
 reboot_system() {
     log "Initiating system reboot (last resort)..."
-    
+
     # Give notification time to send
     sleep 5
     flush_notifications
-    
+
     # Ensure all data is written to disk
     sync
-    
+
     # Reboot the system
     reboot
 }
@@ -385,19 +521,32 @@ reboot_system() {
 # Intelligent failure analysis and targeted recovery
 # --------------------------------------------------
 analyze_failure_and_recover() {
+    log "=== System failures detected - initiating recovery ==="
+
+    # Use results from initial health check to avoid re-running everything
+    local current_state
+    current_state=$(get_current_state)
+
+    # Ensure current_state is valid
+    if [[ ! "$current_state" =~ ^[0-4]$ ]]; then
+        current_state=0
+        set_state 0
+    fi
+
+    log "Current escalation state: $current_state"
     log "=== Analyzing failure pattern for targeted recovery ==="
 
-    # Re-run individual checks to understand the failure scope
+    # Re-check specific failed components only
     local internet_ok=false
     local external_ok=false
     local internal_ok=false
     local docker_ok=false
 
-    if check_internet_connectivity; then
+    if check_internet_connectivity "false"; then
         internet_ok=true
     fi
 
-    if check_external_monitor; then
+    if check_external_monitor "false"; then
         external_ok=true
     fi
 
@@ -409,17 +558,7 @@ analyze_failure_and_recover() {
         docker_ok=true
     fi
 
-    local current_state
-    current_state=$(get_current_state)
-
-    # Ensure current_state is valid
-    if [[ ! "$current_state" =~ ^[0-4]$ ]]; then
-        current_state=0
-        set_state 0
-    fi
-
     log "Failure analysis: Internet=$internet_ok, External=$external_ok, Internal=$internal_ok, Docker=$docker_ok"
-    log "Current escalation state: $current_state"
 
     # Smart recovery logic based on failure pattern
     if ! $internet_ok; then
@@ -585,7 +724,7 @@ escalated_recovery() {
 reset_state_on_success() {
     local current_state
     current_state=$(get_current_state)
-    
+
     if [[ "$current_state" != "0" ]]; then
         log "Services recovered, resetting escalation state from level $current_state to 0"
         notify "🟢 System Restored" "All services healthy - escalation reset"
@@ -597,54 +736,60 @@ reset_state_on_success() {
 # Comprehensive health assessment
 # --------------------------------------------------
 perform_health_checks() {
-    log "=== Starting comprehensive health checks ==="
-    
-    # Check internet connectivity first
-    if ! check_internet_connectivity; then
-        log "❌ Internet connectivity: FAILED"
-        return 1
-    fi
-    log "✅ Internet connectivity: PASSED"
-    
-    # External monitoring (primary)
+    # Store results to avoid double-checking
+    local internet_ok=false
     local external_ok=false
-    if check_external_monitor; then
-        log "✅ External monitor (BetterStack): HEALTHY"
-        external_ok=true
-    else
-        log "❌ External monitor (BetterStack): UNHEALTHY"
-    fi
-    
-    # Internal monitoring (secondary/validation)
     local internal_ok=false
-    if check_internal_monitor; then
-        log "✅ Internal monitor (UptimeKuma): HEALTHY"
-        internal_ok=true
-    else
-        log "❌ Internal monitor (UptimeKuma): UNHEALTHY"
-    fi
-    
-    # Docker health (infrastructure)
     local docker_ok=false
-    if check_docker_health; then
-        log "✅ Docker health: PASSED"
-        docker_ok=true
-    else
-        log "❌ Docker health: FAILED"
+
+    # Check internet connectivity first
+    if check_internet_connectivity; then
+        internet_ok=true
     fi
-    
+
+    # External monitoring (primary)
+    if check_external_monitor "false"; then
+        external_ok=true
+    fi
+
+    # Internal monitoring (secondary/validation)
+    if check_internal_monitor; then
+        internal_ok=true
+    fi
+
+    # Docker health (infrastructure)
+    if check_docker_health; then
+        docker_ok=true
+    fi
+
+    # Only log failures and summary
+    local failed_checks=()
+    if ! $internet_ok; then
+        failed_checks+=("Internet")
+    fi
+    if ! $external_ok; then
+        failed_checks+=("External Monitor")
+    fi
+    if ! $internal_ok; then
+        failed_checks+=("Internal Monitor")
+    fi
+    if ! $docker_ok; then
+        failed_checks+=("Docker")
+    fi
+
     # Evaluate results
-    if $external_ok && $internal_ok && $docker_ok; then
-        log "🟢 All systems healthy"
+    if $external_ok && $internal_ok && $docker_ok && $internet_ok; then
+        log_quiet "🟢 All systems healthy"
         return 0
-    elif $external_ok && $internal_ok; then
-        log "🟡 Monitors healthy but Docker issues detected"
-        return 1
-    elif $internal_ok && $docker_ok; then
-        log "🟡 Internal systems healthy but external connectivity issues"
-        return 1
     else
-        log "🔴 Multiple system failures detected"
+        log "❌ Failed checks: ${failed_checks[*]}"
+        if $external_ok && $internal_ok; then
+            log "🟡 Monitors healthy but Docker issues detected"
+        elif $internal_ok && $docker_ok; then
+            log "🟡 Internal systems healthy but external connectivity issues"
+        else
+            log "🔴 Multiple system failures detected"
+        fi
         return 1
     fi
 }
@@ -653,35 +798,33 @@ perform_health_checks() {
 # Main execution function
 # --------------------------------------------------
 main() {
-    log "=== HomeLab WatchDog Started (PID: $$) ==="
-    
+    log_quiet "=== HomeLab WatchDog Started (PID: $$) ==="
+
     # Load configuration
     load_credentials
-    
+
     # Install jq if not available (for JSON parsing)
     if ! command -v jq &>/dev/null; then
         log "Installing jq for JSON parsing..."
         apt-get update &>/dev/null && apt-get install -y jq &>/dev/null || log "Warning: Could not install jq, using fallback parsing"
     fi
-    
+
     # Perform health checks
     if perform_health_checks; then
-        log "=== All systems healthy ==="
         reset_state_on_success
-        log "=== HomeLab WatchDog completed successfully ==="
+        log_quiet "=== HomeLab WatchDog completed successfully ==="
     else
-        log "=== System failures detected - initiating recovery ==="
         if analyze_failure_and_recover; then
             log "=== Recovery successful ==="
         else
             log "=== Recovery failed - escalation continues ==="
         fi
     fi
-    
+
     # Send any queued notifications (grouped together)
     flush_notifications
-    
-    log "=== HomeLab WatchDog session ended ==="
+
+    log_quiet "=== HomeLab WatchDog session ended ==="
 }
 
 # --------------------------------------------------

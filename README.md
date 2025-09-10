@@ -62,8 +62,8 @@
     - Forward traffic to HomeLab IPv6
     - Configure Kobo to use VPS IPv4 address
     - Update Caddy config on both ends
-- [ ] Get Dozzle Logs from SideprojectDockerStack
-- [ ] Get Beszel stats from SideprojectDockerStack
+- [x] Get Dozzle Logs from SideprojectDockerStack
+- [x] Get Beszel stats from SideprojectDockerStack
 - [ ] Fail2Ban for SSH, Jellyfin, Samba, Immich, MariaDB
 - [ ] Plausible for analytics of SnowFinder and jkrumm.dev and photos.jkrumm.dev
 - [x] Selfhealing
