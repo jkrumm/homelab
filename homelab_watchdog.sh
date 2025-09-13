@@ -33,6 +33,10 @@ readonly NETWORK_STABILIZE_WAIT=60  # Extended time for network to stabilize
 readonly EXTERNAL_MONITOR_PATIENCE_WAIT=260  # Only used after recovery actions
 readonly RECOVERY_VERIFICATION_RETRIES=3
 readonly RECOVERY_VERIFICATION_INTERVAL=30
+# Reboot protection
+readonly MAX_REBOOTS_PER_DAY=3
+readonly REBOOT_TRACKING_FILE="${STATE_DIR}/reboot_tracker"
+readonly MANUAL_INTERVENTION_FLAG="${STATE_DIR}/manual_intervention_required"
 
 # Create directories with proper permissions
 mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$LOG_FILE")"
@@ -307,6 +311,41 @@ check_docker_health() {
     return 0
 }
 
+check_mount_integrity() {
+    log_quiet "Checking critical mount points..."
+
+    # Check if HDD is mounted
+    if ! mountpoint -q /mnt/hdd; then
+        log "❌ Critical: /mnt/hdd is not mounted"
+        return 1
+    fi
+
+    # Check if mount is accessible and writable
+    local test_file="/mnt/hdd/.healthcheck_$(date +%s)"
+    if ! touch "$test_file" 2>/dev/null; then
+        log "❌ Critical: /mnt/hdd is mounted but not writable"
+        return 1
+    fi
+    rm -f "$test_file" 2>/dev/null
+
+    # Check critical directories exist
+    local critical_dirs=(
+        "/mnt/hdd/jellyfin/config"
+        "/mnt/hdd/uptimekuma"
+        "/mnt/hdd/beszel"
+    )
+
+    for dir in "${critical_dirs[@]}"; do
+        if [[ ! -d "$dir" ]]; then
+            log "❌ Critical directory missing: $dir"
+            return 1
+        fi
+    done
+
+    log_quiet "✅ All mount points healthy"
+    return 0
+}
+
 # --------------------------------------------------
 # Recovery verification with retries
 # --------------------------------------------------
@@ -502,15 +541,89 @@ force_docker_cleanup() {
     fi
 }
 
-reboot_system() {
-    log "Initiating system reboot (last resort)..."
+check_reboot_limits() {
+    local today
+    today=$(date +%Y-%m-%d)
 
-    # Give notification time to send
-    sleep 5
+    # Create tracking file if it doesn't exist
+    if [[ ! -f "$REBOOT_TRACKING_FILE" ]]; then
+        echo "$today:0" > "$REBOOT_TRACKING_FILE"
+        return 0
+    fi
+
+    # Read current tracking data
+    local tracked_date tracked_count
+    IFS=':' read -r tracked_date tracked_count < "$REBOOT_TRACKING_FILE"
+
+    # Reset counter if it's a new day
+    if [[ "$tracked_date" != "$today" ]]; then
+        echo "$today:0" > "$REBOOT_TRACKING_FILE"
+        return 0
+    fi
+
+    # Check if we've exceeded the limit
+    if [[ "$tracked_count" -ge "$MAX_REBOOTS_PER_DAY" ]]; then
+        log "🚨 CRITICAL: Maximum reboots per day ($MAX_REBOOTS_PER_DAY) exceeded"
+        log "Creating manual intervention flag - automatic recovery suspended"
+        touch "$MANUAL_INTERVENTION_FLAG"
+        notify "🚨 MANUAL INTERVENTION REQUIRED" "Max reboots ($MAX_REBOOTS_PER_DAY) reached today. Automatic recovery suspended. Please investigate manually."
+        return 1
+    fi
+
+    return 0
+}
+
+increment_reboot_counter() {
+    local today
+    today=$(date +%Y-%m-%d)
+
+    local tracked_date tracked_count
+    IFS=':' read -r tracked_date tracked_count < "$REBOOT_TRACKING_FILE"
+
+    # Increment counter
+    ((tracked_count++))
+    echo "$today:$tracked_count" > "$REBOOT_TRACKING_FILE"
+
+    log "Reboot counter: $tracked_count/$MAX_REBOOTS_PER_DAY for $today"
+}
+
+check_manual_intervention_flag() {
+    if [[ -f "$MANUAL_INTERVENTION_FLAG" ]]; then
+        log "🚨 Manual intervention flag detected - automatic recovery suspended"
+        log "Remove $MANUAL_INTERVENTION_FLAG to resume automatic recovery"
+        notify "⚠️ Recovery Suspended" "Manual intervention required. Remove flag file to resume: $MANUAL_INTERVENTION_FLAG"
+        return 1
+    fi
+    return 0
+}
+
+reboot_system() {
+    # Check if manual intervention is required
+    if ! check_reboot_limits; then
+        log "🛑 Reboot aborted - manual intervention required"
+        return 1
+    fi
+
+    log "🚨 INITIATING SYSTEM REBOOT (last resort)"
+
+    # Increment reboot counter
+    increment_reboot_counter
+
+    # Log the reason for reboot
+    local current_state
+    current_state=$(get_current_state)
+    log "Reboot triggered at escalation level: $current_state"
+    log "System will restart and services should auto-recover"
+    log "Reboot count today: $(cat "$REBOOT_TRACKING_FILE" | cut -d: -f2)/$MAX_REBOOTS_PER_DAY"
+
+    # Give notification time to send and flush any pending notifications
     flush_notifications
+    sleep 5
 
     # Ensure all data is written to disk
     sync
+
+    log "System reboot initiated - watchdog will resume after restart"
 
     # Reboot the system
     reboot
@@ -522,7 +635,6 @@ reboot_system() {
 analyze_failure_and_recover() {
     log "=== System failures detected - initiating recovery ==="
 
-    # Use results from initial health check to avoid re-running everything
     local current_state
     current_state=$(get_current_state)
 
@@ -534,6 +646,14 @@ analyze_failure_and_recover() {
 
     log "Current escalation state: $current_state"
     log "=== Analyzing failure pattern for targeted recovery ==="
+
+    # Check mount integrity first - if this fails, reboot immediately
+    if ! check_mount_integrity; then
+        log "🔍 DIAGNOSIS: Critical mount failure - immediate system reboot required"
+        notify "🚨 CRITICAL MOUNT FAILURE" "Storage not accessible - system reboot initiated"
+        reboot_system
+        return 1
+    fi
 
     # Re-check specific failed components only
     local internet_ok=false
@@ -558,6 +678,18 @@ analyze_failure_and_recover() {
     fi
 
     log "Failure analysis: Internet=$internet_ok, External=$external_ok, Internal=$internal_ok, Docker=$docker_ok"
+
+    # If we've been in escalation state 3+ for multiple cycles and still failing, consider reboot
+    if [[ "$current_state" -ge 3 ]]; then
+        # Check if this is a persistent complex failure pattern
+        if ! $external_ok && ! $internal_ok && ! $docker_ok; then
+            log "🔍 DIAGNOSIS: Persistent multi-system failure after escalation - system reboot recommended"
+            log "RECOVERY ACTION: System reboot (multiple recovery attempts failed)"
+            notify "🚨 PERSISTENT FAILURE" "Multiple systems failing after recovery attempts - system reboot"
+            reboot_system
+            return 1
+        fi
+    fi
 
     # Smart recovery logic based on failure pattern
     if ! $internet_ok; then
@@ -740,8 +872,18 @@ perform_health_checks() {
     local external_ok=false
     local internal_ok=false
     local docker_ok=false
+    local mounts_ok=false
 
-    # Check internet connectivity first
+    # Check mount integrity FIRST - if this fails, nothing else will work
+    if check_mount_integrity; then
+        mounts_ok=true
+    else
+        # If mounts are broken, skip other checks and escalate immediately
+        log "🔴 Mount failure detected - skipping other health checks"
+        return 1
+    fi
+
+    # Check internet connectivity
     if check_internet_connectivity; then
         internet_ok=true
     fi
@@ -763,6 +905,9 @@ perform_health_checks() {
 
     # Only log failures and summary
     local failed_checks=()
+    if ! $mounts_ok; then
+        failed_checks+=("Mount Points")
+    fi
     if ! $internet_ok; then
         failed_checks+=("Internet")
     fi
@@ -777,12 +922,14 @@ perform_health_checks() {
     fi
 
     # Evaluate results
-    if $external_ok && $internal_ok && $docker_ok && $internet_ok; then
+    if $external_ok && $internal_ok && $docker_ok && $internet_ok && $mounts_ok; then
         log_quiet "🟢 All systems healthy"
         return 0
     else
         log "❌ Failed checks: ${failed_checks[*]}"
-        if $external_ok && $internal_ok; then
+        if ! $mounts_ok; then
+            log "🔴 CRITICAL: Storage mount failure - system reboot required"
+        elif $external_ok && $internal_ok; then
             log "🟡 Monitors healthy but Docker issues detected"
         elif $internal_ok && $docker_ok; then
             log "🟡 Internal systems healthy but external connectivity issues"
@@ -798,6 +945,12 @@ perform_health_checks() {
 # --------------------------------------------------
 main() {
     log_quiet "=== HomeLab WatchDog Started (PID: $$) ==="
+
+    # Check if manual intervention is required
+    if ! check_manual_intervention_flag; then
+        log "=== HomeLab WatchDog suspended - manual intervention required ==="
+        return 1
+    fi
 
     # Load configuration
     load_credentials

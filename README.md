@@ -908,6 +908,30 @@ sudo mkdir -p /var/run
    sudo ./homelab_watchdog.sh
    ```
 
+#### Check current reboot status
+
+```bash
+cat /var/lib/homelab_watchdog/reboot_tracker
+```
+
+#### Resume automatic recovery (remove manual intervention flag)
+
+```bash
+rm /var/lib/homelab_watchdog/manual_intervention_required
+```
+
+#### Reset reboot counter (if needed for testing)
+
+```bash
+echo "$(date +%Y-%m-%d):0" > /var/lib/homelab_watchdog/reboot_tracker
+```
+
+#### Check current escalation state
+
+```bash
+cat /var/lib/homelab_watchdog/state
+```
+
 #### Setting up Automated Backups
 
 1. Edit the root's crontab to set up nightly backups:
