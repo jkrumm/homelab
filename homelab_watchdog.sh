@@ -171,8 +171,11 @@ check_internet_connectivity() {
 
 check_external_monitor() {
     local wait_for_recovery="${1:-false}"
+    local verbose="${2:-true}"  # Add verbose parameter
 
-    log_quiet "Checking external monitor (BetterStack)..."
+    if [[ "$verbose" == "true" ]]; then
+        log_quiet "Checking external monitor (BetterStack)..."
+    fi
 
     # First attempt
     local resp
@@ -182,6 +185,7 @@ check_external_monitor() {
         log "Failed to reach BetterStack API"
         return 1
     fi
+
 
     # Parse JSON response for first attempt
     local first_result=false
@@ -234,7 +238,11 @@ check_external_monitor() {
 }
 
 check_internal_monitor() {
-    log_quiet "Checking internal monitor (UptimeKuma)..."
+    local verbose="${1:-true}"  # Add verbose parameter
+
+    if [[ "$verbose" == "true" ]]; then
+        log_quiet "Checking internal monitor (UptimeKuma)..."
+    fi
 
     local resp
     if ! resp=$(timeout "$HEALTH_CHECK_TIMEOUT" curl -s \
@@ -242,6 +250,7 @@ check_internal_monitor() {
         log "Failed to reach internal UptimeKuma API"
         return 1
     fi
+
 
     # Check if we got a valid JSON response
     if ! echo "$resp" | grep -q '"config".*"incident"'; then
@@ -285,7 +294,11 @@ check_internal_monitor() {
 }
 
 check_docker_health() {
-    log_quiet "Checking Docker service health..."
+    local verbose="${1:-true}"  # Add verbose parameter
+
+    if [[ "$verbose" == "true" ]]; then
+        log_quiet "Checking Docker service health..."
+    fi
 
     if ! systemctl is-active --quiet docker; then
         log "Docker service is not running"
@@ -312,7 +325,11 @@ check_docker_health() {
 }
 
 check_mount_integrity() {
-    log_quiet "Checking critical mount points..."
+    local verbose="${1:-true}"
+
+    if [[ "$verbose" == "true" ]]; then
+        log_quiet "Checking critical mount points..."
+    fi
 
     # Check if HDD is mounted
     if ! mountpoint -q /mnt/hdd; then
@@ -342,7 +359,10 @@ check_mount_integrity() {
         fi
     done
 
-    log_quiet "✅ All mount points healthy"
+    # Only log success when verbose logging is requested
+    if [[ "$verbose" == "true" ]]; then
+        log_quiet "✅ All mount points healthy"
+    fi
     return 0
 }
 
@@ -366,15 +386,15 @@ verify_recovery() {
             internet_ok=true
         fi
 
-        if check_external_monitor "true"; then  # Use patience for post-recovery checks
+        if check_external_monitor "true" "false"; then  # wait_for_recovery=true, verbose=false
             external_ok=true
         fi
 
-        if check_internal_monitor; then
+        if check_internal_monitor "false"; then  # verbose=false
             internal_ok=true
         fi
 
-        if check_docker_health; then
+        if check_docker_health "false"; then  # verbose=false
             docker_ok=true
         fi
 
@@ -648,7 +668,7 @@ analyze_failure_and_recover() {
     log "=== Analyzing failure pattern for targeted recovery ==="
 
     # Check mount integrity first - if this fails, reboot immediately
-    if ! check_mount_integrity; then
+    if ! check_mount_integrity "false"; then
         log "🔍 DIAGNOSIS: Critical mount failure - immediate system reboot required"
         notify "🚨 CRITICAL MOUNT FAILURE" "Storage not accessible - system reboot initiated"
         reboot_system
@@ -665,15 +685,15 @@ analyze_failure_and_recover() {
         internet_ok=true
     fi
 
-    if check_external_monitor "false"; then
+    if check_external_monitor "false" "false"; then  # wait_for_recovery=false, verbose=false
         external_ok=true
     fi
 
-    if check_internal_monitor; then
+    if check_internal_monitor "false"; then  # verbose=false
         internal_ok=true
     fi
 
-    if check_docker_health; then
+    if check_docker_health "false"; then  # verbose=false
         docker_ok=true
     fi
 
@@ -875,7 +895,7 @@ perform_health_checks() {
     local mounts_ok=false
 
     # Check mount integrity FIRST - if this fails, nothing else will work
-    if check_mount_integrity; then
+    if check_mount_integrity; then  # Default verbose=true for main health checks
         mounts_ok=true
     else
         # If mounts are broken, skip other checks and escalate immediately
@@ -889,17 +909,17 @@ perform_health_checks() {
     fi
 
     # External monitoring (primary)
-    if check_external_monitor "false"; then
+    if check_external_monitor "false" "true"; then  # wait_for_recovery=false, verbose=true
         external_ok=true
     fi
 
     # Internal monitoring (secondary/validation)
-    if check_internal_monitor; then
+    if check_internal_monitor "true"; then  # verbose=true
         internal_ok=true
     fi
 
     # Docker health (infrastructure)
-    if check_docker_health; then
+    if check_docker_health "true"; then  # verbose=true
         docker_ok=true
     fi
 
