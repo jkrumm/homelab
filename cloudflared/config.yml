@@ -1,0 +1,9 @@
+tunnel: dbe4059e-76f5-4b19-8420-d6e0e884f4ae
+credentials-file: /home/jkrumm/.cloudflared/dbe4059e-76f5-4b19-8420-d6e0e884f4ae.json
+
+ingress:
+  # Glance
+  - hostname: glance.jkrumm.dev
+    service: http://glance:8080
+
+  - service: http_status:404

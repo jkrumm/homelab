@@ -5,13 +5,15 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel run --token ${CLOUDFLARE_TOKEN}
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN} --config /etc/cloudflared/config.yml
+    volumes:
+      - ./cloudflared:/etc/cloudflared
     environment:
       TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
-    networks:
-      - default
     depends_on:
-      - caddy
+      - glance
+    networks:
+      - cloudflared
     labels:
       glance.parent: uptime
       glance.name: Cloudflared
@@ -48,8 +50,6 @@ services:
     ports:
       - 80:80
       - 443:443
-    networks:
-      - default
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -122,7 +122,9 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
-      - 8080:8080
+      - "8080:8080"
+    networks:
+      - cloudflared
     environment:
       - IMMICH_API_KEY=${IMMICH_API_KEY}
     restart: unless-stopped
@@ -369,6 +371,8 @@ volumes:
   model-cache:
 
 networks:
+  cloudflared:
+    driver: bridge
   porkbun_ddns_network:
     enable_ipv6: true
     driver: bridge
