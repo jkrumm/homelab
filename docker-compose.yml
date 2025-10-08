@@ -5,11 +5,11 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --config /etc/cloudflared/config.yml
+    command: tunnel run
     volumes:
       - ./cloudflared:/etc/cloudflared
-    environment:
-      TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
+    # environment:
+#      TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
     depends_on:
       - glance
     networks:
