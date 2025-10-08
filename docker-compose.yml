@@ -5,7 +5,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel run
+    command: tunnel run dbe4059e-76f5-4b19-8420-d6e0e884f4ae
     volumes:
       - ./cloudflared:/etc/cloudflared
       - /home/jkrumm/.cloudflared:/etc/cloudflared
