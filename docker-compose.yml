@@ -6,6 +6,8 @@ services:
     container_name: cloudflared
     restart: unless-stopped
     command: tunnel run --token ${CLOUDFLARE_TOKEN}
+    environment:
+      TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
     networks:
       - default
     labels:
