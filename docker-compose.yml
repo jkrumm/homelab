@@ -10,6 +10,8 @@ services:
       TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
     networks:
       - default
+    depends_on:
+      - caddy
     labels:
       glance.parent: uptime
       glance.name: Cloudflared
@@ -46,6 +48,8 @@ services:
     ports:
       - 80:80
       - 443:443
+    networks:
+      - default
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
