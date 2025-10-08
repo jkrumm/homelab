@@ -5,14 +5,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel run homelab-tunnel
-    volumes:
-      - ./cloudflared:/etc/cloudflared
-      - ~/.cloudflared:/etc/cloudflared
-      # environment:
+    command: tunnel --no-autoupdate run
     environment:
-      #TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
-      TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
+      - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
     depends_on:
       - glance
     networks:
