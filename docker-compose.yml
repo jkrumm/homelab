@@ -43,22 +43,6 @@ services:
       glance.url: https://jellyfin.jkrumm.dev
       glance.hide: false
 
-  caddy:
-    image: caddy
-    container_name: caddy
-    restart: unless-stopped
-    ports:
-      - 80:80
-      - 443:443
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    labels:
-      glance.parent: uptime
-      glance.name: Caddy
-      glance.hide: false
-
   samba:
     image: ghcr.io/servercontainers/samba
     container_name: samba
@@ -89,6 +73,8 @@ services:
     restart: unless-stopped
     ports:
       - 8090:8090
+    networks:
+      - cloudflared
     volumes:
       - /mnt/hdd/beszel:/beszel_data
     labels:
@@ -152,6 +138,8 @@ services:
       - /mnt:/source/mnt
     ports:
       - 8200:8200
+    networks:
+      - cloudflared
     restart: unless-stopped
     labels:
       glance.name: Duplicati
@@ -164,7 +152,7 @@ services:
     container_name: porkbun-ddns
     environment:
       DOMAIN: "jkrumm.dev"
-      SUBDOMAINS: "beszel,duplicati,jellyfin,samba,uptime,homelab,dozzle,calibre,books,immich"
+      SUBDOMAINS: "samba,homelab"
       SECRETAPIKEY: ${PORKBUN_API_SECRET}
       APIKEY: ${PORKBUN_API_KEY}
       FRITZBOX_IP: "169.254.1.1"
@@ -201,6 +189,8 @@ services:
     restart: unless-stopped
     ports:
       - "3010:3001"
+    networks:
+      - cloudflared
     volumes:
       - /mnt/hdd/uptimekuma:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -231,6 +221,8 @@ services:
       - ./dozzle:/data
     ports:
       - 8081:8081
+    networks:
+      - cloudflared
     labels:
       glance.name: Dozzle
       glance.parent: uptime
@@ -268,6 +260,8 @@ services:
       - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/library
     ports:
       - 8085:8080
+    networks:
+      - cloudflared
     restart: unless-stopped
     labels:
       glance.hide: true
@@ -285,6 +279,8 @@ services:
       - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/books
     ports:
       - 8083:8083
+    networks:
+      - cloudflared
     restart: unless-stopped
     labels:
       glance.name: Calibre Web
@@ -304,6 +300,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "2283:2283"
+    networks:
+      - cloudflared
     environment:
       - UPLOAD_LOCATION=/usr/src/app/upload
       - DB_USERNAME=postgres
@@ -366,8 +364,6 @@ secrets:
     file: ./key.pem
 
 volumes:
-  caddy_data:
-  caddy_config:
   model-cache:
 
 networks:
