@@ -8,6 +8,7 @@ services:
     command: tunnel run
     volumes:
       - ./cloudflared:/etc/cloudflared
+      - /home/jkrumm/.cloudflared:/etc/cloudflared
     # environment:
 #      TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
     depends_on:
