@@ -5,7 +5,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN} --config /etc/cloudflared/config.yml
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
     volumes:
       - ./cloudflared:/etc/cloudflared
     environment:
