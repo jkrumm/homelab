@@ -10,9 +10,9 @@ services:
       - ./cloudflared:/etc/cloudflared
       - ~/.cloudflared:/etc/cloudflared
       # environment:
-      #      TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
-    # environment:
-      # TUNNEL_ORIGIN_CERT: /etc/cloudflared/cert.pem
+    environment:
+      TUNNEL_ORIGIN_CERT: /home/jkrumm/.cloudflared/cert.pem
+      #TUNNEL_ORIGIN_CERT: /etc/cloudflared/cert.pem
     depends_on:
       - glance
     networks:
