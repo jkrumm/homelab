@@ -1,6 +1,11 @@
 version: "3.8"
 
 services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run --token ${CLOUDFLARE_TOKEN}
+
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
@@ -144,7 +149,7 @@ services:
     container_name: porkbun-ddns
     environment:
       DOMAIN: "jkrumm.dev"
-      SUBDOMAINS: "beszel,duplicati,home,jellyfin,samba,uptime,homelab,dozzle,calibre,books,immich"
+      SUBDOMAINS: "beszel,duplicati,jellyfin,samba,uptime,homelab,dozzle,calibre,books,immich"
       SECRETAPIKEY: ${PORKBUN_API_SECRET}
       APIKEY: ${PORKBUN_API_KEY}
       FRITZBOX_IP: "169.254.1.1"
