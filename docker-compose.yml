@@ -75,6 +75,7 @@ services:
       - 8090:8090
     networks:
       - cloudflared
+      - beszel
     volumes:
       - /mnt/hdd/beszel:/beszel_data
     labels:
@@ -89,6 +90,8 @@ services:
     restart: unless-stopped
     ports:
       - 45876:45876
+    networks:
+      - beszel
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /mnt/hdd/.beszel:/extra-filesystems/hdd:ro
@@ -377,6 +380,8 @@ networks:
   cloudflared:
     driver: bridge
   immich:
+    driver: bridge
+  beszel:
     driver: bridge
   porkbun_ddns_network:
     enable_ipv6: true
