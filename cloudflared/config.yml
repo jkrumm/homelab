@@ -1,6 +1,6 @@
 tunnel: dbe4059e-76f5-4b19-8420-d6e0e884f4ae
 credentials-file: /etc/cloudflared/dbe4059e-76f5-4b19-8420-d6e0e884f4ae.json
-origincert: /etc/cloudflared/cert.pem
+origincert: /home/jkrumm/.cloudflared/cert.pem
 warp-routing:
   enabled: true
 
