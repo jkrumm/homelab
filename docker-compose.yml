@@ -6,6 +6,12 @@ services:
     container_name: cloudflared
     restart: unless-stopped
     command: tunnel run --token ${CLOUDFLARE_TOKEN}
+    networks:
+      - default
+    labels:
+      glance.parent: uptime
+      glance.name: Cloudflared
+      glance.hide: false
 
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
