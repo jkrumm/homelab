@@ -68,7 +68,7 @@ perform_backup() {
     # Validate backup success
     if [ ! -f "$BACKUP_FILE" ]; then
         echo "Error: Backup file was not created!"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Backup+file+not+created"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=Backup+file+not+created"
         exit 1
     fi
 
@@ -76,21 +76,21 @@ perform_backup() {
     FILE_MOD_TIME=$(stat -c %Y "$BACKUP_FILE")
     if [ $((START_TIME - FILE_MOD_TIME)) -gt 60 ]; then
         echo "Error: Backup file was not updated recently!"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Backup+file+not+updated"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=Backup+file+not+updated"
         exit 1
     fi
 
     # Check if file is empty or too small (less than 1KB)
     if [ ! -s "$BACKUP_FILE" ] || [ $(stat -c %s "$BACKUP_FILE") -lt 1024 ]; then
         echo "Error: Backup file is empty or too small!"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Backup+file+empty+or+too+small"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=Backup+file+empty+or+too+small"
         exit 1
     fi
 
     # Check if file is readable and contains SQL
     if ! grep -q "CREATE TABLE" "$BACKUP_FILE"; then
         echo "Error: Backup file does not contain valid SQL!"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Invalid+SQL+backup"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=Invalid+SQL+backup"
         exit 1
     fi
 
@@ -109,7 +109,7 @@ perform_backup() {
     echo "Duration: ${DURATION} seconds"
 
     # Notify success with backup details
-    curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=up&msg=Backup+completed:+${BACKUP_SIZE}+in+${DURATION}s"
+    curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=up&msg=Backup+completed:+${BACKUP_SIZE}+in+${DURATION}s"
 }
 
 # Function to check credentials file
@@ -119,7 +119,7 @@ check_credentials() {
     # Check if file exists
     if [ ! -f "$CREDS_FILE" ]; then
         echo "Error: Credentials file not found at $CREDS_FILE"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+not+found"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+not+found"
         exit 1
     fi
     
@@ -127,7 +127,7 @@ check_credentials() {
     FILE_PERMS=$(stat -c "%a" "$CREDS_FILE")
     if [ "$FILE_PERMS" != "600" ]; then
         echo "Error: Credentials file has incorrect permissions: $FILE_PERMS (should be 600)"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+wrong+permissions"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+wrong+permissions"
         exit 1
     fi
     
@@ -135,7 +135,7 @@ check_credentials() {
     FILE_OWNER=$(stat -c "%U:%G" "$CREDS_FILE")
     if [ "$FILE_OWNER" != "root:root" ]; then
         echo "Error: Credentials file has incorrect ownership: $FILE_OWNER (should be root:root)"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+wrong+ownership"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=Credentials+file+wrong+ownership"
         exit 1
     fi
     
@@ -145,13 +145,13 @@ check_credentials() {
     # Verify required variables are set and not empty
     if [ -z "$DB_HOST" ]; then
         echo "Error: DB_HOST is missing from credentials file"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=DB_HOST+missing+from+credentials"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=DB_HOST+missing+from+credentials"
         exit 1
     fi
     
     if [ -z "$DB_ROOT_PW" ]; then
         echo "Error: DB_ROOT_PW is missing from credentials file"
-        curl -s "https://uptime.jkrumm.dev/api/push/TVmCcH9Iab?status=down&msg=DB_ROOT_PW+missing+from+credentials"
+        curl -s "https://uptime.jkrumm.com/api/push/TVmCcH9Iab?status=down&msg=DB_ROOT_PW+missing+from+credentials"
         exit 1
     fi
 }
