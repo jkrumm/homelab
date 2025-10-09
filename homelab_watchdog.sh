@@ -306,7 +306,7 @@ check_docker_health() {
     fi
 
     # Check if key containers are running
-    local key_containers=("jellyfin" "uptime-kuma")
+    local key_containers=("jellyfin" "uptime-kuma" "porkbun-ddns")
     local failed_containers=()
 
     for container in "${key_containers[@]}"; do
