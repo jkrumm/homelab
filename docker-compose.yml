@@ -48,7 +48,7 @@ services:
     labels:
       glance.name: Jellyfin
       glance.icon: si:jellyfin
-      glance.url: https://jellyfin.jkrumm.dev
+      glance.url: https://jellyfin.jkrumm.com
       glance.hide: false
 
   samba:
@@ -72,7 +72,7 @@ services:
     labels:
       glance.name: Samba
       glance.icon: si:protondrive
-      glance.url: https://samba.jkrumm.dev
+      glance.url: https://samba.jkrumm.com
       glance.hide: false
 
   beszel:
@@ -89,7 +89,7 @@ services:
     labels:
       glance.name: Beszel
       glance.icon: si:graylog
-      glance.url: https://beszel.jkrumm.dev
+      glance.url: https://beszel.jkrumm.com
       glance.hide: false
 
   beszel-agent:
@@ -129,7 +129,7 @@ services:
       glance.name: Glance
       glance.parent: uptime
       glance.icon: si:hashnode
-      glance.url: https://home.jkrumm.dev
+      glance.url: https://glance.jkrumm.com
       glance.hide: false
 
   duplicati:
@@ -155,14 +155,14 @@ services:
     labels:
       glance.name: Duplicati
       glance.icon: si:duplicati
-      glance.url: https://duplicati.jkrumm.dev
+      glance.url: https://duplicati.jkrumm.com
       glance.hide: false
 
   porkbun-ddns:
     image: "mietzen/porkbun-ddns:latest"
     container_name: porkbun-ddns
     environment:
-      DOMAIN: "jkrumm.dev"
+      DOMAIN: "jkrumm.com"
       SUBDOMAINS: "samba,homelab"
       SECRETAPIKEY: ${PORKBUN_API_SECRET}
       APIKEY: ${PORKBUN_API_KEY}
@@ -208,7 +208,7 @@ services:
     labels:
       glance.name: Uptime Kuma
       glance.icon: si:uptimekuma
-      glance.url: https://uptime.jkrumm.dev
+      glance.url: https://uptime.jkrumm.com
       glance.hide: false
       glance.id: uptime
 
@@ -217,7 +217,7 @@ services:
     container_name: dozzle
     restart: unless-stopped
     environment:
-      DOZZLE_HOSTNAME: jkrumm.dev
+      DOZZLE_HOSTNAME: jkrumm.com
       DOZZLE_ADDR: :8081
       DOZZLE_AUTH_PROVIDER: simple
       DOZZLE_AUTH_TTL: 87600h
@@ -236,9 +236,8 @@ services:
       - cloudflared
     labels:
       glance.name: Dozzle
-      glance.parent: uptime
       glance.icon: si:logstash
-      glance.url: https://dozzle.jkrumm.dev
+      glance.url: https://dozzle.jkrumm.com
       glance.hide: false
 
   dozzle-from-file:
@@ -296,7 +295,7 @@ services:
     labels:
       glance.name: Calibre Web
       glance.icon: si:calibreweb
-      glance.url: https://books.jkrumm.dev
+      glance.url: https://books.jkrumm.com
       glance.hide: false
 
   immich-server:
@@ -328,7 +327,7 @@ services:
     labels:
       glance.name: Immich
       glance.icon: si:immich
-      glance.url: https://immich.jkrumm.dev
+      glance.url: https://immich.jkrumm.com
       glance.hide: false
 
   immich-machine-learning:

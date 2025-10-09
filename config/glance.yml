@@ -55,9 +55,9 @@ pages:
                 same-tab: true
                 icon: https://free-planning-poker.com/favicon.ico
               - title: SnowFinder
-                url: https://snow-finder.jkrumm.dev
+                url: https://snow-finder.jkrumm.com
                 same-tab: true
-                icon: https://snow-finder.jkrumm.dev/favicon.ico
+                icon: https://snow-finder.jkrumm.com/favicon.ico
 
 #          - type: custom-api
 #            title: Uptime Kuma
@@ -226,5 +226,21 @@ pages:
       - size: full
         widgets:
           - type: iframe
-            source: https://status.jkrumm.dev/
+            source: https://status.jkrumm.com/
+            height: 1200
+
+  - name: Logs
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://dozzle.jkrumm.com/
+            height: 1200
+
+  - name: Infrastructure
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://beszel.jkrumm.com/
             height: 1200
