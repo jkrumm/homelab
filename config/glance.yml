@@ -219,7 +219,7 @@ pages:
         widgets:
           - type: iframe
             source: https://free-planning-poker.com/analytics
-            height: 1200
+            height: 900
 
   - name: Status
     columns:
@@ -227,7 +227,7 @@ pages:
         widgets:
           - type: iframe
             source: https://status.jkrumm.com/
-            height: 1200
+            height: 900
 
   - name: Logs
     columns:
@@ -235,7 +235,7 @@ pages:
         widgets:
           - type: iframe
             source: https://dozzle.jkrumm.com/
-            height: 1200
+            height: 900
 
   - name: Infrastructure
     columns:
@@ -243,4 +243,4 @@ pages:
         widgets:
           - type: iframe
             source: https://beszel.jkrumm.com/
-            height: 1200
+            height: 900
