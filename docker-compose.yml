@@ -10,6 +10,14 @@ services:
       - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
     depends_on:
       - glance
+      - jellyfin
+      - beszel
+      - duplicati
+      - uptime-kuma
+      - dozzle
+      - calibre
+      - calibre-web
+      - immich-server
     networks:
       - cloudflared
     labels:
@@ -72,7 +80,7 @@ services:
     container_name: beszel
     restart: unless-stopped
     ports:
-      - 8090:8090
+      - "8090:8090"
     networks:
       - cloudflared
       - beszel
@@ -89,7 +97,7 @@ services:
     container_name: beszel-agent
     restart: unless-stopped
     ports:
-      - 45876:45876
+      - "45876:45876"
     networks:
       - beszel
     volumes:
@@ -140,7 +148,7 @@ services:
       - /home/jkrumm/ssd:/source/ssd
       - /mnt:/source/mnt
     ports:
-      - 8200:8200
+      - "8200:8200"
     networks:
       - cloudflared
     restart: unless-stopped
@@ -223,7 +231,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./dozzle:/data
     ports:
-      - 8081:8081
+      - "8081:8081"
     networks:
       - cloudflared
     labels:
@@ -262,7 +270,7 @@ services:
       - /home/jkrumm/ssd/SSD/Bücher/calibre/config:/config
       - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/library
     ports:
-      - 8085:8080
+      - "8085:8080"
     networks:
       - cloudflared
     restart: unless-stopped
@@ -281,7 +289,7 @@ services:
       - /home/jkrumm/ssd/SSD/Bücher/calibre-web/config:/config
       - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/books
     ports:
-      - 8083:8083
+      - "8083:8083"
     networks:
       - cloudflared
     restart: unless-stopped

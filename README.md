@@ -1,6 +1,14 @@
 # Homelab Setup Guide
 
-## Table of Contents
+## Useful commands
+```bash 
+# SSH Jump over to the HomeLab using IPv4 of VPS
+ssh -J jkrumm@5.75.178.196 jkrumm@homelab.jkrumm.dev
+# Forward the Samba SMB port to your local machine using IPv4 of VPS
+ssh -L 1445:homelab.jkrumm.dev:445 -J jkrumm@5.75.178.196 jkrumm@homelab.jkrumm.dev
+# Then connect your SMB client to:
+smb://localhost:1445
+```
 
 ## Table of Contents
 
