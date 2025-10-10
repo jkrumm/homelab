@@ -158,26 +158,6 @@ services:
       glance.url: https://duplicati.jkrumm.com
       glance.hide: false
 
-  porkbun-ddns:
-    image: "mietzen/porkbun-ddns:latest"
-    container_name: porkbun-ddns
-    environment:
-      DOMAIN: "jkrumm.dev"
-      SUBDOMAINS: "samba,homelab"
-      SECRETAPIKEY: ${PORKBUN_API_SECRET}
-      APIKEY: ${PORKBUN_API_KEY}
-      FRITZBOX_IP: "169.254.1.1"
-      IPV6: "TRUE"
-      IPV4: "FALSE"
-    restart: unless-stopped
-    networks:
-      - porkbun_ddns_network
-    labels:
-      glance.parent: uptime
-      glance.name: Porkbun DDNS
-      glance.icon: si:porkbun
-      glance.hide: false
-
   cloudflare-ddns:
     image: favonia/cloudflare-ddns:latest
     container_name: cloudflare-ddns
@@ -409,11 +389,3 @@ networks:
     driver: bridge
   beszel:
     driver: bridge
-  porkbun_ddns_network:
-    enable_ipv6: true
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/16
-          gateway: 172.20.0.1
