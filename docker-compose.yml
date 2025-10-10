@@ -190,7 +190,7 @@ services:
       - IP4_PROVIDER=none
       - PROXIED=false
       - UPDATE_CRON=@every 5m
-      - UPTIMEKUMA=http://uptime-kuma:3001/api/push/pEGfAebbUB?status=up&msg=OK&ping=
+      - UPTIMEKUMA=https://uptime.jkrumm.com/api/push/pEGfAebbUB?status=up&msg=OK&ping=
     labels:
       - glance.parent=uptime
       - glance.name=Cloudflare DDNS
