@@ -178,6 +178,24 @@ services:
       glance.icon: si:porkbun
       glance.hide: false
 
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - DOMAINS=homelab.jkrumm.com
+      - IP6_PROVIDER=cloudflare.trace
+      - IP4_PROVIDER=none
+      - PROXIED=false
+      - UPDATE_CRON=@every 5m
+    labels:
+      - glance.parent=uptime
+      - glance.name=Cloudflare DDNS
+      - glance.icon=si:cloudflare
+      - glance.hide=false
+
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
