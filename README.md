@@ -30,7 +30,7 @@ smb://localhost:1445
     - [Prepare Docker Compose](#prepare-docker-compose)
     - [Start Jellyfin](#start-jellyfin)
     - [Enable Jellyfin Hardware Acceleration](#enable-jellyfin-hardware-acceleration)
-8. [Setup Samba](#setup-samba)
+8. [File Access](#file-access)
 9. [Setup Beszel](#setup-beszel)
 10. [Setup Dozzle](#setup-dozzle)
 11. [Setup UptimeKuma](#setup-uptimekuma)
@@ -50,7 +50,6 @@ smb://localhost:1445
     - [Immich Configuration](#immich-configuration)
 
 ## TODOS
-- [ ] Add Filebrowser for SMB alternative
 - [ ] Backup my Photoflow images to HomeLab
 
 ## Subdomain
@@ -71,6 +70,7 @@ DNS-Rebind-Schutz).
 - dozzle.jkrumm.com
 - books.jkrumm.com (calibre-web)
 - immich.jkrumm.com
+- files.jkrumm.com (filebrowser)
 
 ## Doppler Secrets
 
@@ -591,7 +591,38 @@ group_add:
 This version should be easier to read and follow, with a clear hierarchy and a comprehensive table of contents for easy
 navigation.
 
-## Setup Samba
+## File Access
+
+This homelab provides multiple ways to access your files stored on the SSD (`/mnt/ssd/SSD`) and HDD (`/mnt/hdd`) partitions.
+
+### Filebrowser (Web Interface)
+
+Filebrowser provides a modern web interface for file management and is accessible via Cloudflare tunnel.
+
+1. Create the required directories for Filebrowser:
+   ```bash
+   sudo mkdir -p /mnt/hdd/filebrowser
+   sudo chown -R 1000:1000 /mnt/hdd/filebrowser
+   sudo chmod -R 755 /mnt/hdd/filebrowser
+   ```
+
+2. Create the configuration files:
+   ```bash
+   sudo touch /mnt/hdd/filebrowser/filebrowser.db
+   sudo touch /mnt/hdd/filebrowser/settings.json
+   sudo chown 1000:1000 /mnt/hdd/filebrowser/filebrowser.db
+   sudo chown 1000:1000 /mnt/hdd/filebrowser/settings.json
+   ```
+
+3. Access Filebrowser:
+   - URL: `https://files.jkrumm.com`
+   - Default login: `admin` / `admin`
+   - Change the default password immediately after first login
+   - The interface provides access to both SSD and HDD directories
+
+### Samba (SMB File Sharing)
+
+For traditional file sharing and local network access, Samba provides SMB/CIFS protocol support.
 
 1. Create a specific SSD folder for Samba:
    ```bash
@@ -599,14 +630,28 @@ navigation.
    sudo chown -R 1000:1000 /mnt/ssd/samba
    sudo chmod -R 755 /mnt/ssd/samba
    ```
-2. Allow the Samba service through the router port forwarding.
-    - IPv6 only (IPv4 is not supported DSLite)
-    - Port: 445
-    - Protocol: TCP
-3. Access the Samba share using the following credentials:
-    - Host: `smb://[homelab.jkrumm.com]`
-    - Username: jkrumm
-    - Password: You can find the secret in 1Password and Doppler
+
+2. Router Configuration:
+   - Allow the Samba service through router port forwarding
+   - IPv6 only (IPv4 is not supported with DSLite)
+   - Port: 445
+   - Protocol: TCP
+
+3. Access Samba shares:
+   - Direct IPv6: `smb://[homelab.jkrumm.com]`
+   - Via SSH tunnel (for IPv4 clients):
+     ```bash
+     # Forward Samba port via SSH tunnel
+     ssh -L 1445:homelab.jkrumm.com:445 -J jkrumm@5.75.178.196 jkrumm@homelab.jkrumm.com
+     # Then connect to: smb://localhost:1445
+     ```
+   - Username: jkrumm
+   - Password: Available in 1Password and Doppler secrets
+
+### Usage Recommendations
+
+- **Filebrowser**: Best for web-based file management, uploads, and remote access via browser
+- **Samba**: Ideal for mounting network drives, bulk file operations, and integration with local applications
 
 ## Setup Beszel
 
