@@ -612,6 +612,14 @@ Filebrowser provides a modern web interface for file management and is accessibl
    sudo touch /mnt/hdd/filebrowser/settings.json
    sudo chown 1000:1000 /mnt/hdd/filebrowser/filebrowser.db
    sudo chown 1000:1000 /mnt/hdd/filebrowser/settings.json
+   echo '{
+     "port": 80,
+     "baseURL": "",
+     "address": "",
+     "log": "stdout",
+     "database": "/database/filebrowser.db",
+     "root": "/srv"
+   }' | sudo tee /mnt/hdd/filebrowser/settings.json
    ```
 
 3. Access Filebrowser:
