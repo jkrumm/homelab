@@ -379,7 +379,7 @@ services:
     container_name: filebrowser
     restart: unless-stopped
     volumes:
-      - /mnt/ssd/SSD:/srv/ssd
+      - /home/jkrumm/ssd/SSD:/srv/ssd
       - /mnt/hdd:/srv/hdd
       - /mnt/hdd/filebrowser/filebrowser.db:/database/filebrowser.db
       - /mnt/hdd/filebrowser/settings.json:/config/settings.json
