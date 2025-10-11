@@ -3,9 +3,9 @@
 ## Useful commands
 ```bash 
 # SSH Jump over to the HomeLab using IPv4 of VPS
-ssh -J jkrumm@5.75.178.196 jkrumm@homelab.jkrumm.dev
+ssh -J jkrumm@5.75.178.196 jkrumm@homelab.jkrumm.com
 # Forward the Samba SMB port to your local machine using IPv4 of VPS
-ssh -L 1445:homelab.jkrumm.dev:445 -J jkrumm@5.75.178.196 jkrumm@homelab.jkrumm.dev
+ssh -L 1445:homelab.jkrumm.com:445 -J jkrumm@5.75.178.196 jkrumm@homelab.jkrumm.com
 # Then connect your SMB client to:
 smb://localhost:1445
 ```
@@ -50,61 +50,39 @@ smb://localhost:1445
     - [Immich Configuration](#immich-configuration)
 
 ## TODOS
-
-- [x] Change hostname to homelab
-- [x] Configure Glance Dashboard https://docs.techdox.nz/glance/
-- [x] Setup Duplicati https://docs.techdox.nz/duplicati/
-- [x] Backup Jellyfin configuration und jellyfin/config folder continuously
-- [x] Backup SSD folder continuously
-- [x] Backup to OneDrive
-- [x] Use Porkbun API DDNS
-- [x] Reconfigure Duplicati to use Transfer partition and joined HDD folder backup
-- [x] Configure UptimeKuma https://docs.techdox.nz/uptimekuma/
-- [x] Configure Watchtower https://docs.techdox.nz/watchtower/
-- [x] Configure FPP database backup
-- [x] Setup Dozzle for Docker logs
-- [x] Setup Calibre and Calibre-Web
-- [x] Setup Kobo sync with Calibre https://code.mendhak.com/kobo-customizations/
-- [ ] Setup VPS as IPv4 proxy for Kobo sync:
-    - Use VPS with IPv4 as reverse proxy
-    - Forward traffic to HomeLab IPv6
-    - Configure Kobo to use VPS IPv4 address
-    - Update Caddy config on both ends
-- [x] Get Dozzle Logs from SideprojectDockerStack
-- [x] Get Beszel stats from SideprojectDockerStack
-- [ ] Fail2Ban for SSH, Jellyfin, Samba, Immich, MariaDB
-- [ ] Plausible for analytics of SnowFinder and jkrumm.dev and photos.jkrumm.dev
-- [x] Selfhealing
-    - [x] Restart Fritzbox in case it has no connection to interent
-    - [x] Restart Docker containers in case Containers not available
-    - [x] Restart HomeLab incase internet or container etc still not working
-    - [x] Report using Pushover
-- [ ] Backup files in clear to Backblaze not SharePoint encrypted
-- [ ] Backup my Photoflow images to HomeLab and there to Backblaze
+- [ ] Add Filebrowser for SMB alternative
+- [ ] Backup my Photoflow images to HomeLab
 
 ## Subdomain
 
-All setup in Porkbun DNS and automatically IPv6 with [porkbun-ddns](https://github.com/mietzen/porkbun-ddns).
-Allow internal IP routing to the Jellyfin server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen ->
-DNS-Rebind-Schutz).
-With Caddy already configured, we should then be fully set up.
+All setup in Cloudflare DNS and automatically IPv6 with [cloudflare-ddns](https://github.com/favonia/cloudflare-ddns).
+Services are exposed directly through Cloudflare tunnels, eliminating the need for reverse proxy setup.
+Cloudflare provides built-in DDoS protection, SSL termination, and caching.
 
-- home.jkrumm.dev (glance)
-- jellyfin.jkrumm.dev
-- samba.jkrumm.dev
-- beszel.jkrumm.dev
-- duplicati.jkrumm.dev
+Allow internal IP routing to the Domains server in the FritzBox (Heimnetz -> Netzwerk -> Netzwerkeinstellungen ->
+DNS-Rebind-Schutz).
+
+- glance.jkrumm.com (home dashboard)
+- jellyfin.jkrumm.com
+- samba.jkrumm.com
+- beszel.jkrumm.com
+- duplicati.jkrumm.com
+- uptime.jkrumm.com
+- dozzle.jkrumm.com
+- books.jkrumm.com (calibre-web)
+- immich.jkrumm.com
 
 ## Doppler Secrets
 
 The following secrets are required to run the HomeLab:
 
-| Name                   | Description                   | Example                                |
-|------------------------|-------------------------------|----------------------------------------|
-| `DUCKDNS_TOKEN`        | DuckDNS token                 | `12345678-1234-1234-1234-1234567890ab` |
-| `DB_HOST`              | MySQL server host for backups | `5.75.178.196`                         |
-| `DB_ROOT_PW`           | MySQL root password           | `your-secure-password`                 |
-| `POSTGRES_DB_PASSWORD` | Immich Postgres password      | `your-secure-postgres-password`        |
+| Name                   | Description                          | Example                                |
+|------------------------|--------------------------------------|----------------------------------------|
+| `CLOUDFLARE_TOKEN`     | Cloudflare tunnel token              | `tunnel-token-from-dashboard`          |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token for DDNS       | `api-token-for-dns-updates`            |
+| `DB_HOST`              | MySQL server host for backups       | `5.75.178.196`                         |
+| `DB_ROOT_PW`           | MySQL root password                  | `your-secure-password`                 |
+| `POSTGRES_DB_PASSWORD` | Immich Postgres password             | `your-secure-postgres-password`        |
 
 ## Setup Guide
 
@@ -155,8 +133,7 @@ The following secrets are required to run the HomeLab:
    sudo ./setup.sh
    ```
 
-6. TODO: Add a good guide to Secure VPS
-7. Disable Root Login:
+6. Disable Root Login and configure SSH security:
    ```bash
    sudo vim /etc/ssh/sshd_config
    ```
@@ -177,6 +154,18 @@ The following secrets are required to run the HomeLab:
 
 The `setup.sh` script configures the firewall to allow SSH connections. You can now connect to the server using the
 command printed at the end of the script.
+
+### Configure Cloudflare Tunnel
+
+1. Set up Cloudflare tunnel in your Cloudflare dashboard:
+   - Create a new tunnel
+   - Get the tunnel token
+   - Configure DNS records to point to the tunnel
+   - Set up service routing for each subdomain to the appropriate local ports
+
+2. Add the tunnel token to your Doppler secrets as `CLOUDFLARE_TOKEN`
+
+3. The docker-compose.yml includes the cloudflared service which will automatically connect using the token
 
 ### Configure Doppler
 
@@ -615,7 +604,7 @@ navigation.
     - Port: 445
     - Protocol: TCP
 3. Access the Samba share using the following credentials:
-    - Host: `smb://[samba.jkrumm.dev]`
+    - Host: `smb://[homelab.jkrumm.com]`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
 
@@ -630,7 +619,7 @@ navigation.
 2. Setup correct drives for SSD and HDD
 
 3. Access the Beszel server using the following credentials:
-    - Host: `https://beszel.jkrumm.dev`
+    - Host: `https://beszel.jkrumm.com`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
 
@@ -688,7 +677,7 @@ To enable authentication for Dozzle:
    docker compose up -d dozzle
    ```
 
-You can now access Dozzle at https://dozzle.jkrumm.dev and log in with username `jkrumm` and your chosen password.
+You can now access Dozzle at https://dozzle.jkrumm.com and log in with username `jkrumm` and your chosen password.
 
 ## Setup Duplicati
 
@@ -709,7 +698,7 @@ You can now access Dozzle at https://dozzle.jkrumm.dev and log in with username 
    ```
 3. Access the Duplicati server using the following credentials:
 
-    - Host: `https://duplicati.jkrumm.dev`
+    - Host: `https://duplicati.jkrumm.com`
     - Username: jkrumm
     - Password: You can find the secret in 1Password and Doppler
 
@@ -1016,7 +1005,7 @@ You can monitor the backup process by:
 
 ### Calibre Setup
 
-1. Access Calibre at `https://calibre.jkrumm.dev`
+1. Access Calibre at `https://calibre.jkrumm.com`
 2. Login with:
     - Username: jkrumm
     - Password: Set in `CALIBRE_PASSWORD` environment variable
@@ -1039,7 +1028,7 @@ You can monitor the backup process by:
 
 ### Calibre-Web Setup
 
-1. Access Calibre-Web at `https://books.jkrumm.dev`
+1. Access Calibre-Web at `https://books.jkrumm.com`
 2. Initial setup:
     - Default login: admin/admin123
     - Change the admin password immediately
@@ -1066,8 +1055,7 @@ You can monitor the backup process by:
 
 ### Kobo Sync Setup
 
-Due to IPv6-only connectivity (DS-Lite) from the ISP and Kobo's limited IPv6 support, we need a specific setup for Kobo
-sync to work properly.
+With Cloudflare tunnels, Kobo sync now works seamlessly as Cloudflare provides IPv4 connectivity while maintaining the IPv6-only home connection.
 
 #### Calibre-Web Configuration
 
@@ -1114,10 +1102,10 @@ sync to work properly.
     - Replace or add the api_endpoint line:
 
    ```ini
-   api_endpoint=http://192.168.1.100:8083/kobo/YOURTOKEN
+   api_endpoint=https://books.jkrumm.com/kobo/YOURTOKEN
    ```
 
-    - Use your local IPv4 address instead of the domain due to IPv6 limitations
+    - Use the Cloudflare tunnel domain for reliable access
     - Replace YOURTOKEN with your actual token from Calibre-Web
 
 4. Sync Your Device:
@@ -1127,13 +1115,7 @@ sync to work properly.
 
 #### Known Limitations
 
-1. IPv6 Connectivity:
-
-    - Our setup uses local IPv4 addressing due to Kobo's limited IPv6 support
-    - External access through books.jkrumm.dev won't work for Kobo sync
-    - This is a limitation of DS-Lite internet connection and Kobo's networking capabilities
-
-2. Store Integration:
+1. Store Integration:
     - Book covers in Kobo Store may show as generic white pages
     - Overdrive section might have missing covers
     - These are known limitations of the sync implementation
@@ -1148,7 +1130,7 @@ to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo
 - Both services share the same library folder
 - Automatic updates via Watchtower
 - Monitoring via Glance dashboard
-- Reverse proxy through Caddy with automatic HTTPS
+- Secure HTTPS access through Cloudflare tunnels
 - All configurations and library are backed up via Duplicati
 
 ## Setup Immich
@@ -1208,7 +1190,7 @@ alternative.
    doppler run -- docker compose up -d
    ```
 
-3. Access Immich at `https://immich.jkrumm.dev`
+3. Access Immich at `https://immich.jkrumm.com`
 
 4. On first access, you will need to create an admin account:
     - Enter a valid email address
