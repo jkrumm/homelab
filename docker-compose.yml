@@ -1,0 +1,1014 @@
+services:
+  # Security: Proxy Docker socket access for monitoring services
+  # Prevents direct socket exposure (container escape risk)
+  # WUD keeps direct access (needs write for auto-updates)
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-socket-proxy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    environment:
+      # Read-only access to container/image info
+      CONTAINERS: 1
+      IMAGES: 1
+      INFO: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      EVENTS: 1  # Dozzle: real-time container event stream
+      VERSION: 1  # Docker clients negotiate API version on connect
+      # Disable all write operations
+      POST: 0
+      BUILD: 0
+      COMMIT: 0
+      CONFIGS: 0
+      DISTRIBUTION: 0
+      EXEC: 0
+      GRPC: 0
+      NODES: 0
+      PLUGINS: 0
+      SECRETS: 0
+      SERVICES: 0
+      SESSION: 0
+      SWARM: 0
+      SYSTEM: 0
+      TASKS: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+    labels:
+      glance.hide: true
+
+  caddy:
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    networks:
+      - cloudflared
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    labels:
+      glance.parent: uptime
+      glance.name: Caddy
+      glance.hide: false
+      wud.watch: "false"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
+    depends_on:
+      - caddy
+      - glance
+      - uptime-kuma
+      - immich-server
+      - excalidash-frontend
+      - dufs
+      - signoz-otel-collector
+    networks:
+      - cloudflared
+    labels:
+      glance.parent: uptime
+      glance.name: Cloudflared
+      glance.hide: false
+
+  [redacted]:
+    image: lscr.io/linuxserver/[redacted]:latest
+    container_name: [redacted]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - cloudflared
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+    volumes:
+      - /mnt/hdd/[redacted]/config:/config
+      - /mnt/hdd/[redacted]/cache:/cache
+      - /mnt/hdd/Filme/Movies:/media/movies
+      - /mnt/hdd/Filme/Shows:/media/shows
+      - /mnt/hdd/Filme/Kids:/media/kids
+    devices:
+      - /dev/dri:/dev/dri
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    labels:
+      glance.name: [redacted]
+      glance.icon: si:[redacted]
+      glance.url: https://[redacted].jkrumm.com
+      glance.hide: false
+      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "true"
+
+  samba:
+    image: ghcr.io/servercontainers/samba
+    container_name: samba
+    restart: unless-stopped
+    ports:
+      - "139:139"
+      - "445:445"
+    environment:
+      AVAHI_NAME: StorageServer
+      MODEL: "Macmini"
+      SAMBA_CONF_LOG_LEVEL: 3
+      ACCOUNT_jkrumm: ${SAMBA_PASSWORD}
+      SAMBA_GLOBAL_CONFIG: "[global]; min protocol=SMB3; smb encrypt=desired; ea support=yes; vfs objects=fruit streams_xattr; fruit:metadata=stream; fruit:model=MacSamba; fruit:veto_appledouble=no; fruit:nfs_aces=no; fruit:wipe_intentionally_left_blank_rfork=yes; fruit:delete_empty_adfiles=yes; fruit:posix_rename=yes"
+      SAMBA_VOLUME_CONFIG_ssd: "[SSD]; path=/mnt/ssd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=SSD"
+      SAMBA_VOLUME_CONFIG_hdd: "[HDD]; path=/mnt/hdd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=HDD"
+    volumes:
+      - /home/jkrumm/ssd:/mnt/ssd
+      - /mnt/hdd:/mnt/hdd
+    labels:
+      glance.name: Samba
+      glance.icon: si:protondrive
+      glance.url: https://files.jkrumm.com
+      glance.hide: false
+
+  beszel:
+    image: henrygd/beszel
+    container_name: beszel
+    restart: unless-stopped
+    networks:
+      - cloudflared
+      - beszel
+    volumes:
+      - /mnt/hdd/beszel:/beszel_data
+    labels:
+      glance.name: Beszel
+      glance.icon: si:graylog
+      glance.url: https://beszel.jkrumm.com
+      glance.hide: false
+
+  beszel-agent:
+    image: "henrygd/beszel-agent"
+    container_name: beszel-agent
+    restart: unless-stopped
+    ports:
+      - "${HOMELAB_TAILSCALE_IP}:45876:45876"
+    networks:
+      - beszel
+      - socket-proxy
+    volumes:
+      - /mnt/hdd/.beszel:/extra-filesystems/hdd:ro
+    environment:
+      PORT: 45876
+      KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf"
+      FILESYSTEMS: /sda/sda3
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+    depends_on:
+      - docker-socket-proxy
+    labels:
+      glance.hide: true
+
+  glance:
+    image: glanceapp/glance
+    container_name: glance
+    volumes:
+      - ./config:/app/config
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - cloudflared
+      - socket-proxy
+    environment:
+      - IMMICH_API_KEY=${IMMICH_API_KEY}
+    depends_on:
+      - docker-socket-proxy
+    restart: unless-stopped
+    labels:
+      glance.name: Glance
+      glance.parent: uptime
+      glance.icon: si:hashnode
+      glance.url: https://glance.jkrumm.com
+      glance.hide: false
+
+  duplicati:
+    image: lscr.io/linuxserver/duplicati:latest
+    container_name: duplicati
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_ENCRYPTION_KEY}
+      - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_WEBSERVICE_PASSWORD}
+    # - CLI_ARGS= #optional
+    volumes:
+      - /mnt/hdd/duplicati/config:/config
+      - /mnt/transfer/duplicati_backups:/backups
+      - /home/jkrumm/ssd:/source/ssd
+      - /mnt:/source/mnt
+    networks:
+      - cloudflared
+    restart: unless-stopped
+    labels:
+      glance.name: Duplicati
+      glance.icon: si:duplicati
+      glance.url: https://duplicati.jkrumm.com
+      glance.hide: false
+      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "true"
+
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - DOMAINS=homelab.jkrumm.com
+      - IP6_PROVIDER=cloudflare.trace
+      - IP4_PROVIDER=cloudflare.trace
+      - PROXIED=false
+      - UPDATE_CRON=@every 5m
+      - UPDATE_TIMEOUT=3m
+      - UPTIMEKUMA=https://uptime.jkrumm.com/api/push/pEGfAebbUB?status=up&msg=OK&ping=
+    labels:
+      - glance.parent=uptime
+      - glance.name=Cloudflare DDNS
+      - glance.icon=si:cloudflare
+      - glance.hide=false
+
+  wud:
+    image: getwud/wud:latest
+    container_name: wud
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - cloudflared
+    environment:
+      # Auto-update trigger: pull + restart (Watchtower equivalent)
+      WUD_TRIGGER_DOCKER_LOCAL_PRUNE: "true"
+      # Notification trigger: fires for all watched containers on new version
+      WUD_TRIGGER_PUSHOVER_MAIN_TOKEN: ${WUD_PUSHOVER_TOKEN}
+      WUD_TRIGGER_PUSHOVER_MAIN_USER: ${WUD_PUSHOVER_USER}
+      # Check every 6 hours to avoid Docker Hub 429 rate limiting
+      WUD_WATCHER_LOCAL_CRON: "0 */6 * * *"
+    labels:
+      glance.parent: uptime
+      glance.name: WUD
+      glance.icon: si:docker
+      glance.hide: false
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      TZ: Europe/Berlin
+      # Only update containers that explicitly opt in via label
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_SCHEDULE: "0 0 4 * * *"
+      # Pushover notifications for updates and failures (reuse WUD secrets)
+      WATCHTOWER_NOTIFICATION_URL: "pushover://${WUD_PUSHOVER_TOKEN}@${WUD_PUSHOVER_USER}"
+    labels:
+      glance.parent: uptime
+      glance.name: Watchtower
+      glance.icon: si:watchtower
+      glance.hide: false
+      wud.watch: "false"
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3010:3001"
+    networks:
+      - cloudflared
+      - socket-proxy
+    environment:
+      - SQLITE_BUSY_TIMEOUT=30000
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+    # Note: IPv6 not available in Docker bridge network. VPS monitors have
+    # increased retries (3x) to handle intermittent IPv4 timeouts from
+    # Deutsche Telekom routing issues to Cloudflare.
+    volumes:
+      - /home/jkrumm/ssd/uptime-kuma:/app/data
+    depends_on:
+      - docker-socket-proxy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    labels:
+      glance.name: Uptime Kuma
+      glance.icon: si:uptimekuma
+      glance.url: https://uptime.jkrumm.com
+      glance.hide: false
+      glance.id: uptime
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    environment:
+      DOZZLE_HOSTNAME: jkrumm.com
+      DOZZLE_ADDR: :8081
+      DOZZLE_AUTH_PROVIDER: simple
+      DOZZLE_AUTH_TTL: 87600h
+      DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+    secrets:
+      - source: cert
+        target: /dozzle_cert.pem
+      - source: key
+        target: /dozzle_key.pem
+    volumes:
+      - ./dozzle:/data
+    networks:
+      - cloudflared
+      - socket-proxy
+    depends_on:
+      - docker-socket-proxy
+    labels:
+      glance.name: Dozzle
+      glance.icon: si:logstash
+      glance.url: https://dozzle.jkrumm.com
+      glance.hide: false
+
+  dozzle-watchdog-logs:
+    container_name: homelab-watchdog-logs
+    image: alpine
+    volumes:
+      - /var/log/homelab_watchdog.log:/var/log/stream.log
+    command:
+      - tail
+      - -f
+      - /var/log/stream.log
+    network_mode: none
+    restart: unless-stopped
+    labels:
+      glance.hide: true
+      wud.watch: "false"
+
+  dozzle-backup-logs:
+    container_name: database-backup-logs
+    image: alpine
+    volumes:
+      - /mnt/hdd/backups/backup.log:/var/log/stream.log
+    command:
+      - tail
+      - -f
+      - /var/log/stream.log
+    network_mode: none
+    restart: unless-stopped
+    labels:
+      glance.hide: true
+      wud.watch: "false"
+
+  calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - CUSTOM_USER=jkrumm
+      - PASSWORD=${CALIBRE_PASSWORD}
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bücher/calibre/config:/config
+      - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/library
+    networks:
+      - cloudflared
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    labels:
+      glance.hide: true
+      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "true"
+
+  calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - DOCKER_MODS=linuxserver/mods:universal-calibre|linuxserver/mods:calibre-web-calibre
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bücher/calibre-web/config:/config
+      - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/books
+    networks:
+      - cloudflared
+    restart: unless-stopped
+    labels:
+      glance.name: Calibre Web
+      glance.icon: si:calibreweb
+      glance.url: https://books.jkrumm.com
+      glance.hide: false
+      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "true"
+
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:release
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    extends:
+      file: config/hwaccel.transcoding.yml
+      service: quicksync
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bilder/immich/upload:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+      # External library - read-only mount for Fuji photos
+      - /home/jkrumm/ssd/SSD/Bilder/Fuji:/mnt/media/fuji:ro
+    ports:
+      - "2283:2283"
+    networks:
+      - cloudflared
+      - immich
+    environment:
+      - UPLOAD_LOCATION=/usr/src/app/upload
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${POSTGRES_DB_PASSWORD}
+      - DB_DATABASE_NAME=immich
+      - DB_HOSTNAME=immich_postgres
+      - REDIS_HOSTNAME=immich_redis
+      - TZ=Europe/Berlin
+    depends_on:
+      - immich_redis
+      - immich_postgres
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    labels:
+      glance.name: Immich
+      glance.icon: si:immich
+      glance.url: https://immich.jkrumm.com
+      glance.hide: false
+      wud.trigger.docker.local: "false"
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:release-openvino
+    restart: unless-stopped
+    extends:
+      file: config/hwaccel.ml.yml
+      service: openvino
+    volumes:
+      - model-cache:/cache
+    networks:
+      - immich
+    environment:
+      - REDIS_HOSTNAME=immich_redis
+      - TZ=Europe/Berlin
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    labels:
+      glance.hide: true
+
+  immich_redis:
+    container_name: immich_redis
+    image: docker.io/redis:7.4-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
+    restart: unless-stopped
+    networks:
+      - immich
+    labels:
+      glance.hide: true
+      wud.watch: "false"  # digest-pinned image, WUD cannot track updates
+
+  immich_postgres:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bilder/immich/postgres:/var/lib/postgresql/data
+    networks:
+      - immich
+    labels:
+      glance.hide: true
+      wud.watch: "false"  # digest-pinned image, WUD cannot track updates
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    restart: unless-stopped
+    user: "1000:1000"
+    volumes:
+      - /home/jkrumm/ssd/SSD:/srv/ssd
+      - /mnt/hdd:/srv/hdd
+      - /mnt/hdd/filebrowser:/database
+      - /mnt/hdd/filebrowser:/config
+    networks:
+      - cloudflared
+    labels:
+      glance.name: Filebrowser
+      glance.icon: si:files
+      glance.url: https://files.jkrumm.com
+      glance.hide: false
+
+  excalidash-backend:
+    image: zimengxiong/excalidash-backend:latest
+    container_name: excalidash-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - PORT=8000
+      - NODE_ENV=production
+    volumes:
+      - /home/jkrumm/ssd/SSD/Dokumente/Anderes/excalidash:/app/prisma
+    networks:
+      - excalidash
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      glance.hide: true
+
+  excalidash-frontend:
+    image: zimengxiong/excalidash-frontend:latest
+    container_name: excalidash-frontend
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=excalidash-backend:8000
+    ports:
+      - "8084:80"
+    depends_on:
+      - excalidash-backend
+    networks:
+      - cloudflared
+      - excalidash
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      glance.name: ExcaliDash
+      glance.icon: si:excalidraw
+      glance.url: https://draw.jkrumm.com
+      glance.hide: false
+
+  dufs:
+    image: sigoden/dufs:latest
+    container_name: dufs
+    restart: unless-stopped
+    command: >
+      /data -A
+      --auth @/
+      --auth jkrumm:${DUFS_PASSWORD}@/:rw
+      --enable-cors
+      --hidden .DS_Store,.git,Thumbs.db
+    volumes:
+      - /home/jkrumm/ssd/SSD/Public:/data
+    ports:
+      - "8098:5000"
+    networks:
+      - cloudflared
+    labels:
+      glance.name: Dufs Public Files
+      glance.icon: si:files
+      glance.url: https://public.jkrumm.com
+      glance.hide: false
+
+  [redacted]:
+    image: qmcgaw/[redacted]:latest
+    container_name: [redacted]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      # VPN Provider
+      - VPN_SERVICE_PROVIDER=[redacted]
+      - VPN_TYPE=[redacted]
+      - [redacted]_PRIVATE_KEY=${[redacted]_PRIVATE_KEY}
+      - SERVER_COUNTRIES=Switzerland
+      # DNS Security (plaintext DNS over VPN tunnel)
+      - DNS_SERVER=on
+      - DOT=off
+      - DNS_PLAINTEXT_ADDRESS=1.1.1.1
+      # Privacy Protection
+      - BLOCK_MALICIOUS=on
+      - BLOCK_SURVEILLANCE=on
+      - BLOCK_ADS=on
+    healthcheck:
+      test: ["CMD", "/[redacted]-entrypoint", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      glance.parent: uptime
+      glance.name: [redacted] VPN
+      glance.icon: si:[redacted]
+      glance.hide: false
+
+  [redacted]:
+    image: lscr.io/linuxserver/[redacted]:latest
+    container_name: [redacted]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+    network_mode: service:[redacted]
+    depends_on:
+      [redacted]:
+        condition: service_healthy
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+    volumes:
+      - /mnt/hdd/[redacted]/config:/config
+      - /mnt/hdd/[redacted]/downloads:/downloads
+      - /mnt/hdd/[redacted]/watch:/watch
+    labels:
+      glance.name: [redacted]
+      glance.icon: si:[redacted]
+      glance.hide: false
+      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "true"
+
+  # === SigNoz Observability Stack ===
+  # Application-level observability (APM) for self-hosted apps
+  # Complements Dozzle (container logs) and Beszel (system metrics)
+
+  zookeeper-1:
+    image: signoz/zookeeper:3.7.1
+    container_name: signoz-zookeeper
+    restart: unless-stopped
+    hostname: zookeeper-1
+    environment:
+      - ZOO_SERVER_ID=1
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - /home/jkrumm/ssd/signoz/zookeeper:/var/lib/zookeeper/data
+    networks:
+      - signoz
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    labels:
+      glance.hide: true
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.5.6-alpine
+    container_name: clickhouse
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - /home/jkrumm/ssd/signoz/clickhouse:/var/lib/clickhouse
+      - ./config/clickhouse/users.xml:/etc/clickhouse-server/users.d/default-password.xml:ro
+      - ./config/clickhouse/low-resource.xml:/etc/clickhouse-server/config.d/low-resource.xml:ro
+      - ./config/clickhouse/user-tuning.xml:/etc/clickhouse-server/users.d/user-tuning.xml:ro
+      - ./config/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./config/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml:ro
+    networks:
+      - signoz
+    depends_on:
+      zookeeper-1:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '1.5'
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8123/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    labels:
+      glance.hide: true
+      wud.tag.include: '^25\.\d+\.\d+-alpine$$'
+
+  schema-migrator-sync:
+    image: signoz/signoz-schema-migrator:v0.142.0
+    container_name: signoz-schema-migrator-sync
+    restart: on-failure
+    command: ["sync", "--dsn=tcp://clickhouse:9000"]
+    networks:
+      - signoz
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    labels:
+      glance.hide: true
+      wud.watch: "false"
+
+  schema-migrator-async:
+    image: signoz/signoz-schema-migrator:v0.142.0
+    container_name: signoz-schema-migrator-async
+    restart: on-failure
+    command: ["async", "--dsn=tcp://clickhouse:9000"]
+    networks:
+      - signoz
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    labels:
+      glance.hide: true
+      wud.watch: "false"
+
+  signoz-otel-collector:
+    image: signoz/signoz-otel-collector:v0.142.0
+    container_name: signoz-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    networks:
+      - signoz
+      - cloudflared
+    environment:
+      - OTEL_RESOURCE_ATTRIBUTES=host.name=homelab
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+        reservations:
+          memory: 512M
+    labels:
+      glance.parent: uptime
+      glance.name: SigNoz Collector
+      glance.hide: false
+      wud.watch: "false"
+
+  signoz:
+    image: signoz/signoz:v0.112.0
+    container_name: signoz
+    restart: unless-stopped
+    command: ["--config=/root/config/prometheus.yml"]
+    ports:
+      - "8089:8080"  # SigNoz UI/API
+    volumes:
+      - /home/jkrumm/ssd/signoz/data:/var/lib/signoz
+      - ./config/signoz/prometheus.yml:/root/config/prometheus.yml:ro
+    networks:
+      - signoz
+      - cloudflared
+    environment:
+      - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://clickhouse:9000
+      - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
+      - SIGNOZ_ALERTMANAGER_PROVIDER=signoz
+      - DOT_METRICS_ENABLED=true
+      - SIGNOZ_TOKENIZER_JWT_SECRET=${SIGNOZ_TOKENIZER_JWT_SECRET}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    labels:
+      glance.name: SigNoz
+      glance.icon: si:opentelemetry
+      glance.url: https://signoz.jkrumm.com
+      glance.hide: false
+      wud.trigger.docker.local: "false"
+
+  plausible:
+    image: ghcr.io/plausible/community-edition:v3.2.0
+    container_name: plausible
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+    command: sh -c "/entrypoint.sh db createdb && /entrypoint.sh db migrate && /entrypoint.sh run"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    volumes:
+      - /home/jkrumm/ssd/plausible/data:/var/lib/plausible
+    networks:
+      - immich
+      - signoz
+      - cloudflared
+    ports:
+      - "8088:8000"
+    environment:
+      - TMPDIR=/var/lib/plausible/tmp
+      - BASE_URL=https://plausible.jkrumm.com
+      - SECRET_KEY_BASE=${PLAUSIBLE_SECRET_KEY_BASE}
+      - HTTP_PORT=8000
+      - DATABASE_URL=postgres://postgres:${POSTGRES_DB_PASSWORD}@immich_postgres:5432/plausible_db
+      - CLICKHOUSE_DATABASE_URL=http://default@clickhouse:8123/plausible_events_db
+      - DISABLE_REGISTRATION=${PLAUSIBLE_DISABLE_REGISTRATION:-true}
+    depends_on:
+      immich_postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    labels:
+      glance.name: Plausible
+      glance.icon: si:plausibleanalytics
+      glance.url: https://plausible.jkrumm.com
+      glance.hide: false
+
+  zot:
+    image: ghcr.io/project-zot/zot-linux-amd64:latest
+    container_name: zot
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    volumes:
+      - /home/jkrumm/ssd/zot:/var/lib/registry
+      - ./config/zot:/etc/zot:ro
+    networks:
+      - cloudflared
+    labels:
+      glance.name: Zot Registry
+      glance.parent: uptime
+      glance.icon: si:docker
+      glance.url: https://registry.jkrumm.com
+      glance.hide: false
+
+  obsidian:
+    image: lscr.io/linuxserver/obsidian:latest
+    container_name: obsidian
+    restart: unless-stopped
+    shm_size: "1gb"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Berlin
+      - CUSTOM_USER=jkrumm
+      - PASSWORD=${OBSIDIAN_GUI_PASSWORD}
+      - RESTART_APP=true
+      - DISABLE_CLOSE_BUTTON=true
+      - SELKIES_FRAMERATE=15
+    volumes:
+      - /home/jkrumm/ssd/obsidian:/config
+    devices:
+      - /dev/dri:/dev/dri
+    networks:
+      - cloudflared
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    labels:
+      glance.name: Obsidian
+      glance.icon: si:obsidian
+      glance.url: https://obsidian.jkrumm.com
+      glance.hide: false
+      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "true"
+
+  couchdb:
+    image: couchdb:3
+    container_name: couchdb
+    restart: unless-stopped
+    environment:
+      - COUCHDB_USER=jkrumm
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+    volumes:
+      - /home/jkrumm/ssd/couchdb/data:/opt/couchdb/data
+      - ./config/couchdb/local.ini:/opt/couchdb/etc/local.d/local.ini
+    networks:
+      - cloudflared
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    labels:
+      glance.name: CouchDB
+      glance.icon: si:couchbase
+      glance.url: https://couchdb.jkrumm.com
+      glance.hide: false
+      wud.tag.include: '^\d+\.\d+\.\d+$$'
+
+secrets:
+  cert:
+    file: ./dozzle/cert.pem
+  key:
+    file: ./dozzle/key.pem
+
+volumes:
+  model-cache:
+  caddy_data:
+  caddy_config:
+
+networks:
+  cloudflared:
+    driver: bridge
+  immich:
+    driver: bridge
+  beszel:
+    driver: bridge
+  excalidash:
+    driver: bridge
+  socket-proxy:
+    driver: bridge
+    internal: true  # No external access needed
+  signoz:
+    driver: bridge
