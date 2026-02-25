@@ -44,7 +44,7 @@
     "level": "info"
   },
   "extensions": {
-    "ui": { "enable": false },
+    "ui": { "enable": true },
     "search": {
       "enable": true,
       "cve": {
