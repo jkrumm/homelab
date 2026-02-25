@@ -42,6 +42,7 @@ services:
       - socket-proxy
     labels:
       glance.hide: true
+      wud.trigger.pushover.main: "false"
 
   caddy:
     build:
@@ -87,6 +88,7 @@ services:
       glance.parent: uptime
       glance.name: Cloudflared
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   [redacted]:
     image: lscr.io/linuxserver/[redacted]:latest
@@ -146,6 +148,7 @@ services:
       glance.icon: si:protondrive
       glance.url: https://files.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   beszel:
     image: henrygd/beszel
@@ -161,6 +164,7 @@ services:
       glance.icon: si:graylog
       glance.url: https://beszel.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   beszel-agent:
     image: "henrygd/beszel-agent"
@@ -182,6 +186,7 @@ services:
       - docker-socket-proxy
     labels:
       glance.hide: true
+      wud.trigger.pushover.main: "false"
 
   glance:
     image: glanceapp/glance
@@ -206,6 +211,7 @@ services:
       glance.icon: si:hashnode
       glance.url: https://glance.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   duplicati:
     image: lscr.io/linuxserver/duplicati:latest
@@ -252,6 +258,7 @@ services:
       - glance.name=Cloudflare DDNS
       - glance.icon=si:cloudflare
       - glance.hide=false
+      - wud.trigger.pushover.main=false
 
   wud:
     image: getwud/wud:latest
@@ -274,6 +281,7 @@ services:
       glance.name: WUD
       glance.icon: si:docker
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -287,8 +295,6 @@ services:
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
-      # Pushover notifications for updates and failures (reuse WUD secrets)
-      WATCHTOWER_NOTIFICATION_URL: "pushover://token:${WUD_PUSHOVER_TOKEN}@${WUD_PUSHOVER_USER}/"
     labels:
       glance.parent: uptime
       glance.name: Watchtower
@@ -327,6 +333,7 @@ services:
       glance.url: https://uptime.jkrumm.com
       glance.hide: false
       glance.id: uptime
+      wud.trigger.pushover.main: "false"
 
   dozzle:
     image: amir20/dozzle:latest
@@ -356,6 +363,7 @@ services:
       glance.icon: si:logstash
       glance.url: https://dozzle.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   dozzle-watchdog-logs:
     container_name: homelab-watchdog-logs
@@ -499,6 +507,7 @@ services:
           memory: 4G
     labels:
       glance.hide: true
+      wud.trigger.pushover.main: "false"
 
   immich_redis:
     container_name: immich_redis
@@ -545,6 +554,7 @@ services:
       glance.icon: si:files
       glance.url: https://files.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   excalidash-backend:
     image: zimengxiong/excalidash-backend:latest
@@ -565,6 +575,7 @@ services:
       retries: 3
     labels:
       glance.hide: true
+      wud.trigger.pushover.main: "false"
 
   excalidash-frontend:
     image: zimengxiong/excalidash-frontend:latest
@@ -589,6 +600,7 @@ services:
       glance.icon: si:excalidraw
       glance.url: https://draw.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   dufs:
     image: sigoden/dufs:latest
@@ -611,6 +623,7 @@ services:
       glance.icon: si:files
       glance.url: https://public.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   [redacted]:
     image: qmcgaw/[redacted]:latest
@@ -650,6 +663,7 @@ services:
       glance.name: [redacted] VPN
       glance.icon: si:[redacted]
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   [redacted]:
     image: lscr.io/linuxserver/[redacted]:latest
@@ -707,6 +721,7 @@ services:
       start_period: 30s
     labels:
       glance.hide: true
+      wud.trigger.pushover.main: "false"
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.5.6-alpine
@@ -749,6 +764,7 @@ services:
     labels:
       glance.hide: true
       wud.tag.include: '^25\.\d+\.\d+-alpine$$'
+      wud.trigger.pushover.main: "false"
 
   schema-migrator-sync:
     image: signoz/signoz-schema-migrator:v0.142.0
@@ -897,6 +913,7 @@ services:
       glance.icon: si:plausibleanalytics
       glance.url: https://plausible.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   zot:
     image: ghcr.io/project-zot/zot-linux-amd64:latest
@@ -924,6 +941,7 @@ services:
       glance.icon: si:docker
       glance.url: https://registry.jkrumm.com
       glance.hide: false
+      wud.trigger.pushover.main: "false"
 
   obsidian:
     image: lscr.io/linuxserver/obsidian:latest
@@ -986,6 +1004,7 @@ services:
       glance.url: https://couchdb.jkrumm.com
       glance.hide: false
       wud.tag.include: '^\d+\.\d+\.\d+$$'
+      wud.trigger.pushover.main: "false"
 
 secrets:
   cert:
