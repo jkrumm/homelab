@@ -288,7 +288,7 @@ services:
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
       # Pushover notifications for updates and failures (reuse WUD secrets)
-      WATCHTOWER_NOTIFICATION_URL: "pushover://${WUD_PUSHOVER_TOKEN}@${WUD_PUSHOVER_USER}"
+      WATCHTOWER_NOTIFICATION_URL: "pushover://token:${WUD_PUSHOVER_TOKEN}@${WUD_PUSHOVER_USER}/"
     labels:
       glance.parent: uptime
       glance.name: Watchtower
