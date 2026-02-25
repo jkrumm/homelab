@@ -1,0 +1,503 @@
+# Uptime Kuma Monitor Configuration
+# Sync with: python3 uptime-kuma/sync.py
+#
+# Secrets are referenced via environment variables (loaded from Doppler)
+# - UPTIME_MONITOR_TOKEN: Cloudflare WAF bypass token
+# - BETTERSTACK_API_KEY: BetterStack API key
+# - FPP_SERVER_AUTH: FPP Server authorization token
+
+settings:
+  # Default settings for all monitors (can be overridden per monitor)
+  defaults:
+    interval: 60
+    timeout: 90
+    maxretries: 3
+    retry_interval: 60
+    accepted_statuscodes: ["200-299"]
+    method: GET
+
+  # Cloudflare WAF bypass header (applied to all external monitors)
+  cloudflare_bypass_header:
+    X-Uptime-Monitor: "${UPTIME_MONITOR_TOKEN}"
+
+groups:
+  # ============================================
+  # HomeLab - Local Docker container monitoring
+  # ============================================
+  - name: HomeLab
+    interval: 250
+    monitors:
+      # --- Infrastructure subgroup ---
+      - name: Infrastructure
+        type: group
+        interval: 200
+        monitors:
+          - name: Glance - Docker
+            type: docker
+            docker_container: glance
+            interval: 148
+            timeout: 120
+            maxretries: 5
+
+          - name: Glance - HTTP
+            type: http
+            url: https://glance.jkrumm.com/
+            interval: 150
+            cloudflare_bypass: true
+
+          - name: Dozzle - Docker
+            type: docker
+            docker_container: dozzle
+            interval: 153
+            timeout: 120
+            maxretries: 5
+
+          - name: Dozzle - HTTP
+            type: http
+            url: http://dozzle:8081/
+            interval: 155
+
+          - name: Docker Socket Proxy - Docker
+            type: docker
+            docker_container: docker-socket-proxy
+            interval: 115
+            timeout: 120
+            maxretries: 5
+
+          - name: Caddy - Docker
+            type: docker
+            docker_container: caddy
+            interval: 118
+            timeout: 120
+            maxretries: 5
+
+          - name: Cloudflared - Docker
+            type: docker
+            docker_container: cloudflared
+            interval: 121
+            timeout: 120
+            maxretries: 5
+
+          - name: Cloudflare DDNS - Docker
+            type: docker
+            docker_container: cloudflare-ddns
+            interval: 124
+            timeout: 120
+            maxretries: 5
+
+          - name: WUD - Docker
+            type: docker
+            docker_container: wud
+            interval: 127
+            timeout: 120
+            maxretries: 5
+
+          - name: Watchtower - Docker
+            type: docker
+            docker_container: watchtower
+            interval: 128
+            timeout: 120
+            maxretries: 5
+
+          - name: WUD - HTTP
+            type: http
+            url: http://wud:3000/
+            interval: 129
+
+          - name: Uptime Kuma - Docker
+            type: docker
+            docker_container: uptime-kuma
+            interval: 130
+            timeout: 120
+            maxretries: 5
+
+          - name: Samba - Docker
+            type: docker
+            docker_container: samba
+            interval: 133
+            timeout: 120
+            maxretries: 5
+
+          - name: Beszel - Docker
+            type: docker
+            docker_container: beszel
+            interval: 136
+            timeout: 120
+            maxretries: 5
+
+          - name: Beszel Agent - Docker
+            type: docker
+            docker_container: beszel-agent
+            interval: 139
+            timeout: 120
+            maxretries: 5
+
+          - name: [redacted] - Docker
+            type: docker
+            docker_container: [redacted]
+            interval: 142
+            timeout: 120
+            maxretries: 5
+
+          - name: [redacted] - Docker
+            type: docker
+            docker_container: [redacted]
+            interval: 145
+            timeout: 120
+            maxretries: 5
+
+          # Push monitors
+          - name: Cloudflare DDNS - Push
+            type: push
+            interval: 350
+            timeout: 60
+            retry_interval: 350
+
+          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          - name: HomeLab Watchdog - Push
+            type: push
+            interval: 700      # Cron runs every 10 min (600s) + buffer for execution
+            timeout: 48
+            retry_interval: 700
+
+          # BetterStack external monitoring (verifies public accessibility)
+          - name: Uptime Kuma - Uptime
+            type: http
+            url: https://uptime.betterstack.com/api/v2/monitors/3001641
+            interval: 130
+            timeout: 120
+            maxretries: 5
+            headers:
+              Authorization: "Bearer ${BETTERSTACK_API_KEY}"
+
+      # --- Media subgroup ---
+      - name: Media
+        type: group
+        interval: 210
+        monitors:
+          - name: [redacted] - Docker
+            type: docker
+            docker_container: [redacted]
+            interval: 158
+            timeout: 120
+            maxretries: 5
+
+          - name: [redacted] - HTTP
+            type: http
+            url: http://[redacted]:8096/health
+            interval: 161
+            accepted_statuscodes: ["200-299"]
+
+          - name: Calibre - Docker
+            type: docker
+            docker_container: calibre
+            interval: 164
+            timeout: 120
+            maxretries: 5
+
+          - name: Calibre Web - Docker
+            type: docker
+            docker_container: calibre-web
+            interval: 167
+            timeout: 120
+            maxretries: 5
+
+      # --- Files subgroup ---
+      - name: Files
+        type: group
+        interval: 215
+        monitors:
+          - name: FileBrowser - Docker
+            type: docker
+            docker_container: filebrowser
+            interval: 170
+            timeout: 120
+            maxretries: 5
+
+          - name: Dufs - Docker
+            type: docker
+            docker_container: dufs
+            interval: 173
+            timeout: 120
+            maxretries: 5
+
+          - name: Duplicati - Docker
+            type: docker
+            docker_container: duplicati
+            interval: 176
+            timeout: 120
+            maxretries: 5
+
+          - name: Public Files - HTTP
+            type: http
+            url: https://public.jkrumm.com/
+            interval: 179
+            cloudflare_bypass: true
+
+      # --- Immich subgroup ---
+      - name: Immich
+        type: group
+        interval: 220
+        monitors:
+          - name: Immich Server - Docker
+            type: docker
+            docker_container: immich_server
+            interval: 165
+            timeout: 120
+            maxretries: 5
+
+          - name: Immich ML - Docker
+            type: docker
+            docker_container: immich_machine_learning
+            interval: 170
+            timeout: 120
+            maxretries: 5
+
+          - name: Immich Redis - Docker
+            type: docker
+            docker_container: immich_redis
+            interval: 175
+            timeout: 120
+            maxretries: 5
+
+          - name: Immich Postgres - Docker
+            type: docker
+            docker_container: immich_postgres
+            interval: 180
+            timeout: 120
+            maxretries: 5
+
+          - name: Immich - Uptime
+            type: http
+            url: https://uptime.betterstack.com/api/v2/monitors/3069484
+            interval: 140
+            timeout: 120
+            maxretries: 5
+            headers:
+              Authorization: "Bearer ${BETTERSTACK_API_KEY}"
+
+      # --- SigNoz subgroup ---
+      - name: SigNoz
+        type: group
+        interval: 225
+        monitors:
+          - name: ClickHouse - Docker
+            type: docker
+            docker_container: clickhouse
+            interval: 185
+            timeout: 120
+            maxretries: 5
+
+          - name: SigNoz - Docker
+            type: docker
+            docker_container: signoz
+            interval: 190
+            timeout: 120
+            maxretries: 5
+
+          - name: SigNoz OTel Collector - Docker
+            type: docker
+            docker_container: signoz-otel-collector
+            interval: 195
+            timeout: 120
+            maxretries: 5
+
+          - name: OTLP Ingestion - HTTP
+            type: http
+            url: https://otlp.jkrumm.com/v1/traces
+            interval: 210
+            timeout: 120
+            maxretries: 3
+            accepted_statuscodes: ["200-299", "405"]
+            cloudflare_bypass: true
+
+          - name: SigNoz - HTTP
+            type: http
+            url: http://signoz:8080/api/v1/health
+            interval: 213
+            accepted_statuscodes: ["200-299", "401"]
+
+      # --- Plausible subgroup ---
+      - name: Plausible
+        type: group
+        interval: 230
+        monitors:
+          - name: Plausible - Docker
+            type: docker
+            docker_container: plausible
+            interval: 165
+            timeout: 120
+            maxretries: 5
+
+          - name: Plausible - HTTP
+            type: http
+            url: https://plausible.jkrumm.com/
+            interval: 70
+            ip_family: 6
+            cloudflare_bypass: true
+
+      # --- Obsidian subgroup ---
+      - name: Obsidian
+        type: group
+        interval: 240
+        monitors:
+          - name: Obsidian - Docker
+            type: docker
+            docker_container: obsidian
+            interval: 185
+            timeout: 120
+            maxretries: 5
+
+          - name: Obsidian - HTTP
+            type: http
+            url: http://obsidian:3000/
+            interval: 190
+            accepted_statuscodes: ["200-299", "401"]
+
+          - name: Obsidian REST API - HTTP
+            type: keyword
+            url: http://caddy:80/rest-api/
+            keyword: '"status":"OK"'
+            interval: 193
+            headers:
+              Host: "obsidian.jkrumm.com"
+
+          - name: Obsidian Tasks API - HTTP
+            type: keyword
+            url: http://obsidian:8087/api/health
+            keyword: '"status":"ok"'
+            interval: 196
+
+      # --- CouchDB subgroup ---
+      - name: CouchDB
+        type: group
+        interval: 245
+        monitors:
+          - name: CouchDB - Docker
+            type: docker
+            docker_container: couchdb
+            interval: 195
+            timeout: 120
+            maxretries: 5
+
+          - name: CouchDB - HTTP
+            type: http
+            url: http://couchdb:5984/_up
+            interval: 200
+            accepted_statuscodes: ["200-299"]
+
+      # --- Zot Registry subgroup ---
+      - name: Zot Registry
+        type: group
+        interval: 250
+        monitors:
+          - name: Zot Registry - Docker
+            type: docker
+            docker_container: zot
+            interval: 180
+            timeout: 120
+            maxretries: 5
+
+          - name: Zot Registry - HTTP
+            type: http
+            url: https://registry.jkrumm.com/v2/
+            interval: 183
+            cloudflare_bypass: true
+            accepted_statuscodes: ["200-299", "401"]
+
+      # --- ExcaliDash subgroup ---
+      - name: ExcaliDash
+        type: group
+        interval: 235
+        monitors:
+          - name: ExcaliDash Backend - Docker
+            type: docker
+            docker_container: excalidash-backend
+            interval: 170
+            timeout: 120
+            maxretries: 5
+
+          - name: ExcaliDash Frontend - Docker
+            type: docker
+            docker_container: excalidash-frontend
+            interval: 173
+            timeout: 120
+            maxretries: 5
+
+          - name: ExcaliDash - HTTP
+            type: http
+            url: https://draw.jkrumm.com/
+            interval: 176
+            cloudflare_bypass: true
+
+  # ============================================
+  # FreePlanningPoker - VPS application stack
+  # ============================================
+  - name: FreePlanningPoker
+    interval: 205
+    monitors:
+      - name: FPP - Frontend
+        type: http
+        url: https://free-planning-poker.com/
+        ip_family: 6  # Force IPv6 (IPv4 path has issues)
+        cloudflare_bypass: true
+
+      - name: FPP - Server
+        type: keyword
+        url: https://fpp-server.jkrumm.com/health
+        keyword: '{"status":"ok"}'
+        ip_family: 6
+        cloudflare_bypass: true
+        headers:
+          Authorization: "Bearer ${FPP_SERVER_AUTH}"
+
+      - name: FPP - Analytics
+        type: keyword
+        url: https://fpp-analytics.jkrumm.com/health
+        keyword: '"status":"ok"'
+        interval: 70
+        ip_family: 6
+        cloudflare_bypass: true
+
+      - name: FPP - DB
+        type: mysql
+        # Connection details configured in Uptime Kuma UI (contains secrets)
+
+      - name: FPP - DB Backup
+        type: push
+        interval: 4000
+        retry_interval: 4000
+
+      - name: FPP - Analytics Readmodel
+        type: push
+        interval: 650
+        retry_interval: 650
+
+  # ============================================
+  # Websites - External website monitoring
+  # ============================================
+  - name: Websites
+    interval: 215
+    monitors:
+      - name: Photos
+        type: http
+        url: https://photos.jkrumm.com/
+        ip_family: 6
+        cloudflare_bypass: true
+
+      - name: Photos - Uptime
+        type: http
+        url: https://uptime.betterstack.com/api/v2/monitors/3670427
+        interval: 145
+        timeout: 120
+        maxretries: 5
+        headers:
+          Authorization: "Bearer ${BETTERSTACK_API_KEY}"
+        cloudflare_bypass: true
+
+      # Disabled monitors
+      # - name: SnowFinder
+      #   type: http
+      #   url: https://snow-finder.jkrumm.dev/
+      #   active: false
+      #   cloudflare_bypass: true

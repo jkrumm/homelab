@@ -300,7 +300,7 @@ services:
       glance.name: Watchtower
       glance.icon: si:watchtower
       glance.hide: false
-      wud.watch: "false"
+      wud.trigger.pushover.main: "false"
 
   uptime-kuma:
     image: louislam/uptime-kuma:2
