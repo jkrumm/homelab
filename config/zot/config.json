@@ -52,8 +52,7 @@
       }
     },
     "trust": {
-      "enable": true,
-      "cosign": true
+      "enable": false
     }
   }
 }
