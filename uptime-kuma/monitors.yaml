@@ -459,13 +459,6 @@ groups:
         type: group
         interval: 255
         monitors:
-          - name: TaskNotes - Docker
-            type: docker
-            docker_container: tasknotes
-            interval: 207
-            timeout: 120
-            maxretries: 5
-
           - name: TaskNotes - HTTP
             type: http
             url: http://tasknotes:3000/
