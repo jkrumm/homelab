@@ -451,9 +451,8 @@ groups:
 
           - name: Rollhook - HTTP
             type: http
-            url: http://rollhook:7700/
+            url: http://rollhook:7700/health
             interval: 204
-            accepted_statuscodes: ["200-299", "404"]
 
       # --- TaskNotes subgroup ---
       - name: TaskNotes
