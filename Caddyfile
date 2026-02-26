@@ -100,7 +100,7 @@ tasknotes.jkrumm.com, http://tasknotes.jkrumm.com {
 	reverse_proxy tasknotes:3000
 }
 
-# RollHook deployment webhook (private, Tailscale only)
+# RollHook deployment webhook (public via Cloudflare — needed for CI)
 rollhook-homelab.jkrumm.com, http://rollhook-homelab.jkrumm.com {
 	reverse_proxy rollhook:7700
 }

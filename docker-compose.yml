@@ -71,11 +71,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
-    volumes:
-      - ./config/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
     depends_on:
       - caddy
       - glance

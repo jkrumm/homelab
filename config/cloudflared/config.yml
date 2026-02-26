@@ -1,5 +1,3 @@
-tunnel: ${CLOUDFLARE_TUNNEL_ID}
-
 ingress:
   # Route all jkrumm.com traffic through Caddy — Caddy handles per-service routing
   - hostname: "*.jkrumm.com"
