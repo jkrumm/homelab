@@ -1,7 +1,7 @@
 services:
   # Security: Proxy Docker socket access for monitoring services
   # Prevents direct socket exposure (container escape risk)
-  # WUD keeps direct access (needs write for auto-updates)
+  # Watchtower keeps direct access (needs write for auto-updates)
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     container_name: docker-socket-proxy
@@ -42,7 +42,6 @@ services:
       - socket-proxy
     labels:
       glance.hide: true
-      wud.trigger.pushover.main: "false"
 
   caddy:
     build:
@@ -65,7 +64,7 @@ services:
       glance.parent: uptime
       glance.name: Caddy
       glance.hide: false
-      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # custom build
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -90,7 +89,6 @@ services:
       glance.parent: uptime
       glance.name: Cloudflared
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   [redacted]:
     image: lscr.io/linuxserver/[redacted]:latest
@@ -124,8 +122,6 @@ services:
       glance.icon: si:[redacted]
       glance.url: https://[redacted].jkrumm.com
       glance.hide: false
-      wud.watch: "false"
-      com.centurylinklabs.watchtower.enable: "true"
 
   samba:
     image: ghcr.io/servercontainers/samba
@@ -150,7 +146,6 @@ services:
       glance.icon: si:protondrive
       glance.url: https://files.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   beszel:
     image: henrygd/beszel
@@ -166,7 +161,6 @@ services:
       glance.icon: si:graylog
       glance.url: https://beszel.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   beszel-agent:
     image: "henrygd/beszel-agent"
@@ -188,7 +182,6 @@ services:
       - docker-socket-proxy
     labels:
       glance.hide: true
-      wud.trigger.pushover.main: "false"
 
   glance:
     image: glanceapp/glance
@@ -213,7 +206,6 @@ services:
       glance.icon: si:hashnode
       glance.url: https://glance.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   duplicati:
     image: lscr.io/linuxserver/duplicati:latest
@@ -238,8 +230,6 @@ services:
       glance.icon: si:duplicati
       glance.url: https://duplicati.jkrumm.com
       glance.hide: false
-      wud.watch: "false"
-      com.centurylinklabs.watchtower.enable: "true"
 
   cloudflare-ddns:
     image: favonia/cloudflare-ddns:latest
@@ -260,30 +250,6 @@ services:
       - glance.name=Cloudflare DDNS
       - glance.icon=si:cloudflare
       - glance.hide=false
-      - wud.trigger.pushover.main=false
-
-  wud:
-    image: getwud/wud:latest
-    container_name: wud
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - cloudflared
-    environment:
-      # Auto-update trigger: pull + restart (Watchtower equivalent)
-      WUD_TRIGGER_DOCKER_LOCAL_PRUNE: "true"
-      # Notification trigger: fires for all watched containers on new version
-      WUD_TRIGGER_PUSHOVER_MAIN_TOKEN: ${WUD_PUSHOVER_TOKEN}
-      WUD_TRIGGER_PUSHOVER_MAIN_USER: ${WUD_PUSHOVER_USER}
-      # Check every 6 hours to avoid Docker Hub 429 rate limiting
-      WUD_WATCHER_LOCAL_CRON: "0 */6 * * *"
-    labels:
-      glance.parent: uptime
-      glance.name: WUD
-      glance.icon: si:docker
-      glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -295,17 +261,17 @@ services:
     environment:
       TZ: Europe/Berlin
       DOCKER_CONFIG: /
-      # Only update containers that explicitly opt in via label
       DOCKER_API_VERSION: "1.44"
-      WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
+      WATCHTOWER_NOTIFICATION_URL: "pushover://shoutrrr:${WUD_PUSHOVER_TOKEN}@${WUD_PUSHOVER_USER}"
+      WATCHTOWER_NOTIFICATIONS_LEVEL: warn
     labels:
       glance.parent: uptime
       glance.name: Watchtower
       glance.icon: si:watchtower
       glance.hide: false
-      wud.trigger.pushover.main: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # don't self-update
 
   uptime-kuma:
     image: louislam/uptime-kuma:2
@@ -338,7 +304,6 @@ services:
       glance.url: https://uptime.jkrumm.com
       glance.hide: false
       glance.id: uptime
-      wud.trigger.pushover.main: "false"
 
   dozzle:
     image: amir20/dozzle:latest
@@ -368,7 +333,6 @@ services:
       glance.icon: si:logstash
       glance.url: https://dozzle.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   dozzle-watchdog-logs:
     container_name: homelab-watchdog-logs
@@ -383,7 +347,7 @@ services:
     restart: unless-stopped
     labels:
       glance.hide: true
-      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "false"
 
   dozzle-backup-logs:
     container_name: database-backup-logs
@@ -398,7 +362,7 @@ services:
     restart: unless-stopped
     labels:
       glance.hide: true
-      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "false"
 
   calibre:
     image: lscr.io/linuxserver/calibre:latest
@@ -423,8 +387,6 @@ services:
           memory: 2G
     labels:
       glance.hide: true
-      wud.watch: "false"
-      com.centurylinklabs.watchtower.enable: "true"
 
   calibre-web:
     image: lscr.io/linuxserver/calibre-web:latest
@@ -445,8 +407,6 @@ services:
       glance.icon: si:calibreweb
       glance.url: https://books.jkrumm.com
       glance.hide: false
-      wud.watch: "false"
-      com.centurylinklabs.watchtower.enable: "true"
 
   immich-server:
     container_name: immich_server
@@ -490,7 +450,7 @@ services:
       glance.icon: si:immich
       glance.url: https://immich.jkrumm.com
       glance.hide: false
-      wud.trigger.docker.local: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack immich
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -512,7 +472,7 @@ services:
           memory: 4G
     labels:
       glance.hide: true
-      wud.trigger.pushover.main: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack immich
 
   immich_redis:
     container_name: immich_redis
@@ -522,7 +482,7 @@ services:
       - immich
     labels:
       glance.hide: true
-      wud.watch: "false"  # digest-pinned image, WUD cannot track updates
+      com.centurylinklabs.watchtower.enable: "false"  # digest-pinned, managed by /upgrade-stack immich
 
   immich_postgres:
     container_name: immich_postgres
@@ -540,7 +500,7 @@ services:
       - immich
     labels:
       glance.hide: true
-      wud.watch: "false"  # digest-pinned image, WUD cannot track updates
+      com.centurylinklabs.watchtower.enable: "false"  # digest-pinned, managed by /upgrade-stack immich
 
   filebrowser:
     image: filebrowser/filebrowser:latest
@@ -559,7 +519,6 @@ services:
       glance.icon: si:files
       glance.url: https://files.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   excalidash-backend:
     image: zimengxiong/excalidash-backend:latest
@@ -580,7 +539,6 @@ services:
       retries: 3
     labels:
       glance.hide: true
-      wud.trigger.pushover.main: "false"
 
   excalidash-frontend:
     image: zimengxiong/excalidash-frontend:latest
@@ -605,7 +563,6 @@ services:
       glance.icon: si:excalidraw
       glance.url: https://draw.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   dufs:
     image: sigoden/dufs:latest
@@ -628,7 +585,6 @@ services:
       glance.icon: si:files
       glance.url: https://public.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   [redacted]:
     image: qmcgaw/[redacted]:latest
@@ -668,7 +624,6 @@ services:
       glance.name: [redacted] VPN
       glance.icon: si:[redacted]
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   [redacted]:
     image: lscr.io/linuxserver/[redacted]:latest
@@ -695,8 +650,6 @@ services:
       glance.name: [redacted]
       glance.icon: si:[redacted]
       glance.hide: false
-      wud.watch: "false"
-      com.centurylinklabs.watchtower.enable: "true"
 
   # === SigNoz Observability Stack ===
   # Application-level observability (APM) for self-hosted apps
@@ -726,7 +679,7 @@ services:
       start_period: 30s
     labels:
       glance.hide: true
-      wud.trigger.pushover.main: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.5.6-alpine
@@ -768,8 +721,7 @@ services:
       start_period: 60s
     labels:
       glance.hide: true
-      wud.tag.include: '^25\.\d+\.\d+-alpine$$'
-      wud.trigger.pushover.main: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
 
   schema-migrator-sync:
     image: signoz/signoz-schema-migrator:v0.142.0
@@ -783,7 +735,7 @@ services:
         condition: service_healthy
     labels:
       glance.hide: true
-      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
 
   schema-migrator-async:
     image: signoz/signoz-schema-migrator:v0.142.0
@@ -797,7 +749,7 @@ services:
         condition: service_healthy
     labels:
       glance.hide: true
-      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
 
   signoz-otel-collector:
     image: signoz/signoz-otel-collector:v0.142.0
@@ -828,7 +780,7 @@ services:
       glance.parent: uptime
       glance.name: SigNoz Collector
       glance.hide: false
-      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
 
   signoz:
     image: signoz/signoz:v0.112.0
@@ -870,7 +822,7 @@ services:
       glance.icon: si:opentelemetry
       glance.url: https://signoz.jkrumm.com
       glance.hide: false
-      wud.trigger.docker.local: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
 
   plausible:
     image: ghcr.io/plausible/community-edition:v3.2.0
@@ -918,7 +870,7 @@ services:
       glance.icon: si:plausibleanalytics
       glance.url: https://plausible.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
+      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack plausible
 
   zot:
     image: ghcr.io/project-zot/zot-linux-amd64:latest
@@ -946,7 +898,6 @@ services:
       glance.icon: si:docker
       glance.url: https://registry.jkrumm.com
       glance.hide: false
-      wud.trigger.pushover.main: "false"
 
   rollhook:
     image: registry.jkrumm.com/rollhook:latest
@@ -972,8 +923,6 @@ services:
       glance.icon: si:github
       glance.url: https://rollhook-homelab.jkrumm.com
       glance.hide: false
-      wud.watch: "false"
-      com.centurylinklabs.watchtower.enable: "true"
 
   couchdb:
     image: couchdb:3
@@ -1001,8 +950,6 @@ services:
       glance.icon: si:couchbase
       glance.url: https://couchdb.jkrumm.com
       glance.hide: false
-      wud.tag.include: '^\d+\.\d+\.\d+$$'
-      wud.trigger.pushover.main: "false"
 
 secrets:
   cert:
