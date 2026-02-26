@@ -980,7 +980,7 @@ services:
       com.centurylinklabs.watchtower.enable: "true"
 
   tasknotes:
-    image: registry.jkrumm.com/tasknotes-mcp:latest
+    image: ${IMAGE_TAG:-registry.jkrumm.com/tasknotes-mcp:latest}
     container_name: tasknotes
     restart: unless-stopped
     networks:
