@@ -101,7 +101,7 @@ tasknotes.jkrumm.com, http://tasknotes.jkrumm.com {
 }
 
 # RollHook deployment webhook (private, Tailscale only)
-rollhook.jkrumm.com, http://rollhook.jkrumm.com {
+rollhook-homelab.jkrumm.com, http://rollhook-homelab.jkrumm.com {
 	reverse_proxy rollhook:7700
 }
 
