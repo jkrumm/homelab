@@ -85,24 +85,12 @@ groups:
             timeout: 120
             maxretries: 5
 
-          - name: WUD - Docker
-            type: docker
-            docker_container: wud
-            interval: 127
-            timeout: 120
-            maxretries: 5
-
           - name: Watchtower - Docker
             type: docker
             docker_container: watchtower
-            interval: 128
+            interval: 127
             timeout: 120
             maxretries: 5
-
-          - name: WUD - HTTP
-            type: http
-            url: http://wud:3000/
-            interval: 129
 
           - name: Uptime Kuma - Docker
             type: docker
