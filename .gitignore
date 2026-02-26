@@ -1,0 +1,10 @@
+.idea
+.DS_Store
+__pycache__/
+*.pyc
+.venv
+.env
+cert.pem
+key.pem
+# CouchDB writes runtime state (uuid, admin hash) into this file
+config/couchdb/local.ini
