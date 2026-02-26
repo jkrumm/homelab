@@ -138,8 +138,7 @@ ssh -t homelab "docker logs -f [redacted]"
 | `[redacted]_PRIVATE_KEY` | [redacted] [redacted] |
 | `DUFS_PASSWORD` | Public file server auth |
 | `IMMICH_API_KEY` | Immich API for Glance widget |
-| `COUCHDB_PASSWORD` | CouchDB admin password (Obsidian LiveSync) |
-| `OBSIDIAN_GUI_PASSWORD` | Obsidian KasmVNC GUI password |
+| `COUCHDB_PASSWORD` | CouchDB admin password |
 | `WUD_PUSHOVER_TOKEN` | WUD Pushover app token (update notifications) |
 | `WUD_PUSHOVER_USER` | WUD Pushover user key (update notifications) |
 
@@ -251,8 +250,7 @@ docker events --since 1h --filter container=<name>
 | [redacted] | 8096 | [redacted].jkrumm.com | Media streaming |
 | SigNoz | 8089 | signoz.jkrumm.com | Application observability (APM) |
 | WUD | - | wud.jkrumm.com | Container update tracker (What's Up Docker) |
-| Obsidian | 3000 | obsidian.jkrumm.com | Obsidian app (GUI + REST API + TaskNotes API) |
-| CouchDB | 5984 | couchdb.jkrumm.com | Obsidian LiveSync database |
+| CouchDB | 5984 | couchdb.jkrumm.com | CouchDB document database |
 
 > **Access:** DNS A records point to HomeLab Tailscale IP (${HOMELAB_TAILSCALE_IP}, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
 
@@ -265,7 +263,7 @@ docker events --since 1h --filter container=<name>
 | Cloudflared | Tunnel to Cloudflare (public services only) |
 | Cloudflare-DDNS | Dynamic DNS updates |
 | WUD (What's Up Docker) | Container update notifications + auto-updates for most images (direct socket) |
-| Watchtower | Auto-updates for lscr.io containers ([redacted], duplicati, calibre, calibre-web, [redacted], obsidian) — opt-in via label |
+| Watchtower | Auto-updates for lscr.io containers ([redacted], duplicati, calibre, calibre-web, [redacted]) — opt-in via label |
 | [redacted] | VPN gateway ([redacted]) |
 | [redacted] | [redacted] client (via VPN) |
 | Samba | SMB3 file shares (encryption preferred) |
@@ -277,7 +275,7 @@ docker events --since 1h --filter container=<name>
 | SigNoz | SigNoz backend API + UI + Alert Manager (unified binary) |
 | SigNoz OTel Collector | OpenTelemetry ingestion gateway |
 | Plausible | Web analytics (shared ClickHouse + Immich Postgres) |
-| CouchDB | Obsidian LiveSync database |
+| CouchDB | CouchDB document database |
 
 ### Network Topology
 
@@ -336,8 +334,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 │   │   ├── Bücher/       # Calibre library
 │   │   ├── Dokumente/    # ExcaliDash, misc
 │   │   └── Public/       # Dufs public files
-│   ├── obsidian/         # Obsidian app data (vault + plugins)
-│   ├── couchdb/          # CouchDB data (Obsidian LiveSync)
+│   ├── couchdb/          # CouchDB data
 │   └── uptime-kuma/      # UptimeKuma data
 
 /mnt/hdd/
@@ -594,7 +591,6 @@ Services with memory limits to prevent runaway resource usage:
 | Immich Server | 4G | - |
 | Immich ML | 4G | - |
 | Calibre | 2G | - |
-| Obsidian | 2G | - |
 | UptimeKuma | 512M | 256M |
 
 ### Log Rotation
@@ -701,7 +697,7 @@ When making changes that affect infrastructure or script behavior:
 **Update tiers:**
 - **Pushover notify-only** (manual action needed): `immich_server`, `signoz`
 - **Auto-update silent**: everything else WUD watches
-- **Watchtower (lscr.io only, daily 4AM)**: [redacted], duplicati, calibre, calibre-web, [redacted], obsidian
+- **Watchtower (lscr.io only, daily 4AM)**: [redacted], duplicati, calibre, calibre-web, [redacted]
 - **Frozen** (`wud.watch: "false"`): caddy (custom build), schema migrators, digest-pinned images
 
 | Command | Purpose |
@@ -739,16 +735,6 @@ When making changes that affect infrastructure or script behavior:
 | `curl -I https://otlp.jkrumm.com/v1/traces` | Test OTLP endpoint (public) |
 | `docker stats --no-stream \| grep signoz` | Check SigNoz resource usage |
 | `du -sh /home/jkrumm/ssd/signoz/*` | Check SigNoz disk usage |
-
-### Obsidian (Always-On App + APIs)
-
-| Command | Purpose |
-|---------|---------|
-| `docker logs obsidian --tail 50` | Check Obsidian container logs |
-| `curl -k https://obsidian.jkrumm.com/rest-api/` | Test Local REST API |
-| `curl -k https://obsidian.jkrumm.com/tasks-api/api/health` | Test TaskNotes API |
-| `curl -k https://couchdb.jkrumm.com/_up` | Check CouchDB health |
-| `docker exec obsidian ss -tlnp` | Check listening ports inside container |
 
 ### HDD Operations
 

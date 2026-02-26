@@ -948,56 +948,6 @@ services:
       glance.hide: false
       wud.trigger.pushover.main: "false"
 
-  obsidian:
-    image: lscr.io/linuxserver/obsidian:latest
-    container_name: obsidian
-    restart: unless-stopped
-    shm_size: "1gb"
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Berlin
-      - CUSTOM_USER=jkrumm
-      - PASSWORD=${OBSIDIAN_GUI_PASSWORD}
-      - RESTART_APP=true
-      - DISABLE_CLOSE_BUTTON=true
-      - SELKIES_FRAMERATE=15
-    volumes:
-      - /home/jkrumm/ssd/obsidian:/config
-    devices:
-      - /dev/dri:/dev/dri
-    networks:
-      - cloudflared
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    labels:
-      glance.name: Obsidian
-      glance.icon: si:obsidian
-      glance.url: https://obsidian.jkrumm.com
-      glance.hide: false
-      wud.watch: "false"
-      com.centurylinklabs.watchtower.enable: "true"
-
-  tasknotes:
-    image: ${IMAGE_TAG:-registry.jkrumm.com/tasknotes-mcp:latest}
-    restart: unless-stopped
-    networks:
-      - cloudflared
-    environment:
-      - TASKNOTES_API_URL=http://obsidian:8087/api
-      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_API_KEY}
-      - PORT=3000
-    labels:
-      glance.name: TaskNotes
-      glance.icon: si:obsidian
-      glance.url: https://tasknotes.jkrumm.com
-      glance.hide: false
-      wud.watch: "false"
-
   rollhook:
     image: registry.jkrumm.com/rollhook:latest
     container_name: rollhook

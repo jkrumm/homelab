@@ -78,28 +78,6 @@ signoz.jkrumm.com, http://signoz.jkrumm.com {
 	reverse_proxy signoz:8080
 }
 
-# Obsidian app (private, Tailscale only)
-obsidian.jkrumm.com, http://obsidian.jkrumm.com {
-	handle_path /rest-api/* {
-		reverse_proxy obsidian:27124 {
-			transport http {
-				tls_insecure_skip_verify
-			}
-		}
-	}
-	handle_path /tasks-api/* {
-		reverse_proxy obsidian:8087
-	}
-	handle {
-		reverse_proxy obsidian:3000
-	}
-}
-
-# TaskNotes MCP backend (private, Tailscale only)
-tasknotes.jkrumm.com, http://tasknotes.jkrumm.com {
-	reverse_proxy tasknotes:3000
-}
-
 # RollHook deployment webhook (public via Cloudflare — needed for CI)
 rollhook-homelab.jkrumm.com, http://rollhook-homelab.jkrumm.com {
 	reverse_proxy rollhook:7700

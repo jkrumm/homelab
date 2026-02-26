@@ -343,38 +343,6 @@ groups:
             ip_family: 6
             cloudflare_bypass: true
 
-      # --- Obsidian subgroup ---
-      - name: Obsidian
-        type: group
-        interval: 240
-        monitors:
-          - name: Obsidian - Docker
-            type: docker
-            docker_container: obsidian
-            interval: 185
-            timeout: 120
-            maxretries: 5
-
-          - name: Obsidian - HTTP
-            type: http
-            url: http://obsidian:3000/
-            interval: 190
-            accepted_statuscodes: ["200-299", "401"]
-
-          - name: Obsidian REST API - HTTP
-            type: keyword
-            url: http://caddy:80/rest-api/
-            keyword: '"status":"OK"'
-            interval: 193
-            headers:
-              Host: "obsidian.jkrumm.com"
-
-          - name: Obsidian Tasks API - HTTP
-            type: keyword
-            url: http://obsidian:8087/api/health
-            keyword: '"status":"ok"'
-            interval: 196
-
       # --- CouchDB subgroup ---
       - name: CouchDB
         type: group
@@ -453,17 +421,6 @@ groups:
             type: http
             url: http://rollhook:7700/health
             interval: 204
-
-      # --- TaskNotes subgroup ---
-      - name: TaskNotes
-        type: group
-        interval: 255
-        monitors:
-          - name: TaskNotes - HTTP
-            type: http
-            url: http://tasknotes:3000/
-            interval: 209
-            accepted_statuscodes: ["200-299", "401", "404"]
 
   # ============================================
   # FreePlanningPoker - VPS application stack
