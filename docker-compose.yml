@@ -981,7 +981,6 @@ services:
 
   tasknotes:
     image: ${IMAGE_TAG:-registry.jkrumm.com/tasknotes-mcp:latest}
-    container_name: tasknotes
     restart: unless-stopped
     networks:
       - cloudflared
@@ -1008,6 +1007,7 @@ services:
       - ADMIN_TOKEN=${ROLLHOOK_ADMIN_TOKEN}
       - ROLLHOOK_CONFIG_PATH=/app/rollhook.config.yaml
       - PORT=7700
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     volumes:
       - ./config/rollhook/rollhook.config.yaml:/app/rollhook.config.yaml:ro
       - /home/jkrumm/homelab:/home/jkrumm/homelab:ro
