@@ -71,9 +71,11 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
+    volumes:
+      - ./config/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
     depends_on:
       - caddy
       - glance
@@ -993,6 +995,7 @@ services:
       glance.url: https://tasknotes.jkrumm.com
       glance.hide: false
       wud.watch: "true"
+      com.centurylinklabs.watchtower.enable: "true"
 
   rollhook:
     image: registry.jkrumm.com/rollhook:latest
@@ -1013,7 +1016,7 @@ services:
     labels:
       glance.name: RollHook
       glance.icon: si:github
-      glance.url: https://rollhook.jkrumm.com
+      glance.url: https://rollhook-homelab.jkrumm.com
       glance.hide: false
       wud.watch: "true"
 

@@ -1,0 +1,10 @@
+tunnel: ${CLOUDFLARE_TUNNEL_ID}
+
+ingress:
+  # Route all jkrumm.com traffic through Caddy — Caddy handles per-service routing
+  - hostname: "*.jkrumm.com"
+    service: http://caddy:80
+  - hostname: "jkrumm.com"
+    service: http://caddy:80
+  # Catch-all required by cloudflared
+  - service: http_status:404
