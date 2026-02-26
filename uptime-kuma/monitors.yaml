@@ -302,6 +302,13 @@ groups:
             timeout: 120
             maxretries: 5
 
+          - name: SigNoz ZooKeeper - Docker
+            type: docker
+            docker_container: signoz-zookeeper
+            interval: 198
+            timeout: 120
+            maxretries: 5
+
           - name: OTLP Ingestion - HTTP
             type: http
             url: https://otlp.jkrumm.com/v1/traces
@@ -429,6 +436,42 @@ groups:
             url: https://draw.jkrumm.com/
             interval: 176
             cloudflare_bypass: true
+
+      # --- Rollhook subgroup ---
+      - name: Rollhook
+        type: group
+        interval: 252
+        monitors:
+          - name: Rollhook - Docker
+            type: docker
+            docker_container: rollhook
+            interval: 201
+            timeout: 120
+            maxretries: 5
+
+          - name: Rollhook - HTTP
+            type: http
+            url: http://rollhook:7700/
+            interval: 204
+            accepted_statuscodes: ["200-299", "404"]
+
+      # --- TaskNotes subgroup ---
+      - name: TaskNotes
+        type: group
+        interval: 255
+        monitors:
+          - name: TaskNotes - Docker
+            type: docker
+            docker_container: tasknotes
+            interval: 207
+            timeout: 120
+            maxretries: 5
+
+          - name: TaskNotes - HTTP
+            type: http
+            url: http://tasknotes:3000/
+            interval: 209
+            accepted_statuscodes: ["200-299", "401", "404"]
 
   # ============================================
   # FreePlanningPoker - VPS application stack
