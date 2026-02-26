@@ -1014,6 +1014,7 @@ services:
       - /home/jkrumm/ssd/rollhook:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/jkrumm/.docker/config.json:/root/.docker/config.json:ro
+      - /usr/local/bin/docker-compose:/usr/local/bin/docker-compose:ro
     labels:
       glance.name: RollHook
       glance.icon: si:github
