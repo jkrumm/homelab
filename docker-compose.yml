@@ -1,7 +1,6 @@
 services:
-  # Security: Proxy Docker socket access for monitoring services
-  # Prevents direct socket exposure (container escape risk)
-  # Watchtower keeps direct access (needs write for auto-updates)
+  # Read-only socket proxy for monitoring services (Glance, Dozzle, Beszel, UptimeKuma)
+  # POST=0 — no write operations possible
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     container_name: docker-socket-proxy
@@ -42,6 +41,34 @@ services:
       - socket-proxy
     labels:
       glance.hide: true
+
+  # Write-enabled socket proxy for Watchtower only (POST+DELETE required for pull/stop/recreate)
+  # Isolated on its own network — monitoring proxy is unaffected
+  docker-socket-proxy-watchtower:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-socket-proxy-watchtower
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      INFO: 1
+      VERSION: 1
+      POST: 1    # required: stop/start/pull/recreate
+      DELETE: 1  # required: remove old containers after update
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - socket-proxy-watchtower
+    labels:
+      glance.hide: true
+      com.centurylinklabs.watchtower.enable: "false"
 
   caddy:
     build:
@@ -256,15 +283,19 @@ services:
     container_name: watchtower
     restart: unless-stopped
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - /home/jkrumm/.docker/config.json:/config.json:ro
+    networks:
+      - socket-proxy-watchtower
+    depends_on:
+      - docker-socket-proxy-watchtower
     environment:
       TZ: Europe/Berlin
+      DOCKER_HOST: tcp://docker-socket-proxy-watchtower:2375
       DOCKER_CONFIG: /
       DOCKER_API_VERSION: "1.44"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
-      WATCHTOWER_NOTIFICATION_URL: "pushover://shoutrrr:${WUD_PUSHOVER_TOKEN}@${WUD_PUSHOVER_USER}"
+      WATCHTOWER_NOTIFICATION_URL: "pushover://shoutrrr:${PUSHOVER_TOKEN}@${PUSHOVER_USER}"
       WATCHTOWER_NOTIFICATIONS_LEVEL: warn
     labels:
       glance.parent: uptime
@@ -972,6 +1003,9 @@ networks:
   excalidash:
     driver: bridge
   socket-proxy:
+    driver: bridge
+    internal: true  # No external access needed
+  socket-proxy-watchtower:
     driver: bridge
     internal: true  # No external access needed
   signoz:
