@@ -1,0 +1,106 @@
+{
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	auto_https disable_redirects
+}
+
+# === PUBLIC SERVICES (Cloudflare + Tailscale) ===
+# Both http:// (cloudflared) and https:// (Tailscale) variants
+
+glance.jkrumm.com, http://glance.jkrumm.com {
+	reverse_proxy glance:8080
+}
+
+immich.jkrumm.com, http://immich.jkrumm.com {
+	reverse_proxy immich-server:2283
+}
+
+uptime.jkrumm.com, http://uptime.jkrumm.com {
+	reverse_proxy uptime-kuma:3001
+}
+
+draw.jkrumm.com, http://draw.jkrumm.com {
+	reverse_proxy excalidash-frontend:80
+}
+
+public.jkrumm.com, http://public.jkrumm.com {
+	reverse_proxy dufs:5000
+}
+
+plausible.jkrumm.com, http://plausible.jkrumm.com {
+	reverse_proxy plausible:8000
+}
+
+# OTLP Ingestion endpoint (PUBLIC - for browser-based instrumentation)
+otlp.jkrumm.com, http://otlp.jkrumm.com {
+	reverse_proxy signoz-otel-collector:4318
+}
+
+registry.jkrumm.com, http://registry.jkrumm.com {
+	reverse_proxy zot:5080
+}
+
+# === PRIVATE SERVICES (Tailscale only) ===
+# http:// variants kept for potential future cloudflared routing
+
+wud.jkrumm.com, http://wud.jkrumm.com {
+	reverse_proxy wud:3000
+}
+
+beszel.jkrumm.com, http://beszel.jkrumm.com {
+	reverse_proxy beszel:8090
+}
+
+dozzle.jkrumm.com, http://dozzle.jkrumm.com {
+	reverse_proxy dozzle:8081
+}
+
+duplicati.jkrumm.com, http://duplicati.jkrumm.com {
+	reverse_proxy duplicati:8200
+}
+
+files.jkrumm.com, http://files.jkrumm.com {
+	reverse_proxy filebrowser:80
+}
+
+calibre.jkrumm.com, http://calibre.jkrumm.com {
+	reverse_proxy calibre:8080
+}
+
+books.jkrumm.com, http://books.jkrumm.com {
+	reverse_proxy calibre-web:8083
+}
+
+[redacted].jkrumm.com, http://[redacted].jkrumm.com {
+	reverse_proxy [redacted]:8096
+}
+
+signoz.jkrumm.com, http://signoz.jkrumm.com {
+	reverse_proxy signoz:8080
+}
+
+# Obsidian app (private, Tailscale only)
+obsidian.jkrumm.com, http://obsidian.jkrumm.com {
+	handle_path /rest-api/* {
+		reverse_proxy obsidian:27124 {
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+	}
+	handle_path /tasks-api/* {
+		reverse_proxy obsidian:8087
+	}
+	handle {
+		reverse_proxy obsidian:3000
+	}
+}
+
+# TaskNotes MCP backend (private, Tailscale only)
+tasknotes.jkrumm.com, http://tasknotes.jkrumm.com {
+	reverse_proxy tasknotes:3000
+}
+
+# CouchDB (private, Tailscale only — Obsidian LiveSync)
+couchdb.jkrumm.com, http://couchdb.jkrumm.com {
+	reverse_proxy couchdb:5984
+}

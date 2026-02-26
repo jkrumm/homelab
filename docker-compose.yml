@@ -977,6 +977,23 @@ services:
       wud.watch: "false"
       com.centurylinklabs.watchtower.enable: "true"
 
+  tasknotes:
+    image: registry.jkrumm.com/tasknotes-mcp:latest
+    container_name: tasknotes
+    restart: unless-stopped
+    networks:
+      - cloudflared
+    environment:
+      - TASKNOTES_API_URL=http://obsidian:8087/api
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_API_KEY}
+      - PORT=3000
+    labels:
+      glance.name: TaskNotes
+      glance.icon: si:obsidian
+      glance.url: https://tasknotes.jkrumm.com
+      glance.hide: false
+      wud.watch: "true"
+
   couchdb:
     image: couchdb:3
     container_name: couchdb
