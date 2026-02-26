@@ -204,8 +204,8 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False):
         print(f"\n[ORPHANS] These monitors exist in Uptime Kuma but not in config:")
         for name in sorted(orphaned):
             print(f"  - {name} (id={existing[name]['id']})")
-        if dry_run:
-            print("\n  (dry-run: skipping deletion prompt)")
+        if dry_run or not sys.stdin.isatty():
+            print("\n  (no interactive terminal — run sync.py directly to be prompted for deletion)")
             return
         print("\nDelete these orphaned monitors? [y/N] ", end="", flush=True)
         answer = input().strip().lower()
