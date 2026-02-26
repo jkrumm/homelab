@@ -296,6 +296,7 @@ services:
       TZ: Europe/Berlin
       DOCKER_CONFIG: /
       # Only update containers that explicitly opt in via label
+      DOCKER_API_VERSION: "1.44"
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
