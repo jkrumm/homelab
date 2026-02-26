@@ -25,6 +25,7 @@
 
 | Command | Purpose |
 |---------|---------|
+| `/audit` | Full health audit + repair — containers, resources, storage, updates, errors |
 | `/docs` | Documentation maintenance - audit and update README.md, CLAUDE.md, docs/, cheatsheets, skills |
 | `/upgrade-stack <name>` | Smart upgrade for multi-component stacks (SigNoz, Immich, Plausible) |
 | `/commit` | Smart git commit with conventional commits (inherited from SourceRoot) |
