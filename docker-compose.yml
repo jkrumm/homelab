@@ -1013,6 +1013,7 @@ services:
       - /home/jkrumm/homelab:/home/jkrumm/homelab:ro
       - /home/jkrumm/ssd/rollhook:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/jkrumm/.docker/config.json:/root/.docker/config.json:ro
     labels:
       glance.name: RollHook
       glance.icon: si:github
