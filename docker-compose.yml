@@ -291,8 +291,10 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/jkrumm/.docker/config.json:/config.json:ro
     environment:
       TZ: Europe/Berlin
+      DOCKER_CONFIG: /
       # Only update containers that explicitly opt in via label
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
@@ -994,8 +996,7 @@ services:
       glance.icon: si:obsidian
       glance.url: https://tasknotes.jkrumm.com
       glance.hide: false
-      wud.watch: "true"
-      com.centurylinklabs.watchtower.enable: "true"
+      wud.watch: "false"
 
   rollhook:
     image: registry.jkrumm.com/rollhook:latest
@@ -1021,7 +1022,8 @@ services:
       glance.icon: si:github
       glance.url: https://rollhook-homelab.jkrumm.com
       glance.hide: false
-      wud.watch: "true"
+      wud.watch: "false"
+      com.centurylinklabs.watchtower.enable: "true"
 
   couchdb:
     image: couchdb:3
