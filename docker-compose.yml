@@ -994,6 +994,29 @@ services:
       glance.hide: false
       wud.watch: "true"
 
+  rollhook:
+    image: registry.jkrumm.com/rollhook:latest
+    container_name: rollhook
+    restart: unless-stopped
+    networks:
+      - cloudflared
+    environment:
+      - WEBHOOK_TOKEN=${ROLLHOOK_WEBHOOK_TOKEN}
+      - ADMIN_TOKEN=${ROLLHOOK_ADMIN_TOKEN}
+      - ROLLHOOK_CONFIG_PATH=/app/rollhook.config.yaml
+      - PORT=7700
+    volumes:
+      - ./config/rollhook/rollhook.config.yaml:/app/rollhook.config.yaml:ro
+      - /home/jkrumm/homelab:/home/jkrumm/homelab:ro
+      - /home/jkrumm/ssd/rollhook:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      glance.name: RollHook
+      glance.icon: si:github
+      glance.url: https://rollhook.jkrumm.com
+      glance.hide: false
+      wud.watch: "true"
+
   couchdb:
     image: couchdb:3
     container_name: couchdb

@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://cdn.jsdelivr.net/npm/rollhook/schema/config.json
+apps:
+  - name: tasknotes-mcp
+    compose_path: /home/jkrumm/homelab/docker-compose.yml
+    steps:
+      - service: tasknotes

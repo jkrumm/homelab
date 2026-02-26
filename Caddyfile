@@ -100,6 +100,11 @@ tasknotes.jkrumm.com, http://tasknotes.jkrumm.com {
 	reverse_proxy tasknotes:3000
 }
 
+# RollHook deployment webhook (private, Tailscale only)
+rollhook.jkrumm.com, http://rollhook.jkrumm.com {
+	reverse_proxy rollhook:7700
+}
+
 # CouchDB (private, Tailscale only — Obsidian LiveSync)
 couchdb.jkrumm.com, http://couchdb.jkrumm.com {
 	reverse_proxy couchdb:5984
