@@ -448,6 +448,12 @@ groups:
             url: https://traefik.jkrumm.com/api/ping
             interval: 121
 
+          - name: RollHook - HTTP
+            type: http
+            url: https://rollhook-vps.jkrumm.com/health
+            interval: 131
+            cloudflare_bypass: true
+
       # --- Infra subgroup ---
       - name: Infra
         type: group
