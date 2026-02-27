@@ -441,14 +441,12 @@ groups:
         type: group
         interval: 200
         monitors:
-          # Returns 403 for non-Tailscale IPs via tailscale-only middleware.
-          # Accepting 403 verifies the full Cloudflare → cloudflared → Traefik chain.
+          # DNS points to VPS Tailscale IP (no Cloudflare proxy) — direct Tailscale path.
+          # tailscale-only middleware passes since Uptime Kuma's source IP is HomeLab's Tailscale IP.
           - name: Traefik - HTTP
             type: http
-            url: https://traefik.jkrumm.com/
+            url: https://traefik.jkrumm.com/api/ping
             interval: 121
-            cloudflare_bypass: true
-            accepted_statuscodes: ["200-299", "401", "403"]
 
       # --- Infra subgroup ---
       - name: Infra
