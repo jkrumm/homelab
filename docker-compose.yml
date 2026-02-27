@@ -987,7 +987,7 @@ services:
       glance.hide: false
 
   vikunja:
-    image: vikunja/vikunja:0.24.6
+    image: vikunja/vikunja:latest
     container_name: vikunja
     restart: unless-stopped
     security_opt:
