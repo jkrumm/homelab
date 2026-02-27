@@ -986,6 +986,45 @@ services:
       glance.url: https://ntfy.jkrumm.com
       glance.hide: false
 
+  vikunja:
+    image: vikunja/vikunja:0.24.6
+    container_name: vikunja
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /home/jkrumm/ssd/vikunja/data:/app/vikunja/data
+      - /home/jkrumm/ssd/vikunja/files:/app/vikunja/files
+    ports:
+      - "127.0.0.1:3456:3456"
+    environment:
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_DATABASE_PATH: /app/vikunja/data/vikunja.db
+      VIKUNJA_SERVICE_PUBLICURL: https://vikunja.jkrumm.com
+      VIKUNJA_SERVICE_JWTSECRET: ${VIKUNJA_JWT_SECRET}
+      VIKUNJA_SERVICE_JWTTTL: 7776000        # 90 days
+      VIKUNJA_SERVICE_JWTTTLLONG: 7776000    # 90 days (remember me)
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
+      VIKUNJA_SERVICE_TIMEZONE: Europe/Berlin
+      VIKUNJA_MAILER_ENABLED: "false"
+      VIKUNJA_SERVICE_ENABLEEMAILREMINDERS: "false"
+    networks:
+      - cloudflared
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3456/api/v1/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    labels:
+      glance.name: Vikunja
+      glance.icon: si:vikunja
+      glance.url: https://vikunja.jkrumm.com
+      glance.hide: false
+
   couchdb:
     image: couchdb:3
     container_name: couchdb
