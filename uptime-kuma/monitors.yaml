@@ -445,7 +445,7 @@ groups:
           # tailscale-only middleware passes since Uptime Kuma's source IP is HomeLab's Tailscale IP.
           - name: Traefik - HTTP
             type: http
-            url: https://traefik.jkrumm.com/api/ping
+            url: https://traefik.jkrumm.com/api/overview
             interval: 121
 
           - name: RollHook - HTTP
