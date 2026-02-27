@@ -406,17 +406,18 @@ homelab/
 
 ### Uptime Kuma Config-as-Code
 
-Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script:
+Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script.
+**IMPORTANT:** sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
 
 ```bash
 # Preview changes (dry run)
-doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run
+ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
 
 # Apply changes
-doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py
+ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
 
 # Export current monitors to YAML
-doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export
+ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
 ```
 
 ### [redacted] Manager Usage
@@ -715,11 +716,13 @@ When making changes that affect infrastructure or script behavior:
 
 ### Uptime Kuma Config-as-Code
 
+> **IMPORTANT:** sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
+
 | Command | Purpose |
 |---------|---------|
-| `doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run` | Preview changes |
-| `doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py` | Apply changes |
-| `doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export` | Export to YAML |
+| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"` | Preview changes |
+| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` | Apply changes |
+| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"` | Export to YAML |
 
 ### SigNoz (Observability)
 

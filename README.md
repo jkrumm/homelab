@@ -133,6 +133,8 @@ ssh homelab "cd ~/homelab && ./scripts/[redacted]_manager.py"
 ### Uptime Kuma Config-as-Code
 
 ```bash
+# NOTE: sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
+
 # Preview changes (dry run)
 ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
 
@@ -1219,16 +1221,17 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 
 9. **Config as Code:**
 
-   Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script:
+   Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script.
+   **Must run ON THE HOMELAB SERVER** — connects to localhost:3010. Never run locally or on VPS.
    ```bash
    # Preview changes (dry run)
-   doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run
+   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
 
    # Apply changes
-   doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py
+   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
 
    # Export current monitors to YAML
-   doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export
+   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
    ```
 
    **Setup (first time only):**

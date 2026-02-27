@@ -1,5 +1,6 @@
 # Uptime Kuma Monitor Configuration
-# Sync with: python3 uptime-kuma/sync.py
+# Sync with: ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
+# IMPORTANT: sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
 #
 # Secrets are referenced via environment variables (loaded from Doppler)
 # - UPTIME_MONITOR_TOKEN: Cloudflare WAF bypass token

@@ -5,7 +5,11 @@ Uptime Kuma Monitor Sync Script
 Syncs monitors from monitors.yaml to Uptime Kuma instance.
 Uses uptime-kuma-api for WebSocket communication.
 
-Usage:
+IMPORTANT: Run this script ON THE HOMELAB SERVER only.
+It connects to the local Uptime Kuma instance at localhost:3010.
+Do NOT run locally or on the VPS.
+
+Usage (from ~/homelab on homelab):
     # Dry run (show what would change)
     doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run
 
