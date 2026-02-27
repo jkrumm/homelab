@@ -64,6 +64,13 @@ groups:
             timeout: 120
             maxretries: 5
 
+          - name: Docker Socket Proxy Watchtower - Docker
+            type: docker
+            docker_container: docker-socket-proxy-watchtower
+            interval: 116
+            timeout: 120
+            maxretries: 5
+
           - name: Caddy - Docker
             type: docker
             docker_container: caddy
@@ -255,6 +262,13 @@ groups:
             timeout: 120
             maxretries: 5
 
+          - name: Immich - HTTP
+            type: http
+            url: https://immich.jkrumm.com/api/server/ping
+            interval: 185
+            cloudflare_bypass: true
+            accepted_statuscodes: ["200-299"]
+
           - name: Immich - Uptime
             type: http
             url: https://uptime.betterstack.com/api/v2/monitors/3069484
@@ -409,6 +423,12 @@ groups:
             type: http
             url: http://rollhook:7700/health
             interval: 204
+
+          - name: Rollhook - Public HTTP
+            type: http
+            url: https://rollhook-homelab.jkrumm.com/health
+            interval: 207
+            cloudflare_bypass: true
 
   # ============================================
   # FreePlanningPoker - VPS application stack

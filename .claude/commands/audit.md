@@ -84,7 +84,7 @@ ssh homelab "docker exec [redacted] [redacted]-remote -l 2>/dev/null | tail -3"
 ### Phase 6: Pending Updates
 
 ```bash
-ssh homelab "curl -s http://localhost:3000/api/watched | python3 -c \"import sys,json; data=json.load(sys.stdin); [print(c['name'],'→',c.get('result',{}).get('tag','?')) for c in data if c.get('result',{}).get('isSemverUpdateAvailable') or c.get('result',{}).get('isDigestUpdateAvailable')]\""
+ssh homelab "docker logs watchtower --tail=30 2>&1 | grep -iE 'updated|found|new version|error' | tail -10"
 ```
 
 ```bash
@@ -92,7 +92,8 @@ ssh homelab "apt list --upgradable 2>/dev/null | grep -v '^Listing'"
 ```
 
 **Thresholds:**
-- WARN: any WUD-detected updates available, any apt upgradable packages
+- WARN: Watchtower logs show available updates for opted-out containers (immich, signoz, plausible), any apt upgradable packages
+- INFO: Watchtower auto-updated containers (expected behavior)
 
 ### Phase 7: Recent Errors (Log Scan)
 
@@ -179,7 +180,7 @@ After collecting all phase data, output:
 ## Recommendations
 - [CRITICAL] <finding> → <proposed fix>
 - [WARN] <finding> → <proposed fix>
-- (if any WUD updates) Run `/upgrade-stack` for manually-managed containers: immich, signoz, plausible
+- (if Watchtower shows updates for opted-out containers) Run `/upgrade-stack` for manually-managed containers: immich, signoz, plausible
 ```
 
 ---

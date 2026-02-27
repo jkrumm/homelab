@@ -309,7 +309,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 - **Read-only:** Only CONTAINERS, IMAGES, INFO, NETWORKS, VOLUMES enabled
 - **Write disabled:** POST, BUILD, EXEC, etc. all blocked
 - **Internal network:** socket-proxy network has no external access
-- **Exceptions:** WUD and Watchtower both keep direct socket access (need write for auto-updates)
+- **Exception:** Watchtower uses a dedicated `docker-socket-proxy-watchtower` (POST=1, DELETE=1) on an isolated network
 
 ---
 
@@ -692,19 +692,16 @@ When making changes that affect infrastructure or script behavior:
 | `sudo rm /var/lib/homelab_watchdog/manual_intervention_required` | Resume auto-recovery |
 | `echo 0 \| sudo tee /var/lib/homelab_watchdog/state` | Reset to healthy |
 
-### Container Updates (WUD + Watchtower)
+### Container Updates (Watchtower)
 
 **Update tiers:**
-- **Pushover notify-only** (manual action needed): `immich_server`, `signoz`
-- **Auto-update silent**: everything else WUD watches
-- **Watchtower (lscr.io only, daily 4AM)**: [redacted], duplicati, calibre, calibre-web, [redacted]
-- **Frozen** (`wud.watch: "false"`): caddy (custom build), schema migrators, digest-pinned images
+- **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`, `signoz`, `signoz-otel-collector`, `zookeeper-1`, `clickhouse`, `plausible`
+- **Opted-out** (other): `caddy` (custom build), `docker-socket-proxy-watchtower`, `watchtower` itself
+- **Auto-update** (global, daily 4AM): everything else
 
 | Command | Purpose |
 |---------|---------|
-| `docker logs wud --tail=50` | WUD recent activity |
 | `docker logs watchtower --tail=50` | Watchtower recent activity |
-| `curl -s http://localhost:3000/api/watched` | WUD: list all watched containers + update status |
 
 ### [redacted] ([redacted]s)
 
