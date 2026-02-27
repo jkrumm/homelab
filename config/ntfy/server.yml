@@ -5,6 +5,7 @@ listen-http: ":80"
 auth-file: "/var/lib/ntfy/user.db"
 auth-default-access: "deny-all"
 behind-proxy: true
+enable-login: true    # required for web UI login + iOS app auth flow
 
 # Topic reservations — required for iOS/Android app subscriptions and push routing
 # enable-reservations must be true or the iOS app shows "user has no permission"
