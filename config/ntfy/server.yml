@@ -7,6 +7,8 @@ auth-default-access: "deny-all"
 behind-proxy: true
 
 # Topic reservations — required for iOS/Android app subscriptions and push routing
+# enable-reservations must be true or the iOS app shows "user has no permission"
+enable-reservations: true
 visitor-subscription-limit: 30
 
 # iOS push relay via ntfy.sh APNs

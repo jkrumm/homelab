@@ -969,7 +969,9 @@ services:
     ports:
       - "127.0.0.1:8093:80"   # localhost-only; watchdog (host cron) uses this directly
     environment:
-      # VAPID private key and email kept out of git — injected via Doppler
+      # VAPID keys: public key also passed via env for reliable loading
+      # Private key and email kept out of git — injected via Doppler
+      NTFY_WEB_PUSH_PUBLIC_KEY: "BLi5DS2Y8JqIpW0LYajag_SE58hOc57jRLFXj4DTIZ5S7beUsylAnG5CUcnxc47u6X8gN937qPdeZRCxv52Z9So"
       NTFY_WEB_PUSH_PRIVATE_KEY: ${NTFY_WEB_PUSH_PRIVATE_KEY}
       NTFY_WEB_PUSH_EMAIL_ADDRESS: ${NTFY_WEB_PUSH_EMAIL_ADDRESS}
     networks:
