@@ -1052,6 +1052,24 @@ services:
       glance.url: https://couchdb.jkrumm.com
       glance.hide: false
 
+  homelab-api:
+    build:
+      context: ./homelab-api
+      dockerfile: Dockerfile
+    container_name: homelab-api
+    restart: unless-stopped
+    networks:
+      - cloudflared
+    environment:
+      - HOMELAB_API_SECRET=${HOMELAB_API_SECRET}
+      - NTFY_TOKEN=${NTFY_TOKEN}
+      - VIKUNJA_API_TOKEN=${VIKUNJA_API_TOKEN}
+    labels:
+      glance.name: HomeLab API
+      glance.icon: si:elysia
+      glance.url: https://api.jkrumm.com/docs
+      com.centurylinklabs.watchtower.enable: "false"
+
 secrets:
   cert:
     file: ./dozzle/cert.pem
