@@ -184,6 +184,59 @@ ssh homelab "docker exec clickhouse clickhouse-client --query 'SELECT version()'
 ssh homelab "docker exec signoz-query-service env | grep RETENTION"
 ```
 
+### ntfy Notifications
+
+#### Active Topics
+
+| Topic | Producer | Purpose |
+|-|-|-|
+| `homelab-watchdog` | `homelab_watchdog.sh` (host cron) | System health alerts (disk, internet, containers, Tailscale) |
+| `homelab-watchtower` | HomeLab Watchtower | Container update notifications |
+| `vps-watchtower` | VPS Watchtower | VPS container update notifications |
+| `uptime-alerts` | UptimeKuma | Service down/up alerts |
+
+All topics are reserved by `jkrumm` on the server (50-slot `homelab` tier).
+
+#### Adding a New Topic
+
+1. **Reserve it** (ensures it appears as owned in iOS/web apps):
+   ```bash
+   ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+     curl -s -X POST \
+       -H "Authorization: Bearer ${NTFY_TOKEN}" \
+       -H "Content-Type: application/json" \
+       "https://ntfy.jkrumm.com/v1/account/reservation" \
+       -d "{\"topic\":\"my-new-topic\",\"everyone\":\"deny-all\"}"
+   '"'"''
+   ```
+
+2. **Update the topics table** in `uptime-kuma/monitors.yaml` if you want a health monitor for it.
+
+3. **Update the topics table** in `.claude/commands/ntfy.md` and this README.
+
+4. **Subscribe** in the iOS app or web UI — it will appear in the reserved topics list.
+
+#### Quick Publish / Test
+
+```bash
+ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+  curl -s \
+    -H "Authorization: Bearer ${NTFY_TOKEN}" \
+    -H "Title: Test" \
+    -H "Tags: white_check_mark" \
+    -d "ntfy is working" \
+    https://ntfy.jkrumm.com/homelab-watchdog
+'"'"''
+```
+
+#### Web / iOS Access
+
+- **Web UI / PWA:** https://ntfy.jkrumm.com → Log in as `jkrumm` (password in Doppler `NTFY_PASSWORD`)
+- **iOS app:** Settings → Manage Users → add `https://ntfy.jkrumm.com` with `jkrumm` + `NTFY_PASSWORD`
+- **iOS push relay:** via `ntfy.sh` APNs — notifications arrive even when the app is closed
+
+---
+
 ### HDD Diagnostics
 
 ```bash
@@ -295,7 +348,7 @@ ssh homelab "docker system prune -af"
 
 ## Infrastructure Overview
 
-Two machines, connected via Tailscale mesh VPN, serving 28+ containers.
+Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -305,7 +358,7 @@ Two machines, connected via Tailscale mesh VPN, serving 28+ containers.
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  Private:  Tailscale device → caddy:443 (HTTPS, Let's Encrypt) → app │
 │                                                                      │
-│  28 containers: Glance, Immich, [redacted], Calibre, UptimeKuma, ...   │
+│  29 containers: Glance, Immich, [redacted], Calibre, ntfy, ...         │
 │  Storage: Internal SSD + Encrypted external HDD                      │
 │  Watchdog: Self-healing monitor (cron, 10min)                        │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -335,6 +388,7 @@ Two machines, connected via Tailscale mesh VPN, serving 28+ containers.
 | ExcaliDash | [draw.jkrumm.com](https://draw.jkrumm.com) | Whiteboard |
 | Dufs | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
 | OTLP Ingestion | [otlp.jkrumm.com](https://otlp.jkrumm.com) | OpenTelemetry trace ingestion (for browser apps) |
+| ntfy | [ntfy.jkrumm.com](https://ntfy.jkrumm.com) | Push notifications (iOS + PWA, auth required) |
 
 **Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
 
@@ -350,7 +404,6 @@ Two machines, connected via Tailscale mesh VPN, serving 28+ containers.
 | Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com) | E-book library |
 | [redacted] | [[redacted].jkrumm.com](https://[redacted].jkrumm.com) | Media streaming |
 | SigNoz | [signoz.jkrumm.com](https://signoz.jkrumm.com) | Application observability (APM) |
-| WUD | [wud.jkrumm.com](https://wud.jkrumm.com) | Container update tracker (What's Up Docker) |
 | Obsidian | [obsidian.jkrumm.com](https://obsidian.jkrumm.com) | Obsidian app (KasmVNC GUI + REST API + TaskNotes API) |
 | CouchDB | [couchdb.jkrumm.com](https://couchdb.jkrumm.com) | Obsidian LiveSync database |
 
@@ -368,8 +421,8 @@ Two machines, connected via Tailscale mesh VPN, serving 28+ containers.
 | Cloudflared | CF Tunnel client (public services only) |
 | Cloudflare-DDNS | Dynamic DNS for `homelab.jkrumm.com` |
 | Docker Socket Proxy | Read-only Docker API proxy for monitoring |
-| WUD (What's Up Docker) | Primary update manager — auto-updates most containers, Pushover notify-only for immich_server + signoz, 6h cron |
-| Watchtower | Updates lscr.io containers ([redacted], duplicati, calibre, calibre-web, [redacted], obsidian) — WUD can't track lscr.io |
+| Watchtower | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; ntfy notifications at `warn` level |
+| ntfy | Self-hosted push notification server — iOS app, PWA, and Web Push; topics: homelab-watchdog, homelab-watchtower, vps-watchtower, uptime-alerts |
 | [redacted] | VPN gateway ([redacted] [redacted]) |
 | [redacted] | [redacted] client (via [redacted] VPN) |
 | Samba | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`) |
@@ -465,9 +518,9 @@ Monitoring services access the Docker API through a secure proxy instead of dire
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│ WUD (direct socket access - needs write for auto-updates)   │
+│ Watchtower (dedicated proxy - needs write for auto-updates) │
 │                                                             │
-│ /var/run/docker.sock ◄─── Direct mount                     │
+│ docker-socket-proxy-watchtower (POST=1) ◄── Isolated net   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -494,7 +547,7 @@ depends_on:
   - docker-socket-proxy
 ```
 
-**Exception:** WUD and Watchtower both require direct socket access to pull and restart containers for auto-updates.
+**Exception:** Watchtower requires write access to pull and restart containers. It uses a dedicated `docker-socket-proxy-watchtower` (POST=1) on an isolated network — not a direct socket mount.
 
 ---
 
@@ -1158,7 +1211,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 
    **Why SSD?** UptimeKuma uses SQLite with Write-Ahead Logging (WAL). With multiple monitors checking every 60s, HDD seek times cause database lock timeouts, resulting in false positive failures. SSD storage eliminates these issues by reducing write latency 10-100x.
 
-2. **Version:** Using `louislam/uptime-kuma:2` (stable 2.x). WUD handles auto-updates.
+2. **Version:** Using `louislam/uptime-kuma:2` (stable 2.x). Watchtower handles auto-updates.
 
 3. **Configuration optimizations:**
    - `SQLITE_BUSY_TIMEOUT=30000` (30s timeout for database locks)
@@ -1506,7 +1559,7 @@ The backup file is automatically included in your configured Duplicati backups o
 # State + Queue
 sudo mkdir -p /var/lib/homelab_watchdog
 sudo touch /var/lib/homelab_watchdog/state
-sudo touch /var/lib/homelab_watchdog/pushover_queue
+sudo touch /var/lib/homelab_watchdog/ntfy_queue
 sudo chown -R root:root /var/lib/homelab_watchdog
 sudo chmod 700 /var/lib/homelab_watchdog
 
@@ -1600,7 +1653,7 @@ cat /var/lib/homelab_watchdog/state
 - **Locking**: Built-in file locking prevents overlapping executions
 - **State Management**: Persistent state tracking with graduated escalation (0-4)
 - **Security**: Credentials stored in root-only accessible file
-- **Notifications**: Real-time push notifications via Pushover
+- **Notifications**: Real-time push notifications via ntfy (`https://ntfy.jkrumm.com/homelab-watchdog`, port 8093 on host)
 - **Reboot Protection**: Maximum 3 reboots per day, then requires manual intervention
 
 #### Recovery Strategy
@@ -1850,7 +1903,7 @@ to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo
 - Calibre provides full library management capabilities
 - Calibre-Web offers a user-friendly interface for browsing and reading
 - Both services share the same library folder
-- Automatic updates via WUD
+- Automatic updates via Watchtower
 - Monitoring via Glance dashboard
 - Secure HTTPS access through Cloudflare tunnels
 - All configurations and library are backed up via Duplicati
@@ -2006,7 +2059,7 @@ alternative.
 - Dashboard view for managing multiple diagrams
 - Excalidraw editor with full whiteboard capabilities
 - Health checks for reliability monitoring
-- Automatic updates via WUD
+- Automatic updates via Watchtower
 - Monitoring via Glance dashboard
 - Secure HTTPS access through Cloudflare tunnel
 
@@ -2062,7 +2115,7 @@ Embed in Notion/Linear:
 - Supports drag-and-drop uploads in web interface
 - ZIP download for folders
 - Search functionality
-- Automatic updates via WUD
+- Automatic updates via Watchtower
 - Files backed up via Duplicati (same SSD backup)
 
 ### Configuration Details

@@ -47,7 +47,7 @@ Run `/docs` to:
 
 ### `/upgrade-stack` Command
 
-Upgrade multi-component Docker stacks that have WUD set to notify-only or ignore.
+Upgrade multi-component Docker stacks that have Watchtower opted-out via label.
 
 **Usage:**
 ```bash
@@ -253,7 +253,6 @@ docker events --since 1h --filter container=<name>
 | Calibre-Web | 8083 | books.jkrumm.com | E-book library |
 | [redacted] | 8096 | [redacted].jkrumm.com | Media streaming |
 | SigNoz | 8089 | signoz.jkrumm.com | Application observability (APM) |
-| WUD | - | wud.jkrumm.com | Container update tracker (What's Up Docker) |
 | CouchDB | 5984 | couchdb.jkrumm.com | CouchDB document database |
 
 > **Access:** DNS A records point to HomeLab Tailscale IP (${HOMELAB_TAILSCALE_IP}, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
@@ -266,8 +265,7 @@ docker events --since 1h --filter container=<name>
 | docker-socket-proxy | Secure Docker API proxy (read-only TCP) |
 | Cloudflared | Tunnel to Cloudflare (public services only) |
 | Cloudflare-DDNS | Dynamic DNS updates |
-| WUD (What's Up Docker) | Container update notifications + auto-updates for most images (direct socket) |
-| Watchtower | Auto-updates for lscr.io containers ([redacted], duplicati, calibre, calibre-web, [redacted]) — opt-in via label |
+| Watchtower | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; ntfy notifications |
 | [redacted] | VPN gateway ([redacted]) |
 | [redacted] | [redacted] client (via VPN) |
 | Samba | SMB3 file shares (encryption preferred) |
@@ -480,7 +478,7 @@ The watchdog auto-clears the `manual_intervention_required` flag when the system
 | `/var/lib/homelab_watchdog/manual_intervention_required` | Blocks aggressive recovery (auto-clears when healthy) |
 | `/var/lib/homelab_watchdog/reboot_tracker` | Daily reboot count |
 | `/var/log/homelab_watchdog.log` | Watchdog logs |
-| `/root/.homelab-watchdog-credentials` | Pushover/BetterStack/UptimeKuma tokens |
+| `/root/.homelab-watchdog-credentials` | NTFY_TOKEN/BetterStack/UptimeKuma tokens |
 
 ### Manual Intervention
 
