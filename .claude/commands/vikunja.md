@@ -16,21 +16,24 @@ Manage the self-hosted Vikunja task management instance at `vikunja.jkrumm.com`.
 
 ---
 
-## User Management (CLI inside container)
+## User Management
 
+The vikunja Docker image has no CLI tools. User management is done via SQLite directly or the REST API.
+
+**Admin user creation** (if needed from scratch):
 ```bash
-# Create user
-ssh homelab "docker exec vikunja vikunja user create \
-  --username jkrumm \
-  --email jkrumm@pm.me \
-  --password PASSWORD"
+# Generate bcrypt hash ($2a$ prefix required for Go/Vikunja)
+ADMIN_PW=$(doppler secrets get VIKUNJA_ADMIN_PASSWORD --plain --project homelab --config prod)
+bun -e "import bcrypt from 'bcryptjs'; console.log(bcrypt.hashSync('$ADMIN_PW', 14).replace(/^\\\$2b\\\$/, '\$2a\$'))"
 
-# List users
-ssh homelab "docker exec vikunja vikunja user list"
-
-# Reset password
-ssh homelab "docker exec vikunja vikunja user reset-password --username jkrumm"
+# Insert user via Python script on server (avoid shell \$ expansion)
+# Generate script locally → scp → run on server
 ```
+
+**Key fields for local accounts:**
+- `issuer` must be `'local'` — if NULL, Vikunja shows "third-party provider" error
+- `password` must use `$2a$` bcrypt prefix (not `$2b$` from bcryptjs/Node.js — replace prefix)
+- `status` = 0 (active)
 
 ---
 
@@ -38,9 +41,11 @@ ssh homelab "docker exec vikunja vikunja user reset-password --username jkrumm"
 
 ### Login to get JWT
 
+Note: In Vikunja v2, the login endpoint is `/api/v1/login` (not `/api/v1/user/login`).
+
 ```bash
 ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
-  curl -s -X POST http://localhost:3456/api/v1/user/login \
+  curl -s -X POST http://localhost:3456/api/v1/login \
     -H "Content-Type: application/json" \
     -d "{\"username\":\"jkrumm\",\"password\":\"${VIKUNJA_ADMIN_PASSWORD}\"}" \
     | python3 -c "import json,sys; print(json.load(sys.stdin)[\"token\"])"
