@@ -141,6 +141,9 @@ ssh -t homelab "docker logs -f [redacted]"
 | `IMMICH_API_KEY` | Immich API for Glance widget |
 | `COUCHDB_PASSWORD` | CouchDB admin password |
 | `NTFY_TOKEN` | ntfy Bearer token (shared across HomeLab watchdog, Watchtower notifications) |
+| `NTFY_PASSWORD` | ntfy jkrumm user password (iOS app + web UI login) |
+| `NTFY_WEB_PUSH_PRIVATE_KEY` | VAPID private key for Web Push PWA notifications |
+| `NTFY_WEB_PUSH_EMAIL_ADDRESS` | VAPID contact email for Web Push |
 
 ### Essential Doppler Commands
 
