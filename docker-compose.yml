@@ -286,6 +286,7 @@ services:
       - /home/jkrumm/.docker/config.json:/config.json:ro
     networks:
       - socket-proxy-watchtower
+      - watchtower-egress
     depends_on:
       - docker-socket-proxy-watchtower
     environment:
@@ -1008,5 +1009,7 @@ networks:
   socket-proxy-watchtower:
     driver: bridge
     internal: true  # No external access needed
+  watchtower-egress:
+    driver: bridge  # Internet access for Pushover notifications
   signoz:
     driver: bridge
