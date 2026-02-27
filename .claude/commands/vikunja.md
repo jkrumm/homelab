@@ -54,10 +54,12 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 
 ### Use API token (preferred for automation)
 
+The token is stored in Doppler as `VIKUNJA_API_TOKEN`. Always access via SSH + Doppler:
+
 ```bash
 ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
   curl -s -H "Authorization: Bearer ${VIKUNJA_API_TOKEN}" \
-    https://vikunja.jkrumm.com/api/v1/tasks/all | python3 -m json.tool
+    https://vikunja.jkrumm.com/api/v1/tasks | python3 -m json.tool
 '"'"''
 ```
 
@@ -101,24 +103,36 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 
 ---
 
-## Common API Operations
+## Common API Operations (v2.x)
+
+All calls use `${VIKUNJA_API_TOKEN}` from Doppler via SSH:
 
 ```bash
+# Get current user info
+ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s -H "Authorization: Bearer ${VIKUNJA_API_TOKEN}" https://vikunja.jkrumm.com/api/v1/user'"'"''
+
 # Get all tasks
-curl -s -H "Authorization: Bearer TOKEN" https://vikunja.jkrumm.com/api/v1/tasks/all
+ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s -H "Authorization: Bearer ${VIKUNJA_API_TOKEN}" https://vikunja.jkrumm.com/api/v1/tasks'"'"''
 
 # Get all projects
-curl -s -H "Authorization: Bearer TOKEN" https://vikunja.jkrumm.com/api/v1/projects
+ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s -H "Authorization: Bearer ${VIKUNJA_API_TOKEN}" https://vikunja.jkrumm.com/api/v1/projects'"'"''
 
-# Create a task
-curl -s -X PUT \
-  -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Task title","project_id":1}' \
-  https://vikunja.jkrumm.com/api/v1/projects/1/tasks
+# Create a task in project ID 1
+ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+  curl -s -X PUT \
+    -H "Authorization: Bearer ${VIKUNJA_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"title\":\"Task title\"}" \
+    https://vikunja.jkrumm.com/api/v1/projects/1/tasks
+'"'"''
 ```
 
-Full API docs: https://vikunja.io/docs/ | Swagger: https://try.vikunja.io/api/v1/docs
+**v2 API endpoint changes vs v0.x:**
+- Login: `/api/v1/login` (was `/api/v1/user/login`)
+- Tasks: `/api/v1/tasks` (was `/api/v1/tasks/all`)
+- No CLI tools in container — use REST API or direct SQLite
+
+Full API docs: https://vikunja.io/docs/ | Live Swagger: https://vikunja.jkrumm.com/api/v1/docs
 
 ---
 
