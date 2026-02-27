@@ -1,9 +1,25 @@
 base-url: "https://ntfy.jkrumm.com"
 listen-http: ":80"
+
+# Auth
 auth-file: "/var/lib/ntfy/user.db"
 auth-default-access: "deny-all"
 behind-proxy: true
+
+# Topic reservations — required for iOS/Android app subscriptions and push routing
+visitor-subscription-limit: 30
+
+# iOS push relay via ntfy.sh APNs
 upstream-base-url: "https://ntfy.sh"
+
+# Web Push (VAPID) — enables PWA install and background browser notifications
+# Private key injected via NTFY_WEB_PUSH_PRIVATE_KEY env var (Doppler)
+# Email injected via NTFY_WEB_PUSH_EMAIL_ADDRESS env var (Doppler)
+web-push-public-key: "BLi5DS2Y8JqIpW0LYajag_SE58hOc57jRLFXj4DTIZ5S7beUsylAnG5CUcnxc47u6X8gN937qPdeZRCxv52Z9So"
+web-push-file: "/var/lib/ntfy/webpush.db"
+
+# Cache
 cache-file: "/var/lib/ntfy/cache.db"
 cache-duration: "12h"
+
 log-level: "info"
