@@ -42,10 +42,6 @@ registry.jkrumm.com, http://registry.jkrumm.com {
 # === PRIVATE SERVICES (Tailscale only) ===
 # http:// variants kept for potential future cloudflared routing
 
-wud.jkrumm.com, http://wud.jkrumm.com {
-	reverse_proxy wud:3000
-}
-
 beszel.jkrumm.com, http://beszel.jkrumm.com {
 	reverse_proxy beszel:8090
 }
