@@ -1,0 +1,9 @@
+base-url: "https://ntfy.jkrumm.com"
+listen-http: ":80"
+auth-file: "/var/lib/ntfy/user.db"
+auth-default-access: "deny-all"
+behind-proxy: true
+upstream-base-url: "https://ntfy.sh"
+cache-file: "/var/lib/ntfy/cache.db"
+cache-duration: "12h"
+log-level: "info"

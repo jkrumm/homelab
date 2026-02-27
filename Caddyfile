@@ -39,6 +39,10 @@ registry.jkrumm.com, http://registry.jkrumm.com {
 	reverse_proxy zot:5080
 }
 
+ntfy.jkrumm.com, http://ntfy.jkrumm.com {
+	reverse_proxy ntfy:80
+}
+
 # === PRIVATE SERVICES (Tailscale only) ===
 # http:// variants kept for potential future cloudflared routing
 

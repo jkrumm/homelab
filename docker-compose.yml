@@ -296,7 +296,7 @@ services:
       DOCKER_API_VERSION: "1.44"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
-      WATCHTOWER_NOTIFICATION_URL: "pushover://shoutrrr:${PUSHOVER_TOKEN}@${PUSHOVER_USER}"
+      WATCHTOWER_NOTIFICATION_URL: "ntfy://:${NTFY_TOKEN}@ntfy.jkrumm.com/homelab-watchtower"
       WATCHTOWER_NOTIFICATIONS_LEVEL: warn
     labels:
       glance.parent: uptime
@@ -956,6 +956,30 @@ services:
       glance.url: https://rollhook-homelab.jkrumm.com
       glance.hide: false
 
+  ntfy:
+    image: binwiederhier/ntfy
+    container_name: ntfy
+    restart: unless-stopped
+    command: serve
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./config/ntfy/server.yml:/etc/ntfy/server.yml:ro
+      - /home/jkrumm/ssd/ntfy:/var/lib/ntfy
+    ports:
+      - "127.0.0.1:8093:80"   # localhost-only; watchdog (host cron) uses this directly
+    networks:
+      - cloudflared
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    labels:
+      glance.name: ntfy
+      glance.icon: si:ntfy
+      glance.url: https://ntfy.jkrumm.com
+      glance.hide: false
+
   couchdb:
     image: couchdb:3
     container_name: couchdb
@@ -1010,6 +1034,6 @@ networks:
     driver: bridge
     internal: true  # No external access needed
   watchtower-egress:
-    driver: bridge  # Internet access for Pushover notifications
+    driver: bridge  # Internet access for ntfy.jkrumm.com (notification relay)
   signoz:
     driver: bridge

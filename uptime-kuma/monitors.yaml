@@ -100,6 +100,20 @@ groups:
             timeout: 120
             maxretries: 5
 
+          - name: ntfy - Docker
+            type: docker
+            docker_container: ntfy
+            interval: 128
+            timeout: 120
+            maxretries: 5
+
+          - name: ntfy - HTTP
+            type: http
+            url: https://ntfy.jkrumm.com/
+            interval: 129
+            cloudflare_bypass: true
+            accepted_statuscodes: ["200-299"]
+
           - name: Uptime Kuma - Docker
             type: docker
             docker_container: uptime-kuma
