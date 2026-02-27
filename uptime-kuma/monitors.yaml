@@ -431,6 +431,38 @@ groups:
             cloudflare_bypass: true
 
   # ============================================
+  # VPS (Hetzner) - hetzner-vps infrastructure
+  # ============================================
+  - name: VPS
+    interval: 250
+    monitors:
+      # --- Networking subgroup ---
+      - name: Networking
+        type: group
+        interval: 200
+        monitors:
+          # Returns 403 for non-Tailscale IPs via tailscale-only middleware.
+          # Accepting 403 verifies the full Cloudflare → cloudflared → Traefik chain.
+          - name: Traefik - HTTP
+            type: http
+            url: https://traefik.jkrumm.com/
+            interval: 121
+            cloudflare_bypass: true
+            accepted_statuscodes: ["200-299", "401", "403"]
+
+      # --- Infra subgroup ---
+      - name: Infra
+        type: group
+        interval: 205
+        monitors:
+          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          # After creating: copy push URL → Doppler vps/prod as UPTIME_KUMA_PUSH_URL
+          - name: VPS Postgres - Backup
+            type: push
+            interval: 90000    # 25h — daily cron at 03:00 UTC + buffer
+            retry_interval: 90000
+
+  # ============================================
   # FreePlanningPoker - VPS application stack
   # ============================================
   - name: FreePlanningPoker
