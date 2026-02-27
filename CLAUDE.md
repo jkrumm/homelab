@@ -140,8 +140,7 @@ ssh -t homelab "docker logs -f [redacted]"
 | `DUFS_PASSWORD` | Public file server auth |
 | `IMMICH_API_KEY` | Immich API for Glance widget |
 | `COUCHDB_PASSWORD` | CouchDB admin password |
-| `WUD_PUSHOVER_TOKEN` | WUD Pushover app token (update notifications) |
-| `WUD_PUSHOVER_USER` | WUD Pushover user key (update notifications) |
+| `NTFY_TOKEN` | ntfy Bearer token (shared across HomeLab watchdog, Watchtower notifications) |
 
 ### Essential Doppler Commands
 
@@ -237,6 +236,7 @@ docker events --since 1h --filter container=<name>
 | Plausible | 8088 | plausible.jkrumm.com | Web analytics |
 | OTLP Ingestion | 4318 | otlp.jkrumm.com | OpenTelemetry ingestion (browser apps) |
 | Zot Registry | 5080 | registry.jkrumm.com | OCI container registry |
+| ntfy | 8093 (host) / 80 (container) | ntfy.jkrumm.com | Push notification server |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 
