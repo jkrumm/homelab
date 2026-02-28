@@ -1024,6 +1024,10 @@ services:
     environment:
       - HOMELAB_API_SECRET=${HOMELAB_API_SECRET}
       - NTFY_TOKEN=${NTFY_TOKEN}
+      - TICKTICK_CLIENT_ID=${TICKTICK_CLIENT_ID}
+      - TICKTICK_CLIENT_SECRET=${TICKTICK_CLIENT_SECRET}
+    volumes:
+      - /home/jkrumm/ssd/homelab-api:/data
     labels:
       glance.name: HomeLab API
       glance.icon: si:elysia

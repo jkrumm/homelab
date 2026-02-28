@@ -3,6 +3,11 @@ import { swagger } from '@elysiajs/swagger'
 import { bearer } from '@elysiajs/bearer'
 import { registerCronJobs } from './cron'
 import { healthRoute } from './routes/health'
+import { ticktickAuthRoutes } from './routes/ticktick-auth'
+import { ticktickRoutes } from './routes/ticktick'
+import { initTickTickClient } from './clients/ticktick'
+
+initTickTickClient()
 
 const app = new Elysia()
   .use(
@@ -21,13 +26,14 @@ const app = new Elysia()
   )
   .use(bearer())
   .use(healthRoute)
+  .use(ticktickAuthRoutes)
   .group('/api', (app) =>
     app
       .onBeforeHandle(({ bearer }) => {
         if (bearer !== process.env.HOMELAB_API_SECRET)
           return new Response('Unauthorized', { status: 401 })
       })
-      // future protected routes here
+      .use(ticktickRoutes)
       .get('/ping', () => ({ pong: true }), {
         detail: {
           tags: ['System'],

@@ -4,13 +4,16 @@
   "dependencies": {
     "@elysiajs/bearer": "^1",
     "@elysiajs/swagger": "^1",
+    "@hey-api/client-fetch": "^0.13.1",
     "croner": "^9",
-    "elysia": "^1",
-    "openapi-fetch": "^0.13"
+    "elysia": "^1"
   },
   "devDependencies": {
-    "openapi-typescript": "^7",
+    "@hey-api/openapi-ts": "^0.93.1",
+    "bun-types": "^1.3.10",
     "typescript": "^5"
   },
-  "scripts": {}
+  "scripts": {
+    "generate": "openapi-ts"
+  }
 }
