@@ -27,9 +27,9 @@ const app = new Elysia()
       path: '/docs',
     }),
   )
-  .use(bearer())
   .use(healthRoute)
   .get('/test', () => ({ test: 'ok' }))
+  .use(bearer())
   // TickTick OAuth routes (public)
   .get(
     '/ticktick/auth/start',
