@@ -1,13 +1,13 @@
 import { Elysia } from 'elysia'
 import { saveTokens, initTickTickClient } from '../clients/ticktick'
 
-const CALLBACK_URL = 'https://api.jkrumm.com/ticktick/auth/callback'
+const CALLBACK_URL = 'https://api.jkrumm.com/ticktick-callback'
 const AUTH_URL = 'https://ticktick.com/oauth/authorize'
 const TOKEN_URL = 'https://ticktick.com/oauth/token'
 
 export const ticktickAuthRoutes = new Elysia()
   .get(
-    '/ticktick/auth/start',
+    '/ticktick-start',
     () => {
       const clientId = process.env.TICKTICK_CLIENT_ID
       if (!clientId) return new Response('TickTick client ID not configured', { status: 500 })
@@ -32,7 +32,7 @@ export const ticktickAuthRoutes = new Elysia()
     },
   )
   .get(
-    '/ticktick/auth/callback',
+    '/ticktick-callback',
     async ({ query }) => {
       const code = query.code as string | undefined
       if (!code) return new Response('Missing authorization code', { status: 400 })
