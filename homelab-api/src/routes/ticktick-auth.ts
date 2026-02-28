@@ -1,16 +1,16 @@
 import { Elysia } from 'elysia'
 import { saveTokens, initTickTickClient } from '../clients/ticktick'
 
-const CALLBACK_URL = 'https://api.jkrumm.com/ticktick-callback'
+const CALLBACK_URL = 'https://api.jkrumm.com/ticktick/auth/callback'
 const AUTH_URL = 'https://ticktick.com/oauth/authorize'
 const TOKEN_URL = 'https://ticktick.com/oauth/token'
 
 export const ticktickAuthRoutes = new Elysia()
   .get(
-    '/ticktick-start',
+    '/ticktick/auth/start',
     () => {
       const clientId = process.env.TICKTICK_CLIENT_ID
-      if (!clientId) return new Response('TickTick client ID not configured', { status: 500 })
+      if (!clientId) return new Response('TickTick not configured', { status: 500 })
       const params = new URLSearchParams({
         client_id: clientId,
         response_type: 'code',
@@ -32,13 +32,16 @@ export const ticktickAuthRoutes = new Elysia()
     },
   )
   .get(
-    '/ticktick-callback',
+    '/ticktick/auth/callback',
     async ({ query }) => {
       const code = query.code as string | undefined
       if (!code) return new Response('Missing authorization code', { status: 400 })
 
-      const clientId = process.env.TICKTICK_CLIENT_ID!
-      const clientSecret = process.env.TICKTICK_CLIENT_SECRET!
+      const clientId = process.env.TICKTICK_CLIENT_ID
+      const clientSecret = process.env.TICKTICK_CLIENT_SECRET
+      if (!clientId || !clientSecret)
+        return new Response('TickTick credentials not configured', { status: 500 })
+
       const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
 
       const res = await fetch(TOKEN_URL, {
