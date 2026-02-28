@@ -132,7 +132,7 @@ def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict,
     return params
 
 
-def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False):
+def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delete_orphans: bool = False):
     """Sync monitors from config to Uptime Kuma."""
     defaults = config.get("settings", {}).get("defaults", {})
     cloudflare_header = config.get("settings", {}).get("cloudflare_bypass_header", {})
@@ -208,12 +208,15 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False):
         print(f"\n[ORPHANS] These monitors exist in Uptime Kuma but not in config:")
         for name in sorted(orphaned):
             print(f"  - {name} (id={existing[name]['id']})")
-        if dry_run or not sys.stdin.isatty():
-            print("\n  (no interactive terminal — run sync.py directly to be prompted for deletion)")
+        if dry_run:
             return
-        print("\nDelete these orphaned monitors? [y/N] ", end="", flush=True)
-        answer = input().strip().lower()
-        if answer == "y":
+        if delete_orphans or sys.stdin.isatty():
+            if not delete_orphans:
+                print("\nDelete these orphaned monitors? [y/N] ", end="", flush=True)
+                answer = input().strip().lower()
+                if answer != "y":
+                    print("  Skipped — monitors left untouched.")
+                    return
             for name in sorted(orphaned):
                 mid = existing[name]["id"]
                 try:
@@ -222,7 +225,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False):
                 except Exception as e:
                     print(f"  Failed to delete {name} (id={mid}): {e}")
         else:
-            print("  Skipped — monitors left untouched.")
+            print("\n  (no interactive terminal — run sync.py directly or use --delete-orphans)")
 
 
 def export_monitors(api: UptimeKumaApi, output_path: str):
@@ -301,6 +304,7 @@ def main():
     parser = argparse.ArgumentParser(description="Sync Uptime Kuma monitors from YAML config")
     parser.add_argument("--dry-run", action="store_true", help="Show what would change without making changes")
     parser.add_argument("--export", action="store_true", help="Export current monitors to YAML")
+    parser.add_argument("--delete-orphans", action="store_true", help="Delete orphaned monitors without prompting")
     parser.add_argument("--config", default="uptime-kuma/monitors.yaml", help="Path to monitors.yaml")
     parser.add_argument("--url", default="http://localhost:3010", help="Uptime Kuma URL")
     parser.add_argument("--username", default="jkrumm", help="Uptime Kuma username")
@@ -326,7 +330,7 @@ def main():
             export_monitors(api, args.config + ".exported")
         else:
             config = load_config(args.config)
-            sync_monitors(api, config, dry_run=args.dry_run)
+            sync_monitors(api, config, dry_run=args.dry_run, delete_orphans=args.delete_orphans)
 
     except Exception as e:
         print(f"Error: {e}")
