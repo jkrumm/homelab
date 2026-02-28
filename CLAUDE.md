@@ -533,6 +533,9 @@ git push
 
 # 4. Pull and apply on server
 ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d"
+
+# 4b. For services with local builds (homelab-api, caddy): MUST rebuild image first
+ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose build homelab-api && doppler run -- docker compose up -d --force-recreate homelab-api"
 ```
 
 ### Verification Steps
