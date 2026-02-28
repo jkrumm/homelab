@@ -8,7 +8,7 @@ const TOKEN_URL = 'https://ticktick.com/oauth/token'
 export const ticktickAuthRoutes = new Elysia()
   .get(
     '/ticktick/auth/start',
-    ({ redirect }) => {
+    ({ set }) => {
       const clientId = process.env.TICKTICK_CLIENT_ID!
       const params = new URLSearchParams({
         client_id: clientId,
@@ -16,7 +16,7 @@ export const ticktickAuthRoutes = new Elysia()
         redirect_uri: CALLBACK_URL,
         scope: 'tasks:read tasks:write',
       })
-      return redirect(`${AUTH_URL}?${params}`)
+      return set.redirect(`${AUTH_URL}?${params}`)
     },
     {
       detail: {
