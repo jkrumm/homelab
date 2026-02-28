@@ -240,6 +240,7 @@ docker events --since 1h --filter container=<name>
 | OTLP Ingestion | 4318 | otlp.jkrumm.com | OpenTelemetry ingestion (browser apps) |
 | Zot Registry | 5080 | registry.jkrumm.com | OCI container registry |
 | ntfy | 8093 (host) / 80 (container) | ntfy.jkrumm.com | Push notification server |
+| HomeLab API | 3030 | api.jkrumm.com | Internal coordination API (ntfy) |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 
@@ -699,7 +700,7 @@ When making changes that affect infrastructure or script behavior:
 
 **Update tiers:**
 - **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`, `signoz`, `signoz-otel-collector`, `zookeeper-1`, `clickhouse`, `plausible`
-- **Opted-out** (other): `caddy` (custom build), `docker-socket-proxy-watchtower`, `watchtower` itself
+- **Opted-out** (other): `caddy` (custom build), `homelab-api` (manual rebuild), `docker-socket-proxy-watchtower`, `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else
 
 | Command | Purpose |

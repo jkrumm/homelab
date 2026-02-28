@@ -43,10 +43,6 @@ ntfy.jkrumm.com, http://ntfy.jkrumm.com {
 	reverse_proxy ntfy:80
 }
 
-vikunja.jkrumm.com, http://vikunja.jkrumm.com {
-	reverse_proxy vikunja:3456
-}
-
 # === PRIVATE SERVICES (Tailscale only) ===
 # http:// variants kept for potential future cloudflared routing
 

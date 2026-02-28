@@ -422,24 +422,6 @@ groups:
             interval: 176
             cloudflare_bypass: true
 
-      # --- Vikunja subgroup ---
-      - name: Vikunja
-        type: group
-        interval: 255
-        monitors:
-          - name: Vikunja - Docker
-            type: docker
-            docker_container: vikunja
-            interval: 148
-            timeout: 120
-            maxretries: 5
-
-          - name: Vikunja - HTTP
-            type: http
-            url: https://vikunja.jkrumm.com
-            interval: 150
-            cloudflare_bypass: true
-
       # --- Rollhook subgroup ---
       - name: Rollhook
         type: group

@@ -12,7 +12,5 @@
     "openapi-typescript": "^7",
     "typescript": "^5"
   },
-  "scripts": {
-    "generate:vikunja": "bunx swagger2openapi https://vikunja.jkrumm.com/api/v1/docs.json -o /tmp/vikunja-openapi3.json && bunx openapi-typescript /tmp/vikunja-openapi3.json -o src/generated/vikunja.d.ts"
-  }
+  "scripts": {}
 }
