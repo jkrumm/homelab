@@ -5,9 +5,9 @@ const CALLBACK_URL = 'https://api.jkrumm.com/ticktick/auth/callback'
 const AUTH_URL = 'https://ticktick.com/oauth/authorize'
 const TOKEN_URL = 'https://ticktick.com/oauth/token'
 
-export const ticktickAuthRoutes = new Elysia({ prefix: '/ticktick/auth' })
+export const ticktickAuthRoutes = new Elysia()
   .get(
-    '/start',
+    '/ticktick/auth/start',
     ({ redirect }) => {
       const clientId = process.env.TICKTICK_CLIENT_ID!
       const params = new URLSearchParams({
@@ -28,7 +28,7 @@ export const ticktickAuthRoutes = new Elysia({ prefix: '/ticktick/auth' })
     },
   )
   .get(
-    '/callback',
+    '/ticktick/auth/callback',
     async ({ query }) => {
       const code = query.code as string | undefined
       if (!code) return new Response('Missing authorization code', { status: 400 })
