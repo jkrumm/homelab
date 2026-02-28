@@ -3,7 +3,6 @@ import { swagger } from '@elysiajs/swagger'
 import { bearer } from '@elysiajs/bearer'
 import { registerCronJobs } from './cron'
 import { healthRoute } from './routes/health'
-import { testRoute } from './routes/test'
 import { ticktickAuthRoutes } from './routes/ticktick-auth'
 import { ticktickRoutes } from './routes/ticktick'
 import { initTickTickClient } from './clients/ticktick'
@@ -11,6 +10,7 @@ import { initTickTickClient } from './clients/ticktick'
 initTickTickClient()
 
 const app = new Elysia()
+  .use(ticktickAuthRoutes)
   .use(
     swagger({
       provider: 'scalar',
@@ -26,8 +26,6 @@ const app = new Elysia()
     }),
   )
   .use(healthRoute)
-  .use(testRoute)
-  .use(ticktickAuthRoutes)
   .use(bearer())
   .group('/api', (app) =>
     app
