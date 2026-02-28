@@ -60,41 +60,47 @@ export async function refreshTokens(): Promise<void> {
   }
 
   saveTokens((await res.json()) as TokenData)
-  configureClient()
 }
 
 export const ticktickClient = createClient(
   createConfig({ baseUrl: 'https://ticktick.com' }),
 )
 
-function configureClient(): void {
-  if (!tokens) return
-  ticktickClient.setConfig({
-    baseUrl: 'https://ticktick.com',
-    auth: tokens.access_token,
+let interceptorsRegistered = false
+
+function registerInterceptors(): void {
+  if (interceptorsRegistered) return
+  interceptorsRegistered = true
+
+  // Inject Bearer token on every outgoing request
+  ticktickClient.interceptors.request.use((request) => {
+    if (tokens) request.headers.set('Authorization', `Bearer ${tokens.access_token}`)
+    return request
+  })
+
+  // On 401: refresh tokens and retry once
+  ticktickClient.interceptors.response.use(async (response, request) => {
+    if (response.status === 401 && tokens) {
+      try {
+        await refreshTokens()
+        const retried = request.clone()
+        retried.headers.set('Authorization', `Bearer ${tokens!.access_token}`)
+        return fetch(retried)
+      } catch {
+        return response
+      }
+    }
+    return response
   })
 }
 
 export function initTickTickClient(): void {
   try {
     tokens = loadTokens()
-    configureClient()
-
-    ticktickClient.interceptors.response.use(async (response, request) => {
-      if (response.status === 401 && tokens) {
-        try {
-          await refreshTokens()
-          const retried = await fetch(request.clone())
-          return retried
-        } catch {
-          return response
-        }
-      }
-      return response
-    })
-
+    registerInterceptors()
     console.log('TickTick client initialized')
   } catch (err) {
+    registerInterceptors() // still register so retries work after OAuth flow
     console.warn(`TickTick client not ready: ${(err as Error).message}`)
   }
 }
