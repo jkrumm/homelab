@@ -10,6 +10,7 @@ import { initTickTickClient } from './clients/ticktick'
 initTickTickClient()
 
 const app = new Elysia()
+  .get('/simple-test', () => ({ simple: 'test' }))
   .get(
     '/ticktick/auth/start',
     () => {
