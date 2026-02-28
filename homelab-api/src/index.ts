@@ -13,6 +13,7 @@ const app = new Elysia()
   .use(
     swagger({
       provider: 'scalar',
+      scalarConfig: { theme: 'purple' },
       documentation: {
         info: { title: 'HomeLab API', version: '1.0.0' },
         components: {

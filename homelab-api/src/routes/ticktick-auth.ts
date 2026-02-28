@@ -23,12 +23,7 @@ export const ticktickAuthRoutes = new Elysia()
       })
     },
     {
-      detail: {
-        tags: ['TickTick Auth'],
-        summary: 'Start OAuth2 flow (open in browser)',
-        description:
-          'Redirects to TickTick consent page. One-time setup only — run this from a browser on your Mac.',
-      },
+      detail: { hide: true },
     },
   )
   .get(
@@ -69,11 +64,6 @@ export const ticktickAuthRoutes = new Elysia()
       return { ok: true, message: 'TickTick authenticated. Tokens saved.' }
     },
     {
-      detail: {
-        tags: ['TickTick Auth'],
-        summary: 'OAuth2 callback — receives code, exchanges for tokens',
-        description:
-          'TickTick redirects here after consent. Exchanges code for access/refresh tokens and saves them to the volume.',
-      },
+      detail: { hide: true },
     },
   )
