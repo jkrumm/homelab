@@ -10,21 +10,6 @@ import { initTickTickClient } from './clients/ticktick'
 initTickTickClient()
 
 const app = new Elysia()
-  .use(
-    swagger({
-      provider: 'scalar',
-      documentation: {
-        info: { title: 'HomeLab API', version: '1.0.0' },
-        components: {
-          securitySchemes: {
-            BearerAuth: { type: 'http', scheme: 'bearer' },
-          },
-        },
-      },
-      path: '/docs',
-    }),
-  )
-  .use(healthRoute)
   .get(
     '/ticktick/auth/start',
     () => {
@@ -63,6 +48,21 @@ const app = new Elysia()
       },
     },
   )
+  .use(
+    swagger({
+      provider: 'scalar',
+      documentation: {
+        info: { title: 'HomeLab API', version: '1.0.0' },
+        components: {
+          securitySchemes: {
+            BearerAuth: { type: 'http', scheme: 'bearer' },
+          },
+        },
+      },
+      path: '/docs',
+    }),
+  )
+  .use(healthRoute)
   .use(bearer())
   .group('/api', (app) =>
     app
