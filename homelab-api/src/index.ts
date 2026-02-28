@@ -42,6 +42,11 @@ const app = new Elysia()
         },
       }),
   )
+  .onError(({ error, set }) => {
+    console.error('[error]', error)
+    set.status = 500
+    return { error: 'Internal server error' }
+  })
   .listen(3030)
 
 registerCronJobs()
