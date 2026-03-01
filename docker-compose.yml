@@ -931,6 +931,7 @@ services:
       glance.parent: uptime
       glance.icon: si:docker
       glance.url: https://registry.jkrumm.com
+      com.centurylinklabs.watchtower.enable: "false"  # ghcr.io HEAD request fails without auth
       glance.hide: false
 
   rollhook:
