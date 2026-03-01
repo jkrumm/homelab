@@ -31,7 +31,7 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
         content: t.Optional(t.String()),
         startDate: t.Optional(t.String()),
         timeZone: t.Optional(t.String()),
-        isAllDay: t.Optional(t.String()),
+        isAllDay: t.Optional(t.Boolean()),
       },
       { additionalProperties: true },
     ),
