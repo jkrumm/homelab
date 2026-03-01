@@ -297,8 +297,9 @@ services:
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
       WATCHTOWER_NOTIFICATION_URL: "ntfy://:${NTFY_TOKEN}@ntfy.jkrumm.com/homelab-watchtower"
-      WATCHTOWER_NOTIFICATION_REPORT: "true"
-      WATCHTOWER_NOTIFICATIONS_LEVEL: info
+      WATCHTOWER_NOTIFICATIONS_LEVEL: warn
+      WATCHTOWER_NO_STARTUP_MESSAGE: "true"
+      WATCHTOWER_WARN_ON_HEAD_FAILURE: never
     labels:
       glance.parent: uptime
       glance.name: Watchtower
