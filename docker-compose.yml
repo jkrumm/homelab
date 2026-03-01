@@ -296,8 +296,9 @@ services:
       DOCKER_API_VERSION: "1.44"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_SCHEDULE: "0 0 4 * * *"
-      WATCHTOWER_NOTIFICATION_URL: "ntfy://:${NTFY_TOKEN}@ntfy.jkrumm.com/homelab-watchtower"
-      WATCHTOWER_NOTIFICATIONS_LEVEL: warn
+      WATCHTOWER_NOTIFICATION_URL: "ntfy://${NTFY_TOKEN}@ntfy.jkrumm.com/homelab-watchtower"
+      WATCHTOWER_NOTIFICATION_REPORT: "true"
+      WATCHTOWER_NOTIFICATIONS_LEVEL: info
     labels:
       glance.parent: uptime
       glance.name: Watchtower
