@@ -48,13 +48,7 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
       },
     },
   )
-  .post('/task', async ({ body }) => {
-    const normalized = normalizeDueDate(body as Record<string, unknown>)
-    console.log('[TickTick] createTask body:', JSON.stringify(normalized))
-    const result = await ticktickOps.createTask(normalized)
-    console.log('[TickTick] createTask response:', JSON.stringify(result))
-    return result
-  }, {
+  .post('/task', ({ body }) => ticktickOps.createTask(normalizeDueDate(body as Record<string, unknown>)), {
     body: t.Object(
       {
         title: t.String(),
