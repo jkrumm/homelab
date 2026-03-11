@@ -1,6 +1,20 @@
 import { Elysia, t } from 'elysia'
 import { ticktickOps } from '../clients/ticktick'
 
+// Accept YYYY-MM-DD from clients and convert to midnight UTC + set isAllDay.
+// This keeps timezone logic on the server so any client (Raycast, CLI, etc.)
+// can just send a plain date string without worrying about UTC offsets.
+function normalizeDueDate(body: Record<string, unknown>): Record<string, unknown> {
+  const { dueDate } = body
+  if (!dueDate || typeof dueDate !== 'string') return body
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+    const [y, m, d] = dueDate.split('-').map(Number)
+    return { ...body, dueDate: new Date(Date.UTC(y, m - 1, d)).toISOString(), isAllDay: true }
+  }
+  // Already a full ISO string — still mark as all-day
+  return { ...body, isAllDay: true }
+}
+
 export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
   .get('/projects', () => ticktickOps.getProjects(), {
     detail: {
@@ -21,7 +35,7 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
       },
     },
   )
-  .post('/task', ({ body }) => ticktickOps.createTask(body), {
+  .post('/task', ({ body }) => ticktickOps.createTask(normalizeDueDate(body as Record<string, unknown>)), {
     body: t.Object(
       {
         title: t.String(),
@@ -37,14 +51,14 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
     ),
     detail: {
       tags: ['TickTick'],
-      summary: 'Create a task',
+      summary: 'Create a task. dueDate accepts YYYY-MM-DD (server converts to ISO midnight UTC) or full ISO string.',
       security: [{ BearerAuth: [] }],
     },
   })
   .post(
     '/task/:taskId',
     async ({ params, body }) => {
-      const res = await ticktickOps.updateTask(params.taskId, body)
+      const res = await ticktickOps.updateTask(params.taskId, normalizeDueDate(body as Record<string, unknown>))
       if (!res.ok) return new Response(await res.text(), { status: res.status })
       return res.json()
     },
@@ -63,7 +77,7 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
       ),
       detail: {
         tags: ['TickTick'],
-        summary: 'Update a task',
+        summary: 'Update a task. dueDate accepts YYYY-MM-DD or full ISO string.',
         security: [{ BearerAuth: [] }],
       },
     },
