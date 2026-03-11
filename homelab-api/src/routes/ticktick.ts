@@ -1,18 +1,31 @@
 import { Elysia, t } from 'elysia'
 import { ticktickOps } from '../clients/ticktick'
 
-// Accept YYYY-MM-DD from clients and convert to midnight UTC + set isAllDay.
-// This keeps timezone logic on the server so any client (Raycast, CLI, etc.)
-// can just send a plain date string without worrying about UTC offsets.
+// Convert YYYY-MM-DD to midnight in the given timezone expressed as UTC,
+// formatted as TickTick expects: "2026-03-10T23:00:00.000+0000".
+// Always sets startDate = dueDate (TickTick requires both for all-day tasks).
+function toTickTickISO(yyyymmdd: string, tz: string): string {
+  const [y, m, d] = yyyymmdd.split('-').map(Number)
+  // Sample noon UTC to find the timezone offset on this date (avoids DST boundary issues)
+  const noonUTC = new Date(Date.UTC(y, m - 1, d, 12))
+  const localNoon = noonUTC.toLocaleString('sv-SE', { timeZone: tz })
+  const localHour = parseInt(localNoon.slice(11, 13)) // "2026-03-11 13:00:00" → 13
+  const offsetMs = (localHour - 12) * 3_600_000
+  return new Date(Date.UTC(y, m - 1, d) - offsetMs).toISOString().replace('Z', '+0000')
+}
+
+// Accept YYYY-MM-DD from clients and convert to TickTick ISO midnight + set isAllDay + startDate.
+// This keeps all timezone logic on the server so any client just sends a plain date string.
 function normalizeDueDate(body: Record<string, unknown>): Record<string, unknown> {
   const { dueDate } = body
   if (!dueDate || typeof dueDate !== 'string') return body
+  const tz = typeof body.timeZone === 'string' ? body.timeZone : 'Europe/Berlin'
   if (/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
-    const [y, m, d] = dueDate.split('-').map(Number)
-    return { ...body, dueDate: new Date(Date.UTC(y, m - 1, d)).toISOString(), isAllDay: true }
+    const iso = toTickTickISO(dueDate, tz)
+    return { ...body, dueDate: iso, startDate: iso, isAllDay: true }
   }
-  // Already a full ISO string — still mark as all-day
-  return { ...body, isAllDay: true }
+  // Full ISO string passed through — still ensure startDate and isAllDay are set
+  return { ...body, startDate: body.startDate ?? dueDate, isAllDay: true }
 }
 
 export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
