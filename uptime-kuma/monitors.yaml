@@ -378,24 +378,6 @@ groups:
             interval: 200
             accepted_statuscodes: ["200-299"]
 
-      # --- Zot Registry subgroup ---
-      - name: Zot Registry
-        type: group
-        interval: 250
-        monitors:
-          - name: Zot Registry - Docker
-            type: docker
-            docker_container: zot
-            interval: 180
-            timeout: 120
-            maxretries: 5
-
-          - name: Zot Registry - HTTP
-            type: http
-            url: https://registry.jkrumm.com/v2/
-            interval: 183
-            cloudflare_bypass: true
-            accepted_statuscodes: ["200-299", "401"]
 
       # --- ExcaliDash subgroup ---
       - name: ExcaliDash

@@ -906,33 +906,6 @@ services:
       glance.hide: false
       com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack plausible
 
-  zot:
-    image: ghcr.io/project-zot/zot-linux-amd64:latest
-    container_name: zot
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "3"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    volumes:
-      - /home/jkrumm/ssd/zot:/var/lib/registry
-      - ./config/zot:/etc/zot:ro
-    networks:
-      - cloudflared
-    labels:
-      glance.name: Zot Registry
-      glance.parent: uptime
-      glance.icon: si:docker
-      glance.url: https://registry.jkrumm.com
-      glance.hide: false
-
 
   ntfy:
     image: binwiederhier/ntfy

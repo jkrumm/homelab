@@ -35,10 +35,6 @@ otlp.jkrumm.com, http://otlp.jkrumm.com {
 	reverse_proxy signoz-otel-collector:4318
 }
 
-registry.jkrumm.com, http://registry.jkrumm.com {
-	reverse_proxy zot:5080
-}
-
 ntfy.jkrumm.com, http://ntfy.jkrumm.com {
 	reverse_proxy ntfy:80
 }
