@@ -97,29 +97,26 @@ else
 fi
 
 # --------------------------------------------------
-# SSH key for user
+# SSH key for user (bootstrap only — Tailscale SSH is primary auth)
 # --------------------------------------------------
 echo "=== Configuring SSH key ==="
 SSH_DIR="$USER_HOME/.ssh"
 AUTHORIZED_KEYS="$SSH_DIR/authorized_keys"
 
-PUB_KEY="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDUUtKs1PzQ2YsNHlAVzJw5YxBOXt3lSghBRgfis4HI17FCzob3ul6ljYP7UFufDFEtQk66MEaapOD8CJ8AzR+GFxqunSuUPVp5Ei1HIrHC/tp9vhd5ga9DmSZ9XBsIBPEAXdY0a+pSW4M8EXJPSlfo4x1BIG7tIuCBB4VRlOc8VDbQkTw4oDVdxSGarniIOnakKQlZ4rmgac5R6LtJOeVw4EHv4pBH+315E6a2uDvyFC1bdsYDdiX88mmFuP0RnWFmGTXyqEkQvUYp4DuigfPBLOyuFC8Rr6zHpP6+Xvokkf/C8yBaPmHHW7HU0mqBSeVPs7087kpZ+jZRKMURuDTMz3jBunDfYDtiYMusvXjShuarqyRHdA1ylpECuVfWeWolHknnzy8lZipmlFLCXhU7x5KkHWX//X8OJyYRpdKjwv1Zw/xrBykD0jsCEACZSd8sew1fNMFUQEpawW94fqRTM7vAWrcia7wf6ajHBEbLrA2jgAYJPIqMQbYBFbwShQc= johannes.krumm@CPMM02DFGMMMD6M"
+mkdir -p "$SSH_DIR"
+chmod 700 "$SSH_DIR"
+touch "$AUTHORIZED_KEYS"
+chmod 600 "$AUTHORIZED_KEYS"
+chown -R "$USERNAME:$USERNAME" "$SSH_DIR"
 
-if [ ! -d "$SSH_DIR" ]; then
-  mkdir -p "$SSH_DIR"
-  chown "$USERNAME:$USERNAME" "$SSH_DIR"
-  chmod 700 "$SSH_DIR"
+# Fetch current public keys from GitHub (bootstrap access before Tailscale SSH is active)
+if curl -fsSL --max-time 10 "https://github.com/${USERNAME}.keys" >> "$AUTHORIZED_KEYS" 2>/dev/null; then
+  sort -u "$AUTHORIZED_KEYS" -o "$AUTHORIZED_KEYS"
+  echo "SSH keys fetched from GitHub"
+else
+  echo "Warning: Could not fetch SSH keys from GitHub. Add manually to $AUTHORIZED_KEYS"
 fi
-
-if [ ! -f "$AUTHORIZED_KEYS" ]; then
-  echo "$PUB_KEY" > "$AUTHORIZED_KEYS"
-  chown "$USERNAME:$USERNAME" "$AUTHORIZED_KEYS"
-  chmod 600 "$AUTHORIZED_KEYS"
-elif ! grep -qF "$PUB_KEY" "$AUTHORIZED_KEYS"; then
-  echo "$PUB_KEY" >> "$AUTHORIZED_KEYS"
-  chown "$USERNAME:$USERNAME" "$AUTHORIZED_KEYS"
-fi
-echo "SSH key configured"
+# Note: once Tailscale SSH is active (step 1 post-script), authorized_keys is not used.
 
 # --------------------------------------------------
 # SSH hardening (drop-in config)
