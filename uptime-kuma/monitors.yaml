@@ -422,28 +422,6 @@ groups:
             interval: 176
             cloudflare_bypass: true
 
-      # --- Rollhook subgroup ---
-      - name: Rollhook
-        type: group
-        interval: 252
-        monitors:
-          - name: Rollhook - Docker
-            type: docker
-            docker_container: rollhook
-            interval: 201
-            timeout: 120
-            maxretries: 5
-
-          - name: Rollhook - HTTP
-            type: http
-            url: http://rollhook:7700/health
-            interval: 204
-
-          - name: Rollhook - Public HTTP
-            type: http
-            url: https://rollhook-homelab.jkrumm.com/health
-            interval: 207
-            cloudflare_bypass: true
 
   # ============================================
   # VPS (Hetzner) - hetzner-vps infrastructure
@@ -465,7 +443,7 @@ groups:
 
           - name: RollHook - HTTP
             type: http
-            url: https://rollhook-vps.jkrumm.com/health
+            url: https://rollhook.jkrumm.com/health
             interval: 131
             cloudflare_bypass: true
 

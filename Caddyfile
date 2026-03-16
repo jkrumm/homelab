@@ -78,11 +78,6 @@ signoz.jkrumm.com, http://signoz.jkrumm.com {
 	reverse_proxy signoz:8080
 }
 
-# RollHook deployment webhook (public via Cloudflare — needed for CI)
-rollhook-homelab.jkrumm.com, http://rollhook-homelab.jkrumm.com {
-	reverse_proxy rollhook:7700
-}
-
 # HomeLab API (public via CF Tunnel)
 api.jkrumm.com, http://api.jkrumm.com {
 	reverse_proxy homelab-api:3030

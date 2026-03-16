@@ -933,30 +933,6 @@ services:
       glance.url: https://registry.jkrumm.com
       glance.hide: false
 
-  rollhook:
-    image: registry.jkrumm.com/rollhook:latest
-    container_name: rollhook
-    restart: unless-stopped
-    networks:
-      - cloudflared
-    environment:
-      - WEBHOOK_TOKEN=${ROLLHOOK_WEBHOOK_TOKEN}
-      - ADMIN_TOKEN=${ROLLHOOK_ADMIN_TOKEN}
-      - ROLLHOOK_CONFIG_PATH=/app/rollhook.config.yaml
-      - PORT=7700
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-    volumes:
-      - ./config/rollhook/rollhook.config.yaml:/app/rollhook.config.yaml:ro
-      - /home/jkrumm/homelab:/home/jkrumm/homelab:ro
-      - /home/jkrumm/ssd/rollhook:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /home/jkrumm/.docker/config.json:/root/.docker/config.json:ro
-      - /usr/libexec/docker/cli-plugins/docker-compose:/usr/local/lib/docker/cli-plugins/docker-compose:ro
-    labels:
-      glance.name: RollHook
-      glance.icon: si:github
-      glance.url: https://rollhook-homelab.jkrumm.com
-      glance.hide: false
 
   ntfy:
     image: binwiederhier/ntfy
