@@ -83,3 +83,12 @@ api.jkrumm.com, http://api.jkrumm.com {
 couchdb.jkrumm.com, http://couchdb.jkrumm.com {
 	reverse_proxy couchdb:5984
 }
+
+# claude-remote stack (private, Tailscale only)
+claude-remote.jkrumm.com, http://claude-remote.jkrumm.com {
+	reverse_proxy claude-remote-vibekanban:8081
+}
+
+claude-remote-api.jkrumm.com, http://claude-remote-api.jkrumm.com {
+	reverse_proxy claude-remote-api:4000
+}
