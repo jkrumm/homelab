@@ -379,6 +379,73 @@ groups:
             accepted_statuscodes: ["200-299"]
 
 
+      # --- claude-remote subgroup ---
+      - name: claude-remote
+        type: group
+        interval: 240
+        monitors:
+          - name: claude-remote API - Docker
+            type: docker
+            docker_container: claude-remote-api
+            interval: 181
+            timeout: 120
+            maxretries: 5
+
+          - name: claude-remote API - HTTP
+            type: keyword
+            url: https://claude-remote-api.jkrumm.com/health
+            keyword: '{"status":"ok"}'
+            interval: 183
+            cloudflare_bypass: true
+
+          - name: VibeKanban - Docker
+            type: docker
+            docker_container: claude-remote-vibekanban
+            interval: 185
+            timeout: 120
+            maxretries: 5
+
+          - name: VibeKanban - HTTP
+            type: http
+            url: https://claude-remote.jkrumm.com/v1/health
+            interval: 187
+            cloudflare_bypass: true
+
+          - name: NanoClaw - Docker
+            type: docker
+            docker_container: claude-remote-nanoclaw
+            interval: 189
+            timeout: 120
+            maxretries: 5
+
+          - name: claude-remote Postgres - Docker
+            type: docker
+            docker_container: claude-remote-postgres
+            interval: 191
+            timeout: 120
+            maxretries: 5
+
+          - name: claude-remote Valkey - Docker
+            type: docker
+            docker_container: claude-remote-valkey
+            interval: 193
+            timeout: 120
+            maxretries: 5
+
+          - name: Electric - Docker
+            type: docker
+            docker_container: claude-remote-electric
+            interval: 195
+            timeout: 120
+            maxretries: 5
+
+          - name: Azurite - Docker
+            type: docker
+            docker_container: claude-remote-azurite
+            interval: 197
+            timeout: 120
+            maxretries: 5
+
       # --- ExcaliDash subgroup ---
       - name: ExcaliDash
         type: group
