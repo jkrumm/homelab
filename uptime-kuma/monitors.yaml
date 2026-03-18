@@ -379,37 +379,37 @@ groups:
             accepted_statuscodes: ["200-299"]
 
 
-      # --- claude-remote-kanban subgroup ---
-      - name: claude-remote-kanban
+      # --- claude-remote subgroup ---
+      - name: claude-remote
         type: group
         interval: 240
         monitors:
-          - name: claude-remote API - Docker
+          - name: claude-remote-kanban - Docker
             type: docker
-            docker_container: claude-remote-api
+            docker_container: claude-remote-vibekanban
             interval: 181
             timeout: 120
             maxretries: 5
 
-          - name: claude-remote API - HTTP
-            type: keyword
-            url: http://claude-remote-api:4000/health
-            keyword: '{"status":"ok"}'
+          - name: claude-remote-kanban - HTTP
+            type: http
+            url: http://claude-remote-vibekanban:8081/v1/health
             interval: 183
 
-          - name: VibeKanban - Docker
+          - name: claude-remote-api - Docker
             type: docker
-            docker_container: claude-remote-vibekanban
+            docker_container: claude-remote-api
             interval: 185
             timeout: 120
             maxretries: 5
 
-          - name: VibeKanban - HTTP
-            type: http
-            url: http://claude-remote-vibekanban:8081/v1/health
+          - name: claude-remote-api - HTTP
+            type: keyword
+            url: http://claude-remote-api:4000/health
+            keyword: '{"status":"ok"}'
             interval: 187
 
-          - name: NanoClaw - Docker
+          - name: claude-remote-claw - Docker
             type: docker
             docker_container: claude-remote-nanoclaw
             interval: 189
@@ -430,14 +430,14 @@ groups:
             timeout: 120
             maxretries: 5
 
-          - name: Electric - Docker
+          - name: claude-remote Electric - Docker
             type: docker
             docker_container: claude-remote-electric
             interval: 195
             timeout: 120
             maxretries: 5
 
-          - name: Azurite - Docker
+          - name: claude-remote Azurite - Docker
             type: docker
             docker_container: claude-remote-azurite
             interval: 197
