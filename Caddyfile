@@ -74,11 +74,6 @@ signoz.jkrumm.com, http://signoz.jkrumm.com {
 	reverse_proxy signoz:8080
 }
 
-# HomeLab API (public via CF Tunnel)
-api.jkrumm.com, http://api.jkrumm.com {
-	reverse_proxy homelab-api:3030
-}
-
 # CouchDB (private, Tailscale only — Obsidian LiveSync)
 couchdb.jkrumm.com, http://couchdb.jkrumm.com {
 	reverse_proxy couchdb:5984

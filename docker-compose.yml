@@ -1,3 +1,5 @@
+name: homelab
+
 services:
   # Read-only socket proxy for monitoring services (Glance, Dozzle, Beszel, UptimeKuma)
   # POST=0 — no write operations possible
@@ -17,8 +19,8 @@ services:
       INFO: 1
       NETWORKS: 1
       VOLUMES: 1
-      EVENTS: 1  # Dozzle: real-time container event stream
-      VERSION: 1  # Docker clients negotiate API version on connect
+      EVENTS: 1 # Dozzle: real-time container event stream
+      VERSION: 1 # Docker clients negotiate API version on connect
       # Disable all write operations
       POST: 0
       BUILD: 0
@@ -60,8 +62,8 @@ services:
       VOLUMES: 1
       INFO: 1
       VERSION: 1
-      POST: 1    # required: stop/start/pull/recreate
-      DELETE: 1  # required: remove old containers after update
+      POST: 1 # required: stop/start/pull/recreate
+      DELETE: 1 # required: remove old containers after update
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
@@ -91,7 +93,7 @@ services:
       glance.parent: uptime
       glance.name: Caddy
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false"  # custom build
+      com.centurylinklabs.watchtower.enable: "false" # custom build
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -305,7 +307,7 @@ services:
       glance.name: Watchtower
       glance.icon: si:watchtower
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false"  # don't self-update
+      com.centurylinklabs.watchtower.enable: "false" # don't self-update
 
   uptime-kuma:
     image: louislam/uptime-kuma:2
@@ -344,7 +346,7 @@ services:
     container_name: dozzle
     restart: unless-stopped
     environment:
-      DOZZLE_HOSTNAME: jkrumm.com
+      DOZZLE_HOSTNAME: HomeLab
       DOZZLE_ADDR: :8081
       DOZZLE_AUTH_PROVIDER: simple
       DOZZLE_AUTH_TTL: 87600h
@@ -484,7 +486,7 @@ services:
       glance.icon: si:immich
       glance.url: https://immich.jkrumm.com
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack immich
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -506,7 +508,7 @@ services:
           memory: 4G
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack immich
 
   immich_redis:
     container_name: immich_redis
@@ -516,7 +518,7 @@ services:
       - immich
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"  # digest-pinned, managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: "false" # digest-pinned, managed by /upgrade-stack immich
 
   immich_postgres:
     container_name: immich_postgres
@@ -527,14 +529,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD}
       POSTGRES_USER: postgres
       POSTGRES_DB: immich
-      POSTGRES_INITDB_ARGS: '--data-checksums'
+      POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - /home/jkrumm/ssd/SSD/Bilder/immich/postgres:/var/lib/postgresql/data
     networks:
       - immich
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"  # digest-pinned, managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: "false" # digest-pinned, managed by /upgrade-stack immich
 
   filebrowser:
     image: filebrowser/filebrowser:latest
@@ -567,7 +569,13 @@ services:
     networks:
       - excalidash
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:8000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -588,7 +596,15 @@ services:
       - cloudflared
       - excalidash
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:80",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -713,7 +729,7 @@ services:
       start_period: 30s
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack signoz
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.5.6-alpine
@@ -744,18 +760,26 @@ services:
       resources:
         limits:
           memory: 4G
-          cpus: '1.5'
+          cpus: "1.5"
         reservations:
           memory: 512M
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8123/ping"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:8123/ping",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 60s
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack signoz
 
   schema-migrator-sync:
     image: signoz/signoz-schema-migrator:v0.142.0
@@ -769,7 +793,7 @@ services:
         condition: service_healthy
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack signoz
 
   schema-migrator-async:
     image: signoz/signoz-schema-migrator:v0.142.0
@@ -783,7 +807,7 @@ services:
         condition: service_healthy
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack signoz
 
   signoz-otel-collector:
     image: signoz/signoz-otel-collector:v0.142.0
@@ -791,8 +815,8 @@ services:
     restart: unless-stopped
     command: ["--config=/etc/otel-collector-config.yaml"]
     ports:
-      - "4317:4317"  # OTLP gRPC
-      - "4318:4318"  # OTLP HTTP
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
     volumes:
       - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     networks:
@@ -807,14 +831,14 @@ services:
       resources:
         limits:
           memory: 1G
-          cpus: '1'
+          cpus: "1"
         reservations:
           memory: 512M
     labels:
       glance.parent: uptime
       glance.name: SigNoz Collector
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack signoz
 
   signoz:
     image: signoz/signoz:v0.112.0
@@ -822,7 +846,7 @@ services:
     restart: unless-stopped
     command: ["--config=/root/config/prometheus.yml"]
     ports:
-      - "8089:8080"  # SigNoz UI/API
+      - "8089:8080" # SigNoz UI/API
     volumes:
       - /home/jkrumm/ssd/signoz/data:/var/lib/signoz
       - ./config/signoz/prometheus.yml:/root/config/prometheus.yml:ro
@@ -842,11 +866,19 @@ services:
       resources:
         limits:
           memory: 2G
-          cpus: '1'
+          cpus: "1"
         reservations:
           memory: 1G
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/api/v1/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:8080/api/v1/health",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -856,7 +888,7 @@ services:
       glance.icon: si:opentelemetry
       glance.url: https://signoz.jkrumm.com
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack signoz
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack signoz
 
   plausible:
     image: ghcr.io/plausible/community-edition:v3.2.0
@@ -904,8 +936,7 @@ services:
       glance.icon: si:plausibleanalytics
       glance.url: https://plausible.jkrumm.com
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false"  # managed by /upgrade-stack plausible
-
+      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack plausible
 
   ntfy:
     image: binwiederhier/ntfy
@@ -918,7 +949,7 @@ services:
       - ./config/ntfy/server.yml:/etc/ntfy/server.yml:ro
       - /home/jkrumm/ssd/ntfy:/var/lib/ntfy
     ports:
-      - "127.0.0.1:8093:80"   # localhost-only; watchdog (host cron) uses this directly
+      - "127.0.0.1:8093:80" # localhost-only; watchdog (host cron) uses this directly
     environment:
       # VAPID keys: public key also passed via env for reliable loading
       # Private key and email kept out of git — injected via Doppler
@@ -964,26 +995,6 @@ services:
       glance.url: https://couchdb.jkrumm.com
       glance.hide: false
 
-  homelab-api:
-    build:
-      context: ./homelab-api
-      dockerfile: Dockerfile
-    container_name: homelab-api
-    restart: unless-stopped
-    networks:
-      - cloudflared
-    environment:
-      - HOMELAB_API_SECRET=${HOMELAB_API_SECRET}
-      - NTFY_TOKEN=${NTFY_TOKEN}
-      - TICKTICK_CLIENT_ID=${TICKTICK_CLIENT_ID}
-      - TICKTICK_CLIENT_SECRET=${TICKTICK_CLIENT_SECRET}
-    volumes:
-      - /home/jkrumm/ssd/homelab-api:/data
-    labels:
-      glance.name: HomeLab API
-      glance.icon: si:elysia
-      glance.url: https://api.jkrumm.com/docs
-      com.centurylinklabs.watchtower.enable: "false"
 
 secrets:
   cert:
@@ -1007,11 +1018,11 @@ networks:
     driver: bridge
   socket-proxy:
     driver: bridge
-    internal: true  # No external access needed
+    internal: true # No external access needed
   socket-proxy-watchtower:
     driver: bridge
-    internal: true  # No external access needed
+    internal: true # No external access needed
   watchtower-egress:
-    driver: bridge  # Internet access for ntfy.jkrumm.com (notification relay)
+    driver: bridge # Internet access for ntfy.jkrumm.com (notification relay)
   signoz:
     driver: bridge
