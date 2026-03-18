@@ -379,8 +379,8 @@ groups:
             accepted_statuscodes: ["200-299"]
 
 
-      # --- claude-remote subgroup ---
-      - name: claude-remote
+      # --- claude-remote-kanban subgroup ---
+      - name: claude-remote-kanban
         type: group
         interval: 240
         monitors:

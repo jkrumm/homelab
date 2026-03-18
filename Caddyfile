@@ -80,7 +80,7 @@ couchdb.jkrumm.com, http://couchdb.jkrumm.com {
 }
 
 # claude-remote stack (private, Tailscale only)
-claude-remote.jkrumm.com, http://claude-remote.jkrumm.com {
+claude-remote-kanban.jkrumm.com, http://claude-remote-kanban.jkrumm.com {
 	reverse_proxy claude-remote-vibekanban:8081
 }
 
