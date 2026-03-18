@@ -393,10 +393,9 @@ groups:
 
           - name: claude-remote API - HTTP
             type: keyword
-            url: https://claude-remote-api.jkrumm.com/health
+            url: http://claude-remote-api:4000/health
             keyword: '{"status":"ok"}'
             interval: 183
-            cloudflare_bypass: true
 
           - name: VibeKanban - Docker
             type: docker
@@ -407,9 +406,8 @@ groups:
 
           - name: VibeKanban - HTTP
             type: http
-            url: https://claude-remote.jkrumm.com/v1/health
+            url: http://claude-remote-vibekanban:8081/v1/health
             interval: 187
-            cloudflare_bypass: true
 
           - name: NanoClaw - Docker
             type: docker
