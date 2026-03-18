@@ -38,8 +38,6 @@ The HomeLab uses **specific per-subdomain ingress rules** (not a wildcard like V
 | `public.jkrumm.com` | `http://caddy:80` |
 | `otlp.jkrumm.com` | `http://caddy:80` |
 | `plausible.jkrumm.com` | `http://caddy:80` |
-| `registry.jkrumm.com` | `http://caddy:80` |
-| `rollhook-homelab.jkrumm.com` | `http://caddy:80` |
 | `ntfy.jkrumm.com` | `http://caddy:80` |
 | catch-all | `http_status:404` |
 

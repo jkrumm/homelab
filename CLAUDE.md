@@ -238,9 +238,7 @@ docker events --since 1h --filter container=<name>
 | Dufs | 8098 | public.jkrumm.com | Public file sharing |
 | Plausible | 8088 | plausible.jkrumm.com | Web analytics |
 | OTLP Ingestion | 4318 | otlp.jkrumm.com | OpenTelemetry ingestion (browser apps) |
-| Zot Registry | 5080 | registry.jkrumm.com | OCI container registry |
 | ntfy | 8093 (host) / 80 (container) | ntfy.jkrumm.com | Push notification server |
-| HomeLab API | 3030 | api.jkrumm.com | Internal coordination API (ntfy) |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 
@@ -534,8 +532,7 @@ git push
 # 4. Pull and apply on server
 ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d"
 
-# 4b. For services with local builds (homelab-api, caddy): MUST rebuild image first
-ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose build homelab-api && doppler run -- docker compose up -d --force-recreate homelab-api"
+# 4b. For services with local builds (caddy): MUST rebuild image first
 ```
 
 ### Verification Steps
@@ -703,7 +700,7 @@ When making changes that affect infrastructure or script behavior:
 
 **Update tiers:**
 - **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`, `signoz`, `signoz-otel-collector`, `zookeeper-1`, `clickhouse`, `plausible`
-- **Opted-out** (other): `caddy` (custom build), `homelab-api` (manual rebuild), `docker-socket-proxy-watchtower`, `watchtower` itself
+- **Opted-out** (other): `caddy` (custom build), `docker-socket-proxy-watchtower`, `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else
 
 | Command | Purpose |

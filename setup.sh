@@ -230,17 +230,6 @@ UNATTENDED
 
 echo "Unattended-upgrades configured (Docker blacklisted, auto-reboot at 4 AM)"
 
-# --------------------------------------------------
-# Zot registry login (requires Doppler to be configured as jkrumm)
-# --------------------------------------------------
-echo "=== Configuring Zot registry login ==="
-if su - "$USERNAME" -c "doppler secrets get ZOT_PASSWORD --plain 2>/dev/null" | \
-   su - "$USERNAME" -c "docker login registry.jkrumm.com -u jkrumm --password-stdin" 2>/dev/null; then
-  echo "Zot registry login configured (~/.docker/config.json)"
-else
-  echo "SKIP: Zot login failed (Doppler not yet configured — run manually after doppler setup)"
-  echo "      doppler secrets get ZOT_PASSWORD --plain | docker login registry.jkrumm.com -u jkrumm --password-stdin"
-fi
 
 # --------------------------------------------------
 # Watchdog cron job
@@ -326,9 +315,6 @@ crontab -l 2>/dev/null | grep -q "homelab_watchdog" && echo "active" || echo "NO
 echo -n "Log rotation: "
 [ -f /etc/logrotate.d/homelab-watchdog ] && echo "configured" || echo "NOT CONFIGURED"
 
-echo -n "Zot registry login: "
-su - "$USERNAME" -c "docker login registry.jkrumm.com 2>/dev/null | grep -q 'Login Succeeded'" \
-  && echo "configured" || echo "not configured (run manually after doppler setup)"
 
 echo ""
 echo "=== Setup complete ==="
