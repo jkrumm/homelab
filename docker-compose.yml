@@ -40,7 +40,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - socket-proxy
+      socket-proxy:
+      cloudflared:
+        aliases:
+          - docker-proxy  # CRA resolves this hostname via the shared cloudflared network
     labels:
       glance.hide: true
 
