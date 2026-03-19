@@ -409,9 +409,9 @@ groups:
             keyword: '{"status":"ok"}'
             interval: 187
 
-          - name: claude-remote-claw - Docker
+          - name: claude-remote-watchdog - Docker
             type: docker
-            docker_container: claude-remote-nanoclaw
+            docker_container: claude-remote-watchdog
             interval: 189
             timeout: 120
             maxretries: 5
