@@ -41,9 +41,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       socket-proxy:
-      cloudflared:
+      shared:
         aliases:
-          - docker-proxy  # CRA resolves this hostname via the shared cloudflared network
+          - docker-proxy  # resolved by claude-remote-api via the shared cross-stack network
     labels:
       glance.hide: true
 
@@ -1029,3 +1029,6 @@ networks:
     driver: bridge # Internet access for ntfy.jkrumm.com (notification relay)
   signoz:
     driver: bridge
+  shared:
+    driver: bridge
+    internal: true # Cross-stack only: claude-remote-api accesses docker-socket-proxy via this network
