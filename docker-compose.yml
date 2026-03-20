@@ -353,13 +353,8 @@ services:
       DOZZLE_ADDR: :8081
       DOZZLE_AUTH_PROVIDER: simple
       DOZZLE_AUTH_TTL: 87600h
-      DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007
+      DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007,${VPS_TAILSCALE_IP}:7007
       DOCKER_HOST: tcp://docker-socket-proxy:2375
-    secrets:
-      - source: cert
-        target: /dozzle_cert.pem
-      - source: key
-        target: /dozzle_key.pem
     volumes:
       - ./dozzle:/data
     networks:
@@ -998,12 +993,6 @@ services:
       glance.url: https://couchdb.jkrumm.com
       glance.hide: false
 
-
-secrets:
-  cert:
-    file: ./dozzle/cert.pem
-  key:
-    file: ./dozzle/key.pem
 
 volumes:
   model-cache:
