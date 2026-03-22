@@ -394,7 +394,7 @@ check_docker_health() {
     fi
 
     # Check if key containers are running
-    local key_containers=("caddy" "cloudflared" "[redacted]" "uptime-kuma" "cloudflare-ddns")
+    local key_containers=("caddy" "cloudflared" "uptime-kuma" "cloudflare-ddns")
     local failed_containers=()
 
     for container in "${key_containers[@]}"; do
@@ -467,7 +467,6 @@ check_mount_integrity() {
 
     # Check critical directories exist
     local critical_dirs=(
-        "$HDD_MOUNT_POINT/[redacted]/config"
         "$HDD_MOUNT_POINT/beszel"
     )
 
@@ -669,7 +668,7 @@ restart_docker_services() {
                 log "Docker Compose exited with code $compose_exit_code"
 
                 # Check if containers are already running (common "failure" case)
-                if docker ps --filter "name=[redacted]" --filter "status=running" --format "{{.Names}}" | grep -q "[redacted]"; then
+                if docker ps --format "{{.Names}}" | grep -q "caddy"; then
                     log "Note: Key containers already running - this may be why docker compose reported an issue"
                 else
                     log "Docker Compose failed and containers are not running"

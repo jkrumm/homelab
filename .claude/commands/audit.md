@@ -63,23 +63,15 @@ ssh homelab "mount | grep -E 'hdd|ssd|nvme' | awk '{print \$1,\$3,\$5}' && echo 
 - CRITICAL: `/mnt/hdd` not mounted (ls fails or returns permission error)
 - WARN: Docker images layer size >20GB, Docker total reclaimable >80GB
 
-### Phase 5: Tailscale, Tunnel & VPN Health
+### Phase 5: Tailscale & Tunnel Health
 
 ```bash
 ssh homelab "tailscale status && echo '---' && docker logs cloudflared --tail=20 2>&1"
 ```
 
-```bash
-ssh homelab "docker exec [redacted] cat /tmp/[redacted]/ip 2>/dev/null || echo 'NO_VPN_IP'"
-```
-
-```bash
-ssh homelab "docker exec [redacted] [redacted]-remote -l 2>/dev/null | tail -3"
-```
-
 **Thresholds:**
-- CRITICAL: Tailscale not running or offline, tunnel connection errors, [redacted] has no IP (`NO_VPN_IP`), [redacted] cannot connect to daemon
-- WARN: cloudflared reconnecting events in last 20 lines, VPN IP is same as homelab's real IP (VPN not routing)
+- CRITICAL: Tailscale not running or offline, tunnel connection errors
+- WARN: cloudflared reconnecting events in last 20 lines
 
 ### Phase 6: Pending Updates
 
@@ -165,8 +157,8 @@ After collecting all phase data, output:
 ## [4/8] Storage & Mounts      🟢/🟡/🔴
 <mount status + docker disk usage>
 
-## [5/8] Tailscale, Tunnel & VPN  🟢/🟡/🔴
-<tailscale peer status, tunnel health, VPN IP + country, [redacted] connectivity>
+## [5/8] Tailscale & Tunnel  🟢/🟡/🔴
+<tailscale peer status, tunnel health>
 
 ## [6/8] Pending Updates       🟢/🟡/🔴
 <list containers with updates + apt package count>
