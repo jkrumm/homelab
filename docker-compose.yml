@@ -90,8 +90,10 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+      - /home/jkrumm/homelab-private/config/caddy:/etc/caddy/private:ro
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - HOMELAB_TAILSCALE_IP=${HOMELAB_TAILSCALE_IP}
     labels:
       glance.parent: uptime
       glance.name: Caddy

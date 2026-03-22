@@ -83,3 +83,6 @@ claude-remote-kanban.jkrumm.com, http://claude-remote-kanban.jkrumm.com {
 claude-remote-api.jkrumm.com, http://claude-remote-api.jkrumm.com {
 	reverse_proxy claude-remote-api:4000
 }
+
+# Private service overrides — loaded from homelab-private (not tracked here)
+import /etc/caddy/private/*.caddy
