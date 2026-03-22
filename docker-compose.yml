@@ -479,8 +479,10 @@ services:
 
   immich_redis:
     container_name: immich_redis
-    image: docker.io/redis:7.4-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
+    image: docker.io/valkey/valkey:9@sha256:3eeb09785cd61ec8e3be35f8804c8892080f3ca21934d628abc24ee4ed1698f6
     restart: unless-stopped
+    healthcheck:
+      test: redis-cli ping || exit 1
     networks:
       - immich
     labels:
