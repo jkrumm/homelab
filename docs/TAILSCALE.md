@@ -14,7 +14,7 @@ Both machines expose **all** services through Cloudflare Tunnel, including admin
 Public services (Glance, Immich, UptimeKuma, ...):
   Internet → Cloudflare CDN (orange cloud) → CF Tunnel → cloudflared → http://caddy:80 → container
 
-Private services (Beszel, Dozzle, [redacted], ...):
+Private services (Beszel, Dozzle, ...):
   Your device → Tailscale → HomeLab TS IP → https://caddy:443 → container
   DNS: beszel.jkrumm.com → A record 100.x.y.z (grey cloud, DNS-only in Cloudflare)
 ```
@@ -66,9 +66,6 @@ dns:
 | FileBrowser | 8095 | files.jkrumm.com | File management |
 | Calibre GUI | 8085 | calibre.jkrumm.com | Book management admin |
 | Calibre-Web | 8083 | books.jkrumm.com | Personal e-book library |
-| [redacted] | 8096 | [redacted].jkrumm.com | Personal media (no external sharing) |
-
-> **Note on [redacted]:** Moving to Tailscale means friends/family can't access it unless they join your tailnet. If sharing is needed later, it can be re-added to Cloudflare by switching the DNS record back to orange cloud.
 
 ### VPS - Stay on Cloudflare (public apps)
 
@@ -296,10 +293,6 @@ calibre.jkrumm.com {
 books.jkrumm.com {
 	reverse_proxy calibre-web:8083
 }
-
-[redacted].jkrumm.com {
-	reverse_proxy [redacted]:8096
-}
 ```
 
 ### 4b. Update Cloudflare Tunnel to route through Caddy
@@ -372,7 +365,6 @@ In **Cloudflare DNS** for `jkrumm.com`:
 | A | files | `100.x.y.z` | DNS only (grey) | Auto |
 | A | calibre | `100.x.y.z` | DNS only (grey) | Auto |
 | A | books | `100.x.y.z` | DNS only (grey) | Auto |
-| A | [redacted] | `100.x.y.z` | DNS only (grey) | Auto |
 
 These IPs are in the 100.64.0.0/10 CGNAT range - unreachable from the public internet. Only Tailscale devices can connect.
 
@@ -383,7 +375,7 @@ The public/private distinction is controlled entirely by the **Cloudflare DNS pr
 - **Orange cloud (proxied)** → traffic goes through Cloudflare CDN → tunnel → Caddy (public)
 - **Grey cloud (DNS-only)** → DNS resolves to Tailscale IP → direct to Caddy (private)
 
-For services with existing Cloudflare DNS records (beszel, dozzle, duplicati, files, [redacted]): switch them from orange cloud to grey cloud and update the target IP to the HomeLab Tailscale IP.
+For services with existing Cloudflare DNS records (beszel, dozzle, duplicati, files): switch them from orange cloud to grey cloud and update the target IP to the HomeLab Tailscale IP.
 
 For `calibre.jkrumm.com` and `books.jkrumm.com` (may be new records): create as grey cloud A records pointing to Tailscale IP.
 
@@ -395,7 +387,6 @@ From MacBook (on Tailscale):
 ```bash
 curl -v https://beszel.jkrumm.com    # Should work via Tailscale
 curl -v https://dozzle.jkrumm.com    # Should work via Tailscale
-curl -v https://[redacted].jkrumm.com  # Should work via Tailscale
 ```
 
 From a non-Tailscale device: these domains should be unreachable (timeout, since 100.x.y.z is not routable).
@@ -666,7 +657,6 @@ After each phase, verify before moving to the next:
 - [x] `https://beszel.jkrumm.com` works from MacBook (Tailscale on) — 302
 - [x] Private services unreachable from non-Tailscale (100.x.y.z in CGNAT range)
 - [x] `https://dozzle.jkrumm.com` works — 302
-- [x] `https://[redacted].jkrumm.com` works — 403 (auth required, expected)
 - [x] All public services still work normally
 - [x] Private services removed from CF tunnel config (only 5 public routes remain)
 - [x] `ts-homelab.jkrumm.com` and `ts-vps.jkrumm.com` DNS-only A records created
@@ -715,7 +705,7 @@ Removed private services from cloudflared's `depends_on`. Now only depends on ca
 
 ### 10c. Remove unnecessary host port bindings ✅ DONE
 
-Removed host port bindings from 7 private services ([redacted], beszel, dozzle, duplicati, filebrowser, calibre, calibre-web). All route through Caddy on the Docker network. Kept `beszel-agent:45876` (direct IP:port access).
+Removed host port bindings from private services (beszel, dozzle, duplicati, filebrowser, calibre, calibre-web). All route through Caddy on the Docker network. Kept `beszel-agent:45876` (direct IP:port access).
 
 ### 10d. Fix Samba glance label ✅ DONE
 

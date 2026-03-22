@@ -27,9 +27,9 @@ The watchdog (`scripts/homelab_watchdog.sh`) runs via cron every 10 minutes and 
 | Docker Health | systemctl + key containers running | Docker daemon |
 | Tailscale Health | `tailscale status` exit code + retry (independent recovery) | Tailscale |
 
-**Key containers checked:** `caddy`, `cloudflared`, `[redacted]`, `uptime-kuma`, `cloudflare-ddns`
+**Key containers checked:** `caddy`, `cloudflared`, `uptime-kuma`, `cloudflare-ddns`
 
-**Critical HDD directories checked:** `/mnt/hdd/[redacted]/config`, `/mnt/hdd/beszel`
+**Critical HDD directories checked:** `/mnt/hdd/beszel`
 
 ---
 
@@ -137,7 +137,7 @@ Usually resolves at state 1 (simple Docker restart).
 
 **What fails:**
 - `check_mount_integrity` - /mnt/hdd not accessible
-- Containers with HDD volumes fail ([redacted], beszel, filebrowser, [redacted], duplicati)
+- Containers with HDD volumes fail (beszel, filebrowser, duplicati)
 
 **What keeps working:**
 - SSD-based services (UptimeKuma, Immich, Calibre, ExcaliDash)
@@ -170,7 +170,7 @@ Usually resolves at state 1 (simple Docker restart).
 
 **What keeps working:**
 - All containers running locally
-- Private Tailscale services (beszel, dozzle, [redacted], etc.) — unaffected
+- Private Tailscale services (beszel, dozzle, etc.) — unaffected
 - `check_docker_health` catches cloudflared down (it's in key_containers)
 - `check_internal_monitor` passes (localhost access)
 

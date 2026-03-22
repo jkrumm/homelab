@@ -282,7 +282,6 @@ ssh homelab "docker system prune -af"
     - [System Health](#system-health)
     - [Watchdog Management](#watchdog-management)
     - [Container Diagnostics](#container-diagnostics)
-    - [[redacted] ([redacted]s)](#[redacted]-[redacted]s-via-vpn)
     - [Uptime Kuma Config-as-Code](#uptime-kuma-config-as-code)
     - [SigNoz (Observability)](#signoz-observability)
     - [HDD Diagnostics](#hdd-diagnostics)
@@ -304,8 +303,7 @@ ssh homelab "docker system prune -af"
     - [Configure Doppler](#configure-doppler)
 11. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
 12. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
-13. [Enable [redacted]](#enable-[redacted])
-14. [File Access](#file-access)
+13. [File Access](#file-access)
 15. [Setup Beszel](#setup-beszel)
 16. [Setup Dozzle](#setup-dozzle)
 17. [Setup UptimeKuma](#setup-uptimekuma)
@@ -316,9 +314,7 @@ ssh homelab "docker system prune -af"
 22. [Setup Immich](#setup-immich)
 23. [Setup ExcaliDash](#setup-excalidash)
 24. [Setup Public Files (Dufs)](#setup-public-files-dufs)
-25. [Setup [redacted] VPN and [redacted]](#setup-[redacted]-vpn-and-[redacted])
-26. [[redacted] Manager CLI](#[redacted]-manager-cli)
-27. [Setup Obsidian (Always-On)](#setup-obsidian-always-on)
+25. [Setup Obsidian (Always-On)](#setup-obsidian-always-on)
 
 ---
 
@@ -334,7 +330,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  Private:  Tailscale device → caddy:443 (HTTPS, Let's Encrypt) → app │
 │                                                                      │
-│  29 containers: Glance, Immich, [redacted], Calibre, ntfy, ...         │
+│  27 containers: Glance, Immich, Calibre, ntfy, ...                   │
 │  Storage: Internal SSD + Encrypted external HDD                      │
 │  Watchdog: Self-healing monitor (cron, 10min)                        │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -378,7 +374,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | FileBrowser | [files.jkrumm.com](https://files.jkrumm.com) | File management |
 | Calibre GUI | [calibre.jkrumm.com](https://calibre.jkrumm.com) | Book management admin |
 | Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com) | E-book library |
-| [redacted] | [[redacted].jkrumm.com](https://[redacted].jkrumm.com) | Media streaming |
 | SigNoz | [signoz.jkrumm.com](https://signoz.jkrumm.com) | Application observability (APM) |
 | Obsidian | [obsidian.jkrumm.com](https://obsidian.jkrumm.com) | Obsidian app (KasmVNC GUI + REST API + TaskNotes API) |
 | CouchDB | [couchdb.jkrumm.com](https://couchdb.jkrumm.com) | Obsidian LiveSync database |
@@ -399,8 +394,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Docker Socket Proxy | Read-only Docker API proxy for monitoring |
 | Watchtower | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; ntfy notifications at `warn` level |
 | ntfy | Self-hosted push notification server — iOS app, PWA, and Web Push; topics: homelab-watchdog, homelab-watchtower, vps-watchtower, uptime-alerts |
-| [redacted] | VPN gateway ([redacted] [redacted]) |
-| [redacted] | [redacted] client (via [redacted] VPN) |
 | Samba | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`) |
 | Beszel Agent | System metrics collector (Tailscale port binding) |
 | Immich ML/Postgres/Redis | Immich supporting services |
@@ -558,7 +551,6 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 | FileBrowser | Private (Tailscale) | files.jkrumm.com |
 | Calibre GUI | Private (Tailscale) | calibre.jkrumm.com |
 | Calibre-Web | Private (Tailscale) | books.jkrumm.com |
-| [redacted] | Private (Tailscale) | [redacted].jkrumm.com |
 | SigNoz | Private (Tailscale) | signoz.jkrumm.com |
 | Obsidian | Private (Tailscale) | obsidian.jkrumm.com |
 | CouchDB | Private (Tailscale) | couchdb.jkrumm.com |
@@ -593,7 +585,6 @@ The following secrets are required to run the HomeLab:
 | `DB_ROOT_PW`           | MySQL root password                  | `your-secure-password`                 |
 | `POSTGRES_DB_PASSWORD` | Immich Postgres password             | `your-secure-postgres-password`        |
 | `DUFS_PASSWORD`        | Dufs public file server auth         | `your-secure-dufs-password`            |
-| `[redacted]_PRIVATE_KEY`| [redacted] private key for VPN        | `<see-doppler>` |
 | `COUCHDB_PASSWORD`     | CouchDB admin password               | `your-secure-couchdb-password`         |
 | `OBSIDIAN_GUI_PASSWORD`| Obsidian KasmVNC GUI password        | `your-secure-obsidian-password`        |
 
@@ -834,7 +825,7 @@ For a more automated and reliable solution, follow the steps to create a `system
    ```ini
    [Unit]
    Description=Mount Encrypted HDD
-   Before=[redacted].service docker.service
+   Before=docker.service
    After=systemd-cryptsetup@encrypted_partition.service
 
    [Service]
@@ -1950,7 +1941,7 @@ Caddy handles path-based routing with `handle_path` (strips prefix before proxyi
 ### Prerequisites
 
 - CouchDB service already running (see `docker-compose.yml`)
-- iGPU drivers installed (shared with [redacted]/Immich)
+- iGPU drivers installed (shared with Immich)
 - `OBSIDIAN_GUI_PASSWORD` and `COUCHDB_PASSWORD` in Doppler
 
 ### Initial Setup

@@ -71,13 +71,12 @@ When running this skill, I will check:
 4. System Health
 5. Watchdog Management
 6. Container Diagnostics
-7. [redacted] ([redacted]s)
-8. Uptime Kuma Config-as-Code
-9. SigNoz (Observability)
-10. HDD Diagnostics
-11. Database Backup
-12. Doppler Secrets
-13. Emergency Commands
+7. Uptime Kuma Config-as-Code
+8. SigNoz (Observability)
+9. HDD Diagnostics
+10. Database Backup
+11. Doppler Secrets
+12. Emergency Commands
 
 ### Command Format
 
