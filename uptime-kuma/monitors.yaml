@@ -417,6 +417,61 @@ groups:
             timeout: 120
             maxretries: 5
 
+      # --- Torrent/VPN subgroup ---
+      - name: Torrent
+        type: group
+        interval: 260
+        monitors:
+          - name: Gluetun - Docker
+            type: docker
+            docker_container: gluetun
+            interval: 142
+            timeout: 120
+            maxretries: 5
+
+          - name: Transmission - Docker
+            type: docker
+            docker_container: transmission
+            interval: 145
+            timeout: 120
+            maxretries: 5
+
+          - name: Prowlarr - Docker
+            type: docker
+            docker_container: prowlarr
+            interval: 148
+            timeout: 120
+            maxretries: 5
+
+          - name: FlareSolverr - Docker
+            type: docker
+            docker_container: flaresolverr
+            interval: 151
+            timeout: 120
+            maxretries: 5
+
+          - name: Torrent App - Docker
+            type: docker
+            docker_container: torrent-app
+            interval: 154
+            timeout: 120
+            maxretries: 5
+
+          - name: Jellyfin - Docker
+            type: docker
+            docker_container: jellyfin
+            interval: 157
+            timeout: 120
+            maxretries: 5
+
+          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          # After creating: copy push URL token → Doppler homelab/prod as VPN_WATCHDOG_PUSH_URL
+          - name: VPN Watchdog - Push
+            type: push
+            interval: 180
+            timeout: 48
+            retry_interval: 180
+
       # --- ExcaliDash subgroup ---
       - name: ExcaliDash
         type: group
