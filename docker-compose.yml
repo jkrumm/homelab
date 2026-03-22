@@ -122,39 +122,6 @@ services:
       glance.name: Cloudflared
       glance.hide: false
 
-  [redacted]:
-    image: lscr.io/linuxserver/[redacted]:latest
-    container_name: [redacted]
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "5"
-    networks:
-      - cloudflared
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Berlin
-    volumes:
-      - /mnt/hdd/[redacted]/config:/config
-      - /mnt/hdd/[redacted]/cache:/cache
-      - /mnt/hdd/Filme/Movies:/media/movies
-      - /mnt/hdd/Filme/Shows:/media/shows
-      - /mnt/hdd/Filme/Kids:/media/kids
-    devices:
-      - /dev/dri:/dev/dri
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-    labels:
-      glance.name: [redacted]
-      glance.icon: si:[redacted]
-      glance.url: https://[redacted].jkrumm.com
-      glance.hide: false
-
   samba:
     image: ghcr.io/servercontainers/samba
     container_name: samba
@@ -632,71 +599,6 @@ services:
       glance.name: Dufs Public Files
       glance.icon: si:files
       glance.url: https://public.jkrumm.com
-      glance.hide: false
-
-  [redacted]:
-    image: qmcgaw/[redacted]:latest
-    container_name: [redacted]
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "3"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      # VPN Provider
-      - VPN_SERVICE_PROVIDER=[redacted]
-      - VPN_TYPE=[redacted]
-      - [redacted]_PRIVATE_KEY=${[redacted]_PRIVATE_KEY}
-      - SERVER_COUNTRIES=Switzerland
-      # DNS Security (plaintext DNS over VPN tunnel)
-      - DNS_SERVER=on
-      - DOT=off
-      - DNS_PLAINTEXT_ADDRESS=1.1.1.1
-      # Privacy Protection
-      - BLOCK_MALICIOUS=on
-      - BLOCK_SURVEILLANCE=on
-      - BLOCK_ADS=on
-    healthcheck:
-      test: ["CMD", "/[redacted]-entrypoint", "healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      glance.parent: uptime
-      glance.name: [redacted] VPN
-      glance.icon: si:[redacted]
-      glance.hide: false
-
-  [redacted]:
-    image: lscr.io/linuxserver/[redacted]:latest
-    container_name: [redacted]
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "3"
-    network_mode: service:[redacted]
-    depends_on:
-      [redacted]:
-        condition: service_healthy
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Berlin
-    volumes:
-      - /mnt/hdd/[redacted]/config:/config
-      - /mnt/hdd/[redacted]/downloads:/downloads
-      - /mnt/hdd/[redacted]/watch:/watch
-    labels:
-      glance.name: [redacted]
-      glance.icon: si:[redacted]
       glance.hide: false
 
   # === SigNoz Observability Stack ===

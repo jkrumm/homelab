@@ -83,11 +83,11 @@ Upgrade multi-component Docker stacks that have Watchtower opted-out via label.
 ```bash
 # HomeLab - via Tailscale (primary)
 ssh homelab
-# resolves to: jkrumm@${HOMELAB_TAILSCALE_IP} (via ~/.ssh/config)
+# resolves to: jkrumm@<tailscale-ip-homelab> (via ~/.ssh/config)
 
 # VPS - via Tailscale (primary)
 ssh vps
-# resolves to: jkrumm@100.82.157.104 (via ~/.ssh/config)
+# resolves to: jkrumm@<tailscale-ip-sds> (via ~/.ssh/config)
 
 # Direct SSH is blocked on both machines:
 # ssh homelab-direct  # BLOCKED — UFW denies SSH from non-Tailscale IPs
@@ -254,7 +254,7 @@ docker events --since 1h --filter container=<name>
 | SigNoz | 8089 | signoz.jkrumm.com | Application observability (APM) |
 | CouchDB | 5984 | couchdb.jkrumm.com | CouchDB document database |
 
-> **Access:** DNS A records point to HomeLab Tailscale IP (${HOMELAB_TAILSCALE_IP}, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
+> **Access:** DNS A records point to HomeLab Tailscale IP (<tailscale-ip-homelab>, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
 
 ### Internal Services
 
@@ -282,7 +282,7 @@ docker events --since 1h --filter container=<name>
 
 ```
 Public:  Internet → Cloudflare CDN (orange cloud) → CF Tunnel → cloudflared → http://caddy:80 → container
-Private: Tailscale device → HomeLab TS IP (${HOMELAB_TAILSCALE_IP}) → https://caddy:443 → container
+Private: Tailscale device → HomeLab TS IP (<tailscale-ip-homelab>) → https://caddy:443 → container
 ```
 
 **Key:** Caddy is the single routing layer. The `Caddyfile` is the source of truth for all service routing. Each site block has both HTTPS (Tailscale) and `http://` (cloudflared) variants.
@@ -295,10 +295,10 @@ Docker bridge networks: `cloudflared`, `immich`, `beszel`, `excalidash`, `socket
 
 | Machine | Tailscale IP | SSH Host |
 |---------|-------------|----------|
-| HomeLab | ${HOMELAB_TAILSCALE_IP} | `ssh homelab` |
-| VPS | 100.82.157.104 | `ssh vps` |
-| MacBook | 100.124.248.40 | - |
-| iPhone | 100.85.45.3 | - |
+| HomeLab | `<tailscale-ip-homelab>` | `ssh homelab` |
+| VPS | `<tailscale-ip-vps>` | `ssh vps` |
+| MacBook | `<tailscale-ip-macbook>` | - |
+| iPhone | `<tailscale-ip-iphone>` | - |
 
 **Migration status:** Phase 1-11 done (Tailscale, Caddy, security hardening complete). Phase 8 Zed remote dev pending. See `docs/TAILSCALE.md`.
 
@@ -662,8 +662,8 @@ When making changes that affect infrastructure or script behavior:
 
 | Command | Purpose |
 |---------|---------|
-| `ssh homelab` | HomeLab via Tailscale (${HOMELAB_TAILSCALE_IP}) |
-| `ssh vps` | VPS via Tailscale (100.82.157.104) |
+| `ssh homelab` | HomeLab via Tailscale (<tailscale-ip-homelab>) |
+| `ssh vps` | VPS via Tailscale (<tailscale-ip-vps>) |
 | `ssh homelab-direct` | BLOCKED — UFW denies non-Tailscale SSH |
 | `ssh vps-direct` | BLOCKED — Hetzner FW blocks port 22 (use web console) |
 

@@ -39,7 +39,7 @@ The watchdog operates in a dual-routing architecture:
 
 ```
 Public:  Internet → Cloudflare CDN → CF Tunnel → cloudflared → http://caddy:80 → container
-Private: Tailscale device → HomeLab TS IP (${HOMELAB_TAILSCALE_IP}) → https://caddy:443 → container
+Private: Tailscale device → HomeLab TS IP (<tailscale-ip-homelab>) → https://caddy:443 → container
 ```
 
 **Caddy** is the single routing layer for ALL services. If Caddy dies, both public and private services are unreachable.

@@ -353,7 +353,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        HomeLab (Ubuntu 24.04)                       │
-│                     Tailscale IP: ${HOMELAB_TAILSCALE_IP}                    │
+│                     Tailscale IP: <tailscale-ip-homelab>                    │
 │                                                                      │
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  Private:  Tailscale device → caddy:443 (HTTPS, Let's Encrypt) → app │
@@ -363,7 +363,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 │  Watchdog: Self-healing monitor (cron, 10min)                        │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        VPS (Hetzner ARM64, Ubuntu 22.04)             │
-│                     Tailscale IP: 100.82.157.104                    │
+│                     Tailscale IP: <tailscale-ip-sds>                    │
 │                                                                      │
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  MariaDB:  Vercel → port 33306 (direct, Hetzner FW allows)          │
@@ -407,9 +407,9 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Obsidian | [obsidian.jkrumm.com](https://obsidian.jkrumm.com) | Obsidian app (KasmVNC GUI + REST API + TaskNotes API) |
 | CouchDB | [couchdb.jkrumm.com](https://couchdb.jkrumm.com) | Obsidian LiveSync database |
 
-**Route:** Tailscale device → DNS A record → HomeLab TS IP (${HOMELAB_TAILSCALE_IP}) → `https://caddy:443` → container
+**Route:** Tailscale device → DNS A record → HomeLab TS IP (<tailscale-ip-homelab>) → `https://caddy:443` → container
 
-**DNS:** Grey cloud (DNS-only) A records pointing to `${HOMELAB_TAILSCALE_IP}`. Unreachable from public internet.
+**DNS:** Grey cloud (DNS-only) A records pointing to `<tailscale-ip-homelab>`. Unreachable from public internet.
 
 **TLS:** Caddy obtains Let's Encrypt certificates via Cloudflare DNS-01 challenge.
 
@@ -451,10 +451,10 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 
 | Device | Tailscale IP | SSH |
 |--------|-------------|-----|
-| HomeLab | ${HOMELAB_TAILSCALE_IP} | `ssh homelab` |
-| VPS | 100.82.157.104 | `ssh vps` |
-| MacBook | 100.124.248.40 | — |
-| iPhone | 100.85.45.3 | — |
+| HomeLab | <tailscale-ip-homelab> | `ssh homelab` |
+| VPS | <tailscale-ip-sds> | `ssh vps` |
+| MacBook | <tailscale-ip-macbook> | — |
+| iPhone | <tailscale-ip-iphone> | — |
 
 ---
 
@@ -591,10 +591,10 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 
 | Machine | Tailscale IP | MagicDNS |
 |---------|-------------|----------|
-| MacBook | 100.124.248.40 | iu-mac-book |
-| iPhone | 100.85.45.3 | iphone-15 |
-| HomeLab | ${HOMELAB_TAILSCALE_IP} | homelab.dinosaur-sole.ts.net |
-| VPS | 100.82.157.104 | sideproject-docker-stack.dinosaur-sole.ts.net |
+| MacBook | <tailscale-ip-macbook> | iu-mac-book |
+| iPhone | <tailscale-ip-iphone> | iphone-15 |
+| HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net |
+| VPS | <tailscale-ip-sds> | sideproject-docker-stack.dinosaur-sole.ts.net |
 
 ---
 
@@ -1177,7 +1177,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    - **SSH tunnel** (fallback): `ssh -L 1445:localhost:445 homelab` → `smb://localhost:1445`
    - Username: jkrumm
    - Password: Available in 1Password and Doppler secrets
-   - DNS: `samba.jkrumm.com` → `${HOMELAB_TAILSCALE_IP}` (Tailscale IP, DNS-only/grey cloud)
+   - DNS: `samba.jkrumm.com` → `<tailscale-ip-homelab>` (Tailscale IP, DNS-only/grey cloud)
    - Samba ports (139, 445) restricted to Tailscale CGNAT range via UFW
 
 ### Usage Recommendations

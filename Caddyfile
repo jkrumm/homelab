@@ -66,10 +66,6 @@ books.jkrumm.com, http://books.jkrumm.com {
 	reverse_proxy calibre-web:8083
 }
 
-[redacted].jkrumm.com, http://[redacted].jkrumm.com {
-	reverse_proxy [redacted]:8096
-}
-
 signoz.jkrumm.com, http://signoz.jkrumm.com {
 	reverse_proxy signoz:8080
 }

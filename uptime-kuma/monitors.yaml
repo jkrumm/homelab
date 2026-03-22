@@ -142,20 +142,6 @@ groups:
             timeout: 120
             maxretries: 5
 
-          - name: [redacted] - Docker
-            type: docker
-            docker_container: [redacted]
-            interval: 142
-            timeout: 120
-            maxretries: 5
-
-          - name: [redacted] - Docker
-            type: docker
-            docker_container: [redacted]
-            interval: 145
-            timeout: 120
-            maxretries: 5
-
           # Push monitors
           - name: Cloudflare DDNS - Push
             type: push
@@ -185,16 +171,9 @@ groups:
         type: group
         interval: 210
         monitors:
-          - name: [redacted] - Docker
-            type: docker
-            docker_container: [redacted]
-            interval: 158
-            timeout: 120
-            maxretries: 5
-
           - name: [redacted] - HTTP
             type: http
-            url: http://[redacted]:8096/health
+            url: http://${HOMELAB_TAILSCALE_IP}:8096/health
             interval: 161
             accepted_statuscodes: ["200-299"]
 
