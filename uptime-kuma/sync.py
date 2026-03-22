@@ -306,6 +306,7 @@ def main():
     parser.add_argument("--export", action="store_true", help="Export current monitors to YAML")
     parser.add_argument("--delete-orphans", action="store_true", help="Delete orphaned monitors without prompting")
     parser.add_argument("--config", default="uptime-kuma/monitors.yaml", help="Path to monitors.yaml")
+    parser.add_argument("--extra-config", default=None, help="Path to additional monitors.yaml to merge in (e.g. from homelab-private)")
     parser.add_argument("--url", default="http://localhost:3010", help="Uptime Kuma URL")
     parser.add_argument("--username", default="jkrumm", help="Uptime Kuma username")
     args = parser.parse_args()
@@ -330,6 +331,19 @@ def main():
             export_monitors(api, args.config + ".exported")
         else:
             config = load_config(args.config)
+            if args.extra_config and Path(args.extra_config).exists():
+                extra = load_config(args.extra_config)
+                # Merge groups: append monitors into matching groups, add new groups
+                main_by_name = {g["name"]: g for g in config.get("groups", [])}
+                for group in extra.get("groups", []):
+                    if group["name"] in main_by_name:
+                        main_by_name[group["name"]]["monitors"] = (
+                            main_by_name[group["name"]].get("monitors", [])
+                            + group.get("monitors", [])
+                        )
+                    else:
+                        config.setdefault("groups", []).append(group)
+                print(f"Merged extra config from {args.extra_config}")
             sync_monitors(api, config, dry_run=args.dry_run, delete_orphans=args.delete_orphans)
 
     except Exception as e:

@@ -117,7 +117,7 @@ ssh homelab "docker compose ps"
 ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d"
 
 # Interactive session (when needed for debugging)
-ssh -t homelab "docker logs -f [redacted]"
+ssh -t homelab "docker logs -f <service>"
 ```
 
 ---
@@ -136,7 +136,6 @@ ssh -t homelab "docker logs -f [redacted]"
 | `SAMBA_PASSWORD` | Samba file share auth |
 | `CALIBRE_PASSWORD` | Calibre GUI access |
 | `DUPLICATI_*` | Duplicati backup encryption |
-| `[redacted]_PRIVATE_KEY` | [redacted] [redacted] |
 | `DUFS_PASSWORD` | Public file server auth |
 | `IMMICH_API_KEY` | Immich API for Glance widget |
 | `COUCHDB_PASSWORD` | CouchDB admin password |
@@ -199,8 +198,7 @@ docker compose down && doppler run -- docker compose up -d
 
 ```
 1. docker-socket-proxy (monitoring services depend on this)
-2. [redacted] (VPN - [redacted] depends on this)
-3. immich_redis, immich_postgres (databases)
+2. immich_redis, immich_postgres (databases)
 4. excalidash-backend (frontend depends on this)
 5. caddy (reverse proxy - cloudflared depends on this)
 6. All other services
@@ -250,7 +248,6 @@ docker events --since 1h --filter container=<name>
 | FileBrowser | 80 | files.jkrumm.com | File management |
 | Calibre GUI | 8080 | calibre.jkrumm.com | Book management admin |
 | Calibre-Web | 8083 | books.jkrumm.com | E-book library |
-| [redacted] | 8096 | [redacted].jkrumm.com | Media streaming |
 | SigNoz | 8089 | signoz.jkrumm.com | Application observability (APM) |
 | CouchDB | 5984 | couchdb.jkrumm.com | CouchDB document database |
 
@@ -265,8 +262,6 @@ docker events --since 1h --filter container=<name>
 | Cloudflared | Tunnel to Cloudflare (public services only) |
 | Cloudflare-DDNS | Dynamic DNS updates |
 | Watchtower | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; ntfy notifications |
-| [redacted] | VPN gateway ([redacted]) |
-| [redacted] | [redacted] client (via VPN) |
 | Samba | SMB3 file shares (encryption preferred) |
 | Calibre | E-book management GUI |
 | Beszel-Agent | System metrics collector |
@@ -339,12 +334,6 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 │   └── uptime-kuma/      # UptimeKuma data
 
 /mnt/hdd/
-├── Filme/                # [redacted] media library
-│   ├── Movies/
-│   ├── Shows/
-│   └── Kids/
-├── [redacted]/             # [redacted] config/cache
-├── [redacted]/         # [redacted] downloads
 ├── duplicati/            # Backup configs
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
@@ -368,7 +357,6 @@ homelab/
 ├── setup.sh                 # Initial server setup (idempotent)
 ├── scripts/                 # Operational scripts
 │   ├── homelab_watchdog.sh  # Self-healing health monitor (cron)
-│   ├── [redacted]_manager.py   # [redacted] CLI
 │   ├── check_hdd.sh         # HDD diagnostics
 │   ├── fix_uptime_kuma_monitors.sh
 │   ├── get_container_ips.sh
@@ -377,7 +365,6 @@ homelab/
 │   ├── glance.yml           # Dashboard config
 │   ├── hwaccel.ml.yml       # Immich ML GPU acceleration
 │   ├── hwaccel.transcoding.yml  # Immich transcoding GPU
-│   └── [redacted]-monitor.service  # Systemd unit
 ├── docs/                    # Detailed documentation
 │   ├── TAILSCALE.md         # Migration plan + learnings
 │   └── watchdog-behaviors.md # Failure scenarios + recovery
@@ -397,7 +384,6 @@ homelab/
 | Script | Location | Purpose |
 |--------|----------|---------|
 | `homelab_watchdog.sh` | `scripts/` | Self-healing health monitor |
-| `[redacted]_manager.py` | `scripts/` | [redacted] CLI |
 | `check_hdd.sh` | `scripts/` | HDD diagnostics |
 | `fix_uptime_kuma_monitors.sh` | `scripts/` | Monitor diagnostics |
 | `get_container_ips.sh` | `scripts/` | Container IP lookup |
@@ -414,27 +400,14 @@ Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script
 # Preview changes (dry run)
 ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
 
-# Apply changes
+# Apply changes (public monitors only)
 ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
+
+# Apply changes (public + private monitors merged)
+ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
 
 # Export current monitors to YAML
 ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
-```
-
-### [redacted] Manager Usage
-
-```bash
-# List [redacted]s
-python3 ~/homelab/scripts/[redacted]_manager.py list
-
-# Add [redacted] (magnet or file)
-python3 ~/homelab/scripts/[redacted]_manager.py add "magnet:?xt=..."
-
-# Remove [redacted]
-python3 ~/homelab/scripts/[redacted]_manager.py remove <id>
-
-# Check VPN status
-python3 ~/homelab/scripts/[redacted]_manager.py vpn-status
 ```
 
 ### HDD Diagnostics
@@ -559,7 +532,6 @@ curl -I https://glance.jkrumm.com
 | Service not accessible | Check cloudflared | `docker logs cloudflared` |
 | Container crash loop | Check logs | `docker logs --tail=100 <container>` |
 | HDD not mounted | Check encryption | Run `./scripts/check_hdd.sh` |
-| VPN not working | Check [redacted] | `docker logs [redacted]` |
 | Immich ML slow | Check GPU | `docker logs immich_machine_learning` |
 
 ### Diagnostic Commands
@@ -591,7 +563,6 @@ Services with memory limits to prevent runaway resource usage:
 
 | Service | Limit | Reserved |
 |---------|-------|----------|
-| [redacted] | 4G | - |
 | Immich Server | 4G | - |
 | Immich ML | 4G | - |
 | Calibre | 2G | - |
@@ -604,10 +575,7 @@ Services with JSON file logging and rotation configured:
 | Service | Max Size | Max Files |
 |---------|----------|-----------|
 | docker-socket-proxy | 10m | 2 |
-| [redacted] | 50m | 5 |
 | Immich Server | 50m | 5 |
-| [redacted] | 20m | 3 |
-| [redacted] | 20m | 3 |
 
 ---
 
@@ -707,16 +675,6 @@ When making changes that affect infrastructure or script behavior:
 |---------|---------|
 | `docker logs watchtower --tail=50` | Watchtower recent activity |
 
-### [redacted] ([redacted]s)
-
-| Command | Purpose |
-|---------|---------|
-| `docker exec [redacted] [redacted]-remote -l` | List all [redacted]s |
-| `docker exec [redacted] [redacted]-remote -a 'magnet:?...'` | Add magnet link |
-| `docker exec [redacted] [redacted]-remote -t <id> -r` | Remove [redacted] |
-| `docker exec [redacted] cat /tmp/[redacted]/ip` | Check VPN IP |
-| `./scripts/[redacted]_manager.py` | Interactive [redacted] manager |
-
 ### Uptime Kuma Config-as-Code
 
 > **IMPORTANT:** sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
@@ -724,7 +682,8 @@ When making changes that affect infrastructure or script behavior:
 | Command | Purpose |
 |---------|---------|
 | `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"` | Preview changes |
-| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` | Apply changes |
+| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` | Apply (public only) |
+| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"` | Apply (public + private) |
 | `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"` | Export to YAML |
 
 ### SigNoz (Observability)

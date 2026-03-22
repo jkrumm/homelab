@@ -171,12 +171,6 @@ groups:
         type: group
         interval: 210
         monitors:
-          - name: [redacted] - HTTP
-            type: http
-            url: http://${HOMELAB_TAILSCALE_IP}:8096/health
-            interval: 161
-            accepted_statuscodes: ["200-299"]
-
           - name: Calibre - Docker
             type: docker
             docker_container: calibre
