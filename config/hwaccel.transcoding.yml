@@ -1,0 +1,3 @@
+# Stub — QuickSync hardware transcoding not used on this server
+services:
+  quicksync: {}

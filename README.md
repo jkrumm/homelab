@@ -1718,36 +1718,11 @@ alternative.
    sudo chmod -R 755 /home/jkrumm/ssd/SSD/Bilder/immich
    ```
 
-### Hardware Acceleration Prerequisites
+### Hardware Acceleration
 
-1. Install required packages for Intel GPU support:
+Hardware acceleration is **not active** on this server. Both `config/hwaccel.ml.yml` and `config/hwaccel.transcoding.yml` are stubs — required by the `extends:` directives in `docker-compose.yml` but provide no device mounts. Immich runs CPU-mode inference and transcoding.
 
-   ```bash
-   sudo apt-get update
-   sudo apt-get install -y intel-media-va-driver i965-va-driver vainfo
-   ```
-
-2. Verify GPU detection:
-
-   ```bash
-   vainfo
-   ```
-
-   This should show information about your Intel GPU capabilities.
-
-3. Add your user to the required groups:
-
-   ```bash
-   sudo usermod -aG video,render jkrumm
-   ```
-
-4. Verify device permissions:
-
-   ```bash
-   ls -la /dev/dri
-   ```
-
-   Make sure the devices are accessible to the video and render groups.
+To enable acceleration in future, replace the stub files with the appropriate device config from the [official Immich hwaccel docs](https://immich.app/docs/features/ml-hardware-acceleration).
 
 ### Initial Setup
 
@@ -1779,10 +1754,7 @@ alternative.
     - Verify that the machine learning service is connected
     - Enable Smart Search and People Recognition as needed
 
-2. **Hardware Acceleration:** The system is configured with hardware acceleration for better performance:
-    - **Video Transcoding:** Uses Intel Quick Sync Video via the integrated GPU
-    - **Machine Learning:** Uses OpenVINO for accelerated AI processing
-    - To verify hardware acceleration is working, check the Immich admin dashboard
+2. **Hardware Acceleration:** Not active — CPU mode only. See the Hardware Acceleration section above if you want to enable it.
 
 3. **External Library Setup (Read-Only Fuji Photos):**
 
