@@ -20,6 +20,7 @@ readonly CREDS_FILE="/root/.homelab-watchdog-credentials"
 
 # Network and service configuration
 readonly HOMELAB_DIR="/home/jkrumm/homelab"
+readonly HOMELAB_PRIVATE_VPN_CYCLE="/home/jkrumm/homelab-private/scripts/vpn-cycle.sh"
 readonly HDD_MOUNT_POINT="/mnt/hdd"
 readonly TAILSCALE_RESTART_WAIT=30
 readonly TAILSCALE_FAILURE_FILE="${STATE_DIR}/tailscale_failing"
@@ -650,6 +651,30 @@ wait_for_internet_recovery() {
     return 1
 }
 
+# Restore homelab-private VPN stack after Docker daemon restart.
+# Docker restart kills gluetun (which has restart:"no" for security), and the
+# vpn-watchdog can't self-heal until its next cycle. Calling vpn-cycle.sh here
+# ensures the VPN stack is restored as part of the same recovery operation.
+# Non-fatal: if vpn-cycle.sh fails, vpn-watchdog will handle it on its own.
+restore_vpn_stack() {
+    if [[ ! -x "$HOMELAB_PRIVATE_VPN_CYCLE" ]]; then
+        log "⚠️ vpn-cycle.sh not found at $HOMELAB_PRIVATE_VPN_CYCLE — skipping VPN restore"
+        return 0
+    fi
+
+    log "Restoring homelab-private VPN stack after Docker restart..."
+    notify "🔄 VPN Restore" "Docker was restarted — restoring VPN stack via vpn-cycle.sh"
+
+    if timeout 300 doppler run -p homelab -c prod -- bash "$HOMELAB_PRIVATE_VPN_CYCLE"; then
+        log "✅ VPN stack restored successfully"
+        notify "✅ VPN Restored" "homelab-private VPN stack back online after Docker restart"
+    else
+        local exit_code=$?
+        log "⚠️ VPN stack restore failed (exit $exit_code) — vpn-watchdog will handle recovery"
+        notify "⚠️ VPN Restore Failed" "vpn-cycle.sh failed after Docker restart — vpn-watchdog will retry"
+    fi
+}
+
 restart_docker_services() {
     log "Restarting Docker services..."
 
@@ -685,6 +710,7 @@ restart_docker_services() {
             while [[ $ready_count -lt 3 ]]; do
                 if check_docker_health "false"; then
                     log "All containers are running and healthy"
+                    restore_vpn_stack  # Docker daemon was restarted — restore homelab-private
                     return verify_recovery
                 fi
                 log "Containers not ready yet, waiting..."
@@ -702,6 +728,7 @@ restart_docker_services() {
             log "Checking if containers are running despite compose failure..."
             if check_docker_health "false"; then
                 log "⚠️ Docker Compose reported failure but containers are running - treating as success"
+                restore_vpn_stack  # Docker daemon was restarted — restore homelab-private
                 return verify_recovery
             fi
 
@@ -805,6 +832,7 @@ force_docker_cleanup() {
         log "Docker services restarted after cleanup, waiting for stabilization..."
         sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
 
+        restore_vpn_stack  # Docker daemon was restarted — restore homelab-private
         return verify_recovery
     else
         log "Failed to restart Docker services after cleanup"
@@ -1141,14 +1169,59 @@ analyze_failure_and_recover() {
                 ;;
         esac
 
-    elif $internet_ok && $docker_ok && (! $external_ok || ! $internal_ok); then
-        # Local services OK but monitoring reports issues = possible network routing or service accessibility
-        log "🔍 DIAGNOSIS: Monitoring discrepancy - services running but not accessible"
+    elif $internet_ok && $docker_ok && ! $external_ok && $internal_ok; then
+        # External monitor (BetterStack) down but internal (UptimeKuma) OK.
+        # This is likely transient: BetterStack outage, ISP routing blip, or
+        # Cloudflare tunnel hiccup. Restarting Docker is disproportionate —
+        # try restarting the external access path (cloudflared + caddy) first.
+        log "🔍 DIAGNOSIS: External monitor down, internal healthy — external access path issue"
+
+        case "$current_state" in
+            0|1)
+                log "RECOVERY ACTION: Restarting external access services (cloudflared + caddy)"
+                notify "🔄 External Access" "BetterStack reports down but internal healthy - restarting cloudflared + caddy"
+
+                docker restart cloudflared caddy 2>/dev/null || true
+                sleep 30
+
+                if check_external_monitor "false" "false"; then
+                    notify "✅ External Access Restored" "cloudflared + caddy restart fixed external access"
+                    set_state 0
+                    return 0
+                else
+                    log "External still down after cloudflared+caddy restart — may be transient, escalating cautiously"
+                    set_state 2
+                    return 1
+                fi
+                ;;
+            2)
+                log "RECOVERY ACTION: Network interface restart (fix routing to outside world)"
+                notify "🔄 Network Routing" "External access still failing — restarting network interface"
+
+                if restart_network_interface; then
+                    notify "✅ Routing Fixed" "Network routing restored"
+                    set_state 0
+                    return 0
+                else
+                    set_state 3
+                    return 1
+                fi
+                ;;
+            *)
+                log "RECOVERY ACTION: Escalated recovery (persistent external access failure)"
+                return escalated_recovery
+                ;;
+        esac
+
+    elif $internet_ok && $docker_ok && ! $internal_ok; then
+        # Internal monitor (UptimeKuma localhost) down with Docker OK — genuinely
+        # suspicious, services may be in a bad state. Docker restart is justified.
+        log "🔍 DIAGNOSIS: Internal monitor down - services may not be accessible"
 
         case "$current_state" in
             0|1)
                 log "RECOVERY ACTION: Light Docker restart (fix service accessibility)"
-                notify "🔄 Service Access" "Services running but not accessible - restarting containers"
+                notify "🔄 Service Access" "Internal monitor down - restarting Docker services"
 
                 if restart_docker_services; then
                     notify "✅ Access Restored" "Service accessibility restored"
