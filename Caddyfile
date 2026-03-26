@@ -75,14 +75,6 @@ couchdb.jkrumm.com, http://couchdb.jkrumm.com {
 	reverse_proxy couchdb:5984
 }
 
-# claude-remote stack (private, Tailscale only)
-claude-remote-kanban.jkrumm.com, http://claude-remote-kanban.jkrumm.com {
-	reverse_proxy claude-remote-vibekanban:8081
-}
-
-claude-remote-api.jkrumm.com, http://claude-remote-api.jkrumm.com {
-	reverse_proxy claude-remote-api:4000
-}
 
 # Private service overrides — loaded from homelab-private (not tracked here)
 import /etc/caddy/private/*.caddy
