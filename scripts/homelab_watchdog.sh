@@ -665,7 +665,9 @@ restore_vpn_stack() {
     log "Restoring homelab-private VPN stack after Docker restart..."
     notify "🔄 VPN Restore" "Docker was restarted — restoring VPN stack via vpn-cycle.sh"
 
-    if timeout 300 doppler run -p homelab -c prod -- bash "$HOMELAB_PRIVATE_VPN_CYCLE"; then
+    # vpn-cycle.sh sources lib.sh which sets $DC="doppler run ... docker compose"
+    # — no outer Doppler wrapper needed (avoids double-wrapping + latency)
+    if timeout 300 bash "$HOMELAB_PRIVATE_VPN_CYCLE"; then
         log "✅ VPN stack restored successfully"
         notify "✅ VPN Restored" "homelab-private VPN stack back online after Docker restart"
     else
