@@ -111,7 +111,6 @@ services:
       - glance
       - uptime-kuma
       - immich-server
-      - excalidash-frontend
       - dufs
     networks:
       - cloudflared
@@ -521,64 +520,6 @@ services:
       glance.url: https://files.jkrumm.com
       glance.hide: false
 
-  excalidash-backend:
-    image: zimengxiong/excalidash-backend:latest
-    container_name: excalidash-backend
-    restart: unless-stopped
-    environment:
-      - DATABASE_URL=file:/app/prisma/dev.db
-      - PORT=8000
-      - NODE_ENV=production
-    volumes:
-      - /home/jkrumm/ssd/SSD/Dokumente/Anderes/excalidash:/app/prisma
-    networks:
-      - excalidash
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://localhost:8000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    labels:
-      glance.hide: true
-
-  excalidash-frontend:
-    image: zimengxiong/excalidash-frontend:latest
-    container_name: excalidash-frontend
-    restart: unless-stopped
-    environment:
-      - BACKEND_URL=excalidash-backend:8000
-    ports:
-      - "8084:80"
-    depends_on:
-      - excalidash-backend
-    networks:
-      - cloudflared
-      - excalidash
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--quiet",
-          "--tries=1",
-          "--spider",
-          "http://127.0.0.1:80",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    labels:
-      glance.name: ExcaliDash
-      glance.icon: si:excalidraw
-      glance.url: https://draw.jkrumm.com
-      glance.hide: false
-
   dufs:
     image: sigoden/dufs:latest
     container_name: dufs
@@ -670,8 +611,6 @@ networks:
   immich:
     driver: bridge
   beszel:
-    driver: bridge
-  excalidash:
     driver: bridge
   socket-proxy:
     driver: bridge

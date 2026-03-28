@@ -285,31 +285,6 @@ groups:
             accepted_statuscodes: ["200-299"]
 
 
-      # --- ExcaliDash subgroup ---
-      - name: ExcaliDash
-        type: group
-        interval: 235
-        monitors:
-          - name: ExcaliDash Backend - Docker
-            type: docker
-            docker_container: excalidash-backend
-            interval: 170
-            timeout: 120
-            maxretries: 5
-
-          - name: ExcaliDash Frontend - Docker
-            type: docker
-            docker_container: excalidash-frontend
-            interval: 173
-            timeout: 120
-            maxretries: 5
-
-          - name: ExcaliDash - HTTP
-            type: http
-            url: https://draw.jkrumm.com/
-            interval: 176
-            cloudflare_bypass: true
-
 
   # ============================================
   # VPS (Hetzner) - hetzner-vps infrastructure

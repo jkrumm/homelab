@@ -18,10 +18,6 @@ uptime.jkrumm.com, http://uptime.jkrumm.com {
 	reverse_proxy uptime-kuma:3001
 }
 
-draw.jkrumm.com, http://draw.jkrumm.com {
-	reverse_proxy excalidash-frontend:80
-}
-
 public.jkrumm.com, http://public.jkrumm.com {
 	reverse_proxy dufs:5000
 }
