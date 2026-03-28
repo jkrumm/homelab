@@ -1,0 +1,246 @@
+branding:
+  logo-text: HomeLab
+
+theme:
+  background-color: 225 7 11
+  primary-color: 0 0 95
+  contrast-multiplier: 1
+  positive-color: 132 52 35
+  negative-color: 0 65 48
+
+pages:
+  - name: Home
+    columns:
+      - size: small
+        widgets:
+          - type: server-stats
+            servers:
+              - type: local
+                name: HomeLab
+                mountpoints:
+                  "/home/jkrumm/ssd":
+                    name: SSD
+                  "/mnt/hdd":
+                    name: HDD
+
+          - type: custom-api
+            title: Immich stats
+            cache: 1d
+            url: http://immich_server:2283/api/server/statistics
+            headers:
+              x-api-key: ${IMMICH_API_KEY}
+              Accept: application/json
+            template: |
+              <div class="flex justify-between text-center">
+                <div>
+                    <div class="color-highlight size-h3">{{ .JSON.Int "photos" | formatNumber }}</div>
+                    <div class="size-h6">PHOTOS</div>
+                </div>
+                <div>
+                    <div class="color-highlight size-h3">{{ .JSON.Int "videos" | formatNumber }}</div>
+                    <div class="size-h6">VIDEOS</div>
+                </div>
+                <div>
+                    <div class="color-highlight size-h3">{{ div (.JSON.Int "usage" | toFloat) 1073741824 | toInt | formatNumber }}GB</div>
+                    <div class="size-h6">USAGE</div>
+                </div>
+              </div>
+
+          - type: monitor
+            title: Apps
+            cache: 1m
+            sites:
+              - title: FreePlanningPoker
+                url: https://free-planning-poker.com
+                same-tab: true
+                icon: https://free-planning-poker.com/favicon.ico
+              - title: SnowFinder
+                url: https://snow-finder.jkrumm.com
+                same-tab: true
+                icon: https://snow-finder.jkrumm.com/favicon.ico
+
+#          - type: custom-api
+#            title: Uptime Kuma
+#            title-url: https://uptime.jkrumm.dev
+#            url: http://uptime-kuma:3001/api/status-page/jkrumm
+#            subrequests:
+#              heartbeats:
+#                url: http://uptime-kuma:3001/api/status-page/jkrumm
+#            cache: 10m
+#            template: |
+#              {{ $hb := .Subrequest "heartbeats" }}
+#
+#              {{ if not (.JSON.Exists "publicGroupList") }}
+#              <p class="color-negative">Error reading response</p>
+#              {{ else if eq (len (.JSON.Array "publicGroupList")) 0 }}
+#              <p>No monitors found</p>
+#              {{ else }}
+#
+#              <ul class="dynamic-columns list-gap-8">
+#                {{ range .JSON.Array "publicGroupList" }}
+#                {{ range .Array "monitorList" }}
+#                {{ $id := .String "id" }}
+#                {{ $hbArray := $hb.JSON.Array (print "heartbeatList." $id) }}
+#                {{ $latest := index $hbArray (toInt (sub ((len $hbArray) | toFloat) 1)) }}
+#                <div class="flex items-center gap-12">
+#                  <a class="size-title-dynamic color-highlight text-truncate block grow" href="https://uptime.jkrumm.dev/dashboard/{{ $id }}"
+#                    target="_blank" rel="noreferrer">
+#                    {{ .String "name" }} </a>
+#                  {{ if eq ($latest.Int "status") 1 }}
+#                  <div>{{ $latest.Int "ping" }}ms</div>
+#                  <div class="monitor-site-status-icon-compact" title="OK">
+#                    <svg fill="var(--color-positive)" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+#                      <path fill-rule="evenodd"
+#                        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z"
+#                        clip-rule="evenodd"></path>
+#                    </svg>
+#                  </div>
+#                  {{ else }}
+#                  <div><span class="color-negative">DOWN</span></div>
+#                  <div class="monitor-site-status-icon-compact" title="{{ if $latest.Exists " msg" }}{{ $latest.String "msg" }}{{ else
+#                    }}Error{{ end }}">
+#                    <svg fill="var(--color-negative)" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+#                      <path fill-rule="evenodd"
+#                        d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+#                        clip-rule="evenodd"></path>
+#                    </svg>
+#                  </div>
+#                  {{ end }}
+#                </div>
+#                {{ end }}
+#                {{ end }}
+#              </ul>
+#              {{ end }}
+
+          - type: markets
+            markets:
+              - symbol: BTC-USD
+                name: Bitcoin
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3ABTCUSD
+              - symbol: ETH-USD
+                name: Ethereum
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHUSD
+              - symbol: ETH-BTC
+                name: ETH/BTC
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=COINBASE%3AETHBTC
+              - symbol: EUNL.DE
+                name: MSCI World
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=EUNL
+              - symbol: SPY
+                name: S&P 500
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=SPX
+              - symbol: DAX
+                chart-link: https://de.tradingview.com/chart/WLhPWNaU/?symbol=DAX
+                name: DAX
+
+      - size: full
+        widgets:
+          - type: search
+            search-engine: google
+            bangs:
+              - title: YouTube
+                shortcut: "!yt"
+                url: https://www.youtube.com/results?search_query={QUERY}
+              - title: Amazon
+                shortcut: "!a"
+                url: https://www.amazon.de/s?k={QUERY}
+
+          - type: docker-containers
+            hide-by-default: true
+
+          - type: rss
+            title: News RSS
+            limit: 20
+            style: horizontal-cards
+            collapse-after: 20
+            cache: 3h
+            feeds:
+              - url: https://www.tagesschau.de/index~rss2.xml
+                title: Tagesschau
+              #              - url: https://www.spiegel.de/schlagzeilen/index.rss
+              #                title: Spiegel
+              #              - url: https://newsfeed.zeit.de/index
+              #                title: Zeit
+              - url: https://rss.sueddeutsche.de/rss/Topthemen
+                title: Süddeutsche
+
+          - type: videos
+            channels:
+              - UCswG6FSbgZjbWtdf_hMLaow # Matt Peacock
+              - UCqMJ4mBGALhW4Z9-BBxivRw # Highperformer Henning
+              - UCsBjURrPoezykLs9EqgamOA # Fireship
+              - UCfe_znKY1ukrqlGActlFmaQ # Healthy Software Developer
+              - UC2D2CMWXMOVWx7giW1n3LIg # Andrew Huberman
+              - UCGq-a57w-aPwyi3pW7XLiHw # The Diary of a Ceo
+              - UCRvqjQPSeaWn-uEx-w0XOIg # Benjamin Cowen
+              - UCSHZKyawb77ixDdsGog4iWA # Lex Fridman
+              - UCaSCt8s_4nfkRglWCvNSDrg # Code Aesthetics
+              - UCbRP3c757lWg9M-U7TyEkXA # Theo
+              - UCZgt6AzoyjslHTC9dz0UoTw # ByteByteGo
+
+          - type: group
+            widgets:
+              - type: rss
+                title: Dev RSS
+                limit: 20
+                collapse-after: 5
+                cache: 3h
+                feeds:
+                  - url: https://dev.to/feed/
+                    title: Dev.to
+              - type: hacker-news
+                limit: 20
+                collapse-after: 5
+              - type: reddit
+                limit: 20
+                collapse-after: 5
+                subreddit: selfhosted
+
+      - size: small
+        widgets:
+          - type: calendar
+
+          - type: weather
+            units: metric
+            hour-format: 24h
+            location: Munich, Germany
+
+          - type: releases
+            repositories:
+              - linuxserver/docker-[redacted]
+              - glanceapp/glance
+              - henrygd/beszel
+              - mietzen/porkbun-ddns
+              - louislam/uptime-kuma
+
+  - name: FPP Analytics
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://free-planning-poker.com/analytics
+            height: 900
+
+  - name: Status
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://status.jkrumm.com/
+            height: 900
+
+  - name: Logs
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://dozzle.jkrumm.com/
+            height: 900
+
+  - name: Infrastructure
+    columns:
+      - size: full
+        widgets:
+          - type: iframe
+            source: https://beszel.jkrumm.com/
+            height: 900
