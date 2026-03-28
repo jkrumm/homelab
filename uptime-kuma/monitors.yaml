@@ -357,8 +357,8 @@ groups:
 
       - name: FPP - DB Backup
         type: push
-        interval: 4000
-        retry_interval: 4000
+        interval: 90000    # 25h — daily cron at 03:00 UTC + buffer
+        retry_interval: 90000
 
       - name: FPP - Analytics Readmodel
         type: push
