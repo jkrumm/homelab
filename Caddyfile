@@ -26,15 +26,6 @@ public.jkrumm.com, http://public.jkrumm.com {
 	reverse_proxy dufs:5000
 }
 
-plausible.jkrumm.com, http://plausible.jkrumm.com {
-	reverse_proxy plausible:8000
-}
-
-# OTLP Ingestion endpoint (PUBLIC - for browser-based instrumentation)
-otlp.jkrumm.com, http://otlp.jkrumm.com {
-	reverse_proxy signoz-otel-collector:4318
-}
-
 ntfy.jkrumm.com, http://ntfy.jkrumm.com {
 	reverse_proxy ntfy:80
 }
@@ -81,13 +72,6 @@ books.jkrumm.com {
 	reverse_proxy calibre-web:8083
 }
 http://books.jkrumm.com {
-	redir https://{host}{uri} permanent
-}
-
-signoz.jkrumm.com {
-	reverse_proxy signoz:8080
-}
-http://signoz.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
