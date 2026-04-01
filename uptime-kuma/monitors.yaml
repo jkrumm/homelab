@@ -303,7 +303,6 @@ groups:
             type: http
             url: https://traefik.jkrumm.com/api/overview
             interval: 121
-            accepted_statuscodes: ["200-299", "403"]
 
           - name: RollHook - HTTP
             type: http
@@ -320,7 +319,6 @@ groups:
             type: http
             url: https://hyperdx.jkrumm.com
             interval: 141
-            accepted_statuscodes: ["200-299", "403"]
 
           - name: ClickStack OTel - HTTP
             type: http
