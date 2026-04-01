@@ -37,6 +37,11 @@ JELLYFIN_API_KEY=op://homelab/jellyfin/API_KEY
 JELLYFIN_URL=http://jellyfin:8096
 JELLYFIN_USER_ID=op://homelab/config/JELLYFIN_USER_ID
 
+# --- Notification URLs (contain push tokens in path) ---
+NTFY_URL=op://homelab/config/NTFY_URL
+NTFY_JELLYFIN_URL=op://homelab/config/NTFY_JELLYFIN_URL
+VPN_WATCHDOG_PUSH_URL=op://homelab/config/VPN_WATCHDOG_PUSH_URL
+
 # --- Monitoring (scripts: watchdog, sync.py, monitors.yaml) ---
 BETTERSTACK_API_KEY=op://homelab/monitoring/BETTERSTACK_API_KEY
 BETTERSTACK_TOKEN=op://homelab/monitoring/BETTERSTACK_TOKEN
