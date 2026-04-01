@@ -310,12 +310,17 @@ groups:
             interval: 131
             cloudflare_bypass: true
 
+      # --- Monitoring subgroup ---
+      - name: Monitoring
+        type: group
+        interval: 210
+        monitors:
           - name: HyperDX - HTTP
             type: http
             url: https://hyperdx.jkrumm.com
             interval: 141
 
-          - name: ClickStack OTel - Health
+          - name: ClickStack OTel - HTTP
             type: http
             url: http://${VPS_TAILSCALE_IP}:13133/
             interval: 131
