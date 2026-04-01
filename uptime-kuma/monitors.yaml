@@ -326,6 +326,11 @@ groups:
             interval: 131
             accepted_statuscodes: ["200-299"]
 
+          - name: Umami - HTTP
+            type: http
+            url: https://umami.jkrumm.com/api/heartbeat
+            interval: 60
+
       # --- Infra subgroup ---
       - name: Infra
         type: group
