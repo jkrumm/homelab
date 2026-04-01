@@ -310,6 +310,11 @@ groups:
             interval: 131
             cloudflare_bypass: true
 
+          - name: HyperDX - HTTP
+            type: http
+            url: https://hyperdx.jkrumm.com
+            interval: 141
+
       # --- Infra subgroup ---
       - name: Infra
         type: group
