@@ -41,7 +41,7 @@
 - **Version source**: https://github.com/caddyserver/caddy/releases
 - **Upgrade command**:
   ```bash
-  ssh homelab "cd ~/homelab && docker compose build caddy && doppler run -- docker compose up -d --force-recreate caddy"
+  ssh homelab "cd ~/homelab && docker compose build caddy && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy"
   ```
 - **No rollback complexity**: Caddy is stateless (config in Caddyfile, certs in caddy_data volume)
 
@@ -241,8 +241,8 @@ clickhouse        ◄──────────  SigNoz (signoz + otel-colle
 - User reviews plan
 - User backs up data
 - For registry images: User updates docker-compose.yml versions (and SHA hashes if needed)
-- For caddy: `docker compose build caddy && doppler run -- docker compose up -d --force-recreate caddy`
-- For others: `doppler run -- docker compose up -d [container]`
+- For caddy: `docker compose build caddy && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy`
+- For others: `op run --env-file=.env.tpl -- docker compose up -d [container]`
 - User verifies health for ALL affected applications
 
 ### 7. Verification

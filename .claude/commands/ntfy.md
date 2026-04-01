@@ -2,7 +2,7 @@
 
 Manage the self-hosted ntfy notification server at `ntfy.jkrumm.com`.
 
-**Auth:** All API calls use a Bearer token (`NTFY_TOKEN` from Doppler). Run API calls via HomeLab SSH so the token stays in Doppler and never appears in local shell history.
+**Auth:** All API calls use a Bearer token (`NTFY_TOKEN` from 1Password). Run API calls via HomeLab SSH so the token stays in 1Password and never appears in local shell history.
 
 ---
 
@@ -21,10 +21,10 @@ All 4 topics are reserved by `jkrumm` (topic ownership in user.db).
 
 ## Authentication Pattern
 
-Single-quote wrapping so `${NTFY_TOKEN}` expands on HomeLab after Doppler injects it:
+Single-quote wrapping so `${NTFY_TOKEN}` expands on HomeLab after 1Password injects it:
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s -H "Authorization: Bearer ${NTFY_TOKEN}" \
     "https://ntfy.jkrumm.com/homelab-watchdog/json?poll=1"
 '"'"''
@@ -37,7 +37,7 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 ### Basic publish
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s \
     -H "Authorization: Bearer ${NTFY_TOKEN}" \
     -H "Title: Test" \
@@ -73,7 +73,7 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 ### Publish with JSON body (all-in-one)
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s https://ntfy.jkrumm.com \
     -H "Authorization: Bearer ${NTFY_TOKEN}" \
     -H "Content-Type: application/json" \
@@ -88,7 +88,7 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 ### Poll cached messages for a topic
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s \
     -H "Authorization: Bearer ${NTFY_TOKEN}" \
     "https://ntfy.jkrumm.com/homelab-watchdog/json?poll=1" \
@@ -100,7 +100,7 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 
 ```bash
 # Replace UNIX_TS with e.g. $(date -d '1 hour ago' +%s)
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s -H "Authorization: Bearer ${NTFY_TOKEN}" \
     "https://ntfy.jkrumm.com/homelab-watchdog/json?poll=1&since=UNIX_TS"
 '"'"''
@@ -143,16 +143,15 @@ ssh homelab "docker exec ntfy ntfy token list jkrumm"
 
 # Add token (no expiry)
 ssh homelab "docker exec ntfy ntfy token add jkrumm --label 'label-name'"
-# → outputs: token tk_XXXXXXXX  ← copy into Doppler as NTFY_TOKEN
+# → outputs: token tk_XXXXXXXX  ← update in 1Password common/ntfy/TOKEN
 
 # Remove token
 ssh homelab "docker exec ntfy ntfy token remove jkrumm TOKEN_ID"
 ```
 
-After creating a token, store it in Doppler:
+After creating a token, update in 1Password:
 ```bash
-doppler secrets set NTFY_TOKEN=tk_XXXXX --project homelab --config prod
-doppler secrets set NTFY_TOKEN=tk_XXXXX --project vps --config prod
+op item edit ntfy --vault common "TOKEN[password]=tk_XXXXX"
 ```
 
 ---
@@ -178,7 +177,7 @@ ssh homelab "docker exec ntfy ntfy tier add \
 ssh homelab "docker exec ntfy ntfy user change-tier jkrumm homelab"
 
 # Check account limits (shows reservations_remaining etc.)
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s -H "Authorization: Bearer ${NTFY_TOKEN}" \
     https://ntfy.jkrumm.com/v1/account | python3 -m json.tool
 '"'"''
@@ -189,7 +188,7 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 Reserve a topic so it appears in the iOS/web app as "owned":
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s -X POST \
     -H "Authorization: Bearer ${NTFY_TOKEN}" \
     -H "Content-Type: application/json" \
@@ -215,7 +214,7 @@ curl -s https://ntfy.jkrumm.com/v1/health | python3 -m json.tool
 curl -s https://ntfy.jkrumm.com/v1/config | python3 -m json.tool
 
 # Restart
-ssh homelab "cd ~/homelab && doppler run -- docker compose restart ntfy"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose restart ntfy"
 
 # Disk usage (cache + user db)
 ssh homelab "du -sh /home/jkrumm/ssd/ntfy/*"
@@ -237,7 +236,7 @@ visitor-subscription-limit: 30       # per-IP anon subscription cap (auth users 
 upstream-base-url: "https://ntfy.sh" # iOS push relay via ntfy.sh APNs
 web-push-public-key: "BLi5DS2..."   # VAPID public key (in git)
 web-push-file: "/var/lib/ntfy/webpush.db"
-# Private key and email injected via NTFY_WEB_PUSH_PRIVATE_KEY / NTFY_WEB_PUSH_EMAIL_ADDRESS (Doppler)
+# Private key and email injected via NTFY_WEB_PUSH_PRIVATE_KEY / NTFY_WEB_PUSH_EMAIL_ADDRESS (1Password)
 cache-file: "/var/lib/ntfy/cache.db"
 cache-duration: "12h"
 log-level: "info"
@@ -262,7 +261,7 @@ Host port: `127.0.0.1:8093:80` — used by watchdog cron on host directly.
 3. You'll get a "403 Forbidden" — expected since `auth-default-access: deny-all`
 4. Settings (gear icon) → **Manage users** → **+** → add `https://ntfy.jkrumm.com`
    - Username: `jkrumm`
-   - Password: from Doppler `NTFY_PASSWORD`
+   - Password: from 1Password `NTFY_PASSWORD`
 5. Retry subscribing to topics — you should now see **homelab-watchdog**, **homelab-watchtower**, **vps-watchtower**, **uptime-alerts**
 
 iOS push works via ntfy.sh relay (`upstream-base-url: "https://ntfy.sh"`):
@@ -270,14 +269,14 @@ iOS push works via ntfy.sh relay (`upstream-base-url: "https://ntfy.sh"`):
 
 **Token auth in iOS app (alternative):**
 - Username: `token`
-- Password: `tk_XXXXXXXX` (value of `NTFY_TOKEN` from Doppler)
+- Password: `tk_XXXXXXXX` (value of `NTFY_TOKEN` from 1Password)
 
 ---
 
 ## Web UI / PWA
 
 Visit `https://ntfy.jkrumm.com`:
-1. Click **Log in** (top right) → username `jkrumm` + password from Doppler
+1. Click **Log in** (top right) → username `jkrumm` + password from 1Password
 2. Subscribe to topics via **+** button
 3. Install as PWA: browser address bar → **Install** button (Chrome/Edge) or Share → Add to Home Screen (Safari/iOS)
 

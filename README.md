@@ -28,22 +28,22 @@ ssh vps
 docker compose ps
 
 # Start all services
-doppler run -- docker compose up -d
+op run --env-file=.env.tpl -- docker compose up -d
 
 # Restart single service
-doppler run -- docker compose restart <service>
+op run --env-file=.env.tpl -- docker compose restart <service>
 
 # View service logs (follow)
 docker compose logs -f <service>
 
 # Rebuild after config change
-doppler run -- docker compose up -d --force-recreate <service>
+op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service>
 
 # Full restart (after docker-compose.yml changes)
-docker compose down && doppler run -- docker compose up -d
+docker compose down && op run --env-file=.env.tpl -- docker compose up -d
 
 # Pull latest images and restart
-docker compose pull && doppler run -- docker compose up -d
+docker compose pull && op run --env-file=.env.tpl -- docker compose up -d
 ```
 
 ### Git Workflow (Edit Local → Deploy Remote)
@@ -53,7 +53,7 @@ docker compose pull && doppler run -- docker compose up -d
 git add . && git commit -m "message" && git push
 
 # 2. Pull and apply on server
-ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d"
+ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d"
 ```
 
 ### System Health
@@ -112,13 +112,13 @@ ssh homelab "docker inspect <container> | grep -A 20 NetworkSettings"
 # NOTE: sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
 
 # Preview changes (dry run)
-ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
 
 # Apply changes
-ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
 
 # Export current monitors to YAML
-ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
 ```
 
 ### SigNoz (Observability)
@@ -177,7 +177,7 @@ All topics are reserved by `jkrumm` on the server (50-slot `homelab` tier).
 
 1. **Reserve it** (ensures it appears as owned in iOS/web apps):
    ```bash
-   ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+   ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
      curl -s -X POST \
        -H "Authorization: Bearer ${NTFY_TOKEN}" \
        -H "Content-Type: application/json" \
@@ -195,7 +195,7 @@ All topics are reserved by `jkrumm` on the server (50-slot `homelab` tier).
 #### Quick Publish / Test
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s \
     -H "Authorization: Bearer ${NTFY_TOKEN}" \
     -H "Title: Test" \
@@ -207,7 +207,7 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 
 #### Web / iOS Access
 
-- **Web UI / PWA:** https://ntfy.jkrumm.com → Log in as `jkrumm` (password in Doppler `NTFY_PASSWORD`)
+- **Web UI / PWA:** https://ntfy.jkrumm.com → Log in as `jkrumm` (password in 1Password `NTFY_PASSWORD`)
 - **iOS app:** Settings → Manage Users → add `https://ntfy.jkrumm.com` with `jkrumm` + `NTFY_PASSWORD`
 - **iOS push relay:** via `ntfy.sh` APNs — notifications arrive even when the app is closed
 
@@ -242,30 +242,30 @@ ssh homelab "tail -f /mnt/hdd/backups/backup.log"
 ssh homelab "ls -la /mnt/hdd/backups/fpp.sql"
 ```
 
-### Doppler Secrets
+### 1Password Secrets
 
 ```bash
 # View all secrets
-doppler secrets
+op item list --vault homelab
 
 # Get specific secret
-doppler secrets get CLOUDFLARE_TOKEN
+op item list --vault homelab get CLOUDFLARE_TOKEN
 
 # Run command with secrets
-doppler run -- env | grep POSTGRES
+op run --env-file=.env.tpl -- env | grep POSTGRES
 ```
 
 ### Emergency Commands
 
 ```bash
 # Restart all Docker services
-ssh homelab "cd ~/homelab && docker compose down && doppler run -- docker compose up -d"
+ssh homelab "cd ~/homelab && docker compose down && op run --env-file=.env.tpl -- docker compose up -d"
 
 # Clear watchdog and resume auto-recovery
 ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required && echo 0 | sudo tee /var/lib/homelab_watchdog/state"
 
 # Force container recreation
-ssh homelab "cd ~/homelab && doppler run -- docker compose up -d --force-recreate"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d --force-recreate"
 
 # Aggressive Docker cleanup (careful!)
 ssh homelab "docker system prune -af"
@@ -286,7 +286,7 @@ ssh homelab "docker system prune -af"
     - [SigNoz (Observability)](#signoz-observability)
     - [HDD Diagnostics](#hdd-diagnostics)
     - [Database Backup](#database-backup)
-    - [Doppler Secrets](#doppler-secrets)
+    - [1Password Secrets](#1password-secrets)
     - [Emergency Commands](#emergency-commands)
 2. [Infrastructure Overview](#infrastructure-overview)
     - [Service Access Cheatsheet](#service-access-cheatsheet)
@@ -295,12 +295,12 @@ ssh homelab "docker system prune -af"
 5. [Docker Socket Security](#docker-socket-security)
 6. [Tailscale + Caddy Migration](#tailscale--caddy-migration)
 7. [TODOs](#todos)
-8. [Doppler Secrets](#doppler-secrets-1)
+8. [1Password Secrets](#1password-secrets-1)
 10. [Setup Guide](#setup-guide)
     - [Install Ubuntu Server](#install-ubuntu-server)
     - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
     - [Connect to the Server](#connect-to-the-server)
-    - [Configure Doppler](#configure-doppler)
+    - [Configure 1Password CLI](#configure-1password-cli)
 11. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
 12. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
 13. [File Access](#file-access)
@@ -573,7 +573,7 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 
 All services are routed through **Caddy** (custom build with `caddy-dns/cloudflare` plugin). The `Caddyfile` is the single source of truth for routing. See [Service Access Cheatsheet](#service-access-cheatsheet) above for the full list of services and how to access them.
 
-## Doppler Secrets
+## 1Password Secrets
 
 The following secrets are required to run the HomeLab:
 
@@ -667,36 +667,25 @@ command printed at the end of the script.
    - Configure DNS records to point to the tunnel
    - Set up service routing for each subdomain to the appropriate local ports
 
-2. Add the tunnel token to your Doppler secrets as `CLOUDFLARE_TOKEN`
+2. The tunnel token is stored in 1Password (`homelab/cloudflare-tunnel/TOKEN`)
 
 3. The docker-compose.yml includes the cloudflared service which will automatically connect using the token
 
-### Configure Doppler
+### Configure 1Password CLI
 
-1. [Install Doppler CLI](https://docs.doppler.com/docs/install-cli)
-2. Verify the installation:
+1. Install 1Password CLI (`op`) — see `setup.sh` for automated installation
+2. Set the service account token:
 
    ```bash
-   doppler --version
+   # Add to ~/.bashrc
+   export OP_SERVICE_ACCOUNT_TOKEN="<token>"
    ```
 
-3. Authenticate with Doppler:
+3. Verify access:
 
    ```bash
-   doppler login
-   ```
-
-4. Set the Doppler project:
-
-   ```bash
-   doppler setup
-   ```
-
-5. Print the Doppler configuration and verify all secrets above are set:
-
-   ```bash
-   doppler configs
-   doppler secrets
+   op vault list
+   op item list --vault homelab
    ```
 
 ## Reusing an Existing Encrypted HDD
@@ -939,7 +928,7 @@ Filebrowser provides a modern web interface for file management and is accessibl
 
 2. Start the container:
    ```bash
-   doppler run -- docker compose up -d filebrowser
+   op run --env-file=.env.tpl -- docker compose up -d filebrowser
    ```
 
    Filebrowser will automatically create `filebrowser.db` and `settings.json` files in `/mnt/hdd/filebrowser/`.
@@ -970,7 +959,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    - **Direct** (preferred): Finder → `Cmd+K` → `smb://samba.jkrumm.com`
    - **SSH tunnel** (fallback): `ssh -L 1445:localhost:445 homelab` → `smb://localhost:1445`
    - Username: jkrumm
-   - Password: Available in 1Password and Doppler secrets
+   - Password: Available in 1Password and 1Password secrets
    - DNS: `samba.jkrumm.com` → `<tailscale-ip-homelab>` (Tailscale IP, DNS-only/grey cloud)
    - Samba ports (139, 445) restricted to Tailscale CGNAT range via UFW
 
@@ -992,7 +981,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 3. Access the Beszel server using the following credentials:
     - Host: `https://beszel.jkrumm.com`
     - Username: jkrumm
-    - Password: You can find the secret in 1Password and Doppler
+    - Password: You can find the secret in 1Password and 1Password
 
 ## Setup UptimeKuma
 
@@ -1043,7 +1032,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    docker compose stop uptime-kuma
    sudo rsync -av /mnt/hdd/uptimekuma/ /home/jkrumm/ssd/uptime-kuma/
    sudo chown -R 1000:1000 /home/jkrumm/ssd/uptime-kuma
-   doppler run -- docker compose up -d uptime-kuma
+   op run --env-file=.env.tpl -- docker compose up -d uptime-kuma
    ```
 
 7. **Database maintenance (optional):**
@@ -1051,7 +1040,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    docker compose stop uptime-kuma
    sqlite3 /home/jkrumm/ssd/uptime-kuma/kuma.db "PRAGMA optimize;"
    sqlite3 /home/jkrumm/ssd/uptime-kuma/kuma.db "VACUUM;"
-   doppler run -- docker compose up -d uptime-kuma
+   op run --env-file=.env.tpl -- docker compose up -d uptime-kuma
    ```
 
 8. **Diagnostic tools:**
@@ -1072,13 +1061,13 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    **Must run ON THE HOMELAB SERVER** — connects to localhost:3010. Never run locally or on VPS.
    ```bash
    # Preview changes (dry run)
-   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
+   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
 
    # Apply changes
-   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
+   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
 
    # Export current monitors to YAML
-   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
+   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
    ```
 
    **Setup (first time only):**
@@ -1088,7 +1077,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    uptime-kuma/.venv/bin/pip install -r uptime-kuma/requirements.txt
    ```
 
-   **Required Doppler secrets:**
+   **Required 1Password secrets:**
    - `UPTIME_KUMA_PASSWORD` - Admin password
 
    **Workflow:** Edit `monitors.yaml` → commit → push → run sync on homelab
@@ -1172,7 +1161,7 @@ Add a new service to `docker-compose.yml`:
 
 Then restart Docker Compose to apply:
 ```bash
-doppler run -- docker compose up -d
+op run --env-file=.env.tpl -- docker compose up -d
 ```
 
 ## Setup Duplicati
@@ -1196,7 +1185,7 @@ doppler run -- docker compose up -d
 
     - Host: `https://duplicati.jkrumm.com`
     - Username: jkrumm
-    - Password: You can find the secret in 1Password and Doppler
+    - Password: You can find the secret in 1Password and 1Password
 
 4. Backups I run with Duplicati:
     - SSD
@@ -1726,7 +1715,7 @@ To enable acceleration in future, replace the stub files with the appropriate de
 
 ### Initial Setup
 
-1. Make sure the POSTGRES_DB_PASSWORD is set in Doppler
+1. Make sure the POSTGRES_DB_PASSWORD is set in 1Password
 
 2. **First-time setup or after PostgreSQL upgrade:** Clear the PostgreSQL data directory:
 
@@ -1738,7 +1727,7 @@ To enable acceleration in future, replace the stub files with the appropriate de
 3. Start the Immich services using Docker Compose:
 
    ```bash
-   doppler run -- docker compose up -d immich-server immich-machine-learning immich_redis immich_postgres
+   op run --env-file=.env.tpl -- docker compose up -d immich-server immich-machine-learning immich_redis immich_postgres
    ```
 
 4. Access Immich at `https://immich.jkrumm.com`
@@ -1801,7 +1790,7 @@ To enable acceleration in future, replace the stub files with the appropriate de
 
 2. Start the containers:
    ```bash
-   doppler run -- docker compose up -d excalidash-backend excalidash-frontend
+   op run --env-file=.env.tpl -- docker compose up -d excalidash-backend excalidash-frontend
    ```
 
 3. Access ExcaliDash at `https://draw.jkrumm.com`
@@ -1841,11 +1830,11 @@ To enable acceleration in future, replace the stub files with the appropriate de
    mkdir -p /home/jkrumm/ssd/SSD/Public/assets
    ```
 
-2. Add the `DUFS_PASSWORD` secret to Doppler
+2. Add the `DUFS_PASSWORD` secret to 1Password (`homelab/dufs/PASSWORD`)
 
 3. Start the container:
    ```bash
-   doppler run -- docker compose up -d dufs
+   op run --env-file=.env.tpl -- docker compose up -d dufs
    ```
 
 4. Access at `https://public.jkrumm.com`
@@ -1914,7 +1903,7 @@ Caddy handles path-based routing with `handle_path` (strips prefix before proxyi
 
 - CouchDB service already running (see `docker-compose.yml`)
 - iGPU drivers installed (shared with Immich)
-- `OBSIDIAN_GUI_PASSWORD` and `COUCHDB_PASSWORD` in Doppler
+- `OBSIDIAN_GUI_PASSWORD` and `COUCHDB_PASSWORD` in 1Password
 
 ### Initial Setup
 
@@ -1925,10 +1914,10 @@ Caddy handles path-based routing with `handle_path` (strips prefix before proxyi
 
 2. Start the container:
    ```bash
-   doppler run -- docker compose up -d obsidian
+   op run --env-file=.env.tpl -- docker compose up -d obsidian
    ```
 
-3. Access at `https://obsidian.jkrumm.com` — KasmVNC login (user: `jkrumm`, password from Doppler)
+3. Access at `https://obsidian.jkrumm.com` — KasmVNC login (user: `jkrumm`, password from 1Password)
 
 4. Create vault at: Computer → config → vault (maps to `/config/vault`, persisted on SSD)
 
@@ -1938,7 +1927,7 @@ Caddy handles path-based routing with `handle_path` (strips prefix before proxyi
 
 - **CouchDB URI:** `http://couchdb:5984` (internal Docker DNS, no TLS needed)
 - **Username:** `jkrumm`
-- **Password:** COUCHDB_PASSWORD from Doppler
+- **Password:** COUCHDB_PASSWORD from 1Password
 - **Database:** `obsidian` (auto-created by plugin)
 
 #### Local REST API

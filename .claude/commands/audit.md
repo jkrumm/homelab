@@ -130,7 +130,7 @@ Compare the two container lists. Also extract the CF tunnel hostnames from the c
 1. Edit `uptime-kuma/monitors.yaml` locally on MacBook (add missing entries)
 2. Add `container_name:` to docker-compose.yml for affected service
 3. Commit and push: `git push`
-4. Apply on server: `ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d --force-recreate <service> && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"`
+4. Apply on server: `ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service> && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"`
 5. Verify new monitors appear in UptimeKuma and configure Pushover notifications for them in the UptimeKuma UI if not already applied globally
 
 ---
@@ -183,17 +183,17 @@ For each CRITICAL and WARN finding in the Recommendations section, propose the f
 
 | Finding | Proposed Fix |
 |-|-|
-| Container not running | `ssh homelab "cd ~/homelab && doppler run -- docker compose up -d <name>"` |
-| Container restart count >3 | Show `docker logs <name> --tail=20`, offer `doppler run -- docker compose restart <name>` |
+| Container not running | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d <name>"` |
+| Container restart count >3 | Show `docker logs <name> --tail=20`, offer `op run --env-file=.env.tpl -- docker compose restart <name>` |
 | Watchdog escalation level 1-2 | Show recent log, offer `ssh homelab "echo 0 | sudo tee /var/lib/homelab_watchdog/state"` |
 | `manual_intervention_required` present | Offer `ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"` |
-| Cloudflared errors | `ssh homelab "cd ~/homelab && doppler run -- docker compose up -d cloudflared"` |
+| Cloudflared errors | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d cloudflared"` |
 | Tailscale down | `ssh homelab "sudo systemctl restart tailscaled"` |
 | Docker image bloat >20GB | `ssh homelab "docker image prune -f"` (dangling only — safe) |
 | Apt security updates available | `ssh homelab "sudo apt upgrade -y --only-upgrade"` |
 | `/mnt/hdd` not mounted | Report mount failure + provide recovery hint (no auto-fix — LUKS encrypted, requires manual unlock) |
 | Disk >95% full | Report + suggest `docker system prune` — do NOT auto-run, show command for user to confirm |
-| Missing UptimeKuma monitor | Edit monitors.yaml locally, add `container_name:` to docker-compose.yml if needed, commit + push, then `ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d --force-recreate <service> && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` |
+| Missing UptimeKuma monitor | Edit monitors.yaml locally, add `container_name:` to docker-compose.yml if needed, commit + push, then `ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service> && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` |
 
 **After each repair:** Re-run the relevant phase command to verify the fix worked before moving to the next issue.
 

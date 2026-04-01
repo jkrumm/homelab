@@ -17,7 +17,7 @@
 | Tailscale CLI | `/Applications/Tailscale.app/Contents/MacOS/Tailscale` - mesh VPN management |
 | Cloudflare CLI | DNS and tunnel management |
 | Zed | SSH remote development (supports `Open Remote` with SSH hosts) |
-| Doppler CLI | Secrets management |
+| 1Password CLI (`op`) | Secrets management via `op run --env-file=.env.tpl` |
 
 ---
 
@@ -114,7 +114,7 @@ ssh -L 1445:localhost:445 homelab
 ssh homelab "docker compose ps"
 
 # Multi-command execution
-ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d"
+ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d"
 
 # Interactive session (when needed for debugging)
 ssh -t homelab "docker logs -f <service>"
@@ -122,46 +122,47 @@ ssh -t homelab "docker logs -f <service>"
 
 ---
 
-## Secrets Management (Doppler)
+## Secrets Management (1Password)
 
-**Project:** `homelab` | **Config:** `prod`
+**Vaults:** `common` (cross-server), `homelab` (server-specific)
+**Pattern:** `op run --env-file=.env.tpl -- <command>`
+**Template:** `.env.tpl` committed to git — contains only `op://` references, never actual values
 
 ### Key Secrets
 
-| Secret | Purpose |
-|--------|---------|
-| `CLOUDFLARE_TOKEN` | Cloudflare tunnel authentication |
-| `CLOUDFLARE_API_TOKEN` | DDNS + Caddy DNS-01 ACME challenge |
-| `POSTGRES_DB_PASSWORD` | Immich PostgreSQL |
-| `SAMBA_PASSWORD` | Samba file share auth |
-| `CALIBRE_PASSWORD` | Calibre GUI access |
-| `DUPLICATI_*` | Duplicati backup encryption |
-| `DUFS_PASSWORD` | Public file server auth |
-| `IMMICH_API_KEY` | Immich API for Glance widget |
-| `COUCHDB_PASSWORD` | CouchDB admin password |
-| `NTFY_TOKEN` | ntfy Bearer token (shared across HomeLab watchdog, Watchtower notifications) |
-| `NTFY_PASSWORD` | ntfy jkrumm user password (iOS app + web UI login) |
-| `NTFY_WEB_PUSH_PRIVATE_KEY` | VAPID private key for Web Push PWA notifications |
-| `NTFY_WEB_PUSH_EMAIL_ADDRESS` | VAPID contact email for Web Push |
+| 1Password Path | Purpose |
+|-|-|
+| `common/cloudflare/DNS_API_TOKEN` | Caddy DNS-01 ACME challenge |
+| `homelab/cloudflare-tunnel/TOKEN` | Cloudflare tunnel authentication |
+| `homelab/postgres/PASSWORD` | Immich PostgreSQL |
+| `homelab/samba/PASSWORD` | Samba file share auth |
+| `homelab/calibre/PASSWORD` | Calibre GUI access |
+| `homelab/duplicati/*` | Duplicati backup encryption |
+| `homelab/dufs/PASSWORD` | Public file server auth |
+| `homelab/immich/API_KEY` | Immich API for Glance widget |
+| `homelab/couchdb/PASSWORD` | CouchDB admin password |
+| `common/ntfy/TOKEN` | ntfy Bearer token (watchdog, Watchtower) |
+| `common/ntfy/WEB_PUSH_PRIVATE_KEY` | VAPID private key for Web Push |
 
-### Essential Doppler Commands
+### Essential Commands
 
 ```bash
 # Run docker compose with secrets
-doppler run -- docker compose up -d
+op run --env-file=.env.tpl -- docker compose up -d
 
-# View specific secret
-doppler secrets get CLOUDFLARE_TOKEN
+# Read a specific secret
+op read "op://homelab/postgres/PASSWORD"
 
 # Run any command with secrets
-doppler run -- env | grep POSTGRES
+op run --env-file=.env.tpl -- env | grep POSTGRES
 ```
 
 ### Security Rules
 
-- **NEVER** commit secrets or `.env` files
+- **NEVER** commit secrets or `.env` files with actual values
 - **NEVER** log or echo secret values
-- All secrets injected at runtime via Doppler
+- All secrets injected at runtime via `op run --env-file=.env.tpl`
+- Server auth: `OP_SERVICE_ACCOUNT_TOKEN` is the only secret on disk
 
 ---
 
@@ -169,11 +170,11 @@ doppler run -- env | grep POSTGRES
 
 ### Essential Commands
 
-All commands must be run from `~/homelab` directory with Doppler prefix:
+All commands must be run from `~/homelab` directory with op prefix:
 
 ```bash
 # Start all services
-doppler run -- docker compose up -d
+op run --env-file=.env.tpl -- docker compose up -d
 
 # View running containers
 docker compose ps
@@ -182,16 +183,16 @@ docker compose ps
 docker compose logs -f <service>
 
 # Restart single service
-doppler run -- docker compose restart <service>
+op run --env-file=.env.tpl -- docker compose restart <service>
 
 # Rebuild and restart service (after config change)
-doppler run -- docker compose up -d --force-recreate <service>
+op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service>
 
 # Pull latest images and restart
-docker compose pull && doppler run -- docker compose up -d
+docker compose pull && op run --env-file=.env.tpl -- docker compose up -d
 
 # Full rebuild (after docker-compose.yml changes)
-docker compose down && doppler run -- docker compose up -d
+docker compose down && op run --env-file=.env.tpl -- docker compose up -d
 ```
 
 ### Service Dependencies (Start Order)
@@ -353,7 +354,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 homelab/
 ├── docker-compose.yml       # Service orchestration (all 28 containers)
 ├── Caddyfile                # Reverse proxy routing (public + private)
-├── doppler.yaml             # Secrets project config
+├── .env.tpl                 # 1Password secret references (op:// URIs)
 ├── setup.sh                 # Initial server setup (idempotent)
 ├── scripts/                 # Operational scripts
 │   ├── homelab_watchdog.sh  # Self-healing health monitor (cron)
@@ -398,16 +399,16 @@ Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script
 
 ```bash
 # Preview changes (dry run)
-ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
 
 # Apply changes (public monitors only)
-ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
 
 # Apply changes (public + private monitors merged)
-ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
 
 # Export current monitors to YAML
-ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
 ```
 
 ### HDD Diagnostics
@@ -503,7 +504,7 @@ vim docker-compose.yml
 git push
 
 # 4. Pull and apply on server
-ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d"
+ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d"
 
 # 4b. For services with local builds (caddy): MUST rebuild image first
 ```
@@ -585,7 +586,7 @@ Services with JSON file logging and rotation configured:
 
 - **Read before modify:** Check current state before making changes
 - **Confirm destructive operations:** Ask before `docker compose down`, reboots, or data deletion
-- **Use Doppler prefix:** All docker compose commands need `doppler run --`
+- **Use op prefix:** All docker compose commands need `op run --env-file=.env.tpl --`
 - **Test incrementally:** Apply changes one service at a time when possible
 - **Verify after changes:** Check service health after any modification
 - **Reference README.md:** For detailed setup procedures, not this file
@@ -640,10 +641,10 @@ When making changes that affect infrastructure or script behavior:
 | Command | Purpose |
 |---------|---------|
 | `docker compose ps` | View all services |
-| `doppler run -- docker compose up -d` | Start all services |
-| `doppler run -- docker compose restart <service>` | Restart single service |
+| `op run --env-file=.env.tpl -- docker compose up -d` | Start all services |
+| `op run --env-file=.env.tpl -- docker compose restart <service>` | Restart single service |
 | `docker compose logs -f <service>` | View service logs |
-| `doppler run -- docker compose up -d --force-recreate <service>` | Rebuild after config change |
+| `op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service>` | Rebuild after config change |
 
 ### System Health
 
@@ -681,10 +682,10 @@ When making changes that affect infrastructure or script behavior:
 
 | Command | Purpose |
 |---------|---------|
-| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"` | Preview changes |
-| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` | Apply (public only) |
-| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"` | Apply (public + private) |
-| `ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"` | Export to YAML |
+| `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"` | Preview changes |
+| `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` | Apply (public only) |
+| `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"` | Apply (public + private) |
+| `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"` | Export to YAML |
 
 ### SigNoz (Observability)
 
@@ -712,20 +713,20 @@ When making changes that affect infrastructure or script behavior:
 git add . && git commit -m "message" && git push
 
 # 2. Pull and apply on server
-ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d"
+ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d"
 ```
 
 ### Emergency Commands
 
 ```bash
 # Restart all Docker services
-ssh homelab "cd ~/homelab && docker compose down && doppler run -- docker compose up -d"
+ssh homelab "cd ~/homelab && docker compose down && op run --env-file=.env.tpl -- docker compose up -d"
 
 # Clear watchdog and resume auto-recovery
 ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required && echo 0 | sudo tee /var/lib/homelab_watchdog/state"
 
 # Force container recreation
-ssh homelab "cd ~/homelab && doppler run -- docker compose up -d --force-recreate"
+ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d --force-recreate"
 
 # Aggressive Docker cleanup (careful!)
 ssh homelab "docker system prune -af"

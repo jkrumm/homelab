@@ -16,7 +16,7 @@ readonly STATE_DIR="/var/lib/${SCRIPT_NAME}"
 readonly STATE_FILE="${STATE_DIR}/state"
 readonly LOG_FILE="/var/log/${SCRIPT_NAME}.log"
 readonly QUEUE_FILE="${STATE_DIR}/ntfy_queue"
-readonly CREDS_FILE="/root/.homelab-watchdog-credentials"
+readonly ENV_TPL="/home/jkrumm/homelab/.env.tpl"
 
 # Network and service configuration
 readonly HOMELAB_DIR="/home/jkrumm/homelab"
@@ -68,37 +68,26 @@ declare -g _CRED_NTFY_TOKEN=""
 declare -g _CRED_UPTIME_KUMA=""
 
 load_credentials() {
-    if [[ ! -f "$CREDS_FILE" ]]; then
-        log "ERROR: Credentials file missing: $CREDS_FILE"
+    if ! command -v op &>/dev/null; then
+        log "ERROR: op CLI not found"
         exit 1
     fi
 
-    # Check file permissions (should be 600)
-    local perms
-    perms=$(stat -c "%a" "$CREDS_FILE")
-    if [[ "$perms" != "600" ]]; then
-        log "WARNING: Credentials file has incorrect permissions: $perms (should be 600)"
+    if ! op whoami &>/dev/null; then
+        log "ERROR: OP_SERVICE_ACCOUNT_TOKEN not set or invalid"
+        exit 1
     fi
 
-    # shellcheck source=/dev/null
-    source "$CREDS_FILE"
+    # Read secrets from 1Password (not exported to child processes)
+    _CRED_BETTERSTACK="$(op read 'op://homelab/monitoring/BETTERSTACK_TOKEN')"
+    _CRED_NTFY_TOKEN="$(op read 'op://common/ntfy/TOKEN')"
+    _CRED_UPTIME_KUMA="$(op read 'op://homelab/uptime-kuma/PUSH_TOKEN' 2>/dev/null || echo '')"
 
-    # Validate required variables (Fritz credentials removed - not at our location)
-    local required_vars=("BETTERSTACK_TOKEN" "NTFY_TOKEN")
-    for var in "${required_vars[@]}"; do
-        if [[ -z "${!var:-}" ]]; then
-            log "ERROR: Missing required variable: $var"
-            exit 1
-        fi
-    done
-
-    # Copy to internal variables (not exported, reduces /proc/environ exposure)
-    _CRED_BETTERSTACK="$BETTERSTACK_TOKEN"
-    _CRED_NTFY_TOKEN="$NTFY_TOKEN"
-    _CRED_UPTIME_KUMA="${UPTIME_KUMA_PUSH_TOKEN:-}"
-
-    # Unset original sourced variables to reduce environment exposure
-    unset BETTERSTACK_TOKEN NTFY_TOKEN UPTIME_KUMA_PUSH_TOKEN
+    # Validate required variables
+    if [[ -z "$_CRED_BETTERSTACK" || -z "$_CRED_NTFY_TOKEN" ]]; then
+        log "ERROR: Failed to read required secrets from 1Password"
+        exit 1
+    fi
 }
 
 # --------------------------------------------------
@@ -665,8 +654,8 @@ restore_vpn_stack() {
     log "Restoring homelab-private VPN stack after Docker restart..."
     notify "🔄 VPN Restore" "Docker was restarted — restoring VPN stack via vpn-cycle.sh"
 
-    # vpn-cycle.sh sources lib.sh which sets $DC="doppler run ... docker compose"
-    # — no outer Doppler wrapper needed (avoids double-wrapping + latency)
+    # vpn-cycle.sh sources lib.sh which sets $DC="op run ... docker compose"
+    # — no outer op wrapper needed (avoids double-wrapping + latency)
     if timeout 300 bash "$HOMELAB_PRIVATE_VPN_CYCLE"; then
         log "✅ VPN stack restored successfully"
         notify "✅ VPN Restored" "homelab-private VPN stack back online after Docker restart"
@@ -685,7 +674,7 @@ restart_docker_services() {
         sleep "$DOCKER_RESTART_WAIT"
 
         # Start docker-compose services
-        if cd "$HOMELAB_DIR" && doppler run -- docker compose up -d; then
+        if cd "$HOMELAB_DIR" && op run --env-file="$ENV_TPL" -- docker compose up -d; then
             local compose_exit_code=$?
 
             # Check if docker compose succeeded
@@ -830,7 +819,7 @@ force_docker_cleanup() {
     sleep "$DOCKER_RESTART_WAIT"
 
     # Restart services
-    if cd "$HOMELAB_DIR" && docker compose down && doppler run -- docker compose up -d; then
+    if cd "$HOMELAB_DIR" && docker compose down && op run --env-file="$ENV_TPL" -- docker compose up -d; then
         log "Docker services restarted after cleanup, waiting for stabilization..."
         sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
 

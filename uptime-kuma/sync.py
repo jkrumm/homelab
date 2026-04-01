@@ -11,18 +11,18 @@ Do NOT run locally or on the VPS.
 
 Usage (from ~/homelab on homelab):
     # Dry run (show what would change)
-    doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run
+    op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run
 
     # Sync monitors
-    doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py
+    op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py
 
     # Export current monitors to YAML
-    doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export
+    op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export
 
 Requirements:
     pip install uptime-kuma-api pyyaml
 
-Environment variables (via Doppler):
+Environment variables (via 1Password):
     UPTIME_KUMA_PASSWORD: Admin password (required)
 
 Hardcoded defaults (homelab-specific):

@@ -227,7 +227,7 @@ volumes:
 ### 3d. Deploy and test
 
 ```bash
-ssh jkrumm@homelab.jkrumm.com "cd ~/homelab && git pull && doppler run -- docker compose up -d caddy"
+ssh jkrumm@homelab.jkrumm.com "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d caddy"
 ```
 
 Test from MacBook: `curl -v https://glance.jkrumm.com:443` (via Tailscale IP, verify cert is valid).
@@ -333,7 +333,7 @@ Add `caddy` to cloudflared's dependency list:
 ### 4e. Deploy and verify
 
 ```bash
-ssh jkrumm@homelab.jkrumm.com "cd ~/homelab && git pull && doppler run -- docker compose up -d"
+ssh jkrumm@homelab.jkrumm.com "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d"
 ```
 
 Verify all public services still work via `*.jkrumm.com` (through Cloudflare).
@@ -448,9 +448,9 @@ MariaDB on port `33306` must stay open - the FPP Next.js app on Vercel connects 
 
 Same pattern: route VPS tunnel hostnames to `http://caddy:80`.
 
-### 6d. Add CLOUDFLARE_API_TOKEN to VPS Doppler
+### 6d. Add CLOUDFLARE_API_TOKEN to VPS 1Password
 
-Add the token to VPS Doppler config if not already there.
+Add the token to VPS 1Password config if not already there.
 
 ---
 
@@ -467,8 +467,8 @@ DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007  # public VPS IP
 
 **Docker DNS caveat:** Dozzle runs on a Docker bridge network and cannot resolve MagicDNS names (`vps.dinosaur-sole.ts.net`) because Docker uses its own DNS resolver. Two options:
 
-**Option A (recommended): Use raw Tailscale IP in Doppler:**
-Replace `SIDEPROJECT_DOCKER_STACK_IP` in Doppler with the VPS Tailscale IP (`100.x.y.z`). No docker-compose change needed - the env var already works.
+**Option A (recommended): Use raw Tailscale IP in 1Password:**
+Replace `SIDEPROJECT_DOCKER_STACK_IP` in 1Password with the VPS Tailscale IP (`100.x.y.z`). No docker-compose change needed - the env var already works.
 
 **Option B: Add MagicDNS to Dozzle container:**
 ```yaml
@@ -593,7 +593,7 @@ Document the plan, decisions, and step-by-step migration journey:
 - Private services: `https://beszel.jkrumm.com` (Tailscale) instead of public Cloudflare URL
 - Public services: still `*.jkrumm.com` via Cloudflare, but now routed through Caddy
 - Caddyfile: document as config-as-code routing reference
-- Workflow: Edit directly on server via Zed → commit → `doppler run -- docker compose up -d`
+- Workflow: Edit directly on server via Zed → commit → `op run --env-file=.env.tpl -- docker compose up -d`
 - No more "edit locally, push, pull on server" pattern
 - Samba tunnel: `ssh -L 1445:localhost:445 homelab` (simpler, no jump host needed)
 - Service table updated with access method (Cloudflare vs Tailscale) for each service
@@ -619,7 +619,7 @@ Document the plan, decisions, and step-by-step migration journey:
 | `~/.ssh/config` | MacBook | Create with Tailscale hostnames |
 | `~/.zshrc` | MacBook | Update aliases |
 
-## New Doppler Secrets
+## New 1Password Secrets
 
 | Secret | Machine | Purpose |
 |--------|---------|---------|
@@ -665,7 +665,7 @@ After each phase, verify before moving to the next:
 - [x] Custom Caddy with CF DNS plugin built on VPS (ARM64)
 - [x] All 6 TLS certs obtained via DNS-01 challenge
 - [x] All VPS tunnel routes updated to `http://caddy:80`
-- [x] `CLOUDFLARE_API_TOKEN` added to VPS Doppler
+- [x] `CLOUDFLARE_API_TOKEN` added to VPS 1Password
 - [x] VPS services accessible via Cloudflare tunnel → Caddy
 - [x] VPS services accessible via Tailscale HTTPS directly
 - [x] cloudflared depends_on cleaned (just caddy)
@@ -741,7 +741,7 @@ SSH rule removed. Emergency access via Hetzner web console.
 **Package upgrades:**
 - Kernel: 5.15.0-102 → 5.15.0-168 (rebooted after 657 days)
 - Docker 29.2.1, containerd 2.2.1, runc 1.3.4, Compose 5.0.2
-- Tailscale 1.94.1, Doppler 3.75.2
+- Tailscale 1.94.1, 1Password 3.75.2
 
 **Docker Compose hardening:**
 - `security_opt: [no-new-privileges:true]` on all containers (except beszel-agent: network_mode host)

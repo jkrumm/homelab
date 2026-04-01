@@ -6,17 +6,14 @@
 # Run as root on a fresh Ubuntu 24.04 server.
 # Safe to re-run: idempotent checks for all components.
 #
-# Installs: Docker, Tailscale, Doppler, git, jq, fail2ban
+# Installs: Docker, Tailscale, 1Password CLI, git, jq, fail2ban
 # Configures: UFW (Tailscale-aware), SSH hardening, sysctl,
 #             unattended-upgrades, watchdog cron, log rotation
 #
 # After this script completes, manually:
 #   1. tailscale up --ssh --advertise-tags=tag:homelab
-#   2. doppler login && doppler setup  (as jkrumm)
-#   3. Create /root/.homelab-watchdog-credentials with:
-#      PUSHOVER_USER_KEY, PUSHOVER_API_TOKEN,
-#      BETTERSTACK_API_KEY, UPTIME_KUMA_PUSH_TOKEN
-#   4. cd ~/homelab && doppler run -- docker compose up -d
+#   2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/jkrumm/.bashrc
+#   3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d
 # --------------------------------------------------
 
 set -euo pipefail
@@ -77,23 +74,20 @@ else
 fi
 
 # --------------------------------------------------
-# Doppler CLI
+# 1Password CLI
 # --------------------------------------------------
-if ! command -v doppler &>/dev/null; then
-  echo "=== Installing Doppler CLI ==="
-  apt-get install -y apt-transport-https ca-certificates gnupg
-  curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
-    'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' \
-    | gpg --dearmor --yes -o /usr/share/keyrings/doppler-archive-keyring.gpg
-  echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" \
-    | tee /etc/apt/sources.list.d/doppler-cli.list
-  apt-get update && apt-get install -y doppler
+if ! command -v op &>/dev/null; then
+  echo "=== Installing 1Password CLI ==="
+  curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+    gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+    tee /etc/apt/sources.list.d/1password.list
+  apt-get update && apt-get install -y 1password-cli
   echo ""
-  echo ">>> Doppler installed. After this script completes, run as $USERNAME:"
-  echo ">>>   doppler login && doppler setup"
+  echo ">>> 1Password CLI installed. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
   echo ""
 else
-  echo "Doppler is already installed: $(doppler --version)"
+  echo "1Password CLI is already installed: $(op --version)"
 fi
 
 # --------------------------------------------------
@@ -291,8 +285,8 @@ docker compose version 2>/dev/null || echo "NOT INSTALLED"
 echo -n "Tailscale: "
 tailscale version 2>/dev/null || echo "NOT INSTALLED"
 
-echo -n "Doppler: "
-doppler --version 2>/dev/null || echo "NOT INSTALLED"
+echo -n "1Password CLI: "
+op --version 2>/dev/null || echo "NOT INSTALLED"
 
 echo -n "UFW: "
 ufw status | head -1
@@ -321,11 +315,7 @@ echo "=== Setup complete ==="
 echo ""
 echo "Remaining manual steps:"
 echo "  1. sudo tailscale up --ssh --advertise-tags=tag:homelab"
-echo "  2. doppler login && doppler setup  (as $USERNAME)"
-echo "  3. Create /root/.homelab-watchdog-credentials with:"
-echo "     PUSHOVER_USER_KEY=xxx"
-echo "     PUSHOVER_API_TOKEN=xxx"
-echo "     BETTERSTACK_API_KEY=xxx"
-echo "     UPTIME_KUMA_PUSH_TOKEN=xxx"
-echo "  4. cd ~/homelab && doppler run -- docker compose up -d"
+echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
+echo "     source ~/.bashrc && op vault list (verify access)"
+echo "  3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d"
 echo ""

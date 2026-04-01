@@ -75,7 +75,7 @@ When running this skill, I will check:
 8. SigNoz (Observability)
 9. HDD Diagnostics
 10. Database Backup
-11. Doppler Secrets
+11. 1Password Secrets
 12. Emergency Commands
 
 ### Command Format
@@ -194,7 +194,7 @@ After updates:
 - [ ] Port numbers match docker-compose.yml
 - [ ] Mount paths match server layout
 - [ ] SSH commands use correct host aliases
-- [ ] Doppler prefix included where needed
+- [ ] op prefix included where needed
 - [ ] Markdown links work (no broken anchors)
 - [ ] Table formatting correct
 - [ ] Behavior docs match actual script code

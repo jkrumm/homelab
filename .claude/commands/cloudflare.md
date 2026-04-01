@@ -2,11 +2,11 @@
 
 Handle any Cloudflare DNS or tunnel operation for HomeLab-hosted apps.
 
-**Execution model:** All API calls run on HomeLab via `ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'...'"'"''`. The API token stays in Doppler — never passed as a literal value.
+**Execution model:** All API calls run on HomeLab via `ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'...'"'"''`. The API token stays in 1Password — never passed as a literal value.
 
 ---
 
-## Required Doppler Secrets
+## Required 1Password Secrets
 
 All 4 secrets are now in `homelab` / `prod`:
 
@@ -52,17 +52,17 @@ Private services (Tailscale-only) skip the tunnel entirely — only Caddy routin
 
 ## Authentication Pattern
 
-Use single-quote wrapping so `${VARS}` are expanded by the HomeLab shell after Doppler injects them:
+Use single-quote wrapping so `${VARS}` are expanded by the HomeLab shell after 1Password injects them:
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
   curl -s "https://api.cloudflare.com/client/v4/zones" \
     -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
     | python3 -m json.tool
 '"'"''
 ```
 
-**Why:** Double-quoting the SSH command causes the local shell to expand `${CLOUDFLARE_API_TOKEN}` before it reaches HomeLab (producing an empty string and auth error). The `'...' '"'"' '...'` pattern passes the inner string literally to the remote shell where Doppler has already injected the secrets.
+**Why:** Double-quoting the SSH command causes the local shell to expand `${CLOUDFLARE_API_TOKEN}` before it reaches HomeLab (producing an empty string and auth error). The `'...' '"'"' '...'` pattern passes the inner string literally to the remote shell where 1Password has already injected the secrets.
 
 ---
 
@@ -71,25 +71,25 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'
 ### List all zones
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/zones" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); [print(z[\"name\"],z[\"id\"]) for z in r[\"result\"]] if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/zones" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); [print(z[\"name\"],z[\"id\"]) for z in r[\"result\"]] if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
 ```
 
 ### Check current tunnel ingress config
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_TUNNEL_ID}/configurations" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); [print(i.get(\"hostname\",\"catch-all\"),\"→\",i[\"service\"]) for i in r[\"result\"][\"config\"][\"ingress\"]] if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_TUNNEL_ID}/configurations" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); [print(i.get(\"hostname\",\"catch-all\"),\"→\",i[\"service\"]) for i in r[\"result\"][\"config\"][\"ingress\"]] if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
 ```
 
 ### List DNS records for jkrumm.com
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records?per_page=100" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); [print(rec[\"type\"],rec[\"name\"],\"→\",rec[\"content\"]) for rec in r[\"result\"]] if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records?per_page=100" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); [print(rec[\"type\"],rec[\"name\"],\"→\",rec[\"content\"]) for rec in r[\"result\"]] if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
 ```
 
 ### Add a DNS CNAME record (new public subdomain)
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"type\":\"CNAME\",\"name\":\"SUBDOMAIN\",\"content\":\"${CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com\",\"proxied\":true}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK:\",r[\"result\"][\"name\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"type\":\"CNAME\",\"name\":\"SUBDOMAIN\",\"content\":\"${CLOUDFLARE_TUNNEL_ID}.cfargotunnel.com\",\"proxied\":true}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK:\",r[\"result\"][\"name\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
 ```
 
 Replace `SUBDOMAIN` with the actual subdomain before running.
@@ -99,7 +99,7 @@ Replace `SUBDOMAIN` with the actual subdomain before running.
 First list records to find the ID, then:
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s -X DELETE "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records/RECORD_ID" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK\" if r[\"success\"] else r[\"errors\"])"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X DELETE "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records/RECORD_ID" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK\" if r[\"success\"] else r[\"errors\"])"'"'"''
 ```
 
 ### Update tunnel ingress config
@@ -109,13 +109,13 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s
 Example adding `newapp.jkrumm.com`:
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_TUNNEL_ID}/configurations" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"config\":{\"ingress\":[{\"hostname\":\"glance.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"immich.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"uptime.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"draw.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"public.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"otlp.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"plausible.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"registry.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"rollhook-homelab.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"ntfy.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"newapp.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"service\":\"http_status:404\"}]}}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK — version\",r[\"result\"][\"version\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_TUNNEL_ID}/configurations" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"config\":{\"ingress\":[{\"hostname\":\"glance.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"immich.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"uptime.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"draw.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"public.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"otlp.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"plausible.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"registry.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"rollhook-homelab.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"ntfy.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"newapp.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"service\":\"http_status:404\"}]}}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK — version\",r[\"result\"][\"version\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
 ```
 
 ### Look up Zone ID for a secondary domain
 
 ```bash
-ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/zones?name=other-domain.com" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin)[\"result\"]; print(r[0][\"id\"],r[0][\"name\"]) if r else print(\"not found\")"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s "https://api.cloudflare.com/client/v4/zones?name=other-domain.com" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" | python3 -c "import json,sys; r=json.load(sys.stdin)[\"result\"]; print(r[0][\"id\"],r[0][\"name\"]) if r else print(\"not found\")"'"'"''
 ```
 
 ---
@@ -145,14 +145,14 @@ ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s
 5. **Push and deploy:**
    ```bash
    git push
-   ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d --force-recreate caddy newapp"
+   ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy newapp"
    ```
 
 6. **Verify:** `curl -I https://newapp.jkrumm.com`
 
 7. **Add to `uptime-kuma/monitors.yaml`** — add HTTP monitor, then sync:
    ```bash
-   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
+   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
    ```
 
 ---
@@ -171,19 +171,19 @@ No tunnel changes needed. Services whose containers live in homelab-private go i
 
 2. **Add DNS A record** — points directly to Tailscale IP, **no proxy** (DNS-only / grey cloud):
    ```bash
-   ssh homelab 'doppler run --project homelab --config prod -- bash -c '"'"'curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"type\":\"A\",\"name\":\"SUBDOMAIN\",\"content\":\"${HOMELAB_TAILSCALE_IP}\",\"proxied\":false}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK:\",r[\"result\"][\"name\"],\"→\",r[\"result\"][\"content\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
+   ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"type\":\"A\",\"name\":\"SUBDOMAIN\",\"content\":\"${HOMELAB_TAILSCALE_IP}\",\"proxied\":false}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK:\",r[\"result\"][\"name\"],\"→\",r[\"result\"][\"content\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
    ```
    Replace `SUBDOMAIN` with the actual subdomain. `proxied: false` = DNS-only = Tailscale-only.
 
 3. **Push and deploy:**
    ```bash
    git push  # in homelab
-   ssh homelab "cd ~/homelab && git pull && doppler run -- docker compose up -d --force-recreate caddy"
+   ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy"
    ```
 
 4. **Add to `uptime-kuma/monitors.yaml`** — add Docker container monitor, then sync:
    ```bash
-   ssh homelab "cd ~/homelab && doppler run -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
+   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
    ```
 
 ---

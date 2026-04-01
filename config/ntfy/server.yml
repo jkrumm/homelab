@@ -16,8 +16,8 @@ visitor-subscription-limit: 30
 upstream-base-url: "https://ntfy.sh"
 
 # Web Push (VAPID) — enables PWA install and background browser notifications
-# Private key injected via NTFY_WEB_PUSH_PRIVATE_KEY env var (Doppler)
-# Email injected via NTFY_WEB_PUSH_EMAIL_ADDRESS env var (Doppler)
+# Private key injected via NTFY_WEB_PUSH_PRIVATE_KEY env var (1Password via .env.tpl)
+# Email injected via NTFY_WEB_PUSH_EMAIL_ADDRESS env var (1Password via .env.tpl)
 web-push-public-key: "BLi5DS2Y8JqIpW0LYajag_SE58hOc57jRLFXj4DTIZ5S7beUsylAnG5CUcnxc47u6X8gN937qPdeZRCxv52Z9So"
 web-push-file: "/var/lib/ntfy/webpush.db"
 
