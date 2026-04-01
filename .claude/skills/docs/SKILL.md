@@ -1,8 +1,10 @@
+---
+name: docs
+description: HomeLab documentation maintenance — audit infrastructure changes and update README.md, CLAUDE.md, docs/, and skill files
+context: main
+---
+
 # docs
-
-**Description:** HomeLab documentation maintenance - audit infrastructure and update README.md, CLAUDE.md, docs/, and command files.
-
-**Context:** main
 
 **When to use:**
 - After adding/removing services in docker-compose.yml
@@ -43,7 +45,7 @@ When running this skill, I will check:
 ### Multi-Component Stack Detection
 - [ ] Services with `com.centurylinklabs.watchtower.enable: "false"`
 - [ ] Group services by prefix (`signoz-*`, `immich_*`, `plausible_*`)
-- [ ] Check if stack exists in `.claude/commands/upgrade-stack.md`
+- [ ] Check if stack exists in `.claude/skills/upgrade-stack/SKILL.md`
 - [ ] Prompt to add new stacks to /upgrade-stack
 
 **Current stacks in /upgrade-stack:**
@@ -164,8 +166,8 @@ If changes found, update:
 If new multi-component stack detected:
 
 1. Prompt user: "New stack {name} detected. Add to /upgrade-stack?"
-2. If approved, read `.claude/commands/upgrade-stack.md`
-3. Add new section to "Supported Stacks"
+2. If approved, read `.claude/skills/upgrade-stack/SKILL.md`
+3. Add new section to "Manually-Managed Containers"
 4. Document version sources and compatibility requirements
 5. Note in commit message
 
@@ -174,14 +176,14 @@ If new multi-component stack detected:
 ## Files Updated
 
 | File | What Gets Updated |
-|------|-------------------|
+|-|-|
 | `README.md` | Quick Commands Cheatsheet, ToC, Service tables |
 | `CLAUDE.md` | Quick Reference Card, Services Reference, Scripts table |
 | `docs/watchdog-behaviors.md` | Failure scenarios, recovery states |
 | `docs/*.md` | Behavior documentation for modified scripts |
 | `uptime-kuma/monitors.yaml` | If monitor config changed |
-| `.claude/commands/upgrade-stack.md` | New multi-component stacks |
-| `.claude/commands/docs.md` | This file - if audit scope changes |
+| `.claude/skills/upgrade-stack/SKILL.md` | New multi-component stacks |
+| `.claude/skills/docs/SKILL.md` | This file - if audit scope changes |
 
 ---
 
@@ -199,7 +201,7 @@ After updates:
 - [ ] Table formatting correct
 - [ ] Behavior docs match actual script code
 - [ ] Multi-component stacks with watchtower opted-out in /upgrade-stack
-- [ ] This command file covers all doc types
+- [ ] This skill file covers all doc types
 
 ---
 
@@ -212,7 +214,7 @@ After updates:
 - README.md: [specific changes]
 - CLAUDE.md: [specific changes]
 - docs/*.md: [specific changes]
-- .claude/commands/*.md: [specific changes]
+- .claude/skills/*.md: [specific changes]
 
 **Services added:**
 - [Service name]: [port, URL, purpose]
@@ -234,8 +236,8 @@ After updates:
 
 ### With /upgrade-stack
 - Detects new stacks with WUD notify-only or ignore labels
-- Prompts to add to upgrade-stack.md
-- Updates "Supported Stacks" section automatically
+- Prompts to add to `.claude/skills/upgrade-stack/SKILL.md`
+- Updates "Manually-Managed Containers" section automatically
 
 ### With /commit
 After documentation updates:
@@ -243,10 +245,3 @@ After documentation updates:
 /commit
 ```
 Creates commit with docs changes.
-
----
-
-## Example Session
-
-```
-User: /docs

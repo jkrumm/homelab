@@ -21,58 +21,17 @@
 
 ---
 
-## Commands Available
+## Skills Available
 
-| Command | Purpose |
-|---------|---------|
-| `/audit` | Full health audit + repair — containers, resources, storage, updates, errors |
-| `/cloudflare` | Cloudflare DNS records + tunnel ingress config operations |
-| `/docs` | Documentation maintenance - audit and update README.md, CLAUDE.md, docs/, cheatsheets, skills |
-| `/upgrade-stack <name>` | Smart upgrade for multi-component stacks (SigNoz, Immich, Plausible) |
-| `/commit` | Smart git commit with conventional commits (inherited from SourceRoot) |
-
-### `/docs` Command
-
-Run `/docs` to:
-- Audit infrastructure changes (new services, scripts, configs)
-- Identify outdated documentation
-- Update cheatsheet commands in README.md and CLAUDE.md
-- Update behavior documentation in `docs/` directory
-- Synchronize table of contents
-- **Check if new multi-component stacks need to be added to `/upgrade-stack` skill**
-
-**When to use:** After adding/removing services, changing ports, adding scripts, modifying configurations, or changing script behavior.
+| Skill | Context | Purpose |
+|-|-|-|
+| `/audit` | main | Full health audit + repair — containers, resources, storage, updates, errors |
+| `/cloudflare` | main | Cloudflare DNS records + tunnel ingress config operations |
+| `/docs` | main | Documentation maintenance — audit and update README.md, CLAUDE.md, docs/, skill files |
+| `/upgrade-stack <name>` | fork | Upgrade assistant for manually-managed containers with dependency + breaking change analysis |
+| `/commit` | main | Smart git commit with conventional commits (inherited from SourceRoot) |
 
 **IMPORTANT:** Run `/docs` before committing changes that affect infrastructure or scripts.
-
-### `/upgrade-stack` Command
-
-Upgrade multi-component Docker stacks that have Watchtower opted-out via label.
-
-**Usage:**
-```bash
-/upgrade-stack signoz    # Upgrade SigNoz stack
-/upgrade-stack immich    # Upgrade Immich stack
-/upgrade-stack plausible # Upgrade Plausible stack (when added)
-/upgrade-stack --check-all # Check all stacks for updates
-```
-
-**What it does:**
-- Researches latest stable versions and release notes
-- Analyzes breaking changes and migration requirements
-- Checks version compatibility between components
-- Generates upgrade plan with backup commands
-- Provides rollback instructions
-
-**Why these stacks need manual updates:**
-- Multi-component with databases (ClickHouse, Postgres)
-- Breaking changes between versions (schema migrations, API changes)
-- Version compatibility requirements between components
-
-**Supported stacks:**
-- **SigNoz**: ClickHouse + Query Service + OTel Collector + Alert Manager
-- **Immich**: Server + ML + Postgres + Redis
-- **Plausible**: (future) Plausible + ClickHouse + Postgres
 
 ---
 

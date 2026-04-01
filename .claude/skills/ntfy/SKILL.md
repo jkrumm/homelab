@@ -1,3 +1,9 @@
+---
+name: ntfy
+description: Manage the self-hosted ntfy notification server — publish messages, manage users, tokens, tiers, and topics
+context: main
+---
+
 # ntfy Skill
 
 Manage the self-hosted ntfy notification server at `ntfy.jkrumm.com`.

@@ -1,3 +1,9 @@
+---
+name: cloudflare
+description: Handle any Cloudflare DNS or tunnel operation for HomeLab-hosted apps
+context: main
+---
+
 # Cloudflare API Skill
 
 Handle any Cloudflare DNS or tunnel operation for HomeLab-hosted apps.

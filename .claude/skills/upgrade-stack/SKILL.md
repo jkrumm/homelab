@@ -1,8 +1,10 @@
+---
+name: upgrade-stack
+description: Upgrade assistant for ALL manually-managed Docker containers with dependency checking, shared infrastructure awareness, and breaking change analysis
+context: fork
+---
+
 # upgrade-stack
-
-**Description:** Comprehensive upgrade assistant for ALL manually-managed Docker containers with dependency checking, shared infrastructure awareness, and breaking change analysis.
-
-**Context:** fork
 
 **When to use:**
 - Upgrading any container with `com.centurylinklabs.watchtower.enable: "false"` (manually-managed)

@@ -1,3 +1,9 @@
+---
+name: audit
+description: Full health audit of the homelab server across 8 phases, then offer to fix each issue found
+context: main
+---
+
 # HomeLab Audit Skill
 
 Run a full health audit of the homelab server across 8 sequential phases, then offer to fix each issue found.
