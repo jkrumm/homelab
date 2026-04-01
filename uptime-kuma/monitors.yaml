@@ -315,6 +315,12 @@ groups:
             url: https://hyperdx.jkrumm.com
             interval: 141
 
+          - name: ClickStack OTel - Health
+            type: http
+            url: http://${VPS_TAILSCALE_IP}:13133/
+            interval: 131
+            accepted_statuscodes: ["200-299"]
+
       # --- Infra subgroup ---
       - name: Infra
         type: group
