@@ -143,11 +143,6 @@ groups:
             timeout: 48
             retry_interval: 700
 
-          - name: 1Password Backup - Push
-            type: push
-            interval: 691200   # 8 days — weekly manual + buffer
-            retry_interval: 691200
-
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
             type: http
@@ -208,6 +203,13 @@ groups:
             url: https://public.jkrumm.com/
             interval: 179
             cloudflare_bypass: true
+
+          # Push monitors
+          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          - name: 1Password Backup - Push
+            type: push
+            interval: 691200   # 8 days — weekly manual + buffer
+            retry_interval: 691200
 
       # --- Immich subgroup ---
       - name: Immich
