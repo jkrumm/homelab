@@ -68,9 +68,9 @@ ssh homelab "docker logs homelab-watchdog-logs --tail=50 2>&1"
 
 Infer the escalation level from the most recent `Uptime Kuma heartbeat sent (state=X)` line. Detect `manual_intervention_required` if the phrase appears.
 
-**Private stack watchdog** — the container is `vpn-watchdog-logs`:
+**Private stack watchdog** — dynamically find the watchdog log container in homelab-private:
 ```bash
-ssh homelab "docker logs vpn-watchdog-logs --tail=30 2>&1 || echo 'no-vpn-watchdog-log'"
+ssh homelab "docker ps --filter 'label=com.docker.compose.project=homelab-private' --format '{{.Names}}' | grep 'watchdog-logs' | xargs -I{} docker logs {} --tail=30 2>&1 || echo 'no-private-watchdog-log'"
 ```
 
 If the container doesn't exist or has no output, report that the private watchdog log is inaccessible and flag for manual check.
