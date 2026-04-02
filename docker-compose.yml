@@ -73,9 +73,7 @@ services:
       com.centurylinklabs.watchtower.enable: "false"
 
   caddy:
-    build:
-      context: ./caddy
-      dockerfile: Dockerfile
+    image: caddybuilds/caddy-cloudflare:latest
     container_name: caddy
     restart: unless-stopped
     ports:
@@ -95,7 +93,7 @@ services:
       glance.parent: uptime
       glance.name: Caddy
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false" # custom build
+      com.centurylinklabs.watchtower.enable: "true"
 
   cloudflared:
     image: cloudflare/cloudflared:latest
