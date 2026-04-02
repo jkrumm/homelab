@@ -32,9 +32,9 @@ ssh homelab "uptime && echo '---' && free -h && echo '---' && df -h"
 
 Check both stacks. Run all three sub-commands per stack.
 
-**Main stack (`~/homelab`):**
+**Main stack (`~/homelab`) — use compose label filter to avoid env var warnings:**
 ```bash
-ssh homelab "docker compose -f ~/homelab/docker-compose.yml ps --format 'table {{.Name}}\t{{.Status}}\t{{.RunningFor}}'"
+ssh homelab "docker ps -a --filter 'label=com.docker.compose.project=homelab' --format 'table {{.Names}}\t{{.Status}}\t{{.RunningFor}}'"
 ```
 
 **Private stack (`~/homelab-private`):**
@@ -42,9 +42,9 @@ ssh homelab "docker compose -f ~/homelab/docker-compose.yml ps --format 'table {
 ssh homelab "cd ~/homelab-private && make health 2>&1"
 ```
 
-**All containers — stopped or restarting:**
+**All containers — stopped, restarting, or dead (use Docker's built-in status filter):**
 ```bash
-ssh homelab "docker ps -a --format '{{.Names}}\t{{.Status}}' | grep -v ' Up '"
+ssh homelab "docker ps -a --filter 'status=exited' --filter 'status=restarting' --filter 'status=dead' --format '{{.Names}}\t{{.Status}}'"
 ```
 
 **Restart counts (non-zero only):**
@@ -68,12 +68,14 @@ ssh homelab "docker logs homelab-watchdog-logs --tail=50 2>&1"
 
 Infer the escalation level from the most recent `Uptime Kuma heartbeat sent (state=X)` line. Detect `manual_intervention_required` if the phrase appears.
 
-**Private stack watchdog** — read its log container if present, otherwise check the script's state file:
+**Private stack watchdog** — the container is `vpn-watchdog-logs`:
 ```bash
-ssh homelab "docker logs homelab-private-watchdog-logs --tail=30 2>&1 || ssh homelab 'tail -30 /var/log/homelab_private_watchdog.log 2>/dev/null || echo no-private-watchdog-log'"
+ssh homelab "docker logs vpn-watchdog-logs --tail=30 2>&1 || echo 'no-vpn-watchdog-log'"
 ```
 
-If neither log source exists, report that the private watchdog log is inaccessible and flag for manual check.
+If the container doesn't exist or has no output, report that the private watchdog log is inaccessible and flag for manual check.
+
+**Context:** Private watchdog heartbeat failures are expected when the main stack is being auto-healed (caddy/cloudflared restart breaks UptimeKuma reachability briefly). Correlate timestamps with main watchdog recovery actions before escalating.
 
 **Thresholds (main watchdog):**
 - WARN: most recent state=1 or state=2
@@ -86,27 +88,30 @@ If neither log source exists, report that the private watchdog log is inaccessib
 ### Phase 4: Storage & Mounts
 
 ```bash
-ssh homelab "mount | grep -E 'hdd|ssd|nvme' | awk '{print \$1,\$3,\$5}' && echo '---' && ls /mnt/hdd/ 2>&1 && echo '---' && docker system df"
+ssh homelab "df -h --output=source,target,pcent | grep -v 'tmpfs\|efivarfs\|udev' && echo '---' && ls /mnt/hdd/ 2>&1 && echo '---' && docker system df"
 ```
 
 **Thresholds:**
 - CRITICAL: `/mnt/hdd` not mounted (ls fails or returns permission error)
-- WARN: Docker images layer size >20GB, Docker total reclaimable >80GB
+- WARN: any mount point >80% (includes root, /mnt/transfer, /mnt/hdd)
+- CRITICAL: any mount point >95%
+- WARN: Docker images reclaimable >10GB, Docker total reclaimable >80GB
 
 ### Phase 5: Tailscale & Tunnel Health
 
 ```bash
-ssh homelab "tailscale status && echo '---' && docker logs cloudflared --tail=20 2>&1"
+ssh homelab "tailscale status && echo '---' && docker logs cloudflared --tail=20 2>&1 | grep -v 'receive buffer'"
 ```
 
 **Thresholds:**
 - CRITICAL: Tailscale not running or offline, tunnel connection errors
 - WARN: cloudflared reconnecting events in last 20 lines
+- Known benign (suppress): `failed to sufficiently increase receive buffer size` — a harmless quic-go startup warning
 
 ### Phase 6: Pending Updates
 
 ```bash
-ssh homelab "docker logs watchtower --tail=30 2>&1 | grep -iE 'updated|found|new version|error' | tail -10"
+ssh homelab "docker logs watchtower --tail=10 2>&1 | grep -iE 'scheduling|updated|new version|error' | tail -5 || echo '(no recent watchtower activity)'"
 ```
 
 ```bash
@@ -116,16 +121,27 @@ ssh homelab "apt list --upgradable 2>/dev/null | grep -v '^Listing'"
 **Thresholds:**
 - WARN: Watchtower logs show available updates for opted-out containers (immich), any apt upgradable packages
 - INFO: Watchtower auto-updated containers (expected behavior)
+- INFO: "Scheduling first run" line with next run time — normal after a restart, note the scheduled time
 
 ### Phase 7: Recent Errors (Log Scan)
 
 ```bash
-ssh homelab "for svc in caddy cloudflared immich_server; do echo \"=== \$svc ===\"; docker logs \$svc --tail=20 2>&1 | grep -iE 'error|fatal|panic|crash|exception' | tail -5; done && journalctl -p err -n 20 --no-pager 2>/dev/null"
+ssh homelab "for svc in caddy cloudflared immich_server; do echo \"=== \$svc ===\"; docker logs \$svc --tail=20 2>&1 | grep -iE 'error|fatal|panic|crash|exception' | grep -v 'context canceled' | tail -5; done"
+```
+
+```bash
+ssh homelab "journalctl -p err -n 30 --no-pager 2>/dev/null | grep -v 'systemd-networkd-wait-online'"
+```
+
+```bash
+ssh homelab "journalctl -p warning -n 100 --no-pager 2>/dev/null | grep -iE 'sudo|pam_unix|authentication failure|invalid user' | tail -10"
 ```
 
 **Thresholds:**
 - CRITICAL: panic / fatal / crash lines in any service
 - WARN: repeated error patterns (3+ times in 20 lines)
+- WARN: sudo authentication failures or PAM errors in journalctl (possible unauthorized access attempts)
+- Known benign (suppress): Caddy `"error":"reading: context canceled"` on Dozzle/SSE endpoints — normal browser-disconnect events; `systemd-networkd-wait-online` timeouts — harmless in Docker environments
 
 ### Phase 8: UptimeKuma Monitor Coverage
 
@@ -139,11 +155,17 @@ ssh homelab "docker ps --format '{{.Names}}' | grep -vE 'watchdog-logs|backup-lo
 ssh homelab "grep 'docker_container:' ~/homelab/uptime-kuma/monitors.yaml | awk '{print \$2}' | sort && grep 'docker_container:' ~/homelab-private/uptime-kuma/monitors.yaml 2>/dev/null | awk '{print \$2}' | sort"
 ```
 
+**Extract CF tunnel hostnames from cloudflared config (logged at startup):**
 ```bash
-ssh homelab "docker logs cloudflared --tail=3 2>&1 | grep 'Updated to new configuration' | tail -1"
+ssh homelab 'docker logs cloudflared 2>&1 | grep "Updated to new configuration" | tail -1 | grep -oP "hostname[^:]*:\\\\\"[^\\\\]*" | sed "s/.*\\\\\"//" | sort'
 ```
 
-Compare the combined container lists. Also extract CF tunnel hostnames from cloudflared config and verify each has an HTTP monitor.
+**Extract HTTP monitor URLs from both monitors.yaml files:**
+```bash
+ssh homelab "grep 'url: https://' ~/homelab/uptime-kuma/monitors.yaml ~/homelab-private/uptime-kuma/monitors.yaml 2>/dev/null | awk '{print \$3}' | sort"
+```
+
+Compare the CF tunnel hostnames against the HTTP monitor URLs — every tunnel hostname should have a corresponding HTTP monitor entry. Flag any hostname with no matching monitor URL.
 
 **Exclusions** (no monitor needed):
 - `homelab-watchdog-logs`, `database-backup-logs`
@@ -218,7 +240,7 @@ For each CRITICAL and WARN finding, propose the fix and ask for confirmation bef
 | Container restart count >3 | Show `docker logs <name> --tail=20`, offer `docker compose restart <name>` in appropriate stack dir |
 | Main watchdog escalation 1-2 | Show recent log, offer reset: `ssh homelab "echo 'PASSWORD' \| sudo -S bash -c 'echo 0 > /var/lib/homelab_watchdog/state'"` (get password from 1Password `Private/homelab-server`) |
 | Main watchdog escalation 3-4 | Same reset as above, plus investigate root cause in logs |
-| `manual_intervention_required` present | `ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"` |
+| `manual_intervention_required` present | Get password: `ROOT_PW=$(op read "op://Private/homelab-server/password")` then `ssh homelab "echo '$ROOT_PW' \| sudo -S rm /var/lib/homelab_watchdog/manual_intervention_required"` |
 | Private watchdog failure | `ssh homelab "cd ~/homelab-private && make up"` to restart the affected stack |
 | Cloudflared errors | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d cloudflared"` |
 | Tailscale down | `ssh homelab "sudo systemctl restart tailscaled"` |
