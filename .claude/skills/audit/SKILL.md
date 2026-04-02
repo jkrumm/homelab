@@ -10,6 +10,7 @@ Run a full health audit of the homelab server across 8 sequential phases, then o
 
 **Context:** main (interactive — repair actions require confirmation)
 **Execution:** Always via `ssh homelab "..."` — never local commands
+**Scope:** Both `~/homelab` (main stack) and `~/homelab-private` (private stack)
 
 ---
 
@@ -29,14 +30,24 @@ ssh homelab "uptime && echo '---' && free -h && echo '---' && df -h"
 
 ### Phase 2: Container Health
 
+Check both stacks. Run all three sub-commands per stack.
+
+**Main stack (`~/homelab`):**
 ```bash
 ssh homelab "docker compose -f ~/homelab/docker-compose.yml ps --format 'table {{.Name}}\t{{.Status}}\t{{.RunningFor}}'"
 ```
 
+**Private stack (`~/homelab-private`):**
+```bash
+ssh homelab "cd ~/homelab-private && make health 2>&1"
+```
+
+**All containers — stopped or restarting:**
 ```bash
 ssh homelab "docker ps -a --format '{{.Names}}\t{{.Status}}' | grep -v ' Up '"
 ```
 
+**Restart counts (non-zero only):**
 ```bash
 ssh homelab "docker inspect \$(docker ps -q) --format '{{.Name}} restarts={{.RestartCount}}' 2>/dev/null | grep -v 'restarts=0'"
 ```
@@ -44,20 +55,33 @@ ssh homelab "docker inspect \$(docker ps -q) --format '{{.Name}} restarts={{.Res
 **Thresholds:**
 - CRITICAL: any container not running (schema-migrator-sync and schema-migrator-async are exempt — they exit 0 intentionally)
 - WARN: restart count >3 on any container
+- For private stack: any service showing `not found` or non-running health status is CRITICAL
 
 ### Phase 3: Watchdog State
 
-Read via the `homelab-watchdog-logs` container which tails the watchdog log file (avoids sudo requirement):
+Check both watchdogs.
 
+**Main watchdog** — read via the `homelab-watchdog-logs` container (avoids sudo):
 ```bash
 ssh homelab "docker logs homelab-watchdog-logs --tail=50 2>&1"
 ```
 
-Infer the current escalation level from the most recent `Uptime Kuma heartbeat sent (state=X)` line. Detect `manual_intervention_required` if the phrase appears in the log output.
+Infer the escalation level from the most recent `Uptime Kuma heartbeat sent (state=X)` line. Detect `manual_intervention_required` if the phrase appears.
 
-**Thresholds:**
+**Private stack watchdog** — read its log container if present, otherwise check the script's state file:
+```bash
+ssh homelab "docker logs homelab-private-watchdog-logs --tail=30 2>&1 || ssh homelab 'tail -30 /var/log/homelab_private_watchdog.log 2>/dev/null || echo no-private-watchdog-log'"
+```
+
+If neither log source exists, report that the private watchdog log is inaccessible and flag for manual check.
+
+**Thresholds (main watchdog):**
 - WARN: most recent state=1 or state=2
-- CRITICAL: most recent state=3 or state=4, or `manual_intervention_required` appears in logs
+- CRITICAL: most recent state=3 or state=4, or `manual_intervention_required` appears
+
+**Thresholds (private watchdog):**
+- WARN: any failure or recovery action in recent log lines
+- CRITICAL: escalated state, repeated failures, or `manual_intervention_required`
 
 ### Phase 4: Storage & Mounts
 
@@ -95,8 +119,6 @@ ssh homelab "apt list --upgradable 2>/dev/null | grep -v '^Listing'"
 
 ### Phase 7: Recent Errors (Log Scan)
 
-Note: Phase 8 (UptimeKuma) runs after this.
-
 ```bash
 ssh homelab "for svc in caddy cloudflared immich_server signoz clickhouse; do echo \"=== \$svc ===\"; docker logs \$svc --tail=20 2>&1 | grep -iE 'error|fatal|panic|crash|exception' | tail -5; done && journalctl -p err -n 20 --no-pager 2>/dev/null"
 ```
@@ -107,37 +129,37 @@ ssh homelab "for svc in caddy cloudflared immich_server signoz clickhouse; do ec
 
 ### Phase 8: UptimeKuma Monitor Coverage
 
-Get the list of running application containers and compare against what's monitored in `monitors.yaml`.
+Get the list of running application containers (both stacks) and compare against what's monitored in the combined monitors.yaml.
 
 ```bash
 ssh homelab "docker ps --format '{{.Names}}' | grep -vE 'watchdog-logs|backup-logs|schema-migrator' | sort"
 ```
 
 ```bash
-ssh homelab "grep 'docker_container:' ~/homelab/uptime-kuma/monitors.yaml | awk '{print \$2}' | sort"
+ssh homelab "grep 'docker_container:' ~/homelab/uptime-kuma/monitors.yaml | awk '{print \$2}' | sort && grep 'docker_container:' ~/homelab-private/uptime-kuma/monitors.yaml 2>/dev/null | awk '{print \$2}' | sort"
 ```
 
 ```bash
 ssh homelab "docker logs cloudflared --tail=3 2>&1 | grep 'Updated to new configuration' | tail -1"
 ```
 
-Compare the two container lists. Also extract the CF tunnel hostnames from the cloudflared config and verify each has an HTTP monitor in monitors.yaml.
+Compare the combined container lists. Also extract CF tunnel hostnames from cloudflared config and verify each has an HTTP monitor.
 
-**Exclusions** (no monitor needed — internal log scrapers / one-time runners):
+**Exclusions** (no monitor needed):
 - `homelab-watchdog-logs`, `database-backup-logs`, `signoz-schema-migrator-sync`, `signoz-schema-migrator-async`
 
 **Thresholds:**
-- WARN: any running container missing a Docker monitor in monitors.yaml
-- WARN: any CF tunnel public hostname missing an HTTP monitor in monitors.yaml
+- WARN: any running container missing a Docker monitor in either monitors.yaml
+- WARN: any CF tunnel public hostname missing an HTTP monitor
 
-**Container naming note:** Services without `container_name:` in docker-compose.yml get auto-suffixed names (`homelab-tasknotes-3`) which break Docker monitors on each recreate. Flag any such containers and recommend adding `container_name:` to docker-compose.yml.
+**Container naming note:** Services without `container_name:` in docker-compose.yml get auto-suffixed names (`homelab-tasknotes-3`) which break Docker monitors on each recreate. Flag any and recommend adding `container_name:`.
 
 **Repair action for missing monitors:**
-1. Edit `uptime-kuma/monitors.yaml` locally on MacBook (add missing entries)
+1. Edit the appropriate `uptime-kuma/monitors.yaml` locally (homelab or homelab-private)
 2. Add `container_name:` to docker-compose.yml for affected service
-3. Commit and push: `git push`
-4. Apply on server: `ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service> && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"`
-5. Verify new monitors appear in UptimeKuma and configure Pushover notifications for them in the UptimeKuma UI if not already applied globally
+3. Commit and push
+4. Apply: `ssh homelab "cd ~/homelab && git pull && make uk-sync"`
+5. Verify monitors appear in UptimeKuma UI
 
 ---
 
@@ -155,15 +177,17 @@ After collecting all phase data, output:
 <concise findings — numbers only, skip healthy details>
 
 ## [2/8] Container Health      🟢/🟡/🔴
-<list non-running containers or high-restart containers; say "all running" if clean>
+Main stack: <all running / list issues>
+Private stack: <all running / list issues>
 
 ## [3/8] Watchdog State        🟢/🟡/🔴
-<escalation level + any flags present>
+Main: state=X <flags>
+Private: <state / no log accessible>
 
 ## [4/8] Storage & Mounts      🟢/🟡/🔴
 <mount status + docker disk usage>
 
-## [5/8] Tailscale & Tunnel  🟢/🟡/🔴
+## [5/8] Tailscale & Tunnel    🟢/🟡/🔴
 <tailscale peer status, tunnel health>
 
 ## [6/8] Pending Updates       🟢/🟡/🔴
@@ -185,22 +209,27 @@ After collecting all phase data, output:
 
 ## Repair Actions
 
-For each CRITICAL and WARN finding in the Recommendations section, propose the fix and ask for confirmation before running.
+For each CRITICAL and WARN finding, propose the fix and ask for confirmation before running.
 
 | Finding | Proposed Fix |
 |-|-|
-| Container not running | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d <name>"` |
-| Container restart count >3 | Show `docker logs <name> --tail=20`, offer `op run --env-file=.env.tpl -- docker compose restart <name>` |
-| Watchdog escalation level 1-2 | Show recent log, offer `ssh homelab "echo 0 | sudo tee /var/lib/homelab_watchdog/state"` |
-| `manual_intervention_required` present | Offer `ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"` |
+| Main stack container not running | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d <name>"` |
+| Private stack container not running | `ssh homelab "cd ~/homelab-private && make up"` |
+| Container restart count >3 | Show `docker logs <name> --tail=20`, offer `docker compose restart <name>` in appropriate stack dir |
+| Main watchdog escalation 1-2 | Show recent log, offer reset: `ssh homelab "echo 'PASSWORD' \| sudo -S bash -c 'echo 0 > /var/lib/homelab_watchdog/state'"` (get password from 1Password `Private/homelab-server`) |
+| Main watchdog escalation 3-4 | Same reset as above, plus investigate root cause in logs |
+| `manual_intervention_required` present | `ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"` |
+| Private watchdog failure | `ssh homelab "cd ~/homelab-private && make up"` to restart the affected stack |
 | Cloudflared errors | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d cloudflared"` |
 | Tailscale down | `ssh homelab "sudo systemctl restart tailscaled"` |
 | Docker image bloat >20GB | `ssh homelab "docker image prune -f"` (dangling only — safe) |
 | Apt security updates available | `ssh homelab "sudo apt upgrade -y --only-upgrade"` |
 | `/mnt/hdd` not mounted | Report mount failure + provide recovery hint (no auto-fix — LUKS encrypted, requires manual unlock) |
 | Disk >95% full | Report + suggest `docker system prune` — do NOT auto-run, show command for user to confirm |
-| Missing UptimeKuma monitor | Edit monitors.yaml locally, add `container_name:` to docker-compose.yml if needed, commit + push, then `ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service> && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` |
+| Missing UptimeKuma monitor | Edit correct monitors.yaml locally, add `container_name:` if needed, commit + push, then `ssh homelab "cd ~/homelab && git pull && make uk-sync"` |
 
-**After each repair:** Re-run the relevant phase command to verify the fix worked before moving to the next issue.
+**Watchdog reset note:** The state file requires sudo. Get the server password via `op read "op://Private/homelab-server/password"` locally, then use `echo '<pw>' | sudo -S bash -c 'echo 0 > /var/lib/homelab_watchdog/state'` over SSH.
+
+**After each repair:** Re-run the relevant phase command to verify before moving on.
 
 **Never:** Reboot the server, run `docker compose down`, delete volumes, or take any action affecting all services simultaneously without explicit discussion.
