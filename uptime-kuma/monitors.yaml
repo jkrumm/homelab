@@ -86,13 +86,6 @@ groups:
             timeout: 120
             maxretries: 5
 
-          - name: Cloudflare DDNS - Docker
-            type: docker
-            docker_container: cloudflare-ddns
-            interval: 124
-            timeout: 120
-            maxretries: 5
-
           - name: Watchtower - Docker
             type: docker
             docker_container: watchtower
@@ -143,12 +136,6 @@ groups:
             maxretries: 5
 
           # Push monitors
-          - name: Cloudflare DDNS - Push
-            type: push
-            interval: 350
-            timeout: 60
-            retry_interval: 350
-
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
           - name: HomeLab Watchdog - Push
             type: push

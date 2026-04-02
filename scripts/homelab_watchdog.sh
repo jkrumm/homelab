@@ -384,7 +384,7 @@ check_docker_health() {
     fi
 
     # Check if key containers are running
-    local key_containers=("caddy" "cloudflared" "uptime-kuma" "cloudflare-ddns")
+    local key_containers=("caddy" "cloudflared" "uptime-kuma")
     local failed_containers=()
 
     for container in "${key_containers[@]}"; do
