@@ -10,14 +10,14 @@ context: fork
 - Upgrading any container with `com.centurylinklabs.watchtower.enable: "false"` (manually-managed)
 - Checking all manually-managed containers for updates
 - Planning database upgrades that affect multiple applications
-- Verifying compatibility for shared infrastructure (ClickHouse, Postgres)
+- Verifying compatibility for shared infrastructure (Postgres)
 - Rebuilding Caddy after a new Caddy 2.x release
 
 **What this skill does:**
 1. Identifies all manually-managed containers from docker-compose.yml
 2. Researches latest stable versions and release notes for each
 3. Analyzes breaking changes and migration requirements
-4. **Checks shared database compatibility** (ClickHouse → SigNoz + Plausible, Postgres → Immich + Plausible)
+4. **Checks shared database compatibility** (Postgres → Immich + Plausible)
 5. Generates upgrade plan with tested version combinations
 6. Provides upgrade order based on dependencies
 7. Creates backup commands before upgrade
@@ -66,16 +66,6 @@ context: fork
   - Plausible: Postgres >= 12
 - **Version source**: https://github.com/immich-app/immich/pkgs/container/postgres
 
-#### clickhouse
-- **Current**: `clickhouse/clickhouse-server:25.5.6-alpine`
-- **Why pinned**: Database schema changes, breaking API changes
-- **Used by**: SigNoz (traces/metrics/logs), Plausible (`plausible_events_db`)
-- **Upgrade impact**: Affects both SigNoz AND Plausible
-- **Compatibility requirements**:
-  - SigNoz: ClickHouse >= 21.x
-  - Plausible: ClickHouse >= 24.3
-- **Version source**: https://github.com/ClickHouse/ClickHouse/releases
-
 ### Application Tier
 
 #### immich-server + immich-machine-learning
@@ -84,25 +74,11 @@ context: fork
 - **Depends on**: immich_postgres, immich_redis
 - **Version source**: https://github.com/immich-app/immich/releases
 
-#### signoz (unified binary)
-- **Current**: `signoz/signoz:v0.112.0`
-- **Why pinned**: Breaking API changes, ClickHouse schema migrations required
-- **Architecture** (all must be upgraded together):
-  - `signoz/signoz:v0.112.0` — unified UI + API + alertmanager
-  - `signoz/signoz-otel-collector:v0.142.0` — OTLP ingestion
-  - `signoz/signoz-schema-migrator:v0.142.0` — schema-migrator-sync + schema-migrator-async
-  - `signoz/zookeeper:3.7.1` — ZooKeeper (ClickHouse coordination)
-- **Depends on**: ClickHouse (shared with Plausible)
-- **Version sources**:
-  - https://github.com/SigNoz/signoz/releases
-  - https://github.com/SigNoz/signoz-otel-collector/releases
-
 #### plausible
 - **Current**: `ghcr.io/plausible/community-edition:v3.2.0`
-- **Why pinned**: Database migrations, ClickHouse schema changes
-- **Depends on**: ClickHouse (shared with SigNoz, `plausible_events_db`), Postgres (shared with Immich, `plausible_db`)
+- **Why pinned**: Database migrations, schema changes
+- **Depends on**: Postgres (shared with Immich, `plausible_db`)
 - **Compatibility requirements**:
-  - ClickHouse >= 24.3
   - Postgres >= 12
 - **Version source**: https://github.com/plausible/analytics/releases
 
@@ -118,19 +94,16 @@ context: fork
 /upgrade-stack caddy
 
 # Upgrade specific database (checks all dependents)
-/upgrade-stack clickhouse    # Checks SigNoz + Plausible compatibility
 /upgrade-stack postgres      # Checks Immich + Plausible compatibility
 /upgrade-stack redis         # Checks Immich compatibility
 
 # Upgrade specific application stack
-/upgrade-stack signoz        # Checks all SigNoz components + ClickHouse
 /upgrade-stack immich        # Checks Immich components + Postgres + Redis
-/upgrade-stack plausible     # Checks Plausible + both shared databases
+/upgrade-stack plausible     # Checks Plausible + shared Postgres
 
 # Check single container
 /upgrade-stack immich_redis
 /upgrade-stack immich_postgres
-/upgrade-stack signoz-otel-collector
 ```
 
 ---
@@ -144,23 +117,18 @@ immich_redis      ◄──────────  Immich (Server + ML)
 
 immich_postgres   ◄──────────  Immich (Server + ML)
                   ◄──────────  Plausible
-
-clickhouse        ◄──────────  SigNoz (signoz + otel-collector)
-                  ◄──────────  Plausible
 ```
 
-**Key insight**: Upgrading ClickHouse or Postgres affects MULTIPLE applications. Always check all dependents.
+**Key insight**: Upgrading Postgres affects MULTIPLE applications. Always check all dependents.
 
 ---
 
 ## Upgrade Order (Recommended)
 
 1. **caddy** (zero risk, stateless, independent)
-2. **plausible** (low risk, independent app, uses shared DBs)
-3. **immich_redis** (low risk, only affects Immich)
-4. **immich + immich_postgres** (medium risk, shared Postgres but separate schema)
-5. **signoz** (medium risk, all components together, ClickHouse dependency)
-6. **clickhouse** (high risk, multi-tenant, wait for LTS stability)
+2. **immich_redis** (low risk, only affects Immich)
+3. **immich + immich_postgres** (medium risk, shared Postgres but separate schema)
+4. **plausible** (medium risk, shared Postgres)
 
 **Never upgrade in this order:**
 - ❌ Database first → app second (may break running apps)
@@ -188,23 +156,8 @@ clickhouse        ◄──────────  SigNoz (signoz + otel-colle
 - **Always upgrade together** with postgres if postgres version changes
 - **`release` tag**: Immich uses a rolling `release` tag, so check release notes before any pull
 
-### signoz (unified binary)
-- **All 4 components must match versions**: signoz, signoz-otel-collector, schema-migrator-sync/async
-- **ZooKeeper**: Only upgrade if SigNoz release notes specifically require it
-- **Schema migrators**: Run once on startup — check logs after upgrade for migration errors
-- **1000-series migrations**: Are upgrade-only; on fresh install they run fine. Don't fake-finish signoz_metrics migrations.
-- **OTel collector config**: Exporter keys are version-sensitive — check otel-collector-config.yaml on upgrade
-- **Rollback**: Medium (ClickHouse schema changes may be irreversible)
-
-### clickhouse
-- **Risk**: High (multi-tenant — both SigNoz and Plausible affected)
-- **Low-resource config**: `config/clickhouse/low-resource.xml` and `user-tuning.xml` — verify settings are still valid after upgrade
-- **Constraint**: `number_of_free_entries_in_pool_to_*` in `<merge_tree>` MUST be ≤ `background_pool_size * background_merges_mutations_concurrency_ratio`
-- **Rollback**: Medium (potential schema incompatibilities, requires data restore)
-
 ### plausible
-- **Check ClickHouse config requirements** in community-edition repo CHANGELOG on each upgrade
-- **Rollback**: Medium (requires Postgres + ClickHouse backup restore)
+- **Rollback**: Medium (requires Postgres backup restore)
 
 ---
 
@@ -228,7 +181,6 @@ clickhouse        ◄──────────  SigNoz (signoz + otel-colle
 - Identify deprecated features in config files
 
 ### 4. Shared Database Compatibility Check
-- For ClickHouse upgrades: Check SigNoz + Plausible requirements
 - For Postgres upgrades: Check Immich + Plausible requirements
 - For Redis upgrades: Check Immich requirements
 - Highlight incompatibilities with ⚠️ or ❌
@@ -309,4 +261,4 @@ When containers with `com.centurylinklabs.watchtower.enable: "false"` are added 
 1. Detect change in docker-compose.yml
 2. Prompt: "New manually-managed container detected: {name}. Update /upgrade-stack skill?"
 3. Add container to appropriate tier (database vs application vs custom build)
-4. Update dependency graph if it shares ClickHouse or Postgres
+4. Update dependency graph if it shares Postgres

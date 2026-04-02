@@ -114,13 +114,13 @@ ssh homelab "apt list --upgradable 2>/dev/null | grep -v '^Listing'"
 ```
 
 **Thresholds:**
-- WARN: Watchtower logs show available updates for opted-out containers (immich, signoz, plausible), any apt upgradable packages
+- WARN: Watchtower logs show available updates for opted-out containers (immich, plausible), any apt upgradable packages
 - INFO: Watchtower auto-updated containers (expected behavior)
 
 ### Phase 7: Recent Errors (Log Scan)
 
 ```bash
-ssh homelab "for svc in caddy cloudflared immich_server signoz clickhouse; do echo \"=== \$svc ===\"; docker logs \$svc --tail=20 2>&1 | grep -iE 'error|fatal|panic|crash|exception' | tail -5; done && journalctl -p err -n 20 --no-pager 2>/dev/null"
+ssh homelab "for svc in caddy cloudflared immich_server; do echo \"=== \$svc ===\"; docker logs \$svc --tail=20 2>&1 | grep -iE 'error|fatal|panic|crash|exception' | tail -5; done && journalctl -p err -n 20 --no-pager 2>/dev/null"
 ```
 
 **Thresholds:**
@@ -146,7 +146,7 @@ ssh homelab "docker logs cloudflared --tail=3 2>&1 | grep 'Updated to new config
 Compare the combined container lists. Also extract CF tunnel hostnames from cloudflared config and verify each has an HTTP monitor.
 
 **Exclusions** (no monitor needed):
-- `homelab-watchdog-logs`, `database-backup-logs`, `signoz-schema-migrator-sync`, `signoz-schema-migrator-async`
+- `homelab-watchdog-logs`, `database-backup-logs`
 
 **Thresholds:**
 - WARN: any running container missing a Docker monitor in either monitors.yaml
@@ -202,7 +202,7 @@ Private: <state / no log accessible>
 ## Recommendations
 - [CRITICAL] <finding> → <proposed fix>
 - [WARN] <finding> → <proposed fix>
-- (if Watchtower shows updates for opted-out containers) Run `/upgrade-stack` for manually-managed containers: immich, signoz, plausible
+- (if Watchtower shows updates for opted-out containers) Run `/upgrade-stack` for manually-managed containers: immich, plausible
 ```
 
 ---

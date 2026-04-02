@@ -195,7 +195,6 @@ docker events --since 1h --filter container=<name>
 | ExcaliDash | 8084 | draw.jkrumm.com | Whiteboard |
 | Dufs | 8098 | public.jkrumm.com | Public file sharing |
 | Plausible | 8088 | plausible.jkrumm.com | Web analytics |
-| OTLP Ingestion | 4318 | otlp.jkrumm.com | OpenTelemetry ingestion (browser apps) |
 | ntfy | 8093 (host) / 80 (container) | ntfy.jkrumm.com | Push notification server |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
@@ -208,7 +207,6 @@ docker events --since 1h --filter container=<name>
 | FileBrowser | 80 | files.jkrumm.com | File management |
 | Calibre GUI | 8080 | calibre.jkrumm.com | Book management admin |
 | Calibre-Web | 8083 | books.jkrumm.com | E-book library |
-| SigNoz | 8089 | signoz.jkrumm.com | Application observability (APM) |
 | CouchDB | 5984 | couchdb.jkrumm.com | CouchDB document database |
 
 > **Access:** DNS A records point to HomeLab Tailscale IP (<tailscale-ip-homelab>, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
@@ -220,17 +218,13 @@ docker events --since 1h --filter container=<name>
 | Caddy | Reverse proxy for all services (HTTP :80 + HTTPS :443, custom build with cloudflare DNS plugin) |
 | docker-socket-proxy | Secure Docker API proxy (read-only TCP) |
 | Cloudflared | Tunnel to Cloudflare (public services only) |
-| Cloudflare-DDNS | Dynamic DNS updates |
 | Watchtower | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; ntfy notifications |
 | Samba | SMB3 file shares (encryption preferred) |
 | Calibre | E-book management GUI |
 | Beszel-Agent | System metrics collector |
 | Immich ML | Photo AI processing |
 | Immich Postgres/Redis | Immich databases |
-| ClickHouse | SigNoz primary datastore (traces, metrics, logs) |
-| SigNoz | SigNoz backend API + UI + Alert Manager (unified binary) |
-| SigNoz OTel Collector | OpenTelemetry ingestion gateway |
-| Plausible | Web analytics (shared ClickHouse + Immich Postgres) |
+| Plausible | Web analytics (shared Immich Postgres) |
 | CouchDB | CouchDB document database |
 
 ### Network Topology
@@ -242,7 +236,7 @@ Private: Tailscale device → HomeLab TS IP (<tailscale-ip-homelab>) → https:/
 
 **Key:** Caddy is the single routing layer. The `Caddyfile` is the source of truth for all service routing. Each site block has both HTTPS (Tailscale) and `http://` (cloudflared) variants.
 
-Docker bridge networks: `cloudflared`, `immich`, `beszel`, `excalidash`, `socket-proxy`, `signoz`
+Docker bridge networks: `cloudflared`, `immich`, `beszel`, `excalidash`, `socket-proxy`
 
 ### Tailscale
 
@@ -627,7 +621,7 @@ When making changes that affect infrastructure or script behavior:
 ### Container Updates (Watchtower)
 
 **Update tiers:**
-- **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`, `signoz`, `signoz-otel-collector`, `zookeeper-1`, `clickhouse`, `plausible`
+- **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`, `plausible`
 - **Opted-out** (other): `caddy` (custom build), `docker-socket-proxy-watchtower`, `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else
 
@@ -645,18 +639,6 @@ When making changes that affect infrastructure or script behavior:
 | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"` | Apply (public only) |
 | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"` | Apply (public + private) |
 | `ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"` | Export to YAML |
-
-### SigNoz (Observability)
-
-| Command | Purpose |
-|---------|---------|
-| `docker logs clickhouse --tail 50` | Check ClickHouse logs |
-| `docker logs signoz-query-service --tail 50` | Check SigNoz UI/API logs |
-| `docker logs signoz-otel-collector --tail 50` | Check OTLP ingestion logs |
-| `curl -I https://signoz.jkrumm.com` | Test SigNoz UI (private) |
-| `curl -I https://otlp.jkrumm.com/v1/traces` | Test OTLP endpoint (public) |
-| `docker stats --no-stream \| grep signoz` | Check SigNoz resource usage |
-| `du -sh /home/jkrumm/ssd/signoz/*` | Check SigNoz disk usage |
 
 ### HDD Operations
 
