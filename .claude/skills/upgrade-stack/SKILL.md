@@ -59,11 +59,10 @@ context: fork
 #### immich_postgres
 - **Current**: `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0` (SHA-pinned)
 - **Why pinned**: Custom extensions (VectorChord for vector search), breaking migrations
-- **Used by**: Immich (`immich` database), Plausible (shared, `plausible_db` database)
-- **Upgrade impact**: Affects both Immich AND Plausible
+- **Used by**: Immich (`immich` database)
+- **Upgrade impact**: Only affects Immich
 - **Compatibility requirements**:
   - Immich: Postgres >= 14, < 19
-  - Plausible: Postgres >= 12
 - **Version source**: https://github.com/immich-app/immich/pkgs/container/postgres
 
 ### Application Tier
@@ -73,14 +72,6 @@ context: fork
 - **Why pinned**: Database migrations (postgres schema changes between versions)
 - **Depends on**: immich_postgres, immich_redis
 - **Version source**: https://github.com/immich-app/immich/releases
-
-#### plausible
-- **Current**: `ghcr.io/plausible/community-edition:v3.2.0`
-- **Why pinned**: Database migrations, schema changes
-- **Depends on**: Postgres (shared with Immich, `plausible_db`)
-- **Compatibility requirements**:
-  - Postgres >= 12
-- **Version source**: https://github.com/plausible/analytics/releases
 
 ---
 
@@ -99,8 +90,6 @@ context: fork
 
 # Upgrade specific application stack
 /upgrade-stack immich        # Checks Immich components + Postgres + Redis
-/upgrade-stack plausible     # Checks Plausible + shared Postgres
-
 # Check single container
 /upgrade-stack immich_redis
 /upgrade-stack immich_postgres
@@ -116,10 +105,9 @@ DATABASE TIER                  APPLICATION TIER
 immich_redis      ◄──────────  Immich (Server + ML)
 
 immich_postgres   ◄──────────  Immich (Server + ML)
-                  ◄──────────  Plausible
 ```
 
-**Key insight**: Upgrading Postgres affects MULTIPLE applications. Always check all dependents.
+**Key insight**: Upgrading Postgres affects Immich. Always verify before upgrading.
 
 ---
 
@@ -127,8 +115,7 @@ immich_postgres   ◄──────────  Immich (Server + ML)
 
 1. **caddy** (zero risk, stateless, independent)
 2. **immich_redis** (low risk, only affects Immich)
-3. **immich + immich_postgres** (medium risk, shared Postgres but separate schema)
-4. **plausible** (medium risk, shared Postgres)
+3. **immich + immich_postgres** (medium risk, schema migrations required)
 
 **Never upgrade in this order:**
 - ❌ Database first → app second (may break running apps)
@@ -156,9 +143,6 @@ immich_postgres   ◄──────────  Immich (Server + ML)
 - **Always upgrade together** with postgres if postgres version changes
 - **`release` tag**: Immich uses a rolling `release` tag, so check release notes before any pull
 
-### plausible
-- **Rollback**: Medium (requires Postgres backup restore)
-
 ---
 
 ## Workflow
@@ -181,7 +165,7 @@ immich_postgres   ◄──────────  Immich (Server + ML)
 - Identify deprecated features in config files
 
 ### 4. Shared Database Compatibility Check
-- For Postgres upgrades: Check Immich + Plausible requirements
+- For Postgres upgrades: Check Immich requirements
 - For Redis upgrades: Check Immich requirements
 - Highlight incompatibilities with ⚠️ or ❌
 

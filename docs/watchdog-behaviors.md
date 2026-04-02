@@ -27,7 +27,7 @@ The watchdog (`scripts/homelab_watchdog.sh`) runs via cron every 10 minutes and 
 | Docker Health | systemctl + key containers running | Docker daemon |
 | Tailscale Health | `tailscale status` exit code + retry (independent recovery) | Tailscale |
 
-**Key containers checked:** `caddy`, `cloudflared`, `uptime-kuma`, `cloudflare-ddns`
+**Key containers checked:** `caddy`, `cloudflared`, `uptime-kuma`
 
 **Critical HDD directories checked:** `/mnt/hdd/beszel`
 

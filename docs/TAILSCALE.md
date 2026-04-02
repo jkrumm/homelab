@@ -623,7 +623,7 @@ Document the plan, decisions, and step-by-step migration journey:
 
 | Secret | Machine | Purpose |
 |--------|---------|---------|
-| `CLOUDFLARE_API_TOKEN` | HomeLab | Already exists (used by cloudflare-ddns), reuse for Caddy DNS-01 |
+| `CLOUDFLARE_API_TOKEN` | HomeLab | Used for Caddy DNS-01 challenge |
 | `CLOUDFLARE_API_TOKEN` | VPS | Needs to be added for Caddy DNS-01 challenge |
 
 ---

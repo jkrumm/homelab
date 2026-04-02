@@ -71,7 +71,7 @@ ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
 | `Title` | `Server Alert` | Notification title |
 | `Priority` | `4` or `high` | 1–5 or min/low/default/high/max |
 | `Tags` | `warning,server` | Comma-separated, maps to emojis |
-| `Click` | `https://signoz.jkrumm.com` | Open URL on tap |
+| `Click` | `https://glance.jkrumm.com` | Open URL on tap |
 | `Icon` | `https://example.com/icon.png` | Small icon |
 | `Markdown` | `yes` | Enable Markdown body |
 | `X-Delay` | `30m` or ISO-8601 | Schedule delivery (max 24h) |

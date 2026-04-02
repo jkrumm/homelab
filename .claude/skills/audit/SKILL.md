@@ -114,7 +114,7 @@ ssh homelab "apt list --upgradable 2>/dev/null | grep -v '^Listing'"
 ```
 
 **Thresholds:**
-- WARN: Watchtower logs show available updates for opted-out containers (immich, plausible), any apt upgradable packages
+- WARN: Watchtower logs show available updates for opted-out containers (immich), any apt upgradable packages
 - INFO: Watchtower auto-updated containers (expected behavior)
 
 ### Phase 7: Recent Errors (Log Scan)
@@ -202,7 +202,7 @@ Private: <state / no log accessible>
 ## Recommendations
 - [CRITICAL] <finding> → <proposed fix>
 - [WARN] <finding> → <proposed fix>
-- (if Watchtower shows updates for opted-out containers) Run `/upgrade-stack` for manually-managed containers: immich, plausible
+- (if Watchtower shows updates for opted-out containers) Run `/upgrade-stack` for manually-managed containers: immich
 ```
 
 ---

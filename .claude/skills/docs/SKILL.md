@@ -44,15 +44,13 @@ When running this skill, I will check:
 
 ### Multi-Component Stack Detection
 - [ ] Services with `com.centurylinklabs.watchtower.enable: "false"`
-- [ ] Group services by prefix (`signoz-*`, `immich_*`, `plausible_*`)
+- [ ] Group services by prefix (`immich_*`)
 - [ ] Check if stack exists in `.claude/skills/upgrade-stack/SKILL.md`
 - [ ] Prompt to add new stacks to /upgrade-stack
 
 **Current stacks in /upgrade-stack:**
 - Caddy (custom local build, `docker compose build`)
-- SigNoz (signoz unified binary, otel-collector, schema-migrators, zookeeper, clickhouse)
 - Immich (server, ML, postgres, redis)
-- Plausible (shared clickhouse + immich_postgres)
 
 ### Documentation Sync
 - [ ] README.md "Quick Commands Cheatsheet"

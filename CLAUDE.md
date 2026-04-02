@@ -159,10 +159,9 @@ docker compose down && op run --env-file=.env.tpl -- docker compose up -d
 ```
 1. docker-socket-proxy (monitoring services depend on this)
 2. immich_redis, immich_postgres (databases)
-4. excalidash-backend (frontend depends on this)
-5. caddy (reverse proxy - cloudflared depends on this)
-6. All other services
-7. cloudflared (depends on caddy + public services - starts last)
+3. caddy (reverse proxy - cloudflared depends on this)
+4. All other services
+5. cloudflared (depends on caddy + public services - starts last)
 ```
 
 ### Troubleshooting Commands
@@ -194,7 +193,6 @@ docker events --since 1h --filter container=<name>
 | UptimeKuma | 3010 | uptime.jkrumm.com | Service monitoring |
 | ExcaliDash | 8084 | draw.jkrumm.com | Whiteboard |
 | Dufs | 8098 | public.jkrumm.com | Public file sharing |
-| Plausible | 8088 | plausible.jkrumm.com | Web analytics |
 | ntfy | 8093 (host) / 80 (container) | ntfy.jkrumm.com | Push notification server |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
@@ -236,7 +234,7 @@ Private: Tailscale device → HomeLab TS IP (<tailscale-ip-homelab>) → https:/
 
 **Key:** Caddy is the single routing layer. The `Caddyfile` is the source of truth for all service routing. Each site block has both HTTPS (Tailscale) and `http://` (cloudflared) variants.
 
-Docker bridge networks: `cloudflared`, `immich`, `beszel`, `excalidash`, `socket-proxy`
+Docker bridge networks: `cloudflared`, `immich`, `beszel`, `socket-proxy`
 
 ### Tailscale
 
@@ -621,7 +619,7 @@ When making changes that affect infrastructure or script behavior:
 ### Container Updates (Watchtower)
 
 **Update tiers:**
-- **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`, `plausible`
+- **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`
 - **Opted-out** (other): `caddy` (custom build), `docker-socket-proxy-watchtower`, `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else
 

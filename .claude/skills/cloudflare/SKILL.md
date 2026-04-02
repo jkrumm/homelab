@@ -40,11 +40,9 @@ The HomeLab uses **specific per-subdomain ingress rules** (not a wildcard like V
 | `glance.jkrumm.com` | `http://caddy:80` |
 | `immich.jkrumm.com` | `http://caddy:80` |
 | `uptime.jkrumm.com` | `http://caddy:80` |
-| `draw.jkrumm.com` | `http://caddy:80` |
 | `public.jkrumm.com` | `http://caddy:80` |
-| `otlp.jkrumm.com` | `http://caddy:80` |
-| `plausible.jkrumm.com` | `http://caddy:80` |
 | `ntfy.jkrumm.com` | `http://caddy:80` |
+| `api.jkrumm.com` | `http://caddy:80` |
 | catch-all | `http_status:404` |
 
 **Adding a new public service requires all three:**
@@ -115,7 +113,7 @@ ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X DEL
 Example adding `newapp.jkrumm.com`:
 
 ```bash
-ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_TUNNEL_ID}/configurations" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"config\":{\"ingress\":[{\"hostname\":\"glance.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"immich.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"uptime.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"draw.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"public.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"otlp.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"plausible.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"registry.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"rollhook-homelab.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"ntfy.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"newapp.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"service\":\"http_status:404\"}]}}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK — version\",r[\"result\"][\"version\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
+ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${CLOUDFLARE_TUNNEL_ID}/configurations" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"config\":{\"ingress\":[{\"hostname\":\"glance.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"immich.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"uptime.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"public.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"ntfy.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"api.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"hostname\":\"newapp.jkrumm.com\",\"service\":\"http://caddy:80\"},{\"service\":\"http_status:404\"}]}}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK — version\",r[\"result\"][\"version\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
 ```
 
 ### Look up Zone ID for a secondary domain
