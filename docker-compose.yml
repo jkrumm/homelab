@@ -227,26 +227,6 @@ services:
       glance.url: https://duplicati.jkrumm.com
       glance.hide: false
 
-  cloudflare-ddns:
-    image: favonia/cloudflare-ddns:latest
-    container_name: cloudflare-ddns
-    network_mode: host
-    restart: unless-stopped
-    environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - DOMAINS=homelab.jkrumm.com
-      - IP6_PROVIDER=cloudflare.trace
-      - IP4_PROVIDER=cloudflare.trace
-      - PROXIED=false
-      - UPDATE_CRON=@every 5m
-      - UPDATE_TIMEOUT=3m
-      - UPTIMEKUMA=https://uptime.jkrumm.com/api/push/pEGfAebbUB?status=up&msg=OK&ping=
-    labels:
-      - glance.parent=uptime
-      - glance.name=Cloudflare DDNS
-      - glance.icon=si:cloudflare
-      - glance.hide=false
-
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
