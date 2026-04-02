@@ -1,19 +1,14 @@
 VENV_PYTHON := uptime-kuma/.venv/bin/python
-SYNC_CMD := op run --env-file=.env.tpl -- $(VENV_PYTHON) uptime-kuma/sync.py
+SYNC_BASE := op run --env-file=.env.tpl -- $(VENV_PYTHON) uptime-kuma/sync.py
+EXTRA_CONFIG := --extra-config ../homelab-private/uptime-kuma/monitors.yaml
 
-.PHONY: uk-sync uk-dry-run uk-sync-all uk-dry-run-all uk-export
+.PHONY: uk-sync uk-dry-run uk-export
 
-uk-sync: ## Apply public monitors to Uptime Kuma
-	ssh homelab "cd ~/homelab && $(SYNC_CMD)"
+uk-sync: ## Apply all monitors (public + private) to Uptime Kuma
+	ssh homelab "cd ~/homelab && $(SYNC_BASE) $(EXTRA_CONFIG)"
 
-uk-dry-run: ## Preview public monitor changes (no apply)
-	ssh homelab "cd ~/homelab && $(SYNC_CMD) --dry-run"
-
-uk-sync-all: ## Apply public + private monitors to Uptime Kuma
-	ssh homelab "cd ~/homelab && $(SYNC_CMD) --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
-
-uk-dry-run-all: ## Preview public + private monitor changes (no apply)
-	ssh homelab "cd ~/homelab && $(SYNC_CMD) --dry-run --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
+uk-dry-run: ## Preview all monitor changes (no apply)
+	ssh homelab "cd ~/homelab && $(SYNC_BASE) --dry-run $(EXTRA_CONFIG)"
 
 uk-export: ## Export current Uptime Kuma monitors to YAML
-	ssh homelab "cd ~/homelab && $(SYNC_CMD) --export"
+	ssh homelab "cd ~/homelab && $(SYNC_BASE) --export"
