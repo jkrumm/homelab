@@ -392,7 +392,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Cloudflared | CF Tunnel client (public services only) |
 | Cloudflare-DDNS | Dynamic DNS for `homelab.jkrumm.com` |
 | Docker Socket Proxy | Read-only Docker API proxy for monitoring |
-| Watchtower | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; ntfy notifications at `warn` level |
+| Watchtower | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; Slack notifications at `warn` level |
 | ntfy | Self-hosted push notification server — iOS app, PWA, and Web Push; topics: homelab-watchdog, homelab-watchtower, vps-watchtower, uptime-alerts |
 | Samba | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`) |
 | Beszel Agent | System metrics collector (Tailscale port binding) |
@@ -1342,7 +1342,7 @@ The backup file is automatically included in your configured Duplicati backups o
 # State + Queue
 sudo mkdir -p /var/lib/homelab_watchdog
 sudo touch /var/lib/homelab_watchdog/state
-sudo touch /var/lib/homelab_watchdog/ntfy_queue
+sudo touch /var/lib/homelab_watchdog/notification_queue
 sudo chown -R root:root /var/lib/homelab_watchdog
 sudo chmod 700 /var/lib/homelab_watchdog
 
@@ -1436,7 +1436,7 @@ cat /var/lib/homelab_watchdog/state
 - **Locking**: Built-in file locking prevents overlapping executions
 - **State Management**: Persistent state tracking with graduated escalation (0-4)
 - **Security**: Credentials stored in root-only accessible file
-- **Notifications**: Real-time push notifications via ntfy (`https://ntfy.jkrumm.com/homelab-watchdog`, port 8093 on host)
+- **Notifications**: Real-time push notifications via Slack webhook (`#alerts` channel)
 - **Reboot Protection**: Maximum 3 reboots per day, then requires manual intervention
 
 #### Recovery Strategy

@@ -24,6 +24,10 @@ NTFY_TOKEN=op://common/ntfy/TOKEN
 NTFY_WEB_PUSH_PRIVATE_KEY=op://common/ntfy/WEB_PUSH_PRIVATE_KEY
 NTFY_WEB_PUSH_EMAIL_ADDRESS=jkrumm@proton.me
 
+# --- Slack ---
+SLACK_WEBHOOK_ALERTS=op://homelab/slack/WEBHOOK_ALERTS
+SLACK_WATCHTOWER_URL=op://homelab/slack/WATCHTOWER_URL
+
 # --- Media (homelab-private services) ---
 WIREGUARD_PRIVATE_KEY=op://homelab/protonvpn/WIREGUARD_PRIVATE_KEY
 TORRENT_APP_TOKEN=op://homelab/torrent-app/TOKEN

@@ -103,7 +103,7 @@ The watchdog monitors Tailscale connectivity to ensure private services remain a
 Once internet returns, next watchdog run detects all healthy → auto-clears flag → resumes normal operation.
 
 **Notifications:**
-ntfy notifications are queued during outage, flushed when internet returns.
+Slack notifications are queued during outage, flushed when internet returns.
 
 ---
 
@@ -321,16 +321,16 @@ ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"
 | `/var/log/homelab_watchdog.log` | All watchdog activity |
 | `/var/lib/homelab_watchdog/state` | Current escalation level (0-4) |
 | `/var/lib/homelab_watchdog/reboot_tracker` | Reboot count for today |
-| `/var/lib/homelab_watchdog/ntfy_queue` | Queued notifications |
+| `/var/lib/homelab_watchdog/notification_queue` | Queued notifications |
 | `/var/lib/homelab_watchdog/manual_intervention_required` | Intervention flag |
 
 ---
 
 ## Notifications
 
-Notifications are sent via ntfy and grouped together at the end of each watchdog run.
+Notifications are sent via Slack webhook and grouped together at the end of each watchdog run.
 
-**During outage:** Notifications are queued (can't reach ntfy server).
+**During outage:** Notifications are queued (can't reach Slack API).
 
 **After recovery:** Queue is flushed, all notifications sent in batch.
 

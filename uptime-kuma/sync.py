@@ -152,12 +152,13 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
         params = build_monitor_params(monitor, defaults, cloudflare_header, parent_id)
 
         if name in existing:
-            # Update existing monitor
+            # Update existing monitor (also ensures all notification providers are attached)
             monitor_id = existing[name]["id"]
             if dry_run:
                 print(f"  [UPDATE] {name} (id={monitor_id})")
             else:
                 try:
+                    params["notificationIDList"] = notification_ids
                     api.edit_monitor(monitor_id, **params)
                     print(f"  [UPDATED] {name}")
                 except Exception as e:

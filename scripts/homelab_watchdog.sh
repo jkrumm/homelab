@@ -15,7 +15,7 @@ readonly LOCK_FILE="/var/run/${SCRIPT_NAME}.lock"
 readonly STATE_DIR="/var/lib/${SCRIPT_NAME}"
 readonly STATE_FILE="${STATE_DIR}/state"
 readonly LOG_FILE="/var/log/${SCRIPT_NAME}.log"
-readonly QUEUE_FILE="${STATE_DIR}/ntfy_queue"
+readonly QUEUE_FILE="${STATE_DIR}/notification_queue"
 readonly ENV_TPL="/home/jkrumm/homelab/.env.tpl"
 
 # Network and service configuration
@@ -64,7 +64,7 @@ trap 'flock -u 200' EXIT
 # --------------------------------------------------
 # Secure credential storage (readonly, not exported to child processes)
 declare -g _CRED_BETTERSTACK=""
-declare -g _CRED_NTFY_TOKEN=""
+declare -g _CRED_SLACK_WEBHOOK=""
 declare -g _CRED_UPTIME_KUMA=""
 
 load_credentials() {
@@ -80,11 +80,11 @@ load_credentials() {
 
     # Read secrets from 1Password (not exported to child processes)
     _CRED_BETTERSTACK="$(op read 'op://homelab/monitoring/BETTERSTACK_TOKEN')"
-    _CRED_NTFY_TOKEN="$(op read 'op://common/ntfy/TOKEN')"
+    _CRED_SLACK_WEBHOOK="$(op read 'op://homelab/slack/WEBHOOK_ALERTS')"
     _CRED_UPTIME_KUMA="$(op read 'op://homelab/uptime-kuma/PUSH_TOKEN' 2>/dev/null || echo '')"
 
     # Validate required variables
-    if [[ -z "$_CRED_BETTERSTACK" || -z "$_CRED_NTFY_TOKEN" ]]; then
+    if [[ -z "$_CRED_BETTERSTACK" || -z "$_CRED_SLACK_WEBHOOK" ]]; then
         log "ERROR: Failed to read required secrets from 1Password"
         exit 1
     fi
@@ -105,7 +105,7 @@ log_quiet() {
 notify() {
     local title="$1"
     local msg="$2"
-    echo "title=$title&message=$msg" >> "$QUEUE_FILE"
+    echo "${title}: ${msg}" >> "$QUEUE_FILE"
     log "QUEUED NOTIFICATION: $title - $msg"
 }
 
@@ -115,13 +115,13 @@ flush_notifications() {
     fi
 
     local msgs
-    msgs=$(awk -F'&message=' '{print $2}' "$QUEUE_FILE" | tr '\n' '\n• ')
+    msgs=$(sed 's/^/• /' "$QUEUE_FILE")
 
     if curl -s --max-time 10 \
-           -H "Authorization: Bearer $_CRED_NTFY_TOKEN" \
-           -H "Title: HomeLab WatchDog" \
-           -d "• $msgs" \
-           "http://localhost:8093/homelab-watchdog" > /dev/null 2>&1; then
+           -H "Content-type: application/json" \
+           --data "$(jq -n --arg text "*HomeLab WatchDog*
+${msgs}" '{text: $text}')" \
+           "$_CRED_SLACK_WEBHOOK" > /dev/null 2>&1; then
         > "$QUEUE_FILE"  # Clear queue on success
         log_quiet "Notifications sent successfully"
     else

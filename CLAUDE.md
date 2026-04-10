@@ -100,8 +100,10 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/dufs/PASSWORD` | Public file server auth |
 | `homelab/immich/API_KEY` | Immich API for Glance widget |
 | `homelab/couchdb/PASSWORD` | CouchDB admin password |
-| `common/ntfy/TOKEN` | ntfy Bearer token (watchdog, Watchtower) |
+| `common/ntfy/TOKEN` | ntfy Bearer token (ntfy server auth) |
 | `common/ntfy/WEB_PUSH_PRIVATE_KEY` | VAPID private key for Web Push |
+| `homelab/slack/WEBHOOK_ALERTS` | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
+| `homelab/slack/WATCHTOWER_URL` | Shoutrrr-formatted Slack webhook for Watchtower |
 
 ### Essential Commands
 
@@ -216,7 +218,7 @@ docker events --since 1h --filter container=<name>
 | Caddy | Reverse proxy for all services (HTTP :80 + HTTPS :443, custom build with cloudflare DNS plugin) |
 | docker-socket-proxy | Secure Docker API proxy (read-only TCP) |
 | Cloudflared | Tunnel to Cloudflare (public services only) |
-| Watchtower | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; ntfy notifications |
+| Watchtower | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; Slack notifications |
 | Samba | SMB3 file shares (encryption preferred) |
 | Calibre | E-book management GUI |
 | Beszel-Agent | System metrics collector |
@@ -402,7 +404,7 @@ The watchdog auto-clears the `manual_intervention_required` flag when the system
 | `/var/lib/homelab_watchdog/manual_intervention_required` | Blocks aggressive recovery (auto-clears when healthy) |
 | `/var/lib/homelab_watchdog/reboot_tracker` | Daily reboot count |
 | `/var/log/homelab_watchdog.log` | Watchdog logs |
-| `/root/.homelab-watchdog-credentials` | NTFY_TOKEN/BetterStack/UptimeKuma tokens |
+| `/root/.homelab-watchdog-credentials` | Slack webhook/BetterStack/UptimeKuma tokens |
 
 ### Manual Intervention
 
