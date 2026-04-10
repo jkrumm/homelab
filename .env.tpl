@@ -16,7 +16,7 @@ DUFS_PASSWORD=op://homelab/dufs/PASSWORD
 IMMICH_API_KEY=op://homelab/immich/API_KEY
 
 # --- API ---
-API_SECRET=op://homelab/api/SECRET
+API_SECRET=op://common/api/SECRET
 TICKTICK_API_KEY=op://homelab/ticktick/API_KEY
 UPTIME_KUMA_API_KEY=op://homelab/uptime-kuma/API_KEY
 
@@ -30,9 +30,9 @@ NTFY_WEB_PUSH_PRIVATE_KEY=op://common/ntfy/WEB_PUSH_PRIVATE_KEY
 NTFY_WEB_PUSH_EMAIL_ADDRESS=jkrumm@proton.me
 
 # --- Slack ---
-SLACK_WEBHOOK_ALERTS=op://homelab/slack/WEBHOOK_ALERTS
-SLACK_WEBHOOK_MEDIA=op://homelab/slack/WEBHOOK_MEDIA
-SLACK_WATCHTOWER_URL=op://homelab/slack/WATCHTOWER_URL
+SLACK_WEBHOOK_ALERTS=op://common/slack/WEBHOOK_ALERTS
+SLACK_WEBHOOK_MEDIA=op://common/slack/WEBHOOK_MEDIA
+SLACK_WATCHTOWER_URL=op://common/slack/WATCHTOWER_URL
 
 # --- Media (homelab-private services) ---
 WIREGUARD_PRIVATE_KEY=op://homelab/protonvpn/WIREGUARD_PRIVATE_KEY
