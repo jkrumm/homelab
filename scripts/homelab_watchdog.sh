@@ -114,13 +114,21 @@ flush_notifications() {
         return 0
     fi
 
+    # Bold the title portion (before first colon) in each queued line
     local msgs
-    msgs=$(sed 's/^/• /' "$QUEUE_FILE")
+    msgs=$(sed 's/^\([^:]*\): /• *\1*: /' "$QUEUE_FILE")
+
+    local payload
+    payload=$(jq -n --arg msgs "$msgs" '{
+        blocks: [
+            {type: "header", text: {type: "plain_text", text: "HomeLab WatchDog", emoji: true}},
+            {type: "section", text: {type: "mrkdwn", text: $msgs}}
+        ]
+    }')
 
     if curl -s --max-time 10 \
            -H "Content-type: application/json" \
-           --data "$(jq -n --arg text "*HomeLab WatchDog*
-${msgs}" '{text: $text}')" \
+           --data "$payload" \
            "$_CRED_SLACK_WEBHOOK" > /dev/null 2>&1; then
         > "$QUEUE_FILE"  # Clear queue on success
         log_quiet "Notifications sent successfully"

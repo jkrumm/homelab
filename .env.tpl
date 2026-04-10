@@ -15,6 +15,12 @@ COUCHDB_PASSWORD=op://homelab/couchdb/PASSWORD
 DUFS_PASSWORD=op://homelab/dufs/PASSWORD
 IMMICH_API_KEY=op://homelab/immich/API_KEY
 
+# --- API ---
+API_SECRET=op://homelab/api/SECRET
+TICKTICK_CLIENT_ID=op://homelab/ticktick/CLIENT_ID
+TICKTICK_CLIENT_SECRET=op://homelab/ticktick/CLIENT_SECRET
+UPTIME_KUMA_API_KEY=op://homelab/uptime-kuma/API_KEY
+
 # --- Duplicati ---
 DUPLICATI_ENCRYPTION_KEY=op://homelab/duplicati/ENCRYPTION_KEY
 DUPLICATI_WEBSERVICE_PASSWORD=op://homelab/duplicati/WEBSERVICE_PASSWORD
@@ -26,6 +32,7 @@ NTFY_WEB_PUSH_EMAIL_ADDRESS=jkrumm@proton.me
 
 # --- Slack ---
 SLACK_WEBHOOK_ALERTS=op://homelab/slack/WEBHOOK_ALERTS
+SLACK_WEBHOOK_MEDIA=op://homelab/slack/WEBHOOK_MEDIA
 SLACK_WATCHTOWER_URL=op://homelab/slack/WATCHTOWER_URL
 
 # --- Media (homelab-private services) ---
