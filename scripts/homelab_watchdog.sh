@@ -80,7 +80,7 @@ load_credentials() {
 
     # Read secrets from 1Password (not exported to child processes)
     _CRED_BETTERSTACK="$(op read 'op://homelab/monitoring/BETTERSTACK_TOKEN')"
-    _CRED_SLACK_WEBHOOK="$(op read 'op://homelab/slack/WEBHOOK_ALERTS')"
+    _CRED_SLACK_WEBHOOK="$(op read 'op://common/slack/WEBHOOK_ALERTS')"
     _CRED_UPTIME_KUMA="$(op read 'op://homelab/uptime-kuma/PUSH_TOKEN' 2>/dev/null || echo '')"
 
     # Validate required variables
