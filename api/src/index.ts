@@ -1,0 +1,54 @@
+import { Elysia } from "elysia";
+import { bearer } from "@elysiajs/bearer";
+import { swagger } from "@elysiajs/swagger";
+import { healthRoute } from "./routes/health.js";
+import { ticktickRoutes } from "./routes/ticktick.js";
+import { uptimeKumaRoutes } from "./routes/uptime-kuma.js";
+import { dockerHomelabRoutes, dockerVpsRoutes } from "./routes/docker.js";
+import { summaryRoute } from "./routes/summary.js";
+import { registerCronJobs } from "./cron/index.js";
+
+const SECRET = process.env.API_SECRET;
+
+const authGuard = new Elysia({ name: "auth" })
+  .use(bearer())
+  .onBeforeHandle(({ bearer, set }) => {
+    if (bearer !== SECRET) {
+      set.status = 401;
+      return "Unauthorized";
+    }
+  });
+
+new Elysia()
+  .use(
+    swagger({
+      provider: "scalar",
+      path: "/docs",
+      documentation: {
+        info: {
+          title: "jkrumm-api",
+          version: "0.1.0",
+          description:
+            "Personal homelab API — TickTick task management, UptimeKuma monitoring, Docker container monitoring. All endpoints except /health require Bearer token authentication.",
+        },
+        servers: [{ url: "https://api.jkrumm.com", description: "HomeLab" }],
+        components: {
+          securitySchemes: {
+            BearerAuth: { type: "http", scheme: "bearer" },
+          },
+        },
+      },
+    }),
+  )
+  .get("/openapi.json", ({ redirect }) => redirect("/docs/json"))
+  .use(healthRoute)
+  .use(authGuard)
+  .use(ticktickRoutes)
+  .use(uptimeKumaRoutes)
+  .use(dockerHomelabRoutes)
+  .use(dockerVpsRoutes)
+  .use(summaryRoute)
+  .listen(4000);
+
+registerCronJobs();
+console.log("api running on port 4000");

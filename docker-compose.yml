@@ -552,6 +552,35 @@ services:
       glance.url: https://ntfy.jkrumm.com
       glance.hide: false
 
+  api:
+    build: ./api
+    container_name: api
+    restart: unless-stopped
+    networks:
+      - cloudflared
+      - socket-proxy
+    environment:
+      - API_SECRET=${API_SECRET}
+      - TICKTICK_API_KEY=${TICKTICK_API_KEY}
+      - UPTIME_KUMA_URL=http://uptime-kuma:3001
+      - UPTIME_KUMA_API_KEY=${UPTIME_KUMA_API_KEY}
+      - UPTIME_KUMA_USERNAME=jkrumm
+      - UPTIME_KUMA_PASSWORD=${UPTIME_KUMA_PASSWORD}
+      - VPS_TAILSCALE_IP=${VPS_TAILSCALE_IP}
+    depends_on:
+      - docker-socket-proxy
+      - uptime-kuma
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    labels:
+      glance.name: API
+      glance.icon: si:fastapi
+      glance.url: https://api.jkrumm.com
+      glance.hide: false
+      com.centurylinklabs.watchtower.enable: "false" # local build, not from registry
+
   couchdb:
     image: couchdb:3
     container_name: couchdb

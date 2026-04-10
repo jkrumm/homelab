@@ -17,8 +17,7 @@ IMMICH_API_KEY=op://homelab/immich/API_KEY
 
 # --- API ---
 API_SECRET=op://homelab/api/SECRET
-TICKTICK_CLIENT_ID=op://homelab/ticktick/CLIENT_ID
-TICKTICK_CLIENT_SECRET=op://homelab/ticktick/CLIENT_SECRET
+TICKTICK_API_KEY=op://homelab/ticktick/API_KEY
 UPTIME_KUMA_API_KEY=op://homelab/uptime-kuma/API_KEY
 
 # --- Duplicati ---

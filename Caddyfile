@@ -71,6 +71,14 @@ http://books.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
+# API (private, Tailscale only — personal homelab API)
+api.jkrumm.com {
+	reverse_proxy api:4000
+}
+http://api.jkrumm.com {
+	redir https://{host}{uri} permanent
+}
+
 # CouchDB (private, Tailscale only — Obsidian LiveSync)
 couchdb.jkrumm.com {
 	reverse_proxy couchdb:5984
