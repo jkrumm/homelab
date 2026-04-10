@@ -58,6 +58,18 @@ groups:
             url: http://dozzle:8081/
             interval: 155
 
+          - name: API - Docker
+            type: docker
+            docker_container: api
+            interval: 112
+            timeout: 120
+            maxretries: 5
+
+          - name: API - HTTP
+            type: http
+            url: http://api:4000/health
+            interval: 114
+
           - name: Docker Socket Proxy - Docker
             type: docker
             docker_container: docker-socket-proxy
