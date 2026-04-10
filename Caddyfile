@@ -22,10 +22,6 @@ public.jkrumm.com, http://public.jkrumm.com {
 	reverse_proxy dufs:5000
 }
 
-ntfy.jkrumm.com, http://ntfy.jkrumm.com {
-	reverse_proxy ntfy:80
-}
-
 # === PRIVATE SERVICES (Tailscale only, HTTPS enforced) ===
 # HTTP requests are permanently redirected to HTTPS
 

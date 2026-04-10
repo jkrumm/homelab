@@ -24,11 +24,6 @@ UPTIME_KUMA_API_KEY=op://homelab/uptime-kuma/API_KEY
 DUPLICATI_ENCRYPTION_KEY=op://homelab/duplicati/ENCRYPTION_KEY
 DUPLICATI_WEBSERVICE_PASSWORD=op://homelab/duplicati/WEBSERVICE_PASSWORD
 
-# --- Notifications ---
-NTFY_TOKEN=op://common/ntfy/TOKEN
-NTFY_WEB_PUSH_PRIVATE_KEY=op://common/ntfy/WEB_PUSH_PRIVATE_KEY
-NTFY_WEB_PUSH_EMAIL_ADDRESS=jkrumm@proton.me
-
 # --- Slack ---
 SLACK_WEBHOOK_ALERTS=op://common/slack/WEBHOOK_ALERTS
 SLACK_WEBHOOK_MEDIA=op://common/slack/WEBHOOK_MEDIA
@@ -48,8 +43,6 @@ JELLYFIN_URL=http://jellyfin:8096
 JELLYFIN_USER_ID=op://homelab/config/JELLYFIN_USER_ID
 
 # --- Notification URLs (contain push tokens in path) ---
-NTFY_URL=op://homelab/config/NTFY_URL
-NTFY_JELLYFIN_URL=op://homelab/config/NTFY_JELLYFIN_URL
 VPN_WATCHDOG_PUSH_URL=op://homelab/config/VPN_WATCHDOG_PUSH_URL
 
 # --- Monitoring (scripts: watchdog, sync.py, monitors.yaml) ---

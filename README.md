@@ -160,59 +160,6 @@ ssh homelab "docker exec clickhouse clickhouse-client --query 'SELECT version()'
 ssh homelab "docker exec signoz-query-service env | grep RETENTION"
 ```
 
-### ntfy Notifications
-
-#### Active Topics
-
-| Topic | Producer | Purpose |
-|-|-|-|
-| `homelab-watchdog` | `homelab_watchdog.sh` (host cron) | System health alerts (disk, internet, containers, Tailscale) |
-| `homelab-watchtower` | HomeLab Watchtower | Container update notifications |
-| `vps-watchtower` | VPS Watchtower | VPS container update notifications |
-| `uptime-alerts` | UptimeKuma | Service down/up alerts |
-
-All topics are reserved by `jkrumm` on the server (50-slot `homelab` tier).
-
-#### Adding a New Topic
-
-1. **Reserve it** (ensures it appears as owned in iOS/web apps):
-   ```bash
-   ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
-     curl -s -X POST \
-       -H "Authorization: Bearer ${NTFY_TOKEN}" \
-       -H "Content-Type: application/json" \
-       "https://ntfy.jkrumm.com/v1/account/reservation" \
-       -d "{\"topic\":\"my-new-topic\",\"everyone\":\"deny-all\"}"
-   '"'"''
-   ```
-
-2. **Update the topics table** in `uptime-kuma/monitors.yaml` if you want a health monitor for it.
-
-3. **Update the topics table** in `.claude/commands/ntfy.md` and this README.
-
-4. **Subscribe** in the iOS app or web UI — it will appear in the reserved topics list.
-
-#### Quick Publish / Test
-
-```bash
-ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'
-  curl -s \
-    -H "Authorization: Bearer ${NTFY_TOKEN}" \
-    -H "Title: Test" \
-    -H "Tags: white_check_mark" \
-    -d "ntfy is working" \
-    https://ntfy.jkrumm.com/homelab-watchdog
-'"'"''
-```
-
-#### Web / iOS Access
-
-- **Web UI / PWA:** https://ntfy.jkrumm.com → Log in as `jkrumm` (password in 1Password `NTFY_PASSWORD`)
-- **iOS app:** Settings → Manage Users → add `https://ntfy.jkrumm.com` with `jkrumm` + `NTFY_PASSWORD`
-- **iOS push relay:** via `ntfy.sh` APNs — notifications arrive even when the app is closed
-
----
-
 ### HDD Diagnostics
 
 ```bash
@@ -330,7 +277,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  Private:  Tailscale device → caddy:443 (HTTPS, Let's Encrypt) → app │
 │                                                                      │
-│  27 containers: Glance, Immich, Calibre, ntfy, ...                   │
+│  26 containers: Glance, Immich, Calibre, ...                         │
 │  Storage: Internal SSD + Encrypted external HDD                      │
 │  Watchdog: Self-healing monitor (cron, 10min)                        │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -360,7 +307,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | ExcaliDash | [draw.jkrumm.com](https://draw.jkrumm.com) | Whiteboard |
 | Dufs | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
 | OTLP Ingestion | [otlp.jkrumm.com](https://otlp.jkrumm.com) | OpenTelemetry trace ingestion (for browser apps) |
-| ntfy | [ntfy.jkrumm.com](https://ntfy.jkrumm.com) | Push notifications (iOS + PWA, auth required) |
 
 **Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
 
@@ -393,7 +339,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Cloudflare-DDNS | Dynamic DNS for `homelab.jkrumm.com` |
 | Docker Socket Proxy | Read-only Docker API proxy for monitoring |
 | Watchtower | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; Slack notifications at `warn` level |
-| ntfy | Self-hosted push notification server — iOS app, PWA, and Web Push; topics: homelab-watchdog, homelab-watchtower, vps-watchtower, uptime-alerts |
 | Samba | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`) |
 | Beszel Agent | System metrics collector (Tailscale port binding) |
 | Immich ML/Postgres/Redis | Immich supporting services |

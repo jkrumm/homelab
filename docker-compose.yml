@@ -522,36 +522,6 @@ services:
       glance.url: https://public.jkrumm.com
       glance.hide: false
 
-  ntfy:
-    image: binwiederhier/ntfy
-    container_name: ntfy
-    restart: unless-stopped
-    command: serve
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - ./config/ntfy/server.yml:/etc/ntfy/server.yml:ro
-      - /home/jkrumm/ssd/ntfy:/var/lib/ntfy
-    ports:
-      - "127.0.0.1:8093:80" # localhost-only; watchdog (host cron) uses this directly
-    environment:
-      # VAPID keys: public key also passed via env for reliable loading
-      # Private key and email kept out of git — injected via op run
-      NTFY_WEB_PUSH_PUBLIC_KEY: "BLi5DS2Y8JqIpW0LYajag_SE58hOc57jRLFXj4DTIZ5S7beUsylAnG5CUcnxc47u6X8gN937qPdeZRCxv52Z9So"
-      NTFY_WEB_PUSH_PRIVATE_KEY: ${NTFY_WEB_PUSH_PRIVATE_KEY}
-      NTFY_WEB_PUSH_EMAIL_ADDRESS: ${NTFY_WEB_PUSH_EMAIL_ADDRESS}
-    networks:
-      - cloudflared
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-    labels:
-      glance.name: ntfy
-      glance.icon: si:ntfy
-      glance.url: https://ntfy.jkrumm.com
-      glance.hide: false
-
   api:
     build: ./api
     container_name: api
@@ -628,4 +598,4 @@ networks:
     driver: bridge
     internal: true # No external access needed
   watchtower-egress:
-    driver: bridge # Internet access for ntfy.jkrumm.com (notification relay)
+    driver: bridge # Internet access for Slack notifications (Watchtower)

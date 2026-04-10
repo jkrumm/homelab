@@ -100,8 +100,6 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/dufs/PASSWORD` | Public file server auth |
 | `homelab/immich/API_KEY` | Immich API for Glance widget |
 | `homelab/couchdb/PASSWORD` | CouchDB admin password |
-| `common/ntfy/TOKEN` | ntfy Bearer token (ntfy server auth) |
-| `common/ntfy/WEB_PUSH_PRIVATE_KEY` | VAPID private key for Web Push |
 | `homelab/slack/WEBHOOK_ALERTS` | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `homelab/slack/WATCHTOWER_URL` | Shoutrrr-formatted Slack webhook for Watchtower |
 
@@ -195,7 +193,6 @@ docker events --since 1h --filter container=<name>
 | UptimeKuma | 3010 | uptime.jkrumm.com | Service monitoring |
 | ExcaliDash | 8084 | draw.jkrumm.com | Whiteboard |
 | Dufs | 8098 | public.jkrumm.com | Public file sharing |
-| ntfy | 8093 (host) / 80 (container) | ntfy.jkrumm.com | Push notification server |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 
