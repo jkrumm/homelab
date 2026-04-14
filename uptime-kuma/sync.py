@@ -101,6 +101,10 @@ def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict,
         params["docker_container"] = monitor["docker_container"]
         params["docker_host"] = monitor.get("docker_host", 1)  # Default Docker host
 
+    # Hostname (for ping monitors)
+    if "hostname" in monitor:
+        params["hostname"] = monitor["hostname"]
+
     # Keyword
     if "keyword" in monitor:
         params["keyword"] = monitor["keyword"]
