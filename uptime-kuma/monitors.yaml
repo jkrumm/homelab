@@ -286,11 +286,6 @@ groups:
   - name: IU Mac
     interval: 300
     monitors:
-      - name: Ping
-        type: ping
-        hostname: iu-mac-book.dinosaur-sole.ts.net
-        interval: 120
-
       - name: Ollama - HTTP
         type: keyword
         url: http://iu-mac-book.dinosaur-sole.ts.net:11434/
