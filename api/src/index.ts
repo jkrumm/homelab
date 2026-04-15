@@ -7,6 +7,8 @@ import { uptimeKumaRoutes } from "./routes/uptime-kuma.js";
 import { dockerHomelabRoutes, dockerVpsRoutes } from "./routes/docker.js";
 import { summaryRoute } from "./routes/summary.js";
 import { slackRoutes } from "./routes/slack.js";
+import { oauthRoutes } from "./routes/oauth.js";
+import { gmailRoutes } from "./routes/gmail.js";
 import { registerCronJobs } from "./cron/index.js";
 
 const SECRET = process.env.API_SECRET;
@@ -43,12 +45,14 @@ new Elysia()
   )
   .get("/openapi.json", ({ redirect }) => redirect("/docs/json"))
   .use(healthRoute)
+  .use(oauthRoutes)
   .use(authGuard)
   .use(ticktickRoutes)
   .use(uptimeKumaRoutes)
   .use(dockerHomelabRoutes)
   .use(dockerVpsRoutes)
   .use(slackRoutes)
+  .use(gmailRoutes)
   .use(summaryRoute)
   .listen(4000);
 

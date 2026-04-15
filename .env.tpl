@@ -21,6 +21,8 @@ TICKTICK_API_KEY=op://homelab/ticktick/API_KEY
 UPTIME_KUMA_API_KEY=op://homelab/uptime-kuma/API_KEY
 SLACK_BOT_TOKEN=op://homelab/slack/BOT_TOKEN
 SLACK_USER_TOKEN=op://homelab/slack/USER_TOKEN
+GOOGLE_CLIENT_ID=op://homelab/google-oauth/CLIENT_ID
+GOOGLE_CLIENT_SECRET=op://homelab/google-oauth/CLIENT_SECRET
 
 # --- Duplicati ---
 DUPLICATI_ENCRYPTION_KEY=op://homelab/duplicati/ENCRYPTION_KEY

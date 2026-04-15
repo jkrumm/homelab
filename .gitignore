@@ -9,3 +9,4 @@ key.pem
 # CouchDB writes runtime state (uuid, admin hash) into this file
 config/couchdb/local.ini
 /api/node_modules/
+/api/data/

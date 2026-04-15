@@ -539,6 +539,10 @@ services:
       - VPS_TAILSCALE_IP=${VPS_TAILSCALE_IP}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
       - SLACK_USER_TOKEN=${SLACK_USER_TOKEN}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    volumes:
+      - /home/jkrumm/homelab/api/data:/app/data
     depends_on:
       - docker-socket-proxy
       - uptime-kuma
