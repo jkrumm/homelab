@@ -104,6 +104,28 @@ async function getValidAccessToken(): Promise<string> {
   return tokens.accessToken;
 }
 
+// ---------- Gmail label cache ----------
+
+let labelCache: Map<string, string> | null = null;
+
+async function getLabelMap(token: string): Promise<Map<string, string>> {
+  if (labelCache) return labelCache;
+  const res = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) return new Map();
+  const data = (await res.json()) as {
+    labels: Array<{ id: string; name: string }>;
+  };
+  labelCache = new Map(data.labels.map((l) => [l.id, l.name]));
+  return labelCache;
+}
+
+function resolveLabels(ids: string[], map: Map<string, string>): string[] {
+  return ids.map((id) => map.get(id) ?? id);
+}
+
 // ---------- Gmail ----------
 
 interface GmailMessage {
@@ -245,13 +267,30 @@ export async function listEmails(params: {
   days?: number;
   maxResults?: number;
   query?: string;
+  label?: string;
+  unread?: boolean;
+  important?: boolean;
+  starred?: boolean;
+  excludeCategories?: string[];
 }): Promise<EmailListItem[]> {
   const token = await getValidAccessToken();
+  const [labelMap] = await Promise.all([getLabelMap(token)]);
   const days = params.days ?? 7;
   const maxResults = params.maxResults ?? 50;
 
+  const excluded = [
+    "spam",
+    "promotions",
+    "forums",
+    ...(params.excludeCategories ?? []),
+  ];
   const after = Math.floor((Date.now() - days * 86400 * 1000) / 1000);
-  let q = `in:inbox -category:spam -category:promotions -category:social after:${after}`;
+  let q = `in:inbox after:${after}`;
+  for (const cat of [...new Set(excluded)]) q += ` -category:${cat}`;
+  if (params.label) q += ` label:${params.label}`;
+  if (params.unread) q += " is:unread";
+  if (params.important) q += " is:important";
+  if (params.starred) q += " is:starred";
   if (params.query) q += ` ${params.query}`;
 
   const listRes = await fetch(
@@ -286,7 +325,7 @@ export async function listEmails(params: {
         date: getHeader(h, "Date"),
         snippet: d.snippet,
         isRead: !d.labelIds.includes("UNREAD"),
-        labels: d.labelIds,
+        labels: resolveLabels(d.labelIds, labelMap),
         hasAttachments: d.labelIds.includes("HAS_ATTACHMENT"),
       };
     });
@@ -294,10 +333,12 @@ export async function listEmails(params: {
 
 export async function getEmail(id: string): Promise<EmailDetail> {
   const token = await getValidAccessToken();
-  const res = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  const [res, labelMap] = await Promise.all([
+    fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+    getLabelMap(token),
+  ]);
   if (!res.ok) throw new Error(`Gmail get failed: ${await res.text()}`);
   const d = (await res.json()) as GmailMessageDetail;
   const h = d.payload.headers;
@@ -311,7 +352,7 @@ export async function getEmail(id: string): Promise<EmailDetail> {
     date: getHeader(h, "Date"),
     snippet: d.snippet,
     isRead: !d.labelIds.includes("UNREAD"),
-    labels: d.labelIds,
+    labels: resolveLabels(d.labelIds, labelMap),
     hasAttachments: d.labelIds.includes("HAS_ATTACHMENT"),
     body,
     attachments,

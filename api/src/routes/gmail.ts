@@ -78,6 +78,13 @@ export const gmailRoutes = new Elysia({ prefix: "/gmail" })
           days: query.days ? Number(query.days) : undefined,
           maxResults: query.maxResults ? Number(query.maxResults) : undefined,
           query: query.query,
+          label: query.label,
+          unread: query.unread === "true",
+          important: query.important === "true",
+          starred: query.starred === "true",
+          excludeCategories: query.excludeCategories
+            ? query.excludeCategories.split(",").map((s) => s.trim())
+            : undefined,
         });
       } catch (error) {
         set.status = 503;
@@ -93,7 +100,33 @@ export const gmailRoutes = new Elysia({ prefix: "/gmail" })
           t.String({ description: "Max emails returned (default: 50)" }),
         ),
         query: t.Optional(
-          t.String({ description: "Free-text Gmail search string" }),
+          t.String({
+            description:
+              "Free-text Gmail search string. Supports full Gmail query syntax e.g. 'from:boss@work.com' or 'subject:invoice'",
+          }),
+        ),
+        label: t.Optional(
+          t.String({
+            description:
+              "Filter by Gmail label name. User labels: Rechnungen, Steuern, Arbeit, Papa, Crypto, Uni, Anderes, USA. System: STARRED, IMPORTANT",
+          }),
+        ),
+        unread: t.Optional(
+          t.String({ description: "Set to 'true' to return only unread emails" }),
+        ),
+        important: t.Optional(
+          t.String({
+            description: "Set to 'true' to return only emails marked important by Gmail",
+          }),
+        ),
+        starred: t.Optional(
+          t.String({ description: "Set to 'true' to return only starred emails" }),
+        ),
+        excludeCategories: t.Optional(
+          t.String({
+            description:
+              "Comma-separated Gmail categories to exclude in addition to the defaults (spam, promotions, forums). Options: personal, social, updates",
+          }),
         ),
       }),
       response: { 200: t.Array(EmailListItemSchema), 503: t.String() },
@@ -101,7 +134,7 @@ export const gmailRoutes = new Elysia({ prefix: "/gmail" })
         tags: ["Gmail"],
         summary: "List emails",
         description:
-          "Returns inbox emails excluding spam, promotions, and social categories. Sorted by date descending. Supports free-text Gmail search syntax.",
+          "Returns inbox emails. Spam, promotions, and forums are excluded by default. Labels are resolved to human-readable names (e.g. 'Rechnungen' instead of 'Label_25'). Supports label filters, read/starred/important flags, and full Gmail query syntax.",
         security: [{ BearerAuth: [] }],
       },
     },
