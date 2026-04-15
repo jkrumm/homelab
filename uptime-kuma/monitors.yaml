@@ -310,6 +310,12 @@ groups:
         interval: 300
         accepted_statuscodes: ["405"]
 
+      - name: Management API
+        type: keyword
+        url: https://iu-mac-book.dinosaur-sole.ts.net/api/health
+        keyword: '"ok": true'
+        interval: 120
+
   # ============================================
   # VPS (Hetzner) - hetzner-vps infrastructure
   # ============================================
