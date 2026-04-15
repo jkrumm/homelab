@@ -517,7 +517,7 @@ Services with memory limits to prevent runaway resource usage:
 | Immich Server | 4G | - |
 | Immich ML | 4G | - |
 | Calibre | 2G | - |
-| UptimeKuma | 512M | 256M |
+| UptimeKuma | 1G | 512M |
 
 ### Log Rotation
 
