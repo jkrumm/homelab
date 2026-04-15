@@ -276,13 +276,19 @@ export async function listEmails(params: {
 }): Promise<EmailListItem[]> {
   const token = await getValidAccessToken();
   const [labelMap] = await Promise.all([getLabelMap(token)]);
-  const days = params.days ?? 7;
   const maxResults = params.maxResults ?? 50;
   // Default to "all" when filtering by label (archived emails are common for user labels)
   const scope = params.scope ?? (params.label ? "all" : "inbox");
 
-  const after = Math.floor((Date.now() - days * 86400 * 1000) / 1000);
-  let q = `after:${after}`;
+  // For scope=all without explicit days, skip date filter (label archives can be very old)
+  const applyDays = scope === "inbox" || params.days != null;
+  const days = params.days ?? 7;
+
+  let q = "";
+  if (applyDays) {
+    const after = Math.floor((Date.now() - days * 86400 * 1000) / 1000);
+    q += `after:${after}`;
+  }
   if (scope === "inbox") {
     const excluded = [
       "spam",
