@@ -85,6 +85,10 @@ export const gmailRoutes = new Elysia({ prefix: "/gmail" })
           excludeCategories: query.excludeCategories
             ? query.excludeCategories.split(",").map((s) => s.trim())
             : undefined,
+          scope:
+            query.scope === "all" || query.scope === "inbox"
+              ? query.scope
+              : undefined,
         });
       } catch (error) {
         set.status = 503;
@@ -126,6 +130,12 @@ export const gmailRoutes = new Elysia({ prefix: "/gmail" })
           t.String({
             description:
               "Comma-separated Gmail categories to exclude in addition to the defaults (spam, promotions, forums). Options: personal, social, updates",
+          }),
+        ),
+        scope: t.Optional(
+          t.String({
+            description:
+              "Search scope: 'inbox' (default, active inbox only) or 'all' (entire mailbox including archived). Defaults to 'all' when label is set, since user-labeled emails are often archived.",
           }),
         ),
       }),

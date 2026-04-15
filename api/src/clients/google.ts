@@ -272,21 +272,27 @@ export async function listEmails(params: {
   important?: boolean;
   starred?: boolean;
   excludeCategories?: string[];
+  scope?: "inbox" | "all";
 }): Promise<EmailListItem[]> {
   const token = await getValidAccessToken();
   const [labelMap] = await Promise.all([getLabelMap(token)]);
   const days = params.days ?? 7;
   const maxResults = params.maxResults ?? 50;
+  // Default to "all" when filtering by label (archived emails are common for user labels)
+  const scope = params.scope ?? (params.label ? "all" : "inbox");
 
-  const excluded = [
-    "spam",
-    "promotions",
-    "forums",
-    ...(params.excludeCategories ?? []),
-  ];
   const after = Math.floor((Date.now() - days * 86400 * 1000) / 1000);
-  let q = `in:inbox after:${after}`;
-  for (const cat of [...new Set(excluded)]) q += ` -category:${cat}`;
+  let q = `after:${after}`;
+  if (scope === "inbox") {
+    const excluded = [
+      "spam",
+      "promotions",
+      "forums",
+      ...(params.excludeCategories ?? []),
+    ];
+    q += " in:inbox";
+    for (const cat of [...new Set(excluded)]) q += ` -category:${cat}`;
+  }
   if (params.label) q += ` label:${params.label}`;
   if (params.unread) q += " is:unread";
   if (params.important) q += " is:important";
