@@ -112,7 +112,7 @@ export const gmailRoutes = new Elysia({ prefix: "/gmail" })
         label: t.Optional(
           t.String({
             description:
-              "Filter by Gmail label name. User labels: Rechnungen, Steuern, Arbeit, Papa, Crypto, Uni, Anderes, USA. System: STARRED, IMPORTANT",
+              "Filter by Gmail label name. System labels: STARRED, IMPORTANT, SENT, DRAFT. Category labels: CATEGORY_PERSONAL, CATEGORY_UPDATES, CATEGORY_SOCIAL, CATEGORY_FORUMS, CATEGORY_PROMOTIONS.",
           }),
         ),
         unread: t.Optional(
