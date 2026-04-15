@@ -313,7 +313,7 @@ groups:
       - name: Management API
         type: keyword
         url: https://iu-mac-book.dinosaur-sole.ts.net/api/health
-        keyword: '"ok": true'
+        keyword: "ok"
         interval: 120
 
   # ============================================
