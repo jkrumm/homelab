@@ -5,10 +5,11 @@ const SLACK_USER_TOKEN = process.env.SLACK_USER_TOKEN ?? ''
 
 async function slackApi<T>(method: string, params?: Record<string, unknown>, token?: string): Promise<T> {
   const authToken = token ?? SLACK_BOT_TOKEN
-  const isGet = !params || Object.keys(params).length === 0 ||
-    Object.values(params).every((v) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
+  const allPrimitive = !params || Object.values(params).every(
+    (v) => v === undefined || v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean',
+  )
 
-  if (isGet && (!params || !Object.values(params).some((v) => typeof v !== 'string' && typeof v !== 'number' && typeof v !== 'boolean'))) {
+  if (allPrimitive) {
     const url = new URL(`https://slack.com/api/${method}`)
     if (params) {
       for (const [k, v] of Object.entries(params)) {
@@ -228,7 +229,7 @@ export async function listChannels(opts: {
       response_metadata?: { next_cursor?: string }
     }>('conversations.list', {
       types,
-      exclude_archived: opts.exclude_archived ?? true ? 'true' : 'false',
+      exclude_archived: (opts.exclude_archived ?? true) ? 'true' : 'false',
       limit: Math.min(opts.limit ?? 200, 1000),
       ...(cursor ? { cursor } : {}),
     })
@@ -293,21 +294,41 @@ export async function getThread(channelId: string, threadTs: string, opts: {
   limit?: number
   cursor?: string
 }): Promise<{ messages: SlackMessage[]; has_more: boolean; next_cursor: string | null }> {
-  const res = await slackApi<{
-    messages: RawMessage[]
-    has_more: boolean
-    response_metadata?: { next_cursor?: string }
-  }>('conversations.replies', {
+  const params = {
     channel: channelId,
     ts: threadTs,
     limit: opts.limit ?? 100,
     ...(opts.cursor ? { cursor: opts.cursor } : {}),
-  })
+  }
 
-  return {
-    messages: res.messages.map(mapMessage),
-    has_more: res.has_more,
-    next_cursor: res.response_metadata?.next_cursor ?? null,
+  try {
+    const res = await slackApi<{
+      messages: RawMessage[]
+      has_more: boolean
+      response_metadata?: { next_cursor?: string }
+    }>('conversations.replies', params)
+
+    return {
+      messages: res.messages.map(mapMessage),
+      has_more: res.has_more,
+      next_cursor: res.response_metadata?.next_cursor ?? null,
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('not_in_channel')) {
+      await autoJoin(channelId)
+      const res = await slackApi<{
+        messages: RawMessage[]
+        has_more: boolean
+        response_metadata?: { next_cursor?: string }
+      }>('conversations.replies', params)
+
+      return {
+        messages: res.messages.map(mapMessage),
+        has_more: res.has_more,
+        next_cursor: res.response_metadata?.next_cursor ?? null,
+      }
+    }
+    throw e
   }
 }
 
@@ -397,7 +418,7 @@ export async function getUnreads(): Promise<Array<{
     latest_message: SlackMessage | null
   }> = []
 
-  const userMap = await getUserMap()
+  const userMap = await getUserMap().catch(() => new Map<string, SlackUser>())
   const userNameMap = new Map([...userMap.entries()].map(([id, u]) => [id, u.display_name || u.real_name]))
   let cursor: string | undefined
 
