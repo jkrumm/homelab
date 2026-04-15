@@ -19,6 +19,8 @@ IMMICH_API_KEY=op://homelab/immich/API_KEY
 API_SECRET=op://common/api/SECRET
 TICKTICK_API_KEY=op://homelab/ticktick/API_KEY
 UPTIME_KUMA_API_KEY=op://homelab/uptime-kuma/API_KEY
+SLACK_BOT_TOKEN=op://homelab/slack/BOT_TOKEN
+SLACK_USER_TOKEN=op://homelab/slack/USER_TOKEN
 
 # --- Duplicati ---
 DUPLICATI_ENCRYPTION_KEY=op://homelab/duplicati/ENCRYPTION_KEY

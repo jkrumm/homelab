@@ -6,6 +6,7 @@ import { ticktickRoutes } from "./routes/ticktick.js";
 import { uptimeKumaRoutes } from "./routes/uptime-kuma.js";
 import { dockerHomelabRoutes, dockerVpsRoutes } from "./routes/docker.js";
 import { summaryRoute } from "./routes/summary.js";
+import { slackRoutes } from "./routes/slack.js";
 import { registerCronJobs } from "./cron/index.js";
 
 const SECRET = process.env.API_SECRET;
@@ -29,7 +30,7 @@ new Elysia()
           title: "jkrumm-api",
           version: "0.1.0",
           description:
-            "Personal homelab API — TickTick task management, UptimeKuma monitoring, Docker container monitoring. All endpoints except /health require Bearer token authentication.",
+            "Personal homelab API — TickTick tasks, UptimeKuma monitoring, Docker containers, Slack messaging. All endpoints except /health require Bearer token authentication.",
         },
         servers: [{ url: "https://api.jkrumm.com", description: "HomeLab" }],
         components: {
@@ -47,6 +48,7 @@ new Elysia()
   .use(uptimeKumaRoutes)
   .use(dockerHomelabRoutes)
   .use(dockerVpsRoutes)
+  .use(slackRoutes)
   .use(summaryRoute)
   .listen(4000);
 

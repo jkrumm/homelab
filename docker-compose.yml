@@ -537,6 +537,8 @@ services:
       - UPTIME_KUMA_USERNAME=jkrumm
       - UPTIME_KUMA_PASSWORD=${UPTIME_KUMA_PASSWORD}
       - VPS_TAILSCALE_IP=${VPS_TAILSCALE_IP}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_USER_TOKEN=${SLACK_USER_TOKEN}
     depends_on:
       - docker-socket-proxy
       - uptime-kuma
