@@ -590,6 +590,8 @@ services:
     build:
       context: .
       dockerfile: packages/dashboard/Dockerfile
+      args:
+        VITE_API_TOKEN: ${API_SECRET}
     container_name: dashboard
     restart: unless-stopped
     networks:
