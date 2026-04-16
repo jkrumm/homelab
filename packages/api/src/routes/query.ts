@@ -2,7 +2,8 @@ import { Elysia, t } from 'elysia'
 import { sqlite } from '../db/index.js'
 
 // Block any mutation or schema-altering keywords
-const BLOCKED = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|MERGE|EXEC|EXECUTE|ATTACH|DETACH)\b/i
+const BLOCKED =
+  /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|MERGE|EXEC|EXECUTE|ATTACH|DETACH)\b/i
 
 export const queryRoute = new Elysia().post(
   '/query',

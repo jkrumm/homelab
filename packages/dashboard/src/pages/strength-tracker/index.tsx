@@ -116,13 +116,13 @@ function computeSummaryStats(workouts: Workout[], exercises: ExerciseKey[]) {
   const monthStart = now.subtract(30, 'day').format('YYYY-MM-DD')
 
   const weeklyVolume = workouts
-    .filter(w => w.date >= weekStart && exercises.includes(w.exercise as ExerciseKey))
+    .filter((w) => w.date >= weekStart && exercises.includes(w.exercise as ExerciseKey))
     .reduce((sum, w) => sum + w.total_volume, 0)
 
-  const monthlyCount = workouts.filter(w => w.date >= monthStart).length
+  const monthlyCount = workouts.filter((w) => w.date >= monthStart).length
 
   const best1rm = workouts
-    .filter(w => exercises.includes(w.exercise as ExerciseKey) && w.estimated_1rm !== null)
+    .filter((w) => exercises.includes(w.exercise as ExerciseKey) && w.estimated_1rm !== null)
     .reduce((max, w) => Math.max(max, w.estimated_1rm!), 0)
 
   const latestByExercise = new Map<ExerciseKey, number>()
@@ -184,7 +184,7 @@ function SetRow({
       </Typography.Text>
       <Select
         value={set.set_type}
-        onChange={v => onChange('set_type', v)}
+        onChange={(v) => onChange('set_type', v)}
         options={SET_TYPE_OPTIONS}
         size="small"
         style={{ width: 88 }}
@@ -192,7 +192,7 @@ function SetRow({
       />
       <InputNumber
         value={set.weight_kg}
-        onChange={v => v !== null && onChange('weight_kg', v)}
+        onChange={(v) => v !== null && onChange('weight_kg', v)}
         min={0}
         step={2.5}
         size="small"
@@ -201,7 +201,7 @@ function SetRow({
       />
       <InputNumber
         value={set.reps}
-        onChange={v => v !== null && onChange('reps', Number(v))}
+        onChange={(v) => v !== null && onChange('reps', Number(v))}
         min={1}
         max={100}
         size="small"
@@ -226,7 +226,7 @@ function WorkoutForm({ onSuccess }: { onSuccess?: () => void }) {
   const { mutate, mutation } = useCreate()
 
   const addSet = useCallback(() => {
-    setSets(prev => {
+    setSets((prev) => {
       const last = prev[prev.length - 1] ?? { set_type: 'work' as SetType, weight_kg: 60, reps: 5 }
       return [...prev, { ...last }]
     })
@@ -234,13 +234,13 @@ function WorkoutForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const updateSet = useCallback(
     (i: number, field: keyof SetEntry, value: SetEntry[keyof SetEntry]) => {
-      setSets(prev => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)))
+      setSets((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)))
     },
     [],
   )
 
   const removeSet = useCallback((i: number) => {
-    setSets(prev => prev.filter((_, idx) => idx !== i))
+    setSets((prev) => prev.filter((_, idx) => idx !== i))
   }, [])
 
   const handleSubmit = () => {
@@ -260,10 +260,10 @@ function WorkoutForm({ onSuccess }: { onSuccess?: () => void }) {
       {
         onSuccess: () => {
           void message.success('Workout logged!')
-          setSets(prev => [{ set_type: 'work', weight_kg: prev[0]?.weight_kg ?? 60, reps: 5 }])
+          setSets((prev) => [{ set_type: 'work', weight_kg: prev[0]?.weight_kg ?? 60, reps: 5 }])
           onSuccess?.()
         },
-        onError: err => {
+        onError: (err) => {
           void message.error(`Failed: ${String(err)}`)
         },
       },
@@ -292,7 +292,7 @@ function WorkoutForm({ onSuccess }: { onSuccess?: () => void }) {
           </Typography.Text>
           <DatePicker
             value={date}
-            onChange={d => d && setDate(d)}
+            onChange={(d) => d && setDate(d)}
             style={{ width: '100%', marginTop: 4 }}
             allowClear={false}
             size="large"
@@ -353,7 +353,7 @@ function WorkoutCharts({
   activeExercises: ExerciseKey[]
 }) {
   const filtered = useMemo(
-    () => workouts.filter(w => activeExercises.includes(w.exercise as ExerciseKey)),
+    () => workouts.filter((w) => activeExercises.includes(w.exercise as ExerciseKey)),
     [workouts, activeExercises],
   )
 
@@ -365,7 +365,7 @@ function WorkoutCharts({
   )
 
   const legendFormatter = (value: string) =>
-    EXERCISES.find(e => e.value === value)?.label ?? value
+    EXERCISES.find((e) => e.value === value)?.label ?? value
 
   const tooltipFormatter = (value: number, name: string): [string, string] => [
     `${value.toFixed(1)} kg`,
@@ -375,7 +375,7 @@ function WorkoutCharts({
   return (
     <Spin spinning={isLoading}>
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        {summaryStats.map(stat => (
+        {summaryStats.map((stat) => (
           <Col xs={12} sm={6} key={stat.label}>
             <Card size="small">
               <Statistic
@@ -395,9 +395,9 @@ function WorkoutCharts({
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
             <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} unit="kg" width={48} />
-            <Tooltip formatter={tooltipFormatter} labelFormatter={l => `Date: ${l}`} />
+            <Tooltip formatter={tooltipFormatter} labelFormatter={(l) => `Date: ${l}`} />
             <Legend formatter={legendFormatter} />
-            {activeExercises.map(ex => (
+            {activeExercises.map((ex) => (
               <Line
                 key={ex}
                 type="monotone"
@@ -420,7 +420,7 @@ function WorkoutCharts({
             <YAxis tick={{ fontSize: 11 }} unit="kg" width={48} />
             <Tooltip formatter={tooltipFormatter} />
             <Legend formatter={legendFormatter} />
-            {activeExercises.map(ex => (
+            {activeExercises.map((ex) => (
               <Bar key={ex} dataKey={ex} fill={EXERCISE_COLORS[ex]} stackId="volume" />
             ))}
           </BarChart>
@@ -447,9 +447,7 @@ export default function StrengthTrackerPage() {
   const [dateTo, setDateTo] = useState(DEFAULT_DATE_TO)
 
   const toggleExercise = useCallback((ex: ExerciseKey) => {
-    setActiveExercises(prev =>
-      prev.includes(ex) ? prev.filter(e => e !== ex) : [...prev, ex],
-    )
+    setActiveExercises((prev) => (prev.includes(ex) ? prev.filter((e) => e !== ex) : [...prev, ex]))
   }, [])
 
   // Refine v5: useList returns { result, query } not { data, isLoading }
@@ -470,7 +468,7 @@ export default function StrengthTrackerPage() {
     <Row gutter={[12, 8]} style={{ marginBottom: 16 }}>
       <Col xs={24} md={14}>
         <Space wrap size={6}>
-          {EXERCISES.map(ex => (
+          {EXERCISES.map((ex) => (
             <Button
               key={ex.value}
               type={activeExercises.includes(ex.value) ? 'primary' : 'default'}
@@ -494,14 +492,14 @@ export default function StrengthTrackerPage() {
         <Space size={6} align="center">
           <DatePicker
             value={dayjs(dateFrom)}
-            onChange={d => d && setDateFrom(d.format('YYYY-MM-DD'))}
+            onChange={(d) => d && setDateFrom(d.format('YYYY-MM-DD'))}
             allowClear={false}
             size="small"
           />
           <Typography.Text type="secondary">—</Typography.Text>
           <DatePicker
             value={dayjs(dateTo)}
-            onChange={d => d && setDateTo(d.format('YYYY-MM-DD'))}
+            onChange={(d) => d && setDateTo(d.format('YYYY-MM-DD'))}
             allowClear={false}
             size="small"
           />

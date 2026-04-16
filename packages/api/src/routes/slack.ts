@@ -52,9 +52,15 @@ const SlackMessageSchema = t.Object({
   user: t.String({ description: 'User ID or bot ID of the sender' }),
   text: t.String({ description: 'Message text (may contain Slack mrkdwn formatting)' }),
   type: t.String(),
-  thread_ts: t.Union([t.String(), t.Null()], { description: 'Parent thread timestamp, null if not in a thread' }),
-  reply_count: t.Union([t.Number(), t.Null()], { description: 'Number of replies if this is a thread parent' }),
-  reply_users_count: t.Union([t.Number(), t.Null()], { description: 'Number of unique users in thread' }),
+  thread_ts: t.Union([t.String(), t.Null()], {
+    description: 'Parent thread timestamp, null if not in a thread',
+  }),
+  reply_count: t.Union([t.Number(), t.Null()], {
+    description: 'Number of replies if this is a thread parent',
+  }),
+  reply_users_count: t.Union([t.Number(), t.Null()], {
+    description: 'Number of unique users in thread',
+  }),
   reactions: t.Union([t.Array(ReactionSchema), t.Null()]),
   files: t.Union([t.Array(FileSchema), t.Null()]),
   edited: t.Boolean(),
@@ -63,7 +69,9 @@ const SlackMessageSchema = t.Object({
 const PaginatedMessagesSchema = t.Object({
   messages: t.Array(SlackMessageSchema),
   has_more: t.Boolean({ description: 'Whether more messages are available' }),
-  next_cursor: t.Union([t.String(), t.Null()], { description: 'Cursor for next page, null if no more' }),
+  next_cursor: t.Union([t.String(), t.Null()], {
+    description: 'Cursor for next page, null if no more',
+  }),
 })
 
 const SearchResultSchema = t.Object({
@@ -118,7 +126,8 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
       query: t.Object({
         types: t.Optional(
           t.String({
-            description: 'Comma-separated: public_channel,private_channel,mpim,im. Default: all types',
+            description:
+              'Comma-separated: public_channel,private_channel,mpim,im. Default: all types',
           }),
         ),
         exclude_archived: t.Optional(t.String({ description: '"true" or "false". Default: true' })),
@@ -129,7 +138,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
         tags: ['Slack'],
         summary: 'List all accessible channels, groups, DMs',
         description:
-          'Returns all conversations the user has access to — public channels, private channels, group DMs, and direct messages. DMs show the other user\'s display name.',
+          "Returns all conversations the user has access to — public channels, private channels, group DMs, and direct messages. DMs show the other user's display name.",
         security: [{ BearerAuth: [] }],
       },
     },
@@ -211,7 +220,9 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     },
     {
       query: t.Object({
-        q: t.String({ description: 'Search query (supports Slack search syntax: in:#channel, from:@user, etc.)' }),
+        q: t.String({
+          description: 'Search query (supports Slack search syntax: in:#channel, from:@user, etc.)',
+        }),
         sort: t.Optional(t.String({ description: '"score" or "timestamp". Default: timestamp' })),
         sort_dir: t.Optional(t.String({ description: '"asc" or "desc". Default: desc' })),
         count: t.Optional(t.String({ description: 'Results per page. Default: 20' })),
@@ -240,7 +251,8 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
       detail: {
         tags: ['Slack'],
         summary: 'List all workspace users',
-        description: 'Returns all users in the workspace (cached for 5 minutes). Useful for resolving user IDs in messages to display names.',
+        description:
+          'Returns all users in the workspace (cached for 5 minutes). Useful for resolving user IDs in messages to display names.',
         security: [{ BearerAuth: [] }],
       },
     },

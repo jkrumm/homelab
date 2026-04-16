@@ -43,7 +43,10 @@ function normalizeSdkResponse(sdkResult: Record<string, unknown>): Record<string
   if (!data || typeof data !== 'object') return sdkResult
   const d = data as Record<string, unknown>
   if (Array.isArray(d.tasks)) {
-    return { ...sdkResult, data: { ...d, tasks: d.tasks.map(t => normalizeTaskDates(t as Record<string, unknown>)) } }
+    return {
+      ...sdkResult,
+      data: { ...d, tasks: d.tasks.map((t) => normalizeTaskDates(t as Record<string, unknown>)) },
+    }
   }
   if (typeof d.id === 'string') {
     return { ...sdkResult, data: normalizeTaskDates(d) }
@@ -90,13 +93,19 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
   .get(
     '/project/:projectId/data',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async ({ params }) => normalizeSdkResponse(await ticktickOps.getProjectData(params.projectId) as Record<string, unknown>) as any,
+    async ({ params }) =>
+      normalizeSdkResponse(
+        (await ticktickOps.getProjectData(params.projectId)) as Record<string, unknown>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ) as any,
     {
       params: t.Object({ projectId: t.String() }),
       response: t.Object({
         data: t.Object({
           tasks: t.Array(TaskSchema),
-          columns: t.Optional(t.Array(t.Object({ id: t.Optional(t.String()), name: t.Optional(t.String()) }))),
+          columns: t.Optional(
+            t.Array(t.Object({ id: t.Optional(t.String()), name: t.Optional(t.String()) })),
+          ),
         }),
       }),
       detail: {
@@ -107,33 +116,52 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
     },
   )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  .post('/task', async ({ body }) => normalizeSdkResponse(await ticktickOps.createTask(normalizeDueDate(body as Record<string, unknown>)) as Record<string, unknown>) as any, {
-    body: t.Object(
-      {
-        title: t.String(),
-        projectId: t.Optional(t.String()),
-        dueDate: t.Optional(t.String({ description: 'YYYY-MM-DD only. Server converts to the correct midnight timestamp for the TickTick account timezone.' })),
-        priority: t.Optional(t.Number({ description: '0=none, 1=low, 3=medium, 5=high' })),
-        content: t.Optional(t.String()),
-        startDate: t.Optional(t.String()),
-        isAllDay: t.Optional(t.Boolean()),
+  .post(
+    '/task',
+    async ({ body }) =>
+      normalizeSdkResponse(
+        (await ticktickOps.createTask(normalizeDueDate(body as Record<string, unknown>))) as Record<
+          string,
+          unknown
+        >,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ) as any,
+    {
+      body: t.Object(
+        {
+          title: t.String(),
+          projectId: t.Optional(t.String()),
+          dueDate: t.Optional(
+            t.String({
+              description:
+                'YYYY-MM-DD only. Server converts to the correct midnight timestamp for the TickTick account timezone.',
+            }),
+          ),
+          priority: t.Optional(t.Number({ description: '0=none, 1=low, 3=medium, 5=high' })),
+          content: t.Optional(t.String()),
+          startDate: t.Optional(t.String()),
+          isAllDay: t.Optional(t.Boolean()),
+        },
+        { additionalProperties: true },
+      ),
+      response: t.Object({ data: TaskSchema }),
+      detail: {
+        tags: ['TickTick'],
+        summary: 'Create a task',
+        security: [{ BearerAuth: [] }],
       },
-      { additionalProperties: true },
-    ),
-    response: t.Object({ data: TaskSchema }),
-    detail: {
-      tags: ['TickTick'],
-      summary: 'Create a task',
-      security: [{ BearerAuth: [] }],
     },
-  })
+  )
   .post(
     '/task/:taskId',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async ({ params, body }): Promise<any> => {
-      const res = await ticktickOps.updateTask(params.taskId, normalizeDueDate(body as Record<string, unknown>))
+      const res = await ticktickOps.updateTask(
+        params.taskId,
+        normalizeDueDate(body as Record<string, unknown>),
+      )
       if (!res.ok) return new Response(await res.text(), { status: res.status })
-      return normalizeTaskDates(await res.json() as Record<string, unknown>)
+      return normalizeTaskDates((await res.json()) as Record<string, unknown>)
     },
     {
       params: t.Object({ taskId: t.String() }),

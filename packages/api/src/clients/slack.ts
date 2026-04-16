@@ -3,11 +3,22 @@ const SLACK_USER_TOKEN = process.env.SLACK_USER_TOKEN ?? ''
 
 // ─── Slack Web API client ───────────────────────────────────────────────────
 
-async function slackApi<T>(method: string, params?: Record<string, unknown>, token?: string): Promise<T> {
+async function slackApi<T>(
+  method: string,
+  params?: Record<string, unknown>,
+  token?: string,
+): Promise<T> {
   const authToken = token ?? SLACK_BOT_TOKEN
-  const allPrimitive = !params || Object.values(params).every(
-    (v) => v === undefined || v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean',
-  )
+  const allPrimitive =
+    !params ||
+    Object.values(params).every(
+      (v) =>
+        v === undefined ||
+        v === null ||
+        typeof v === 'string' ||
+        typeof v === 'number' ||
+        typeof v === 'boolean',
+    )
 
   if (allPrimitive) {
     const url = new URL(`https://slack.com/api/${method}`)
@@ -20,7 +31,7 @@ async function slackApi<T>(method: string, params?: Record<string, unknown>, tok
       headers: { Authorization: `Bearer ${authToken}` },
     })
     if (!res.ok) throw new Error(`Slack API ${method} HTTP ${res.status}`)
-    const data = await res.json() as T & { ok: boolean; error?: string }
+    const data = (await res.json()) as T & { ok: boolean; error?: string }
     if (!data.ok) throw new Error(`Slack API ${method}: ${data.error}`)
     return data
   }
@@ -34,7 +45,7 @@ async function slackApi<T>(method: string, params?: Record<string, unknown>, tok
     body: JSON.stringify(params),
   })
   if (!res.ok) throw new Error(`Slack API ${method} HTTP ${res.status}`)
-  const data = await res.json() as T & { ok: boolean; error?: string }
+  const data = (await res.json()) as T & { ok: boolean; error?: string }
   if (!data.ok) throw new Error(`Slack API ${method}: ${data.error}`)
   return data
 }
@@ -161,7 +172,9 @@ function mapMessage(m: RawMessage): SlackMessage {
     reply_count: m.reply_count ?? null,
     reply_users_count: m.reply_users_count ?? null,
     reactions: m.reactions?.map((r) => ({ name: r.name, count: r.count })) ?? null,
-    files: m.files?.map((f) => ({ name: f.name, mimetype: f.mimetype, url_private: f.url_private })) ?? null,
+    files:
+      m.files?.map((f) => ({ name: f.name, mimetype: f.mimetype, url_private: f.url_private })) ??
+      null,
     edited: !!m.edited,
   }
 }
@@ -221,7 +234,9 @@ export async function listChannels(opts: {
   const channels: SlackChannel[] = []
   let cursor: string | undefined
   const userMap = await getUserMap().catch(() => new Map<string, SlackUser>())
-  const userNameMap = new Map([...userMap.entries()].map(([id, u]) => [id, u.display_name || u.real_name]))
+  const userNameMap = new Map(
+    [...userMap.entries()].map(([id, u]) => [id, u.display_name || u.real_name]),
+  )
 
   do {
     const res = await slackApi<{
@@ -245,12 +260,15 @@ async function autoJoin(channelId: string): Promise<void> {
   await slackApi('conversations.join', { channel: channelId }).catch(() => {})
 }
 
-export async function getMessages(channelId: string, opts: {
-  limit?: number
-  oldest?: string
-  latest?: string
-  cursor?: string
-}): Promise<{ messages: SlackMessage[]; has_more: boolean; next_cursor: string | null }> {
+export async function getMessages(
+  channelId: string,
+  opts: {
+    limit?: number
+    oldest?: string
+    latest?: string
+    cursor?: string
+  },
+): Promise<{ messages: SlackMessage[]; has_more: boolean; next_cursor: string | null }> {
   const params = {
     channel: channelId,
     limit: opts.limit ?? 50,
@@ -290,10 +308,14 @@ export async function getMessages(channelId: string, opts: {
   }
 }
 
-export async function getThread(channelId: string, threadTs: string, opts: {
-  limit?: number
-  cursor?: string
-}): Promise<{ messages: SlackMessage[]; has_more: boolean; next_cursor: string | null }> {
+export async function getThread(
+  channelId: string,
+  threadTs: string,
+  opts: {
+    limit?: number
+    cursor?: string
+  },
+): Promise<{ messages: SlackMessage[]; has_more: boolean; next_cursor: string | null }> {
   const params = {
     channel: channelId,
     ts: threadTs,
@@ -332,25 +354,32 @@ export async function getThread(channelId: string, threadTs: string, opts: {
   }
 }
 
-export async function searchMessages(query: string, opts: {
-  sort?: 'score' | 'timestamp'
-  sort_dir?: 'asc' | 'desc'
-  count?: number
-  page?: number
-}): Promise<{ matches: SlackSearchResult[]; total: number; page: number; pages: number }> {
+export async function searchMessages(
+  query: string,
+  opts: {
+    sort?: 'score' | 'timestamp'
+    sort_dir?: 'asc' | 'desc'
+    count?: number
+    page?: number
+  },
+): Promise<{ matches: SlackSearchResult[]; total: number; page: number; pages: number }> {
   const res = await slackApi<{
     messages: {
       matches: RawSearchMatch[]
       total: number
       paging: { page: number; pages: number }
     }
-  }>('search.messages', {
-    query,
-    sort: opts.sort ?? 'timestamp',
-    sort_dir: opts.sort_dir ?? 'desc',
-    count: opts.count ?? 20,
-    page: opts.page ?? 1,
-  }, SLACK_USER_TOKEN)
+  }>(
+    'search.messages',
+    {
+      query,
+      sort: opts.sort ?? 'timestamp',
+      sort_dir: opts.sort_dir ?? 'desc',
+      count: opts.count ?? 20,
+      page: opts.page ?? 1,
+    },
+    SLACK_USER_TOKEN,
+  )
 
   const byChannel = new Map<string, { name: string; messages: SlackMessage[] }>()
 
@@ -390,10 +419,14 @@ export async function listUsers(): Promise<SlackUser[]> {
   return [...map.values()]
 }
 
-export async function sendMessage(channelId: string, text: string, opts?: {
-  thread_ts?: string
-  unfurl_links?: boolean
-}): Promise<{ ts: string; channel: string }> {
+export async function sendMessage(
+  channelId: string,
+  text: string,
+  opts?: {
+    thread_ts?: string
+    unfurl_links?: boolean
+  },
+): Promise<{ ts: string; channel: string }> {
   const res = await slackApi<{ ts: string; channel: string }>('chat.postMessage', {
     channel: channelId,
     text,
@@ -403,12 +436,14 @@ export async function sendMessage(channelId: string, text: string, opts?: {
   return { ts: res.ts, channel: res.channel }
 }
 
-export async function getUnreads(): Promise<Array<{
-  channel_id: string
-  channel_name: string
-  unread_count: number
-  latest_message: SlackMessage | null
-}>> {
+export async function getUnreads(): Promise<
+  Array<{
+    channel_id: string
+    channel_name: string
+    unread_count: number
+    latest_message: SlackMessage | null
+  }>
+> {
   // Get channels with unread counts
   const types = 'public_channel,private_channel,mpim,im'
   const unreads: Array<{
@@ -419,7 +454,9 @@ export async function getUnreads(): Promise<Array<{
   }> = []
 
   const userMap = await getUserMap().catch(() => new Map<string, SlackUser>())
-  const userNameMap = new Map([...userMap.entries()].map(([id, u]) => [id, u.display_name || u.real_name]))
+  const userNameMap = new Map(
+    [...userMap.entries()].map(([id, u]) => [id, u.display_name || u.real_name]),
+  )
   let cursor: string | undefined
 
   do {

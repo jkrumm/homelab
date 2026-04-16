@@ -10,11 +10,7 @@ const ExerciseSchema = t.Union([
   t.Literal('pull_ups'),
 ])
 
-const SetTypeSchema = t.Union([
-  t.Literal('warmup'),
-  t.Literal('work'),
-  t.Literal('drop'),
-])
+const SetTypeSchema = t.Union([t.Literal('warmup'), t.Literal('work'), t.Literal('drop')])
 
 const WorkoutSetSchema = t.Object({
   id: t.Number(),
@@ -45,7 +41,7 @@ function computeMetrics(
   sets: Array<{ set_type: string; weight_kg: number; reps: number }>,
   exercise: string,
 ) {
-  const workSets = sets.filter(s => s.set_type === 'work')
+  const workSets = sets.filter((s) => s.set_type === 'work')
   let totalVolume = 0
   let maxEpley = 0
   let maxBrzycki: number | null = null
@@ -78,10 +74,7 @@ function computeMetrics(
   return {
     estimated_1rm_epley: epley,
     estimated_1rm_brzycki: brzycki,
-    estimated_1rm:
-      brzycki !== null
-        ? Math.round(((epley + brzycki) / 2) * 10) / 10
-        : epley,
+    estimated_1rm: brzycki !== null ? Math.round(((epley + brzycki) / 2) * 10) / 10 : epley,
     total_volume: Math.round(totalVolume * 10) / 10,
   }
 }
@@ -127,7 +120,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
 
       if (rows.length === 0) return []
 
-      const ids = rows.map(w => w.id)
+      const ids = rows.map((w) => w.id)
       const allSets = await db
         .select()
         .from(workoutSets)
@@ -141,9 +134,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return rows.map(w => {
+      return rows.map((w) => {
         const wSets = setMap.get(w.id) ?? []
         return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise) }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any
     },
     {
@@ -178,10 +172,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return 'Not found' as any
       }
-      const sets = await db
-        .select()
-        .from(workoutSets)
-        .where(eq(workoutSets.workout_id, workout.id))
+      const sets = await db.select().from(workoutSets).where(eq(workoutSets.workout_id, workout.id))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return { ...workout, sets, ...computeMetrics(sets, workout.exercise) } as any
     },
@@ -201,7 +192,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
   .post(
     '/',
     async ({ body, set }) => {
-      const result = await db.transaction(async tx => {
+      const result = await db.transaction(async (tx) => {
         const [workout] = await tx
           .insert(workouts)
           .values({
@@ -212,7 +203,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           .returning()
         if (body.sets.length > 0) {
           await tx.insert(workoutSets).values(
-            body.sets.map(s => ({
+            body.sets.map((s) => ({
               workout_id: workout!.id,
               set_number: s.set_number,
               set_type: s.set_type,
@@ -306,7 +297,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         return 'Not found' as any
       }
 
-      await db.transaction(async tx => {
+      await db.transaction(async (tx) => {
         await tx.delete(workoutSets).where(eq(workoutSets.workout_id, Number(params.id)))
         await tx.delete(workouts).where(eq(workouts.id, Number(params.id)))
       })

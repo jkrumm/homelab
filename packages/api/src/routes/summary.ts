@@ -114,9 +114,7 @@ async function fetchTickTickSummary() {
   const projectMap = new Map(projects.map((p) => [p.id ?? '', p.name ?? '']))
 
   const projectDataList = await Promise.all(
-    projects
-      .filter((p) => p.id)
-      .map((p) => ticktickOps.getProjectData(p.id!).catch(() => null)),
+    projects.filter((p) => p.id).map((p) => ticktickOps.getProjectData(p.id!).catch(() => null)),
   )
 
   const allTasks: Task[] = []
@@ -208,9 +206,9 @@ export const summaryRoute = new Elysia().get(
   '/summary',
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async (): Promise<any> => {
-    const [kumaResult, dockerHLResult, dockerVPSResult, ticktickResult] =
-      await Promise.allSettled([
-        withTimeout(fetchMonitors().then((monitors) => {
+    const [kumaResult, dockerHLResult, dockerVPSResult, ticktickResult] = await Promise.allSettled([
+      withTimeout(
+        fetchMonitors().then((monitors) => {
           const nonGroup = monitors.filter((m) => m.type !== 'group')
           return {
             up: nonGroup.filter((m) => m.status === 1).length,
@@ -221,11 +219,18 @@ export const summaryRoute = new Elysia().get(
               .filter((m) => m.status === 0)
               .map((m) => ({ name: m.name, type: m.type, uptime1d: m.uptime1d })),
           }
-        }), 10_000, 'uptimeKuma'),
-        withTimeout(fetchDockerSummary('http://docker-socket-proxy:2375'), 10_000, 'dockerHomelab'),
-        withTimeout(fetchDockerSummary(`http://${process.env.VPS_TAILSCALE_IP}:2376`), 10_000, 'dockerVps'),
-        withTimeout(fetchTickTickSummary(), 15_000, 'ticktick'),
-      ])
+        }),
+        10_000,
+        'uptimeKuma',
+      ),
+      withTimeout(fetchDockerSummary('http://docker-socket-proxy:2375'), 10_000, 'dockerHomelab'),
+      withTimeout(
+        fetchDockerSummary(`http://${process.env.VPS_TAILSCALE_IP}:2376`),
+        10_000,
+        'dockerVps',
+      ),
+      withTimeout(fetchTickTickSummary(), 15_000, 'ticktick'),
+    ])
 
     return {
       generatedAt: new Date().toISOString(),

@@ -37,13 +37,11 @@ interface DockerStats {
 }
 
 function calcCpuPercent(stats: DockerStats): number {
-  const cpuDelta =
-    stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage
+  const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage
   const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage
-  const numCpus =
-    stats.cpu_stats.online_cpus ?? stats.cpu_stats.cpu_usage.percpu_usage?.length ?? 1
+  const numCpus = stats.cpu_stats.online_cpus ?? stats.cpu_stats.cpu_usage.percpu_usage?.length ?? 1
   if (systemDelta <= 0 || cpuDelta < 0) return 0
-  return Math.round(((cpuDelta / systemDelta) * numCpus * 100) * 100) / 100
+  return Math.round((cpuDelta / systemDelta) * numCpus * 100 * 100) / 100
 }
 
 function createDockerRoutes(proxyUrl: string, tag: string) {
@@ -119,19 +117,11 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         const stats = await Promise.all(
           containers.map(async (c) => {
             try {
-              const s = await dockerGet<DockerStats>(
-                `/containers/${c.Id}/stats?stream=false`,
-              )
+              const s = await dockerGet<DockerStats>(`/containers/${c.Id}/stats?stream=false`)
               const memUsageMB = Math.round(s.memory_stats.usage / 1024 / 1024)
               const memLimitMB = Math.round(s.memory_stats.limit / 1024 / 1024)
-              const netRx = Object.values(s.networks ?? {}).reduce(
-                (sum, n) => sum + n.rx_bytes,
-                0,
-              )
-              const netTx = Object.values(s.networks ?? {}).reduce(
-                (sum, n) => sum + n.tx_bytes,
-                0,
-              )
+              const netRx = Object.values(s.networks ?? {}).reduce((sum, n) => sum + n.rx_bytes, 0)
+              const netTx = Object.values(s.networks ?? {}).reduce((sum, n) => sum + n.tx_bytes, 0)
               return {
                 name: c.Names[0]?.replace(/^\//, '') ?? c.Id.slice(0, 12),
                 cpuPercent: calcCpuPercent(s),
@@ -208,12 +198,13 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         let i = 0
         while (i + 8 <= bytes.length) {
           const size =
-            (bytes[i + 4] << 24) |
-            (bytes[i + 5] << 16) |
-            (bytes[i + 6] << 8) |
-            bytes[i + 7]
+            (bytes[i + 4] << 24) | (bytes[i + 5] << 16) | (bytes[i + 6] << 8) | bytes[i + 7]
           const payload = bytes.slice(i + 8, i + 8 + size)
-          const line = new TextDecoder().decode(payload).replace(/\n$/, '').replace(ansiRe, '').trim()
+          const line = new TextDecoder()
+            .decode(payload)
+            .replace(/\n$/, '')
+            .replace(ansiRe, '')
+            .trim()
           if (line && line.replace(timestampRe, '').trim()) lines.push(line)
           i += 8 + size
         }
@@ -354,16 +345,10 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
 
 // Homelab: read-only socket proxy on internal Docker network
 export const dockerHomelabRoutes = new Elysia({ prefix: '/docker/homelab' }).use(
-  createDockerRoutes(
-    'http://docker-socket-proxy:2375',
-    'Docker - HomeLab',
-  ),
+  createDockerRoutes('http://docker-socket-proxy:2375', 'Docker - HomeLab'),
 )
 
 // VPS: read-only socket-proxy-claude exposed on Tailscale interface (port 2376)
 export const dockerVpsRoutes = new Elysia({ prefix: '/docker/vps' }).use(
-  createDockerRoutes(
-    `http://${process.env.VPS_TAILSCALE_IP}:2376`,
-    'Docker - VPS',
-  ),
+  createDockerRoutes(`http://${process.env.VPS_TAILSCALE_IP}:2376`, 'Docker - VPS'),
 )

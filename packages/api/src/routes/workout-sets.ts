@@ -3,11 +3,7 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { workoutSets } from '../db/schema.js'
 
-const SetTypeSchema = t.Union([
-  t.Literal('warmup'),
-  t.Literal('work'),
-  t.Literal('drop'),
-])
+const SetTypeSchema = t.Union([t.Literal('warmup'), t.Literal('work'), t.Literal('drop')])
 
 const WorkoutSetSchema = t.Object({
   id: t.Number(),
@@ -60,7 +56,8 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       detail: {
         tags: ['Workout Sets'],
         summary: 'List workout sets',
-        description: 'Filter by workout_id. Supports _start/_end pagination. Returns x-total-count header.',
+        description:
+          'Filter by workout_id. Supports _start/_end pagination. Returns x-total-count header.',
         security: [{ BearerAuth: [] }],
       },
     },

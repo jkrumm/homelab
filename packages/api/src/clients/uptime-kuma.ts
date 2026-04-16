@@ -39,7 +39,14 @@ interface MonitorStatus {
 
 // Fetches live status via Socket.IO — connect, login, collect monitorList + heartbeatList, disconnect
 async function fetchViaSocketIO(): Promise<
-  Map<string, { monitor: Pick<UptimeMonitor, 'name' | 'type' | 'url' | 'active'>; status: number; ping: number | null }>
+  Map<
+    string,
+    {
+      monitor: Pick<UptimeMonitor, 'name' | 'type' | 'url' | 'active'>
+      status: number
+      ping: number | null
+    }
+  >
 > {
   return new Promise((resolve, reject) => {
     const socket = io(UPTIME_KUMA_URL, { transports: ['websocket'] })
@@ -53,7 +60,11 @@ async function fetchViaSocketIO(): Promise<
     function buildResult() {
       const result = new Map<
         string,
-        { monitor: Pick<UptimeMonitor, 'name' | 'type' | 'url' | 'active'>; status: number; ping: number | null }
+        {
+          monitor: Pick<UptimeMonitor, 'name' | 'type' | 'url' | 'active'>
+          status: number
+          ping: number | null
+        }
       >()
       for (const [id, meta] of monitorMeta) {
         const hb = heartbeatMap.get(id)
@@ -124,7 +135,9 @@ async function fetchViaSocketIO(): Promise<
 }
 
 // Fetches uptime ratios from Prometheus endpoint (1d + 30d per monitor)
-async function fetchUptimeRatios(): Promise<Map<string, { d1: number | null; d30: number | null }>> {
+async function fetchUptimeRatios(): Promise<
+  Map<string, { d1: number | null; d30: number | null }>
+> {
   const credentials = Buffer.from(`:${UPTIME_KUMA_API_KEY}`).toString('base64')
   const base = UPTIME_KUMA_URL.replace(/\/$/, '')
   const res = await fetch(`${base}/metrics`, {
@@ -136,7 +149,9 @@ async function fetchUptimeRatios(): Promise<Map<string, { d1: number | null; d30
   const map = new Map<string, { d1: number | null; d30: number | null }>()
   for (const line of text.split('\n')) {
     if (line.startsWith('#') || !line.trim()) continue
-    const m = line.match(/^monitor_uptime_ratio\{monitor_id="([^"]+)"[^}]*,window="([^"]+)"\}\s+([\d.]+)/)
+    const m = line.match(
+      /^monitor_uptime_ratio\{monitor_id="([^"]+)"[^}]*,window="([^"]+)"\}\s+([\d.]+)/,
+    )
     if (!m) continue
     const [, id, window, val] = m
     if (!map.has(id)) map.set(id, { d1: null, d30: null })

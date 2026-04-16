@@ -1,10 +1,10 @@
-import '@refinedev/antd/dist/reset.css';
+import '@refinedev/antd/dist/reset.css'
 
-import { Refine } from '@refinedev/core';
-import { dataProvider } from './providers/data-provider';
-import routerProvider from '@refinedev/react-router';
-import { ThemedLayout, ThemedSider, useNotificationProvider } from '@refinedev/antd';
-import { App as AntdApp, Button, ConfigProvider, theme } from 'antd';
+import { Refine } from '@refinedev/core'
+import { dataProvider } from './providers/data-provider'
+import routerProvider from '@refinedev/react-router'
+import { ThemedLayout, ThemedSider, useNotificationProvider } from '@refinedev/antd'
+import { App as AntdApp, Button, ConfigProvider, theme } from 'antd'
 import {
   BulbOutlined,
   CheckSquareOutlined,
@@ -12,34 +12,34 @@ import {
   DashboardOutlined,
   MoonFilled,
   TrophyOutlined,
-} from '@ant-design/icons';
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
-import { useCallback, useState } from 'react';
+} from '@ant-design/icons'
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
+import { useCallback, useState } from 'react'
 
-import StrengthTrackerPage from './pages/strength-tracker';
+import StrengthTrackerPage from './pages/strength-tracker'
 
 function getInitialDark(): boolean {
-  const stored = localStorage.getItem('theme');
-  if (stored) return stored === 'dark';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const stored = localStorage.getItem('theme')
+  if (stored) return stored === 'dark'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
 const COMING_SOON = [
   { key: 'docker', label: 'Docker', icon: <ContainerOutlined /> },
   { key: 'monitoring', label: 'Monitoring', icon: <DashboardOutlined /> },
   { key: 'tasks', label: 'Tasks', icon: <CheckSquareOutlined /> },
-];
+]
 
 export default function App() {
-  const [isDark, setIsDark] = useState(getInitialDark);
+  const [isDark, setIsDark] = useState(getInitialDark)
 
   const toggleTheme = useCallback(() => {
     setIsDark((prev) => {
-      const next = !prev;
-      localStorage.setItem('theme', next ? 'dark' : 'light');
-      return next;
-    });
-  }, []);
+      const next = !prev
+      localStorage.setItem('theme', next ? 'dark' : 'light')
+      return next
+    })
+  }, [])
 
   const Header = useCallback(
     () => (
@@ -61,7 +61,7 @@ export default function App() {
       </div>
     ),
     [isDark, toggleTheme],
-  );
+  )
 
   return (
     <BrowserRouter>
@@ -104,8 +104,8 @@ export default function App() {
                           items,
                           collapsed,
                         }: {
-                          items: React.ReactNode;
-                          collapsed: boolean;
+                          items: React.ReactNode
+                          collapsed: boolean
                         }) => (
                           <>
                             {items}
@@ -145,5 +145,5 @@ export default function App() {
         </AntdApp>
       </ConfigProvider>
     </BrowserRouter>
-  );
+  )
 }

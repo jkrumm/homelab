@@ -10,9 +10,7 @@ import type { Task } from '../generated/ticktick/types.gen'
 
 const API_KEY = process.env.TICKTICK_API_KEY ?? ''
 
-export const ticktickClient = createClient(
-  createConfig({ baseUrl: 'https://ticktick.com' }),
-)
+export const ticktickClient = createClient(createConfig({ baseUrl: 'https://ticktick.com' }))
 
 ticktickClient.interceptors.request.use((request) => {
   request.headers.set('Authorization', `Bearer ${API_KEY}`)
@@ -25,8 +23,7 @@ export const ticktickOps = {
   getProjectData: (projectId: string) =>
     getProjectWithDataById({ client: ticktickClient, path: { projectId } }),
 
-  createTask: (body: Task) =>
-    createSingleTask({ client: ticktickClient, body }),
+  createTask: (body: Task) => createSingleTask({ client: ticktickClient, body }),
 
   updateTask: async (taskId: string, body: Task): Promise<Response> => {
     return fetch(`https://ticktick.com/open/v1/task/${taskId}`, {
