@@ -27,6 +27,16 @@ import {
 
 const GRID_STROKE = 'rgba(128,128,128,0.15)'
 const CHART_MARGIN = { top: 5, right: 16, bottom: 5, left: 0 }
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    backgroundColor: 'rgba(0, 0, 0, 0.88)',
+    border: 'none',
+    borderRadius: 6,
+    padding: '8px 12px',
+  },
+  labelStyle: { color: 'rgba(255, 255, 255, 0.85)' },
+  itemStyle: { color: 'rgba(255, 255, 255, 0.85)' },
+}
 
 function exerciseLabel(value: string): string {
   const ex = value.replace('_ma', '')
@@ -138,14 +148,28 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
             domain={['auto', 'auto']}
           />
           <Tooltip
-            formatter={(value: number, name: string): [string, string] => {
+            {...TOOLTIP_STYLE}
+            formatter={(
+              value: number,
+              name: string,
+              props: { payload?: Record<string, unknown> },
+            ): [string, string] => {
               const isMA = name.includes('_ma')
               const isLeft = name.startsWith('left_')
               const ex = name.replace('left_', '').replace('right_', '').replace('_ma', '')
               const exLabel = EXERCISES.find((e) => e.value === ex)?.label ?? ex
               const meta = isLeft ? leftMeta : rightMeta
               const suffix = isMA ? ' (30d avg)' : ''
-              return [`${value.toFixed(1)} ${meta.unit}`, `${exLabel} — ${meta.label}${suffix}`]
+              const date = String(props.payload?.date ?? '')
+              const isPR =
+                isLeft &&
+                !isMA &&
+                prPoints.some((pr) => pr.date === date && pr.exercise === ex)
+              const prTag = isPR ? ' PR' : ''
+              return [
+                `${value.toFixed(1)} ${meta.unit}${prTag}`,
+                `${exLabel} — ${meta.label}${suffix}`,
+              ]
             }}
           />
           <Legend
@@ -206,9 +230,9 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               x={pr.date}
               y={pr.value}
               yAxisId="left"
-              r={4}
-              fill={EXERCISE_COLORS[pr.exercise]}
-              stroke="#fff"
+              r={5}
+              fill="#faad14"
+              stroke={EXERCISE_COLORS[pr.exercise]}
               strokeWidth={2}
             />
           ))}
@@ -257,6 +281,7 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
           <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} unit={` ${meta.unit}`} width={56} />
           <Tooltip
+            {...TOOLTIP_STYLE}
             formatter={(value: number, name: string): [string, string] => [
               `${value.toFixed(1)} ${meta.unit}`,
               exerciseLabel(name),
@@ -304,6 +329,7 @@ export function FrequencyChart({ workouts, activeExercises }: FrequencyChartProp
           <XAxis dataKey="week" tick={{ fontSize: 10 }} />
           <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={32} />
           <Tooltip
+            {...TOOLTIP_STYLE}
             formatter={(value: number, name: string): [string, string] => [
               `${value} session${value !== 1 ? 's' : ''}`,
               exerciseLabel(name),
