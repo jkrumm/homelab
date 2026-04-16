@@ -169,9 +169,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               const suffix = isMA ? ' (30d avg)' : ''
               const date = String(props.payload?.date ?? '')
               const isPR =
-                isLeft &&
-                !isMA &&
-                prPoints.some((pr) => pr.date === date && pr.exercise === ex)
+                isLeft && !isMA && prPoints.some((pr) => pr.date === date && pr.exercise === ex)
               const prTag = isPR ? ' \ud83c\udfc6 PR' : ''
               return [
                 `${value.toFixed(1)} ${meta.unit}${prTag}`,
@@ -240,8 +238,8 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
                 yAxisId="left"
                 r={5}
                 fill={EXERCISE_COLORS[pr.exercise]}
-                stroke="#faad14"
-                strokeWidth={2.5}
+                stroke={EXERCISE_COLORS[pr.exercise]}
+                strokeWidth={2}
               />
             ))}
         </LineChart>
@@ -259,8 +257,20 @@ interface AreaMetricChartProps {
 
 export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartProps) {
   const [metric, setMetric] = useState<MetricKey>('total_volume')
+  const [showPRs, setShowPRs] = useState(false)
 
   const meta = METRICS.find((m) => m.value === metric)!
+
+  const prPoints = useMemo(
+    () => findPRPoints(workouts, metric, activeExercises),
+    [workouts, metric, activeExercises],
+  )
+
+  useEffect(() => {
+    setShowPRs(false)
+    const timer = setTimeout(() => setShowPRs(true), 1000)
+    return () => clearTimeout(timer)
+  }, [prPoints])
 
   const data = useMemo(
     () => buildChartData(workouts, metric, activeExercises),
@@ -290,10 +300,17 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
           <YAxis tick={{ fontSize: 11 }} unit={` ${meta.unit}`} width={56} />
           <Tooltip
             {...TOOLTIP_STYLE}
-            formatter={(value: number, name: string): [string, string] => [
-              `${value.toFixed(1)} ${meta.unit}`,
-              exerciseLabel(name),
-            ]}
+            formatter={(
+              value: number,
+              name: string,
+              props: { payload?: Record<string, unknown> },
+            ): [string, string] => {
+              const ex = name.replace('_ma', '')
+              const date = String(props.payload?.date ?? '')
+              const isPR = prPoints.some((pr) => pr.date === date && pr.exercise === ex)
+              const prTag = isPR ? ' \ud83c\udfc6 PR' : ''
+              return [`${value.toFixed(1)} ${meta.unit}${prTag}`, exerciseLabel(name)]
+            }}
           />
           <Legend formatter={exerciseLabel} />
           {activeExercises.map((ex) => (
@@ -310,6 +327,18 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
               dot={data.length < 10 ? { r: 3, fill: EXERCISE_COLORS[ex] } : false}
             />
           ))}
+          {showPRs &&
+            prPoints.map((pr) => (
+              <ReferenceDot
+                key={`pr_${pr.date}_${pr.exercise}`}
+                x={pr.date}
+                y={pr.value}
+                r={5}
+                fill={EXERCISE_COLORS[pr.exercise]}
+                stroke={EXERCISE_COLORS[pr.exercise]}
+                strokeWidth={2}
+              />
+            ))}
         </AreaChart>
       </ResponsiveContainer>
     </Card>

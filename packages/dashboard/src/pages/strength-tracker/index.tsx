@@ -6,6 +6,7 @@ import { AreaMetricChart, FrequencyChart, MainChart } from './charts'
 import { DEFAULT_DATE_FROM, DEFAULT_DATE_TO, EXERCISE_COLORS, EXERCISES } from './constants'
 import { generateDemoWorkouts } from './demo-data'
 import { WorkoutHistory } from './history'
+import { RecentRecords } from './records'
 import { SummaryStats } from './stats'
 import type { ExerciseKey, Workout } from './types'
 import { WorkoutForm } from './workout-form'
@@ -153,12 +154,14 @@ export default function StrengthTrackerPage() {
         <Space direction="vertical" style={{ width: '100%' }} size={16}>
           <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
           {content}
+          <RecentRecords workouts={displayWorkouts} />
         </Space>
       ) : (
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
           <div style={{ width: 360, flexShrink: 0 }}>
             <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
+            <RecentRecords workouts={displayWorkouts} />
           </div>
         </div>
       )}
