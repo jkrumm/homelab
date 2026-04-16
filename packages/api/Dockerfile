@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY packages/api/package.json ./packages/api/
 # Install production dependencies (workspace-aware)
-RUN bun install --frozen-lockfile --production
+RUN bun install --production
 # Copy API source
 COPY packages/api/src/ ./packages/api/src/
 EXPOSE 4000

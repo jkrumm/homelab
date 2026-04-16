@@ -14,7 +14,7 @@ COPY packages/dashboard/package.json ./packages/dashboard/
 COPY packages/api/package.json ./packages/api/
 
 # Install all workspace dependencies (dev included — needed for vite build + type checking)
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy source — API src needed for @homelab/api type resolution (type-only, stripped at build)
 COPY packages/api/src/ ./packages/api/src/
