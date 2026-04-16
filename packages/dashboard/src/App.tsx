@@ -41,28 +41,6 @@ export default function App() {
     })
   }, [])
 
-  const Header = useCallback(
-    () => (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          height: 64,
-          padding: '0 24px',
-        }}
-      >
-        <Button
-          type="text"
-          icon={isDark ? <BulbOutlined /> : <MoonFilled />}
-          onClick={toggleTheme}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        />
-      </div>
-    ),
-    [isDark, toggleTheme],
-  )
-
   return (
     <BrowserRouter>
       <ConfigProvider
@@ -92,7 +70,7 @@ export default function App() {
               <Route
                 element={
                   <ThemedLayout
-                    Header={Header}
+                    Header={() => null}
                     Title={({ collapsed }: { collapsed: boolean }) => (
                       <span style={{ fontWeight: 700, fontSize: collapsed ? 14 : 18 }}>
                         {collapsed ? 'HL' : 'HomeLab'}
@@ -127,6 +105,25 @@ export default function App() {
                                 {!collapsed && <span>{label}</span>}
                               </div>
                             ))}
+                            <div style={{ flex: 1 }} />
+                            <div
+                              style={{
+                                padding: collapsed ? '12px 24px' : '12px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: collapsed ? 'center' : 'flex-start',
+                              }}
+                            >
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={isDark ? <BulbOutlined /> : <MoonFilled />}
+                                onClick={toggleTheme}
+                                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                              >
+                                {!collapsed && (isDark ? 'Light' : 'Dark')}
+                              </Button>
+                            </div>
                           </>
                         )}
                       />

@@ -112,73 +112,99 @@ export function buildChartDataWithMA(
   return result
 }
 
-export function computeSummaryStats(workouts: Workout[], exercises: ExerciseKey[]) {
+function pctChange(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? 100 : null
+  return ((current - previous) / previous) * 100
+}
+
+export interface SummaryStatsResult {
+  best1rm: number
+  current1rmAvg: number
+  current1rmDelta: number | null
+  weeklyVolume: number
+  weeklyVolumeDelta: number | null
+  avgIntensity: number | null
+  freqPerWeek: number
+  sessionsLast30: number
+  sessionsDelta: number | null
+}
+
+export function computeSummaryStats(
+  workouts: Workout[],
+  exercises: ExerciseKey[],
+): SummaryStatsResult {
   const now = dayjs()
-  const weekStart = now.subtract(7, 'day').format('YYYY-MM-DD')
-  const monthStart = now.subtract(30, 'day').format('YYYY-MM-DD')
-  const prevMonthStart = now.subtract(60, 'day').format('YYYY-MM-DD')
+  const d7 = now.subtract(7, 'day').format('YYYY-MM-DD')
+  const d14 = now.subtract(14, 'day').format('YYYY-MM-DD')
+  const d30 = now.subtract(30, 'day').format('YYYY-MM-DD')
+  const d60 = now.subtract(60, 'day').format('YYYY-MM-DD')
 
   const filtered = workouts.filter((w) => exercises.includes(w.exercise as ExerciseKey))
 
-  const weeklyVolume = filtered
-    .filter((w) => w.date >= weekStart)
-    .reduce((sum, w) => sum + w.total_volume, 0)
-
-  const sessionsLast30 = workouts.filter((w) => w.date >= monthStart).length
-
+  // Best 1RM — all-time peak
   const best1rm = filtered
     .filter((w) => w.estimated_1rm !== null)
     .reduce((max, w) => Math.max(max, w.estimated_1rm!), 0)
 
-  const latestByExercise = new Map<ExerciseKey, number>()
-  for (const w of [...filtered].reverse()) {
-    const ex = w.exercise as ExerciseKey
-    if (!latestByExercise.has(ex) && w.estimated_1rm !== null) {
-      latestByExercise.set(ex, w.estimated_1rm)
-    }
+  // Current 1RM — average of last 30d vs previous 30d
+  const last30with1rm = filtered.filter((w) => w.date >= d30 && w.estimated_1rm !== null)
+  const prev30with1rm = filtered.filter(
+    (w) => w.date >= d60 && w.date < d30 && w.estimated_1rm !== null,
+  )
+
+  const current1rmAvg =
+    last30with1rm.length > 0
+      ? last30with1rm.reduce((sum, w) => sum + w.estimated_1rm!, 0) / last30with1rm.length
+      : 0
+
+  const prev1rmAvg =
+    prev30with1rm.length > 0
+      ? prev30with1rm.reduce((sum, w) => sum + w.estimated_1rm!, 0) / prev30with1rm.length
+      : 0
+
+  const current1rmDelta =
+    current1rmAvg > 0 && prev1rmAvg > 0 ? pctChange(current1rmAvg, prev1rmAvg) : null
+
+  // Weekly volume — last 7d vs previous 7d
+  const weeklyVolume = filtered
+    .filter((w) => w.date >= d7)
+    .reduce((sum, w) => sum + w.total_volume, 0)
+
+  const prevWeekVolume = filtered
+    .filter((w) => w.date >= d14 && w.date < d7)
+    .reduce((sum, w) => sum + w.total_volume, 0)
+
+  const weeklyVolumeDelta = pctChange(weeklyVolume, prevWeekVolume)
+
+  // Avg intensity — work set weight / 1RM, last 30d
+  const intensityValues: number[] = []
+  for (const w of filtered.filter((w) => w.date >= d30)) {
+    const val = extractMetric(w, 'avg_intensity')
+    if (val !== null) intensityValues.push(val)
   }
-  const latest1rm = latestByExercise.size > 0 ? Math.max(...latestByExercise.values()) : 0
+  const avgIntensity =
+    intensityValues.length > 0
+      ? intensityValues.reduce((sum, v) => sum + v, 0) / intensityValues.length
+      : null
 
-  const prWeight = filtered.reduce((max, w) => {
-    const workSets = w.sets.filter((s) => s.set_type === 'work')
-    if (workSets.length === 0) return max
-    const isPullUps = w.exercise === 'pull_ups'
-    const heaviest = Math.max(...workSets.map((s) => s.weight_kg))
-    return Math.max(max, isPullUps ? heaviest + PULL_UPS_BODYWEIGHT : heaviest)
-  }, 0)
+  // Sessions last 30d + delta vs previous 30d
+  const sessionsLast30 = workouts.filter((w) => w.date >= d30).length
+  const sessionsPrev30 = workouts.filter((w) => w.date >= d60 && w.date < d30).length
+  const sessionsDelta = pctChange(sessionsLast30, sessionsPrev30)
 
-  const last30Avg =
-    filtered
-      .filter((w) => w.date >= monthStart && w.estimated_1rm !== null)
-      .reduce((sum, w) => sum + w.estimated_1rm!, 0) /
-    Math.max(1, filtered.filter((w) => w.date >= monthStart && w.estimated_1rm !== null).length)
-
-  const prev30Avg =
-    filtered
-      .filter((w) => w.date >= prevMonthStart && w.date < monthStart && w.estimated_1rm !== null)
-      .reduce((sum, w) => sum + w.estimated_1rm!, 0) /
-    Math.max(
-      1,
-      filtered.filter(
-        (w) => w.date >= prevMonthStart && w.date < monthStart && w.estimated_1rm !== null,
-      ).length,
-    )
-
-  const diff = last30Avg - prev30Avg
-  const trend: 'up' | 'down' | 'flat' = diff > 1 ? 'up' : diff < -1 ? 'down' : 'flat'
-
-  const sessionsInLast30 = workouts.filter((w) => w.date >= monthStart).length
-  const weeksInPeriod = 30 / 7
-  const freqPerWeek = Math.round((sessionsInLast30 / weeksInPeriod) * 10) / 10
+  // Frequency — sessions per week in last 30d
+  const freqPerWeek = Math.round((sessionsLast30 / (30 / 7)) * 10) / 10
 
   return {
     best1rm,
-    latest1rm,
-    prWeight,
+    current1rmAvg,
+    current1rmDelta,
     weeklyVolume,
-    sessionsLast30,
-    trend,
+    weeklyVolumeDelta,
+    avgIntensity,
     freqPerWeek,
+    sessionsLast30,
+    sessionsDelta,
   }
 }
 
