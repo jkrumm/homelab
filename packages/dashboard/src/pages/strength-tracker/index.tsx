@@ -110,13 +110,11 @@ export default function StrengthTrackerPage() {
           ]}
           value={view}
           onChange={(v) => setView(v as 'charts' | 'history')}
-          size="small"
         />
         <Select
           value={datePreset}
           onChange={(v) => applyPreset(v)}
           options={DATE_PRESET_OPTIONS}
-          size="small"
           style={{ minWidth: 100 }}
         />
         {datePreset === 'custom' && (
@@ -133,49 +131,46 @@ export default function StrengthTrackerPage() {
               }
             }}
             allowClear={false}
-            size="small"
           />
         )}
-        <Button
-          size="small"
-          type="text"
-          icon={<UndoOutlined />}
-          onClick={resetConfig}
-          style={{ opacity: 0.6 }}
-        >
-          Reset
-        </Button>
-        <Button
-          size="small"
-          type={useDemoData ? 'default' : 'text'}
-          onClick={() => setUseDemoData(!useDemoData)}
-          style={{ opacity: useDemoData ? 1 : 0.6 }}
-        >
-          Demo
-        </Button>
+        <Space.Compact>
+          <Button
+            icon={<UndoOutlined />}
+            onClick={resetConfig}
+            style={{ opacity: 0.65 }}
+          >
+            Reset
+          </Button>
+          <Button
+            onClick={() => setUseDemoData(!useDemoData)}
+            style={useDemoData ? { fontWeight: 600 } : { opacity: 0.65 }}
+          >
+            Demo
+          </Button>
+        </Space.Compact>
       </Space>
 
-      <Space.Compact size="small">
+      <Space.Compact>
         {EXERCISES.map((ex) => {
           const active = activeExercises.includes(ex.value)
           return (
             <Button
               key={ex.value}
-              size="small"
               style={{ opacity: active ? 1 : 0.4 }}
               onClick={() => toggleExercise(ex.value)}
             >
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: EXERCISE_COLORS[ex.value],
-                  marginRight: 6,
-                }}
-              />
-              {ex.label}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    backgroundColor: EXERCISE_COLORS[ex.value],
+                    flexShrink: 0,
+                  }}
+                />
+                {ex.label}
+              </span>
             </Button>
           )
         })}
