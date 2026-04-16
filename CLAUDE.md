@@ -136,11 +136,13 @@ Run `make help` for all available targets.
 
 | Command                   | Purpose                                                  |
 | ------------------------- | -------------------------------------------------------- |
-| `make api-deploy`         | Full API deploy: git pull + rebuild (no cache) + restart |
-| `make api-rebuild`        | Rebuild API image (no cache) + restart (no git pull)     |
-| `make api-restart`        | Restart API only (picks up new env vars, no rebuild)     |
-| `make api-logs`           | Follow API logs                                          |
-| `make deploy`             | Full stack deploy: git pull + recreate all services      |
+| `make api-deploy`         | Full API deploy: git pull + rebuild (no cache) + restart       |
+| `make api-rebuild`        | Rebuild API image (no cache) + restart (no git pull)           |
+| `make api-restart`        | Restart API only (picks up new env vars, no rebuild)           |
+| `make api-logs`           | Follow API logs                                                |
+| `make dash-deploy`        | Full dashboard deploy: git pull + rebuild (no cache) + restart |
+| `make dash-rebuild`       | Rebuild dashboard image (no cache) + restart (no git pull)     |
+| `make deploy`             | Full stack deploy: git pull + recreate all services             |
 | `make up`                 | Start/recreate all services                              |
 | `make restart svc=<name>` | Force-recreate a single service                          |
 | `make down`               | Stop all services                                        |
@@ -665,10 +667,12 @@ When making changes that affect infrastructure or script behavior:
 
 | Command                   | Purpose                                        |
 | ------------------------- | ---------------------------------------------- |
-| `make api-deploy`         | Full API deploy (git pull + rebuild + restart) |
-| `make api-rebuild`        | Rebuild API + restart (no git pull)            |
-| `make api-restart`        | Restart API (new env vars, no rebuild)         |
-| `make deploy`             | Full stack deploy (git pull + recreate all)    |
+| `make api-deploy`         | Full API deploy (git pull + rebuild + restart)       |
+| `make api-rebuild`        | Rebuild API + restart (no git pull)                  |
+| `make api-restart`        | Restart API (new env vars, no rebuild)               |
+| `make dash-deploy`        | Full dashboard deploy (git pull + rebuild + restart) |
+| `make dash-rebuild`       | Rebuild dashboard + restart (no git pull)            |
+| `make deploy`             | Full stack deploy (git pull + recreate all)           |
 | `make up`                 | Start/recreate all services                    |
 | `make restart svc=<name>` | Force-recreate a single service                |
 | `make ps`                 | Show running containers                        |
