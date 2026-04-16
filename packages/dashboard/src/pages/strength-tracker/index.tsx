@@ -178,7 +178,7 @@ function SetRow({
   showRemove: boolean
 }) {
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
       <Typography.Text type="secondary" style={{ minWidth: 18, fontSize: 12 }}>
         {index + 1}
       </Typography.Text>
@@ -187,7 +187,7 @@ function SetRow({
         onChange={(v) => onChange('set_type', v)}
         options={SET_TYPE_OPTIONS}
         size="small"
-        style={{ width: 88 }}
+        style={{ flex: '1 1 30%', minWidth: 0 }}
         popupMatchSelectWidth={false}
       />
       <InputNumber
@@ -196,7 +196,7 @@ function SetRow({
         min={0}
         step={2.5}
         size="small"
-        style={{ width: 76 }}
+        style={{ flex: '1 1 35%', minWidth: 0 }}
         addonAfter="kg"
       />
       <InputNumber
@@ -205,7 +205,7 @@ function SetRow({
         min={1}
         max={100}
         size="small"
-        style={{ width: 54 }}
+        style={{ flex: '1 1 25%', minWidth: 0 }}
         addonAfter="×"
       />
       {showRemove && (
@@ -217,11 +217,66 @@ function SetRow({
 
 // ── WorkoutForm ────────────────────────────────────────────────────────────
 
-function WorkoutForm({ onSuccess }: { onSuccess?: () => void }) {
+const FORM_STORAGE_KEY = 'strength-tracker-form'
+const DEFAULT_SETS: SetEntry[] = [{ set_type: 'work', weight_kg: 60, reps: 5 }]
+
+interface StoredForm {
+  exercise: ExerciseKey
+  date: string
+  sets: SetEntry[]
+}
+
+function loadStoredForm(): StoredForm | null {
+  try {
+    const raw = localStorage.getItem(FORM_STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as StoredForm
+  } catch {
+    return null
+  }
+}
+
+function WorkoutForm({
+  onSuccess,
+  workouts,
+}: {
+  onSuccess?: () => void
+  workouts: Workout[]
+}) {
   const { message } = App.useApp()
-  const [exercise, setExercise] = useState<ExerciseKey>('bench_press')
-  const [date, setDate] = useState<Dayjs>(dayjs())
-  const [sets, setSets] = useState<SetEntry[]>([{ set_type: 'work', weight_kg: 60, reps: 5 }])
+
+  const stored = useMemo(() => loadStoredForm(), [])
+  const [exercise, setExercise] = useState<ExerciseKey>(stored?.exercise ?? 'bench_press')
+  const [date, setDate] = useState<Dayjs>(stored?.date ? dayjs(stored.date) : dayjs())
+  const [sets, setSets] = useState<SetEntry[]>(stored?.sets ?? DEFAULT_SETS)
+
+  // Persist form state to localStorage
+  useEffect(() => {
+    const data: StoredForm = { exercise, date: date.format('YYYY-MM-DD'), sets }
+    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(data))
+  }, [exercise, date, sets])
+
+  // Pre-fill sets from the most recent workout for the selected exercise
+  const handleExerciseChange = useCallback(
+    (ex: ExerciseKey) => {
+      setExercise(ex)
+      const latest = [...workouts]
+        .filter((w) => w.exercise === ex)
+        .sort((a, b) => b.date.localeCompare(a.date))[0]
+      if (latest?.sets.length) {
+        setSets(
+          latest.sets
+            .sort((a, b) => a.set_number - b.set_number)
+            .map((s) => ({
+              set_type: s.set_type as SetType,
+              weight_kg: s.weight_kg,
+              reps: s.reps,
+            })),
+        )
+      }
+    },
+    [workouts],
+  )
 
   const { mutate, mutation } = useCreate()
 
@@ -260,6 +315,7 @@ function WorkoutForm({ onSuccess }: { onSuccess?: () => void }) {
       {
         onSuccess: () => {
           void message.success('Workout logged!')
+          localStorage.removeItem(FORM_STORAGE_KEY)
           setSets((prev) => [{ set_type: 'work', weight_kg: prev[0]?.weight_kg ?? 60, reps: 5 }])
           onSuccess?.()
         },
@@ -279,7 +335,7 @@ function WorkoutForm({ onSuccess }: { onSuccess?: () => void }) {
           </Typography.Text>
           <Select
             value={exercise}
-            onChange={setExercise}
+            onChange={handleExerciseChange}
             options={EXERCISES}
             style={{ width: '100%', marginTop: 4 }}
             size="large"
@@ -514,7 +570,7 @@ export default function StrengthTrackerPage() {
       {isMobile ? (
         // Mobile: form on top, charts below
         <Space direction="vertical" style={{ width: '100%' }} size={16}>
-          <WorkoutForm onSuccess={() => void query.refetch()} />
+          <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
           <WorkoutCharts
             workouts={workouts}
             isLoading={isLoading}
@@ -532,7 +588,7 @@ export default function StrengthTrackerPage() {
             />
           </div>
           <div style={{ width: 360, flexShrink: 0 }}>
-            <WorkoutForm onSuccess={() => void query.refetch()} />
+            <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
           </div>
         </div>
       )}

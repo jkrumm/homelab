@@ -86,7 +86,7 @@ export default function App() {
                 },
               },
             ]}
-            options={{ syncWithLocation: true, disableTelemetry: true }}
+            options={{ syncWithLocation: false, disableTelemetry: true }}
           >
             <Routes>
               <Route
