@@ -31,6 +31,7 @@ const ST_KEYS = [
   'st-show-ma',
   'st-area-metric',
   'st-record-filter',
+  'st-demo-data',
   'strength-tracker-form',
 ]
 

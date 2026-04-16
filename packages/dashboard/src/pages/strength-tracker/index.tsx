@@ -62,7 +62,7 @@ export default function StrengthTrackerPage() {
     [customRange, setDatePreset],
   )
   const [view, setView] = useLocalState<'charts' | 'history'>('st-view', 'charts')
-  const [useDemoData, setUseDemoData] = useState(false)
+  const [useDemoData, setUseDemoData] = useLocalState('st-demo-data', false)
 
   const toggleExercise = useCallback(
     (ex: ExerciseKey) => {

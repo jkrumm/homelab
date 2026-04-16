@@ -9,10 +9,10 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   const sign = delta >= 0 ? '+' : ''
   const color = delta > 0 ? '#52c41a' : delta < 0 ? '#ff4d4f' : 'rgba(128,128,128,0.6)'
   return (
-    <Typography.Text style={{ fontSize: 11, color, marginLeft: 4 }}>
+    <span style={{ fontSize: 14, fontWeight: 500, color, marginLeft: 6 }}>
       {sign}
       {delta.toFixed(0)}%
-    </Typography.Text>
+    </span>
   )
 }
 
@@ -95,7 +95,6 @@ export function SummaryStats({ workouts, activeExercises, isLoading }: SummarySt
                 title={
                   <span>
                     {stat.label}
-                    <DeltaBadge delta={stat.delta} />
                     <Tooltip title={stat.tooltip} placement="bottom">
                       <InfoCircleOutlined
                         style={{
@@ -109,7 +108,12 @@ export function SummaryStats({ workouts, activeExercises, isLoading }: SummarySt
                   </span>
                 }
                 value={stat.value}
-                suffix={stat.suffix}
+                suffix={
+                  <>
+                    {stat.suffix}
+                    <DeltaBadge delta={stat.delta} />
+                  </>
+                }
                 valueStyle={{ fontSize: 18 }}
               />
             </Card>
