@@ -1,6 +1,6 @@
 import { useList } from '@refinedev/core'
 import { UndoOutlined } from '@ant-design/icons'
-import { Button, Col, DatePicker, Row, Segmented, Select, Space, Switch, Typography } from 'antd'
+import { Button, DatePicker, Segmented, Select, Space } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AreaMetricChart, FrequencyChart, MainChart } from './charts'
@@ -92,91 +92,95 @@ export default function StrengthTrackerPage() {
   const displayWorkouts = useDemoData ? demoWorkouts : workouts
 
   const filterBar = (
-    <Row gutter={[12, 8]} style={{ marginBottom: 16 }} align="middle">
-      <Col xs={24} md={12}>
-        <Space wrap size={6}>
-          {EXERCISES.map((ex) => {
-            const active = activeExercises.includes(ex.value)
-            return (
-              <Button
-                key={ex.value}
-                type="text"
-                size="small"
-                style={{ opacity: active ? 1 : 0.4 }}
-                onClick={() => toggleExercise(ex.value)}
-              >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: EXERCISE_COLORS[ex.value],
-                    marginRight: 6,
-                  }}
-                />
-                {ex.label}
-              </Button>
-            )
-          })}
-        </Space>
-      </Col>
-      <Col xs={24} md={8}>
-        <Space size={6} align="center">
-          <Select
-            value={datePreset}
-            onChange={(v) => applyPreset(v)}
-            options={DATE_PRESET_OPTIONS}
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 16,
+      }}
+    >
+      <Space size={8} wrap align="center">
+        <Segmented
+          options={[
+            { label: 'Charts', value: 'charts' },
+            { label: 'History', value: 'history' },
+          ]}
+          value={view}
+          onChange={(v) => setView(v as 'charts' | 'history')}
+          size="small"
+        />
+        <Select
+          value={datePreset}
+          onChange={(v) => applyPreset(v)}
+          options={DATE_PRESET_OPTIONS}
+          size="small"
+          style={{ minWidth: 100 }}
+        />
+        {datePreset === 'custom' && (
+          <DatePicker.RangePicker
+            value={[dayjs(customRange[0]), dayjs(customRange[1])]}
+            onChange={(dates) => {
+              if (dates?.[0] && dates?.[1]) {
+                const range: [string, string] = [
+                  dates[0].format('YYYY-MM-DD'),
+                  dates[1].format('YYYY-MM-DD'),
+                ]
+                setCustomRange(range)
+                applyPreset('custom', range)
+              }
+            }}
+            allowClear={false}
             size="small"
-            style={{ minWidth: 100 }}
           />
-          {datePreset === 'custom' && (
-            <DatePicker.RangePicker
-              value={[dayjs(customRange[0]), dayjs(customRange[1])]}
-              onChange={(dates) => {
-                if (dates?.[0] && dates?.[1]) {
-                  const range: [string, string] = [
-                    dates[0].format('YYYY-MM-DD'),
-                    dates[1].format('YYYY-MM-DD'),
-                  ]
-                  setCustomRange(range)
-                  applyPreset('custom', range)
-                }
-              }}
-              allowClear={false}
+        )}
+        <Button
+          size="small"
+          type="text"
+          icon={<UndoOutlined />}
+          onClick={resetConfig}
+          style={{ opacity: 0.6 }}
+        >
+          Reset
+        </Button>
+        <Button
+          size="small"
+          type={useDemoData ? 'default' : 'text'}
+          onClick={() => setUseDemoData(!useDemoData)}
+          style={{ opacity: useDemoData ? 1 : 0.6 }}
+        >
+          Demo
+        </Button>
+      </Space>
+
+      <Space.Compact size="small">
+        {EXERCISES.map((ex) => {
+          const active = activeExercises.includes(ex.value)
+          return (
+            <Button
+              key={ex.value}
               size="small"
-            />
-          )}
-        </Space>
-      </Col>
-      <Col xs={24} md={4} style={{ textAlign: isMobile ? 'left' : 'right' }}>
-        <Space size={12} align="center">
-          <Segmented
-            options={[
-              { label: 'Charts', value: 'charts' },
-              { label: 'History', value: 'history' },
-            ]}
-            value={view}
-            onChange={(v) => setView(v as 'charts' | 'history')}
-            size="small"
-          />
-          <Space size={6} align="center">
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Demo
-            </Typography.Text>
-            <Switch size="small" checked={useDemoData} onChange={setUseDemoData} />
-          </Space>
-          <Button
-            type="text"
-            size="small"
-            icon={<UndoOutlined />}
-            onClick={resetConfig}
-            title="Reset all settings"
-            style={{ opacity: 0.5 }}
-          />
-        </Space>
-      </Col>
-    </Row>
+              style={{ opacity: active ? 1 : 0.4 }}
+              onClick={() => toggleExercise(ex.value)}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: EXERCISE_COLORS[ex.value],
+                  marginRight: 6,
+                }}
+              />
+              {ex.label}
+            </Button>
+          )
+        })}
+      </Space.Compact>
+    </div>
   )
 
   const content = (
