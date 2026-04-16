@@ -2,7 +2,7 @@ import { useCreate } from '@refinedev/core'
 import { App, Button, Card, DatePicker, Select, Space, Typography } from 'antd'
 import { TrophyOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { detectAchievements, fireConfetti } from './achievements'
 import { EXERCISES } from './constants'
 import { SetEditor } from './set-editor'
@@ -48,9 +48,8 @@ export function WorkoutForm({
     localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(data))
   }, [exercise, date, sets])
 
-  const handleExerciseChange = useCallback(
+  const loadLatestSets = useCallback(
     (ex: ExerciseKey) => {
-      setExercise(ex)
       const latest = [...workouts]
         .filter((w) => w.exercise === ex)
         .sort((a, b) => b.date.localeCompare(a.date))[0]
@@ -67,6 +66,22 @@ export function WorkoutForm({
       }
     },
     [workouts],
+  )
+
+  // Pre-fill from latest workout on initial load when no stored form
+  const initialFilled = useRef(false)
+  useEffect(() => {
+    if (stored || initialFilled.current || workouts.length === 0) return
+    initialFilled.current = true
+    loadLatestSets(exercise)
+  }, [workouts, exercise, stored, loadLatestSets])
+
+  const handleExerciseChange = useCallback(
+    (ex: ExerciseKey) => {
+      setExercise(ex)
+      loadLatestSets(ex)
+    },
+    [loadLatestSets],
   )
 
   const { mutate, mutation } = useCreate()
