@@ -1,10 +1,11 @@
 import { useList } from '@refinedev/core'
-import { Button, Col, DatePicker, Row, Space, Switch, Typography } from 'antd'
+import { Button, Col, DatePicker, Row, Segmented, Space, Switch, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AreaMetricChart, FrequencyChart, MainChart } from './charts'
 import { DEFAULT_DATE_FROM, DEFAULT_DATE_TO, EXERCISE_COLORS, EXERCISES } from './constants'
 import { generateDemoWorkouts } from './demo-data'
+import { WorkoutHistory } from './history'
 import { SummaryStats } from './stats'
 import type { ExerciseKey, Workout } from './types'
 import { WorkoutForm } from './workout-form'
@@ -34,6 +35,7 @@ export default function StrengthTrackerPage() {
   ])
   const [dateFrom, setDateFrom] = useState(DEFAULT_DATE_FROM)
   const [dateTo, setDateTo] = useState(DEFAULT_DATE_TO)
+  const [view, setView] = useState<'charts' | 'history'>('charts')
   const [useDemoData, setUseDemoData] = useState(false)
 
   const toggleExercise = useCallback((ex: ExerciseKey) => {
@@ -98,26 +100,48 @@ export default function StrengthTrackerPage() {
         </Space>
       </Col>
       <Col xs={24} md={4} style={{ textAlign: isMobile ? 'left' : 'right' }}>
-        <Space size={6} align="center">
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Demo
-          </Typography.Text>
-          <Switch size="small" checked={useDemoData} onChange={setUseDemoData} />
+        <Space size={12} align="center">
+          <Segmented
+            options={[
+              { label: 'Charts', value: 'charts' },
+              { label: 'History', value: 'history' },
+            ]}
+            value={view}
+            onChange={(v) => setView(v as 'charts' | 'history')}
+            size="small"
+          />
+          <Space size={6} align="center">
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Demo
+            </Typography.Text>
+            <Switch size="small" checked={useDemoData} onChange={setUseDemoData} />
+          </Space>
         </Space>
       </Col>
     </Row>
   )
 
-  const charts = (
+  const content = (
     <>
       <SummaryStats
         workouts={displayWorkouts}
         activeExercises={activeExercises}
         isLoading={isLoading && !useDemoData}
       />
-      <MainChart workouts={displayWorkouts} activeExercises={activeExercises} />
-      <AreaMetricChart workouts={displayWorkouts} activeExercises={activeExercises} />
-      <FrequencyChart workouts={displayWorkouts} activeExercises={activeExercises} />
+      {view === 'charts' ? (
+        <>
+          <MainChart workouts={displayWorkouts} activeExercises={activeExercises} />
+          <AreaMetricChart workouts={displayWorkouts} activeExercises={activeExercises} />
+          <FrequencyChart workouts={displayWorkouts} activeExercises={activeExercises} />
+        </>
+      ) : (
+        <WorkoutHistory
+          workouts={displayWorkouts}
+          activeExercises={activeExercises}
+          isLoading={isLoading && !useDemoData}
+          onMutate={() => void query.refetch()}
+        />
+      )}
     </>
   )
 
@@ -128,11 +152,11 @@ export default function StrengthTrackerPage() {
       {isMobile ? (
         <Space direction="vertical" style={{ width: '100%' }} size={16}>
           <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
-          {charts}
+          {content}
         </Space>
       ) : (
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>{charts}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
           <div style={{ width: 360, flexShrink: 0 }}>
             <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
           </div>

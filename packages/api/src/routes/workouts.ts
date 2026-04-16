@@ -252,17 +252,34 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         return 'Not found' as any
       }
 
-      const updateData: Partial<typeof workouts.$inferInsert> = {}
-      if (body.date !== undefined) updateData.date = body.date
-      if (body.exercise !== undefined) updateData.exercise = body.exercise
-      if (body.notes !== undefined) updateData.notes = body.notes
+      await db.transaction(async (tx) => {
+        const updateData: Partial<typeof workouts.$inferInsert> = {}
+        if (body.date !== undefined) updateData.date = body.date
+        if (body.exercise !== undefined) updateData.exercise = body.exercise
+        if (body.notes !== undefined) updateData.notes = body.notes
 
-      if (Object.keys(updateData).length > 0) {
-        await db
-          .update(workouts)
-          .set(updateData)
-          .where(eq(workouts.id, Number(params.id)))
-      }
+        if (Object.keys(updateData).length > 0) {
+          await tx
+            .update(workouts)
+            .set(updateData)
+            .where(eq(workouts.id, Number(params.id)))
+        }
+
+        if (body.sets !== undefined) {
+          await tx.delete(workoutSets).where(eq(workoutSets.workout_id, Number(params.id)))
+          if (body.sets.length > 0) {
+            await tx.insert(workoutSets).values(
+              body.sets.map((s) => ({
+                workout_id: Number(params.id),
+                set_number: s.set_number,
+                set_type: s.set_type,
+                weight_kg: s.weight_kg,
+                reps: s.reps,
+              })),
+            )
+          }
+        }
+      })
 
       return { id: existing.id }
     },
@@ -272,6 +289,16 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         date: t.Optional(t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })),
         exercise: t.Optional(ExerciseSchema),
         notes: t.Optional(t.Union([t.String(), t.Null()])),
+        sets: t.Optional(
+          t.Array(
+            t.Object({
+              set_number: t.Number({ minimum: 1 }),
+              set_type: SetTypeSchema,
+              weight_kg: t.Number({ minimum: 0 }),
+              reps: t.Integer({ minimum: 1 }),
+            }),
+          ),
+        ),
       }),
       response: {
         200: t.Object({ id: t.Number() }),
