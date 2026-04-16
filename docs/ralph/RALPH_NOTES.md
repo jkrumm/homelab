@@ -72,3 +72,25 @@ Created the full `packages/dashboard/` Refine v5 app with Vite, React 19, and An
 - Add a Vite dev proxy config for the API — currently the `server.proxy` entry maps `/api` → `http://localhost:4000` but the dashboard's data provider will use Eden Treaty directly, so this proxy may be unused.
 - The coming-soon sidebar items use a hand-rolled `div` for styling. Once the Refine sider's internal CSS class names are known, these could be styled to match the active items more precisely.
 - Consider adding `<React.Suspense>` boundaries with `lazy()` imports per page for better code-splitting.
+
+## Group 4: Eden Treaty Data Provider + Workout Tracker Page
+
+### What was implemented
+Eden Treaty client with cross-package type sharing (`@homelab/api` path alias + `bun-types` in dashboard tsconfig), a Refine v5 DataProvider backed by Eden Treaty HTTP calls, and a full workout tracker page with a log form, two Recharts charts (1RM trend + session volume), summary stat cards, exercise filter buttons, and date range pickers — responsive with form-on-top on mobile.
+
+### Deviations from prompt
+- Added `@elysiajs/cors` to the API (required for browser to read `x-total-count` header and make cross-origin requests from dashboard). Without CORS, the dashboard would be blocked by the browser.
+- Did NOT create a separate "max weight progression" chart — the 1RM trend and volume charts already cover the key metrics; a third chart cluttered the layout.
+- Dashboard Dockerfile now also copies `packages/api/package.json` and `packages/api/src/` into the build stage so `bun-types` + `bun:sqlite` ambient types are resolvable during `tsc --noEmit`.
+
+### Gotchas & surprises
+- Refine v5 completely changed the `useList` and `useCreate` return shapes from v4: `useList` now returns `{ result, query }` (not `{ data, isLoading }`), `useCreate` returns `{ mutate, mutation }` (not `{ mutate, isLoading }`), and `isPending` lives on `mutation.isPending`. `Pagination` type uses `currentPage` not `current`.
+- `@elysiajs/eden` version is `1.4.9` while `elysia` is `1.4.28` — they have independent version numbering.
+- Cross-package Eden Treaty type sharing requires `bun-types` in the dashboard's tsconfig `types` array AND `"lib": ["ES2022", ...]` (the API's `uptime-kuma.ts` uses `.at()` which requires ES2022).
+- `bun-types` had to be listed in `devDependencies` of the dashboard package, not just the API package, for the dashboard's `tsc` process to resolve `bun:sqlite`.
+
+### Future improvements
+- Code-split vendor bundles: add `manualChunks` in `vite.config.ts` to separate `antd`, `recharts`, `@refinedev/*` — the current single bundle is 1.7 MB (535 KB gzip).
+- Add a "max weight per work set" progression LineChart as a third chart panel.
+- Cache Eden Treaty calls client-side with TanStack Query or Refine's built-in caching to avoid refetching on every render.
+- The API token (`VITE_API_TOKEN`) is a build-time env var baked into the Docker image. Consider a runtime config endpoint or nginx auth header injection to avoid rebuilding the image when the token rotates.
