@@ -34,6 +34,8 @@ export function SetEditor({ sets, onChange, showConfirm = false }: SetEditorProp
     [sets, onChange],
   )
 
+  const firstUnconfirmedIdx = showConfirm ? sets.findIndex((s) => !s.confirmed) : -1
+
   return (
     <div>
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
@@ -41,6 +43,7 @@ export function SetEditor({ sets, onChange, showConfirm = false }: SetEditorProp
       </Typography.Text>
       {sets.map((s, i) => {
         const locked = showConfirm && s.confirmed === true
+        const canConfirm = showConfirm && i === firstUnconfirmedIdx
         return (
           <div
             key={i}
@@ -91,16 +94,18 @@ export function SetEditor({ sets, onChange, showConfirm = false }: SetEditorProp
                 size="small"
                 icon={<CheckOutlined />}
                 onClick={() => confirmSet(i)}
+                disabled={!canConfirm && !locked}
                 style={{ color: locked ? '#52c41a' : undefined }}
               />
             )}
-            {sets.length > 1 && !locked && (
+            {sets.length > 1 && (
               <Button
                 type="text"
                 danger
                 size="small"
                 icon={<DeleteOutlined />}
                 onClick={() => removeSet(i)}
+                disabled={locked}
               />
             )}
           </div>
