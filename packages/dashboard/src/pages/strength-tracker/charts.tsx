@@ -1,5 +1,5 @@
-import { Card, Select, Space, Switch, Typography } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import { Card, Select, Space, Switch, Typography, theme } from 'antd'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -44,6 +44,15 @@ function exerciseLabel(value: string): string {
   return value.endsWith('_ma') ? `${label} (30d avg)` : label
 }
 
+function useChartColor(activeExercises: ExerciseKey[]) {
+  const { token } = theme.useToken()
+  const neutral = token.colorText
+  return useCallback(
+    (ex: ExerciseKey) => (activeExercises.length === 1 ? neutral : EXERCISE_COLORS[ex]),
+    [activeExercises.length, neutral],
+  )
+}
+
 // ── MainChart — Dual-axis configurable line chart ─────────────────────────
 
 interface MainChartProps {
@@ -51,17 +60,20 @@ interface MainChartProps {
   activeExercises: ExerciseKey[]
 }
 
+const METRIC_OPTIONS_WITH_NONE = [{ value: 'none', label: 'None' }, ...METRICS]
+
 export function MainChart({ workouts, activeExercises }: MainChartProps) {
-  const [leftMetric, setLeftMetric] = useState<MetricKey>('estimated_1rm')
-  const [rightMetric, setRightMetric] = useState<MetricKey>('max_weight')
+  const getColor = useChartColor(activeExercises)
+  const [leftMetric, setLeftMetric] = useState<MetricKey | 'none'>('estimated_1rm')
+  const [rightMetric, setRightMetric] = useState<MetricKey | 'none'>('max_weight')
   const [showMA, setShowMA] = useState(false)
   const [showPRs, setShowPRs] = useState(false)
 
-  const leftMeta = METRICS.find((m) => m.value === leftMetric)!
-  const rightMeta = METRICS.find((m) => m.value === rightMetric)!
+  const leftMeta = METRICS.find((m) => m.value === leftMetric)
+  const rightMeta = METRICS.find((m) => m.value === rightMetric)
 
   const prPoints = useMemo(
-    () => findPRPoints(workouts, leftMetric, activeExercises),
+    () => (leftMetric !== 'none' ? findPRPoints(workouts, leftMetric, activeExercises) : []),
     [workouts, leftMetric, activeExercises],
   )
 
@@ -72,13 +84,12 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
   }, [prPoints])
 
   const data = useMemo(() => {
-    const leftData = buildChartDataWithMA(
-      workouts,
-      leftMetric,
-      activeExercises,
-      showMA ? 30 : undefined,
-    )
-    const rightData = buildChartData(workouts, rightMetric, activeExercises)
+    const leftData =
+      leftMetric !== 'none'
+        ? buildChartDataWithMA(workouts, leftMetric, activeExercises, showMA ? 30 : undefined)
+        : []
+    const rightData =
+      rightMetric !== 'none' ? buildChartData(workouts, rightMetric, activeExercises) : []
 
     const allDates = Array.from(
       new Set([...leftData.map((d) => d.date), ...rightData.map((d) => d.date)]),
@@ -116,7 +127,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
           <Select
             value={leftMetric}
             onChange={setLeftMetric}
-            options={METRICS}
+            options={METRIC_OPTIONS_WITH_NONE}
             size="small"
             style={{ width: 130 }}
             popupMatchSelectWidth={false}
@@ -127,7 +138,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
           <Select
             value={rightMetric}
             onChange={setRightMetric}
-            options={METRICS}
+            options={METRIC_OPTIONS_WITH_NONE}
             size="small"
             style={{ width: 130 }}
             popupMatchSelectWidth={false}
@@ -135,25 +146,32 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
         </Space>
       }
     >
-      <ResponsiveContainer width="100%" height={340}>
+      <ResponsiveContainer width="100%" height={400}>
         <LineChart data={data} margin={CHART_MARGIN}>
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
           <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
-          <YAxis
-            yAxisId="left"
-            tick={{ fontSize: 11 }}
-            unit={` ${leftMeta.unit}`}
-            width={56}
-            domain={['auto', 'auto']}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            tick={{ fontSize: 11 }}
-            unit={` ${rightMeta.unit}`}
-            width={56}
-            domain={['auto', 'auto']}
-          />
+          {leftMeta && (
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 11 }}
+              unit={` ${leftMeta.unit}`}
+              width={56}
+              domain={['auto', 'auto']}
+            />
+          )}
+          {rightMeta && (
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fontSize: 11 }}
+              unit={` ${rightMeta.unit}`}
+              width={56}
+              domain={['auto', 'auto']}
+            />
+          )}
+          {/* Hidden axes when metric is "none" — Recharts requires yAxisId targets to exist */}
+          {!leftMeta && <YAxis yAxisId="left" hide />}
+          {!rightMeta && <YAxis yAxisId="right" hide />}
           <Tooltip
             {...TOOLTIP_STYLE}
             formatter={(
@@ -166,11 +184,12 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               const ex = name.replace('left_', '').replace('right_', '').replace('_ma', '')
               const exLabel = EXERCISES.find((e) => e.value === ex)?.label ?? ex
               const meta = isLeft ? leftMeta : rightMeta
+              if (!meta) return [`${value.toFixed(1)}`, exLabel]
               const suffix = isMA ? ' (30d avg)' : ''
               const date = String(props.payload?.date ?? '')
               const isPR =
                 isLeft && !isMA && prPoints.some((pr) => pr.date === date && pr.exercise === ex)
-              const prTag = isPR ? ' \ud83c\udfc6 PR' : ''
+              const prTag = isPR ? ' PR' : ''
               return [
                 `${value.toFixed(1)} ${meta.unit}${prTag}`,
                 `${exLabel} — ${meta.label}${suffix}`,
@@ -184,51 +203,55 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               const ex = value.replace('left_', '').replace('right_', '').replace('_ma', '')
               const exLabel = EXERCISES.find((e) => e.value === ex)?.label ?? ex
               const meta = isLeft ? leftMeta : rightMeta
+              if (!meta) return exLabel
               const suffix = isMA ? ' (avg)' : ''
               const side = isLeft ? '◆' : '◇'
               return `${side} ${exLabel} — ${meta.label}${suffix}`
             }}
           />
-          {activeExercises.map((ex) => (
-            <Line
-              key={`left_${ex}`}
-              yAxisId="left"
-              type="monotone"
-              dataKey={`left_${ex}`}
-              stroke={EXERCISE_COLORS[ex]}
-              dot={data.length < 10 ? { r: 3, fill: EXERCISE_COLORS[ex] } : false}
-              strokeWidth={2}
-              connectNulls
-            />
-          ))}
-          {showMA &&
+          {leftMeta &&
+            activeExercises.map((ex) => (
+              <Line
+                key={`left_${ex}`}
+                yAxisId="left"
+                type="monotone"
+                dataKey={`left_${ex}`}
+                stroke={getColor(ex)}
+                dot={data.length < 10 ? { r: 3, fill: getColor(ex) } : false}
+                strokeWidth={2}
+                connectNulls
+              />
+            ))}
+          {leftMeta &&
+            showMA &&
             activeExercises.map((ex) => (
               <Line
                 key={`left_${ex}_ma`}
                 yAxisId="left"
                 type="monotone"
                 dataKey={`left_${ex}_ma`}
-                stroke={EXERCISE_COLORS[ex]}
+                stroke={getColor(ex)}
                 dot={false}
                 strokeWidth={1.5}
                 strokeDasharray="5 5"
                 connectNulls
               />
             ))}
-          {activeExercises.map((ex) => (
-            <Line
-              key={`right_${ex}`}
-              yAxisId="right"
-              type="monotone"
-              dataKey={`right_${ex}`}
-              stroke={EXERCISE_COLORS[ex]}
-              dot={data.length < 10 ? { r: 2, fill: EXERCISE_COLORS[ex], opacity: 0.6 } : false}
-              strokeWidth={2}
-              strokeDasharray="8 4"
-              connectNulls
-              opacity={0.6}
-            />
-          ))}
+          {rightMeta &&
+            activeExercises.map((ex) => (
+              <Line
+                key={`right_${ex}`}
+                yAxisId="right"
+                type="monotone"
+                dataKey={`right_${ex}`}
+                stroke={getColor(ex)}
+                dot={data.length < 10 ? { r: 2, fill: getColor(ex), opacity: 0.6 } : false}
+                strokeWidth={2}
+                strokeDasharray="8 4"
+                connectNulls
+                opacity={0.6}
+              />
+            ))}
           {showPRs &&
             prPoints.map((pr) => (
               <ReferenceDot
@@ -237,8 +260,8 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
                 y={pr.value}
                 yAxisId="left"
                 r={5}
-                fill={EXERCISE_COLORS[pr.exercise]}
-                stroke={EXERCISE_COLORS[pr.exercise]}
+                fill={getColor(pr.exercise)}
+                stroke={getColor(pr.exercise)}
                 strokeWidth={2}
               />
             ))}
@@ -256,6 +279,7 @@ interface AreaMetricChartProps {
 }
 
 export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartProps) {
+  const getColor = useChartColor(activeExercises)
   const [metric, setMetric] = useState<MetricKey>('total_volume')
   const [showPRs, setShowPRs] = useState(false)
 
@@ -293,8 +317,8 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
         />
       }
     >
-      <ResponsiveContainer width="100%" height={260}>
-        <AreaChart data={data} margin={CHART_MARGIN}>
+      <ResponsiveContainer width="100%" height={230}>
+        <AreaChart data={data} margin={{ ...CHART_MARGIN, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
           <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} unit={` ${meta.unit}`} width={56} />
@@ -308,23 +332,22 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
               const ex = name.replace('_ma', '')
               const date = String(props.payload?.date ?? '')
               const isPR = prPoints.some((pr) => pr.date === date && pr.exercise === ex)
-              const prTag = isPR ? ' \ud83c\udfc6 PR' : ''
+              const prTag = isPR ? ' PR' : ''
               return [`${value.toFixed(1)} ${meta.unit}${prTag}`, exerciseLabel(name)]
             }}
           />
-          <Legend formatter={exerciseLabel} />
           {activeExercises.map((ex) => (
             <Area
               key={ex}
               type="monotone"
               dataKey={ex}
-              stroke={EXERCISE_COLORS[ex]}
-              fill={EXERCISE_COLORS[ex]}
+              stroke={getColor(ex)}
+              fill={getColor(ex)}
               fillOpacity={0.15}
               strokeWidth={1.5}
               stackId="area"
               connectNulls
-              dot={data.length < 10 ? { r: 3, fill: EXERCISE_COLORS[ex] } : false}
+              dot={data.length < 10 ? { r: 3, fill: getColor(ex) } : false}
             />
           ))}
           {showPRs &&
@@ -334,8 +357,8 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
                 x={pr.date}
                 y={pr.value}
                 r={5}
-                fill={EXERCISE_COLORS[pr.exercise]}
-                stroke={EXERCISE_COLORS[pr.exercise]}
+                fill={getColor(pr.exercise)}
+                stroke={getColor(pr.exercise)}
                 strokeWidth={2}
               />
             ))}
@@ -353,6 +376,7 @@ interface FrequencyChartProps {
 }
 
 export function FrequencyChart({ workouts, activeExercises }: FrequencyChartProps) {
+  const getColor = useChartColor(activeExercises)
   const data = useMemo(
     () => buildFrequencyData(workouts, activeExercises),
     [workouts, activeExercises],
@@ -360,8 +384,8 @@ export function FrequencyChart({ workouts, activeExercises }: FrequencyChartProp
 
   return (
     <Card title="Training Frequency (Sessions / Week)" size="small" style={{ marginBottom: 16 }}>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={data} margin={CHART_MARGIN}>
+      <ResponsiveContainer width="100%" height={140}>
+        <BarChart data={data} margin={{ ...CHART_MARGIN, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
           <XAxis dataKey="week" tick={{ fontSize: 10 }} />
           <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={32} />
@@ -372,9 +396,8 @@ export function FrequencyChart({ workouts, activeExercises }: FrequencyChartProp
               exerciseLabel(name),
             ]}
           />
-          <Legend formatter={exerciseLabel} />
           {activeExercises.map((ex) => (
-            <Bar key={ex} dataKey={ex} fill={EXERCISE_COLORS[ex]} stackId="freq" />
+            <Bar key={ex} dataKey={ex} fill={getColor(ex)} stackId="freq" />
           ))}
         </BarChart>
       </ResponsiveContainer>

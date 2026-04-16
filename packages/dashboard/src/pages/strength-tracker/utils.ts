@@ -201,8 +201,8 @@ export function computeSummaryStats(
     avgIntensity !== null && prevIntensity !== null ? pctChange(avgIntensity, prevIntensity) : null
 
   // Sessions last 30d + delta vs previous 30d
-  const sessionsLast30 = workouts.filter((w) => w.date >= d30).length
-  const sessionsPrev30 = workouts.filter((w) => w.date >= d60 && w.date < d30).length
+  const sessionsLast30 = filtered.filter((w) => w.date >= d30).length
+  const sessionsPrev30 = filtered.filter((w) => w.date >= d60 && w.date < d30).length
   const sessionsDelta = pctChange(sessionsLast30, sessionsPrev30)
 
   // Frequency — sessions per week in last 30d vs previous 30d

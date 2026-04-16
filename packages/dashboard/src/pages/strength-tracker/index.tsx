@@ -1,9 +1,15 @@
 import { useList } from '@refinedev/core'
-import { Button, Col, DatePicker, Row, Segmented, Space, Switch, Typography } from 'antd'
+import { Button, Col, DatePicker, Row, Segmented, Select, Space, Switch, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AreaMetricChart, FrequencyChart, MainChart } from './charts'
-import { DEFAULT_DATE_FROM, DEFAULT_DATE_TO, EXERCISE_COLORS, EXERCISES } from './constants'
+import {
+  DATE_PRESET_OPTIONS,
+  type DatePreset,
+  EXERCISE_COLORS,
+  EXERCISES,
+  getDateRange,
+} from './constants'
 import { generateDemoWorkouts } from './demo-data'
 import { WorkoutHistory } from './history'
 import { RecentRecords } from './records'
@@ -34,8 +40,36 @@ export default function StrengthTrackerPage() {
     'squat',
     'pull_ups',
   ])
-  const [dateFrom, setDateFrom] = useState(DEFAULT_DATE_FROM)
-  const [dateTo, setDateTo] = useState(DEFAULT_DATE_TO)
+  const [datePreset, setDatePreset] = useState<DatePreset>(
+    () => (localStorage.getItem('st-date-preset') as DatePreset) || 'all',
+  )
+  const [customRange, setCustomRange] = useState<[string, string]>(() => {
+    const saved = localStorage.getItem('st-custom-range')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {}
+    }
+    return [dayjs().subtract(3, 'month').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]
+  })
+
+  const initRange = getDateRange(
+    (localStorage.getItem('st-date-preset') as DatePreset) || 'all',
+    customRange,
+  )
+  const [dateFrom, setDateFrom] = useState(initRange[0])
+  const [dateTo, setDateTo] = useState(initRange[1])
+
+  const applyPreset = useCallback(
+    (preset: DatePreset, range: [string, string] = customRange) => {
+      setDatePreset(preset)
+      localStorage.setItem('st-date-preset', preset)
+      const [from, to] = getDateRange(preset, range)
+      setDateFrom(from)
+      setDateTo(to)
+    },
+    [customRange],
+  )
   const [view, setView] = useState<'charts' | 'history'>('charts')
   const [useDemoData, setUseDemoData] = useState(false)
 
@@ -63,41 +97,59 @@ export default function StrengthTrackerPage() {
     <Row gutter={[12, 8]} style={{ marginBottom: 16 }} align="middle">
       <Col xs={24} md={12}>
         <Space wrap size={6}>
-          {EXERCISES.map((ex) => (
-            <Button
-              key={ex.value}
-              type={activeExercises.includes(ex.value) ? 'primary' : 'default'}
-              size="small"
-              style={
-                activeExercises.includes(ex.value)
-                  ? {
-                      backgroundColor: EXERCISE_COLORS[ex.value],
-                      borderColor: EXERCISE_COLORS[ex.value],
-                    }
-                  : {}
-              }
-              onClick={() => toggleExercise(ex.value)}
-            >
-              {ex.label}
-            </Button>
-          ))}
+          {EXERCISES.map((ex) => {
+            const active = activeExercises.includes(ex.value)
+            return (
+              <Button
+                key={ex.value}
+                type="text"
+                size="small"
+                style={{ opacity: active ? 1 : 0.4 }}
+                onClick={() => toggleExercise(ex.value)}
+              >
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    backgroundColor: EXERCISE_COLORS[ex.value],
+                    marginRight: 6,
+                  }}
+                />
+                {ex.label}
+              </Button>
+            )
+          })}
         </Space>
       </Col>
       <Col xs={24} md={8}>
         <Space size={6} align="center">
-          <DatePicker
-            value={dayjs(dateFrom)}
-            onChange={(d) => d && setDateFrom(d.format('YYYY-MM-DD'))}
-            allowClear={false}
+          <Select
+            value={datePreset}
+            onChange={(v) => applyPreset(v)}
+            options={DATE_PRESET_OPTIONS}
             size="small"
+            style={{ minWidth: 100 }}
           />
-          <Typography.Text type="secondary">—</Typography.Text>
-          <DatePicker
-            value={dayjs(dateTo)}
-            onChange={(d) => d && setDateTo(d.format('YYYY-MM-DD'))}
-            allowClear={false}
-            size="small"
-          />
+          {datePreset === 'custom' && (
+            <DatePicker.RangePicker
+              value={[dayjs(customRange[0]), dayjs(customRange[1])]}
+              onChange={(dates) => {
+                if (dates?.[0] && dates?.[1]) {
+                  const range: [string, string] = [
+                    dates[0].format('YYYY-MM-DD'),
+                    dates[1].format('YYYY-MM-DD'),
+                  ]
+                  setCustomRange(range)
+                  localStorage.setItem('st-custom-range', JSON.stringify(range))
+                  applyPreset('custom', range)
+                }
+              }}
+              allowClear={false}
+              size="small"
+            />
+          )}
         </Space>
       </Col>
       <Col xs={24} md={4} style={{ textAlign: isMobile ? 'left' : 'right' }}>
@@ -154,14 +206,14 @@ export default function StrengthTrackerPage() {
         <Space direction="vertical" style={{ width: '100%' }} size={16}>
           <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
           {content}
-          <RecentRecords workouts={displayWorkouts} />
+          <RecentRecords workouts={displayWorkouts} activeExercises={activeExercises} />
         </Space>
       ) : (
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
           <div style={{ width: 360, flexShrink: 0 }}>
             <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
-            <RecentRecords workouts={displayWorkouts} />
+            <RecentRecords workouts={displayWorkouts} activeExercises={activeExercises} />
           </div>
         </div>
       )}

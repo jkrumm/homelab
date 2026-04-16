@@ -1,4 +1,5 @@
-import { Card, Empty, Tag, Typography } from 'antd'
+import { TrophyOutlined } from '@ant-design/icons'
+import { Card, Empty, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useMemo } from 'react'
 import { EXERCISE_COLORS, EXERCISES, METRICS } from './constants'
@@ -19,14 +20,18 @@ interface RecordEntry extends PRPoint {
   unit: string
 }
 
-const ALL_EXERCISES: ExerciseKey[] = ['bench_press', 'deadlift', 'squat', 'pull_ups']
-
-export function RecentRecords({ workouts }: { workouts: Workout[] }) {
+export function RecentRecords({
+  workouts,
+  activeExercises,
+}: {
+  workouts: Workout[]
+  activeExercises: ExerciseKey[]
+}) {
   const records = useMemo(() => {
     const entries: RecordEntry[] = []
     for (const metric of RECORD_METRICS) {
       const meta = METRICS.find((m) => m.value === metric)
-      const prs = findPRPoints(workouts, metric, ALL_EXERCISES)
+      const prs = findPRPoints(workouts, metric, activeExercises)
       for (const pr of prs) {
         entries.push({
           ...pr,
@@ -37,7 +42,7 @@ export function RecentRecords({ workouts }: { workouts: Workout[] }) {
       }
     }
     return entries.sort((a, b) => b.date.localeCompare(a.date))
-  }, [workouts])
+  }, [workouts, activeExercises])
 
   return (
     <Card title="Recent Records" size="small" style={{ marginTop: 16 }}>
@@ -60,15 +65,22 @@ export function RecentRecords({ workouts }: { workouts: Workout[] }) {
                   i < records.length - 1 ? '1px solid rgba(128,128,128,0.1)' : undefined,
               }}
             >
-              <Typography.Text style={{ fontSize: 13, flexShrink: 0 }}>
-                {'\ud83c\udfc6'}
-              </Typography.Text>
-              <Tag
-                color={EXERCISE_COLORS[r.exercise]}
-                style={{ margin: 0, fontSize: 11, lineHeight: '18px' }}
-              >
+              <TrophyOutlined
+                style={{ fontSize: 12, color: 'rgba(128,128,128,0.45)', flexShrink: 0 }}
+              />
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: EXERCISE_COLORS[r.exercise],
+                  flexShrink: 0,
+                }}
+              />
+              <Typography.Text style={{ fontSize: 12, flexShrink: 0 }}>
                 {EXERCISES.find((e) => e.value === r.exercise)?.label ?? r.exercise}
-              </Tag>
+              </Typography.Text>
               <Typography.Text style={{ fontSize: 12, flex: 1, minWidth: 0 }} ellipsis>
                 {r.metricLabel}:{' '}
                 <strong>

@@ -164,10 +164,9 @@ export function WorkoutForm({
         <SetEditor sets={sets} onChange={setSets} showConfirm />
 
         <Button
-          type="primary"
+          type="default"
           onClick={handleSubmit}
           loading={mutation.isPending}
-          size="large"
           style={{ width: '100%', marginTop: 4 }}
         >
           Log Workout

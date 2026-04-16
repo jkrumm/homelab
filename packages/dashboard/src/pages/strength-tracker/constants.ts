@@ -30,7 +30,33 @@ export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
   { value: 'avg_intensity', label: 'Avg Intensity', unit: '%' },
 ]
 
-export const DEFAULT_DATE_FROM = dayjs().subtract(90, 'day').format('YYYY-MM-DD')
-export const DEFAULT_DATE_TO = dayjs().format('YYYY-MM-DD')
+export type DatePreset = '3m' | '6m' | '1y' | 'ytd' | 'all' | 'custom'
+
+export const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
+  { value: '3m', label: '3M' },
+  { value: '6m', label: '6M' },
+  { value: '1y', label: '1Y' },
+  { value: 'ytd', label: 'YTD' },
+  { value: 'all', label: 'All time' },
+  { value: 'custom', label: 'Custom' },
+]
+
+export function getDateRange(preset: DatePreset, customRange: [string, string]): [string, string] {
+  const today = dayjs().format('YYYY-MM-DD')
+  switch (preset) {
+    case '3m':
+      return [dayjs().subtract(3, 'month').format('YYYY-MM-DD'), today]
+    case '6m':
+      return [dayjs().subtract(6, 'month').format('YYYY-MM-DD'), today]
+    case '1y':
+      return [dayjs().subtract(1, 'year').format('YYYY-MM-DD'), today]
+    case 'ytd':
+      return [dayjs().startOf('year').format('YYYY-MM-DD'), today]
+    case 'all':
+      return ['2000-01-01', today]
+    case 'custom':
+      return customRange
+  }
+}
 
 export const PULL_UPS_BODYWEIGHT = 70
