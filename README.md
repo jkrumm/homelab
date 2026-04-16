@@ -107,7 +107,6 @@ ssh homelab "docker exec -it <container> sh"
 ssh homelab "docker inspect <container> | grep -A 20 NetworkSettings"
 ```
 
-
 ```bash
 # NOTE: sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
 
@@ -223,45 +222,45 @@ ssh homelab "docker system prune -af"
 ## Table of Contents
 
 1. [Quick Commands Cheatsheet](#quick-commands-cheatsheet)
-    - [SSH Access](#ssh-access)
-    - [Docker Operations](#docker-operations)
-    - [Git Workflow](#git-workflow-edit-local--deploy-remote)
-    - [System Health](#system-health)
-    - [Watchdog Management](#watchdog-management)
-    - [Container Diagnostics](#container-diagnostics)
-    - [Uptime Kuma Config-as-Code](#uptime-kuma-config-as-code)
-    - [SigNoz (Observability)](#signoz-observability)
-    - [HDD Diagnostics](#hdd-diagnostics)
-    - [Database Backup](#database-backup)
-    - [1Password Secrets](#1password-secrets)
-    - [Emergency Commands](#emergency-commands)
+   - [SSH Access](#ssh-access)
+   - [Docker Operations](#docker-operations)
+   - [Git Workflow](#git-workflow-edit-local--deploy-remote)
+   - [System Health](#system-health)
+   - [Watchdog Management](#watchdog-management)
+   - [Container Diagnostics](#container-diagnostics)
+   - [Uptime Kuma Config-as-Code](#uptime-kuma-config-as-code)
+   - [SigNoz (Observability)](#signoz-observability)
+   - [HDD Diagnostics](#hdd-diagnostics)
+   - [Database Backup](#database-backup)
+   - [1Password Secrets](#1password-secrets)
+   - [Emergency Commands](#emergency-commands)
 2. [Infrastructure Overview](#infrastructure-overview)
-    - [Service Access Cheatsheet](#service-access-cheatsheet)
+   - [Service Access Cheatsheet](#service-access-cheatsheet)
 3. [Security Hardening](#security-hardening)
 4. [Documentation](#documentation)
 5. [Docker Socket Security](#docker-socket-security)
 6. [Tailscale + Caddy Migration](#tailscale--caddy-migration)
 7. [TODOs](#todos)
 8. [1Password Secrets](#1password-secrets-1)
-10. [Setup Guide](#setup-guide)
-    - [Install Ubuntu Server](#install-ubuntu-server)
-    - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
-    - [Connect to the Server](#connect-to-the-server)
-    - [Configure 1Password CLI](#configure-1password-cli)
-11. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
-12. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
-13. [File Access](#file-access)
-15. [Setup Beszel](#setup-beszel)
-16. [Setup Dozzle](#setup-dozzle)
-17. [Setup UptimeKuma](#setup-uptimekuma)
-18. [Setup Duplicati](#setup-duplicati)
-19. [Setup Database Backup](#setup-database-backup)
-20. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
-21. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
-22. [Setup Immich](#setup-immich)
-23. [Setup ExcaliDash](#setup-excalidash)
-24. [Setup Public Files (Dufs)](#setup-public-files-dufs)
-25. [Setup Obsidian (Always-On)](#setup-obsidian-always-on)
+9. [Setup Guide](#setup-guide)
+   - [Install Ubuntu Server](#install-ubuntu-server)
+   - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
+   - [Connect to the Server](#connect-to-the-server)
+   - [Configure 1Password CLI](#configure-1password-cli)
+10. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
+11. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
+12. [File Access](#file-access)
+13. [Setup Beszel](#setup-beszel)
+14. [Setup Dozzle](#setup-dozzle)
+15. [Setup UptimeKuma](#setup-uptimekuma)
+16. [Setup Duplicati](#setup-duplicati)
+17. [Setup Database Backup](#setup-database-backup)
+18. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
+19. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
+20. [Setup Immich](#setup-immich)
+21. [Setup ExcaliDash](#setup-excalidash)
+22. [Setup Public Files (Dufs)](#setup-public-files-dufs)
+23. [Setup Obsidian (Always-On)](#setup-obsidian-always-on)
 
 ---
 
@@ -299,30 +298,30 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 
 #### HomeLab — Public Services (anyone can access)
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Glance | [glance.jkrumm.com](https://glance.jkrumm.com) | Home dashboard |
-| Immich | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management |
-| UptimeKuma | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page |
-| ExcaliDash | [draw.jkrumm.com](https://draw.jkrumm.com) | Whiteboard |
-| Dufs | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
-| OTLP Ingestion | [otlp.jkrumm.com](https://otlp.jkrumm.com) | OpenTelemetry trace ingestion (for browser apps) |
+| Service        | URL                                            | Purpose                                          |
+| -------------- | ---------------------------------------------- | ------------------------------------------------ |
+| Glance         | [glance.jkrumm.com](https://glance.jkrumm.com) | Home dashboard                                   |
+| Immich         | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management                                 |
+| UptimeKuma     | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page                                      |
+| ExcaliDash     | [draw.jkrumm.com](https://draw.jkrumm.com)     | Whiteboard                                       |
+| Dufs           | [public.jkrumm.com](https://public.jkrumm.com) | Public file server                               |
+| OTLP Ingestion | [otlp.jkrumm.com](https://otlp.jkrumm.com)     | OpenTelemetry trace ingestion (for browser apps) |
 
 **Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
 
 #### HomeLab — Private Services (Tailscale devices only)
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Beszel | [beszel.jkrumm.com](https://beszel.jkrumm.com) | System metrics |
-| Dozzle | [dozzle.jkrumm.com](https://dozzle.jkrumm.com) | Container logs |
-| Duplicati | [duplicati.jkrumm.com](https://duplicati.jkrumm.com) | Backup management |
-| FileBrowser | [files.jkrumm.com](https://files.jkrumm.com) | File management |
-| Calibre GUI | [calibre.jkrumm.com](https://calibre.jkrumm.com) | Book management admin |
-| Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com) | E-book library |
-| SigNoz | [signoz.jkrumm.com](https://signoz.jkrumm.com) | Application observability (APM) |
-| Obsidian | [obsidian.jkrumm.com](https://obsidian.jkrumm.com) | Obsidian app (KasmVNC GUI + REST API + TaskNotes API) |
-| CouchDB | [couchdb.jkrumm.com](https://couchdb.jkrumm.com) | Obsidian LiveSync database |
+| Service     | URL                                                  | Purpose                                               |
+| ----------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| Beszel      | [beszel.jkrumm.com](https://beszel.jkrumm.com)       | System metrics                                        |
+| Dozzle      | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)       | Container logs                                        |
+| Duplicati   | [duplicati.jkrumm.com](https://duplicati.jkrumm.com) | Backup management                                     |
+| FileBrowser | [files.jkrumm.com](https://files.jkrumm.com)         | File management                                       |
+| Calibre GUI | [calibre.jkrumm.com](https://calibre.jkrumm.com)     | Book management admin                                 |
+| Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com)         | E-book library                                        |
+| SigNoz      | [signoz.jkrumm.com](https://signoz.jkrumm.com)       | Application observability (APM)                       |
+| Obsidian    | [obsidian.jkrumm.com](https://obsidian.jkrumm.com)   | Obsidian app (KasmVNC GUI + REST API + TaskNotes API) |
+| CouchDB     | [couchdb.jkrumm.com](https://couchdb.jkrumm.com)     | Obsidian LiveSync database                            |
 
 **Route:** Tailscale device → DNS A record → HomeLab TS IP (<tailscale-ip-homelab>) → `https://caddy:443` → container
 
@@ -332,43 +331,43 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 
 #### HomeLab — Internal Services (no direct web access)
 
-| Service | Purpose |
-|---------|---------|
-| Caddy | Reverse proxy (custom build with `caddy-dns/cloudflare` plugin) |
-| Cloudflared | CF Tunnel client (public services only) |
-| Cloudflare-DDNS | Dynamic DNS for `homelab.jkrumm.com` |
-| Docker Socket Proxy | Read-only Docker API proxy for monitoring |
-| Watchtower | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; Slack notifications at `warn` level |
-| Samba | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`) |
-| Beszel Agent | System metrics collector (Tailscale port binding) |
-| Immich ML/Postgres/Redis | Immich supporting services |
-| ExcaliDash Backend | ExcaliDash API + SQLite |
-| ClickHouse | SigNoz datastore (traces, metrics, logs) |
-| SigNoz Query Service | SigNoz backend API + UI |
-| SigNoz OTel Collector | OpenTelemetry ingestion gateway |
-| SigNoz Alert Manager | Alert rules and notifications |
-| Plausible | Web analytics (shared ClickHouse + Immich Postgres) |
-| CouchDB | Obsidian LiveSync database |
+| Service                  | Purpose                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Caddy                    | Reverse proxy (custom build with `caddy-dns/cloudflare` plugin)                                                                                               |
+| Cloudflared              | CF Tunnel client (public services only)                                                                                                                       |
+| Cloudflare-DDNS          | Dynamic DNS for `homelab.jkrumm.com`                                                                                                                          |
+| Docker Socket Proxy      | Read-only Docker API proxy for monitoring                                                                                                                     |
+| Watchtower               | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; Slack notifications at `warn` level |
+| Samba                    | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`)                                                                                                   |
+| Beszel Agent             | System metrics collector (Tailscale port binding)                                                                                                             |
+| Immich ML/Postgres/Redis | Immich supporting services                                                                                                                                    |
+| ExcaliDash Backend       | ExcaliDash API + SQLite                                                                                                                                       |
+| ClickHouse               | SigNoz datastore (traces, metrics, logs)                                                                                                                      |
+| SigNoz Query Service     | SigNoz backend API + UI                                                                                                                                       |
+| SigNoz OTel Collector    | OpenTelemetry ingestion gateway                                                                                                                               |
+| SigNoz Alert Manager     | Alert rules and notifications                                                                                                                                 |
+| Plausible                | Web analytics (shared ClickHouse + Immich Postgres)                                                                                                           |
+| CouchDB                  | Obsidian LiveSync database                                                                                                                                    |
 
 #### VPS — Public Services
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| FPP Server | [fpp-server.jkrumm.com](https://fpp-server.jkrumm.com) | Free Planning Poker API |
-| FPP Analytics | [fpp-analytics.jkrumm.com](https://fpp-analytics.jkrumm.com) | Analytics dashboard |
-| Snow Finder | [snow-finder.jkrumm.com](https://snow-finder.jkrumm.com) | Snow conditions app |
-| Photos | [photos.jkrumm.com](https://photos.jkrumm.com) | Photo gallery |
-| Plausible | [plausible.jkrumm.com](https://plausible.jkrumm.com) | Privacy-friendly analytics |
-| MariaDB | `5.75.178.196:33306` | Database (direct access for Vercel) |
+| Service       | URL                                                          | Purpose                             |
+| ------------- | ------------------------------------------------------------ | ----------------------------------- |
+| FPP Server    | [fpp-server.jkrumm.com](https://fpp-server.jkrumm.com)       | Free Planning Poker API             |
+| FPP Analytics | [fpp-analytics.jkrumm.com](https://fpp-analytics.jkrumm.com) | Analytics dashboard                 |
+| Snow Finder   | [snow-finder.jkrumm.com](https://snow-finder.jkrumm.com)     | Snow conditions app                 |
+| Photos        | [photos.jkrumm.com](https://photos.jkrumm.com)               | Photo gallery                       |
+| Plausible     | [plausible.jkrumm.com](https://plausible.jkrumm.com)         | Privacy-friendly analytics          |
+| MariaDB       | `5.75.178.196:33306`                                         | Database (direct access for Vercel) |
 
 #### Tailscale Devices
 
-| Device | Tailscale IP | SSH |
-|--------|-------------|-----|
+| Device  | Tailscale IP           | SSH           |
+| ------- | ---------------------- | ------------- |
 | HomeLab | <tailscale-ip-homelab> | `ssh homelab` |
-| VPS | <tailscale-ip-sds> | `ssh vps` |
-| MacBook | <tailscale-ip-macbook> | — |
-| iPhone | <tailscale-ip-iphone> | — |
+| VPS     | <tailscale-ip-sds>     | `ssh vps`     |
+| MacBook | <tailscale-ip-macbook> | —             |
+| iPhone  | <tailscale-ip-iphone>  | —             |
 
 ---
 
@@ -376,17 +375,18 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 
 Both machines are hardened with identical security configurations (applied via `setup.sh` scripts):
 
-| Component | Configuration |
-|-----------|--------------|
-| **SSH** | Drop-in at `/etc/ssh/sshd_config.d/99-hardening.conf`: PermitRootLogin no, PasswordAuthentication no, MaxAuthTries 3, X11/Agent/TcpForwarding disabled |
-| **UFW** | Default deny incoming. SSH restricted to Tailscale CGNAT range (`100.64.0.0/10`). HomeLab: Samba also Tailscale-only. VPS: HTTPS + MariaDB open |
-| **fail2ban** | Enabled (sshd jail) |
-| **sysctl** | kptr_restrict=2, dmesg_restrict=1, ptrace_scope=2, rp_filter=1, log_martians=1, send_redirects=0, unprivileged_bpf_disabled=1 |
-| **unattended-upgrades** | Security updates auto-installed. Docker packages blacklisted. Auto-reboot at 4 AM if kernel update pending |
-| **Docker** | `no-new-privileges:true` on all containers (except host-network agents). Memory limits on resource-heavy services. JSON log rotation |
-| **Hetzner FW** | VPS only: 2 rules — HTTPS (443) + MariaDB (33306). SSH removed (Tailscale-only access) |
+| Component               | Configuration                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **SSH**                 | Drop-in at `/etc/ssh/sshd_config.d/99-hardening.conf`: PermitRootLogin no, PasswordAuthentication no, MaxAuthTries 3, X11/Agent/TcpForwarding disabled |
+| **UFW**                 | Default deny incoming. SSH restricted to Tailscale CGNAT range (`100.64.0.0/10`). HomeLab: Samba also Tailscale-only. VPS: HTTPS + MariaDB open        |
+| **fail2ban**            | Enabled (sshd jail)                                                                                                                                    |
+| **sysctl**              | kptr_restrict=2, dmesg_restrict=1, ptrace_scope=2, rp_filter=1, log_martians=1, send_redirects=0, unprivileged_bpf_disabled=1                          |
+| **unattended-upgrades** | Security updates auto-installed. Docker packages blacklisted. Auto-reboot at 4 AM if kernel update pending                                             |
+| **Docker**              | `no-new-privileges:true` on all containers (except host-network agents). Memory limits on resource-heavy services. JSON log rotation                   |
+| **Hetzner FW**          | VPS only: 2 rules — HTTPS (443) + MariaDB (33306). SSH removed (Tailscale-only access)                                                                 |
 
 **Emergency access:**
+
 - HomeLab: Physical access at remote location
 - VPS: Hetzner web console (no SSH needed)
 
@@ -396,11 +396,12 @@ Both machines are hardened with identical security configurations (applied via `
 
 Detailed behavior documentation for complex scripts is maintained in the `docs/` directory:
 
-| Document | Purpose |
-|----------|---------|
+| Document                     | Purpose                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
 | `docs/watchdog-behaviors.md` | Failure scenarios, escalation states, recovery paths for the self-healing watchdog |
 
 **Maintaining documentation:**
+
 - Run `/docs` command (via Claude Code) after infrastructure changes
 - Update behavior docs when script logic changes
 - Keep cheatsheets in sync with actual commands
@@ -441,17 +442,20 @@ Monitoring services access the Docker API through a secure proxy instead of dire
 ### Why This Matters
 
 Direct Docker socket access (`/var/run/docker.sock`) grants full root-level control:
+
 - Container creation with host mounts
 - Privilege escalation via container escape
 - Host filesystem access
 
 The proxy (`tecnativa/docker-socket-proxy`) restricts access to read-only operations:
+
 - ✅ CONTAINERS, IMAGES, INFO, NETWORKS, VOLUMES (read)
 - ❌ POST, BUILD, EXEC, COMMIT, etc. (disabled)
 
 ### Service Configuration
 
 Services connect via environment variable:
+
 ```yaml
 environment:
   DOCKER_HOST: tcp://docker-socket-proxy:2375
@@ -473,45 +477,46 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 
 ### Progress
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1-7 | Tailscale + SSH + Caddy + routing + private services + VPS + cross-machine | Done |
-| 8 | SSH config + Zed remote development | SSH Done, Zed Pending |
-| 9 | Documentation updates | Done |
-| 10 | Cleanup: ports, deps, Samba label, watchdog | Done |
-| 11 | SSH hardening + UFW + sysctl + unattended-upgrades (both machines) | Done |
+| Phase | Description                                                                | Status                |
+| ----- | -------------------------------------------------------------------------- | --------------------- |
+| 1-7   | Tailscale + SSH + Caddy + routing + private services + VPS + cross-machine | Done                  |
+| 8     | SSH config + Zed remote development                                        | SSH Done, Zed Pending |
+| 9     | Documentation updates                                                      | Done                  |
+| 10    | Cleanup: ports, deps, Samba label, watchdog                                | Done                  |
+| 11    | SSH hardening + UFW + sysctl + unattended-upgrades (both machines)         | Done                  |
 
 ### Service Classification
 
-| Service | Access | Domain |
-|---------|--------|--------|
-| Glance | Public (Cloudflare) | glance.jkrumm.com |
-| Immich | Public (Cloudflare) | immich.jkrumm.com |
-| UptimeKuma | Public (Cloudflare) | uptime.jkrumm.com |
-| ExcaliDash | Public (Cloudflare) | draw.jkrumm.com |
-| Dufs | Public (Cloudflare) | public.jkrumm.com |
-| Beszel | Private (Tailscale) | beszel.jkrumm.com |
-| Dozzle | Private (Tailscale) | dozzle.jkrumm.com |
-| Duplicati | Private (Tailscale) | duplicati.jkrumm.com |
-| FileBrowser | Private (Tailscale) | files.jkrumm.com |
-| Calibre GUI | Private (Tailscale) | calibre.jkrumm.com |
-| Calibre-Web | Private (Tailscale) | books.jkrumm.com |
-| SigNoz | Private (Tailscale) | signoz.jkrumm.com |
-| Obsidian | Private (Tailscale) | obsidian.jkrumm.com |
-| CouchDB | Private (Tailscale) | couchdb.jkrumm.com |
+| Service     | Access              | Domain               |
+| ----------- | ------------------- | -------------------- |
+| Glance      | Public (Cloudflare) | glance.jkrumm.com    |
+| Immich      | Public (Cloudflare) | immich.jkrumm.com    |
+| UptimeKuma  | Public (Cloudflare) | uptime.jkrumm.com    |
+| ExcaliDash  | Public (Cloudflare) | draw.jkrumm.com      |
+| Dufs        | Public (Cloudflare) | public.jkrumm.com    |
+| Beszel      | Private (Tailscale) | beszel.jkrumm.com    |
+| Dozzle      | Private (Tailscale) | dozzle.jkrumm.com    |
+| Duplicati   | Private (Tailscale) | duplicati.jkrumm.com |
+| FileBrowser | Private (Tailscale) | files.jkrumm.com     |
+| Calibre GUI | Private (Tailscale) | calibre.jkrumm.com   |
+| Calibre-Web | Private (Tailscale) | books.jkrumm.com     |
+| SigNoz      | Private (Tailscale) | signoz.jkrumm.com    |
+| Obsidian    | Private (Tailscale) | obsidian.jkrumm.com  |
+| CouchDB     | Private (Tailscale) | couchdb.jkrumm.com   |
 
 ### Tailscale IPs
 
-| Machine | Tailscale IP | MagicDNS |
-|---------|-------------|----------|
-| MacBook | <tailscale-ip-macbook> | iu-mac-book |
-| iPhone | <tailscale-ip-iphone> | iphone-15 |
-| HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net |
-| VPS | <tailscale-ip-sds> | sideproject-docker-stack.dinosaur-sole.ts.net |
+| Machine | Tailscale IP           | MagicDNS                                      |
+| ------- | ---------------------- | --------------------------------------------- |
+| MacBook | <tailscale-ip-macbook> | iu-mac-book                                   |
+| iPhone  | <tailscale-ip-iphone>  | iphone-15                                     |
+| HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net                  |
+| VPS     | <tailscale-ip-sds>     | sideproject-docker-stack.dinosaur-sole.ts.net |
 
 ---
 
 ## TODOS
+
 - [ ] Backup my Photoflow images to HomeLab
 
 ## Service Routing
@@ -522,16 +527,16 @@ All services are routed through **Caddy** (custom build with `caddy-dns/cloudfla
 
 The following secrets are required to run the HomeLab:
 
-| Name                   | Description                          | Example                                |
-|------------------------|--------------------------------------|----------------------------------------|
-| `CLOUDFLARE_TOKEN`     | Cloudflare tunnel token              | `tunnel-token-from-dashboard`          |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token for DDNS       | `api-token-for-dns-updates`            |
-| `DB_HOST`              | MySQL server host for backups       | `5.75.178.196`                         |
-| `DB_ROOT_PW`           | MySQL root password                  | `your-secure-password`                 |
-| `POSTGRES_DB_PASSWORD` | Immich Postgres password             | `your-secure-postgres-password`        |
-| `DUFS_PASSWORD`        | Dufs public file server auth         | `your-secure-dufs-password`            |
-| `COUCHDB_PASSWORD`     | CouchDB admin password               | `your-secure-couchdb-password`         |
-| `OBSIDIAN_GUI_PASSWORD`| Obsidian KasmVNC GUI password        | `your-secure-obsidian-password`        |
+| Name                    | Description                   | Example                         |
+| ----------------------- | ----------------------------- | ------------------------------- |
+| `CLOUDFLARE_TOKEN`      | Cloudflare tunnel token       | `tunnel-token-from-dashboard`   |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token for DDNS | `api-token-for-dns-updates`     |
+| `DB_HOST`               | MySQL server host for backups | `5.75.178.196`                  |
+| `DB_ROOT_PW`            | MySQL root password           | `your-secure-password`          |
+| `POSTGRES_DB_PASSWORD`  | Immich Postgres password      | `your-secure-postgres-password` |
+| `DUFS_PASSWORD`         | Dufs public file server auth  | `your-secure-dufs-password`     |
+| `COUCHDB_PASSWORD`      | CouchDB admin password        | `your-secure-couchdb-password`  |
+| `OBSIDIAN_GUI_PASSWORD` | Obsidian KasmVNC GUI password | `your-secure-obsidian-password` |
 
 ## Setup Guide
 
@@ -541,12 +546,12 @@ The following secrets are required to run the HomeLab:
 2. Create a bootable USB drive using [Rufus](https://rufus.ie/) or [Balena Etcher](https://www.balena.io/etcher/).
 3. Boot from the USB drive and install Ubuntu Server.
 4. Follow the on-screen instructions to complete the installation:
-    - Hostname: homelab
-    - Username: jkrumm
-    - Password: Use a strong password
-    - Partitioning: Use the entire disk and set up LVM
-    - Software selection: OpenSSH server, standard system utilities
-    - Additional packages: Install security updates automatically
+   - Hostname: homelab
+   - Username: jkrumm
+   - Password: Use a strong password
+   - Partitioning: Use the entire disk and set up LVM
+   - Software selection: OpenSSH server, standard system utilities
+   - Additional packages: Install security updates automatically
 5. Reboot the server and log in using the credentials you created during the installation.
 6. Update the system using the following commands:
    ```bash
@@ -586,8 +591,8 @@ The following secrets are required to run the HomeLab:
    cd homelab
    ```
 
-4. Adjust your public SSH key in the `setup.sh` script.
-5. Run the setup script with sudo:
+5. Adjust your public SSH key in the `setup.sh` script.
+6. Run the setup script with sudo:
 
    ```bash
    chmod +x setup.sh
@@ -865,6 +870,7 @@ This homelab provides multiple ways to access your files stored on the SSD (`/mn
 Filebrowser provides a modern web interface for file management and is accessible via Cloudflare tunnel.
 
 1. Create the filebrowser directory with correct permissions:
+
    ```bash
    sudo mkdir -p /mnt/hdd/filebrowser
    sudo chown -R 1000:1000 /mnt/hdd/filebrowser
@@ -872,6 +878,7 @@ Filebrowser provides a modern web interface for file management and is accessibl
    ```
 
 2. Start the container:
+
    ```bash
    op run --env-file=.env.tpl -- docker compose up -d filebrowser
    ```
@@ -889,11 +896,13 @@ Filebrowser provides a modern web interface for file management and is accessibl
 For traditional file sharing and local network access, Samba provides SMB3 protocol support with encryption.
 
 **Security configuration:**
+
 - Minimum protocol: SMB3 (blocks older, less secure SMB1/SMB2)
 - Encryption: Preferred (encrypts data in transit when supported)
 - macOS compatible with Time Machine-style features (fruit VFS module)
 
 1. Create a specific SSD folder for Samba:
+
    ```bash
    sudo mkdir -p /home/jkrumm/ssd
    sudo chown -R 1000:1000 /mnt/ssd/samba
@@ -924,13 +933,14 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 2. Setup correct drives for SSD and HDD
 
 3. Access the Beszel server using the following credentials:
-    - Host: `https://beszel.jkrumm.com`
-    - Username: jkrumm
-    - Password: You can find the secret in 1Password and 1Password
+   - Host: `https://beszel.jkrumm.com`
+   - Username: jkrumm
+   - Password: You can find the secret in 1Password and 1Password
 
 ## Setup UptimeKuma
 
 1. Create a specific folder for UptimeKuma data on the SSD:
+
    ```bash
    sudo mkdir -p /home/jkrumm/ssd/uptime-kuma
    sudo chown -R 1000:1000 /home/jkrumm/ssd/uptime-kuma
@@ -953,11 +963,11 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 
 4. **Monitor configuration:**
 
-   | Priority | Interval | Timeout | Retries | Notes |
-   |----------|----------|---------|---------|-------|
-   | Critical | 60-70s | 90s | 3 | FPP, Photos, Plausible |
-   | Standard | 120-190s | 120s | 5 | Docker containers, HTTP monitors |
-   | Group | 200-215s | 120s | 3 | 3x child interval prevents "Child inaccessible" |
+   | Priority | Interval | Timeout | Retries | Notes                                           |
+   | -------- | -------- | ------- | ------- | ----------------------------------------------- |
+   | Critical | 60-70s   | 90s     | 3       | FPP, Photos, Plausible                          |
+   | Standard | 120-190s | 120s    | 5       | Docker containers, HTTP monitors                |
+   | Group    | 200-215s | 120s    | 3       | 3x child interval prevents "Child inaccessible" |
 
    **Key principles:**
    - **Stagger intervals** (60s, 65s, 70s) to avoid concurrent Cloudflare requests
@@ -967,12 +977,12 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 5. **Cloudflare WAF bypass for external monitors:**
 
    Monitors hitting VPS services through Cloudflare tunnels need a WAF bypass to avoid ECONNRESET errors from bot protection.
-
    - **Header:** `X-Uptime-Monitor` with secret value (stored in 1Password → HomeLab)
    - **Cloudflare rule:** Security → WAF → Custom rules → Skip bot protection when header matches
    - **Affected monitors:** FPP-Frontend, FPP-Server, FPP-Analytics, Photos, Plausible
 
 6. **Migrating from HDD?** If upgrading from HDD storage:
+
    ```bash
    docker compose stop uptime-kuma
    sudo rsync -av /mnt/hdd/uptimekuma/ /home/jkrumm/ssd/uptime-kuma/
@@ -981,6 +991,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    ```
 
 7. **Database maintenance (optional):**
+
    ```bash
    docker compose stop uptime-kuma
    sqlite3 /home/jkrumm/ssd/uptime-kuma/kuma.db "PRAGMA optimize;"
@@ -989,6 +1000,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    ```
 
 8. **Diagnostic tools:**
+
    ```bash
    # Check DNS, SQLite, and monitor configurations
    ./scripts/fix_uptime_kuma_monitors.sh
@@ -1004,6 +1016,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 
    Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script.
    **Must run ON THE HOMELAB SERVER** — connects to localhost:3010. Never run locally or on VPS.
+
    ```bash
    # Preview changes (dry run)
    ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
@@ -1016,6 +1029,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    ```
 
    **Setup (first time only):**
+
    ```bash
    cd ~/homelab
    python3 -m venv uptime-kuma/.venv
@@ -1034,9 +1048,10 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 1. Download cert.pem and key.pem from 1Password HomeLab
 2. RSync them too the HomeLab and all VPS
 
-    ```bash
-    rsync -avz cert.pem key.pem jkrumm@{IP_OF_VPS}:/home/jkrumm/homelab 
-    ```
+   ```bash
+   rsync -avz cert.pem key.pem jkrumm@{IP_OF_VPS}:/home/jkrumm/homelab
+   ```
+
 3. Validate looking into the container logs if all good
 
 ### Dozzle Authentication Setup
@@ -1062,10 +1077,9 @@ To enable authentication for Dozzle:
    Paste the output from the generate command into users.yml and save the file.
 
 3. The docker-compose.yml is already configured with:
-
-    - Simple authentication enabled
-    - 48-hour login session
-    - Volume mount for users.yml
+   - Simple authentication enabled
+   - 48-hour login session
+   - Volume mount for users.yml
 
 4. After making these changes, restart Dozzle:
    ```bash
@@ -1081,6 +1095,7 @@ Dozzle monitors Docker container logs. To view system log files (non-containeriz
 Create an Alpine container that tails the log file. The container appears in Dozzle and streams the log file content.
 
 **Currently monitored system logs:**
+
 - **HomeLab Watchdog** (`homelab-watchdog-logs` container) → `/var/log/homelab_watchdog.log`
 - **Database Backup** (`database-backup-logs` container) → `/mnt/hdd/backups/backup.log`
 
@@ -1089,22 +1104,23 @@ Create an Alpine container that tails the log file. The container appears in Doz
 Add a new service to `docker-compose.yml`:
 
 ```yaml
-  dozzle-your-log:
-    container_name: your-log-name
-    image: alpine
-    volumes:
-      - /path/to/your.log:/var/log/stream.log
-    command:
-      - tail
-      - -f
-      - /var/log/stream.log
-    network_mode: none
-    restart: unless-stopped
-    labels:
-      glance.hide: true
+dozzle-your-log:
+  container_name: your-log-name
+  image: alpine
+  volumes:
+    - /path/to/your.log:/var/log/stream.log
+  command:
+    - tail
+    - -f
+    - /var/log/stream.log
+  network_mode: none
+  restart: unless-stopped
+  labels:
+    glance.hide: true
 ```
 
 Then restart Docker Compose to apply:
+
 ```bash
 op run --env-file=.env.tpl -- docker compose up -d
 ```
@@ -1127,44 +1143,43 @@ op run --env-file=.env.tpl -- docker compose up -d
    sudo chmod -R 755 /mnt/transfer/duplicati_backups
    ```
 3. Access the Duplicati server using the following credentials:
-
-    - Host: `https://duplicati.jkrumm.com`
-    - Username: jkrumm
-    - Password: You can find the secret in 1Password and 1Password
+   - Host: `https://duplicati.jkrumm.com`
+   - Username: jkrumm
+   - Password: You can find the secret in 1Password and 1Password
 
 4. Backups I run with Duplicati:
-    - SSD
-        - SSD LOCAL at 03:00
-            - Destination: /source/mnt/transfer/duplicati_backups/SSD/
-            - Source: /source/ssd/SSD/
-            - Config: 100 MByte and intelligent persistence
-            - IGNORE:
-                - /source/ssd/SSD/Bilder/immich/upload/library
-                - /source/ssd/SSD/Bilder/immich/postgres
-                - /source/ssd/SSD/Bilder/immich/upload/encoded-video
-                - /source/ssd/SSD/Bilder/immich/upload/profile
-                - /source/ssd/SSD/Bilder/immich/upload/thumbs
-        - SSD OneDrive at 03:30
-            - Destination: jkrumm_duplicati_ssd
-            - Source: /source/ssd/SSD/
-            - Config: 50 MByte and intelligent persistence
-            - IGNORE:
-                - /source/ssd/SSD/Bilder/immich/upload/library
-                - /source/ssd/SSD/Bilder/immich/postgres
-                - /source/ssd/SSD/Bilder/immich/upload/encoded-video
-                - /source/ssd/SSD/Bilder/immich/upload/profile
-                - /source/ssd/SSD/Bilder/immich/upload/thumbs
-    - HDD
-        - HDD LOCAL at 02:30
-            - Destination: /source/mnt/transfer/duplicati_backups/HDD/
-            - Source: /source/mnt/hdd/
-            - IGNORE: /source/mnt/hdd/Filme/
-            - Config: 100 MByte and intelligent persistence
-        - HDD OneDrive at 02:40
-            - Destination: jkrumm_duplicati_hdd
-            - Source: /source/mnt/hdd/
-            - IGNORE: /source/mnt/hdd/Filme/
-            - Config: 50 MByte and intelligent persistence
+   - SSD
+     - SSD LOCAL at 03:00
+       - Destination: /source/mnt/transfer/duplicati_backups/SSD/
+       - Source: /source/ssd/SSD/
+       - Config: 100 MByte and intelligent persistence
+       - IGNORE:
+         - /source/ssd/SSD/Bilder/immich/upload/library
+         - /source/ssd/SSD/Bilder/immich/postgres
+         - /source/ssd/SSD/Bilder/immich/upload/encoded-video
+         - /source/ssd/SSD/Bilder/immich/upload/profile
+         - /source/ssd/SSD/Bilder/immich/upload/thumbs
+     - SSD OneDrive at 03:30
+       - Destination: jkrumm_duplicati_ssd
+       - Source: /source/ssd/SSD/
+       - Config: 50 MByte and intelligent persistence
+       - IGNORE:
+         - /source/ssd/SSD/Bilder/immich/upload/library
+         - /source/ssd/SSD/Bilder/immich/postgres
+         - /source/ssd/SSD/Bilder/immich/upload/encoded-video
+         - /source/ssd/SSD/Bilder/immich/upload/profile
+         - /source/ssd/SSD/Bilder/immich/upload/thumbs
+   - HDD
+     - HDD LOCAL at 02:30
+       - Destination: /source/mnt/transfer/duplicati_backups/HDD/
+       - Source: /source/mnt/hdd/
+       - IGNORE: /source/mnt/hdd/Filme/
+       - Config: 100 MByte and intelligent persistence
+     - HDD OneDrive at 02:40
+       - Destination: jkrumm_duplicati_hdd
+       - Source: /source/mnt/hdd/
+       - IGNORE: /source/mnt/hdd/Filme/
+       - Config: 50 MByte and intelligent persistence
 
 ## Setup Database Backup
 
@@ -1302,6 +1317,7 @@ sudo mkdir -p /var/run
 ```
 
 3. Create and secure the credentials file:
+
    ```bash
    sudo bash -c 'cat > /root/.homelab-watchdog-credentials << EOL
    BETTERSTACK_TOKEN=""
@@ -1311,6 +1327,7 @@ sudo mkdir -p /var/run
    ```
 
    **Note:** Fritz!Box credentials are no longer required as the HomeLab is at a remote location and cannot restart the router.
+
 4. Secure the credentials file
 
    ```bash
@@ -1389,11 +1406,13 @@ cat /var/lib/homelab_watchdog/state
 Since the HomeLab is at a remote location (dad's house), the watchdog uses a patient recovery approach:
 
 **Internet Failures:**
+
 - State 0-1: Wait 10 minutes for natural recovery (cannot restart router remotely)
 - State 2: Restart network interface
 - State 3+: System reboot
 
 **Mount Failures (HDD-specific logic):**
+
 - **HDD not connected:** Sets manual intervention flag, notifies you - NO reboot
 - **Encryption not unlocked:** Sets manual intervention flag, notifies you - NO reboot
 - **I/O errors detected:** Max 2 escalation attempts, then manual intervention - NO reboot
@@ -1402,17 +1421,18 @@ Since the HomeLab is at a remote location (dad's house), the watchdog uses a pat
 - Uses USB device detection (ORICO VIA Labs adapter) to diagnose connection status
 
 **Smart Failure Detection (Added 2025-11-04):**
+
 - **Retry with exponential backoff:** Before escalating, retries external/internal monitors 3 times (0s, 5s, 10s delays)
 - **Pre-recovery verification:** Re-checks all systems before taking action to detect self-resolving issues
 - **Docker Compose intelligence:** Distinguishes between actual failures vs containers already running
 - Prevents unnecessary recovery actions from transient network hiccups or API timeouts
 
 **External Monitor Checks:**
+
 - Initial check with 3 retries (5s, 10s exponential backoff) before considering failure
 - Post-recovery: Waits up to 21 minutes (3 attempts × 7 minutes) for external monitor to update
 - Prevents unnecessary recovery actions when services are actually healthy
 - Only takes action if BetterStack still reports down after all retries
-
 
 #### HDD Diagnostic Script
 
@@ -1424,6 +1444,7 @@ sudo ./scripts/check_hdd.sh
 ```
 
 The script performs 7 comprehensive checks:
+
 1. **USB Device Detection** - Verifies ORICO USB-SATA adapter is connected
 2. **USB Stability** - Checks for connection/disconnection events
 3. **Drive Detection** - Confirms the Seagate Exos drive is visible
@@ -1439,18 +1460,21 @@ Each failed step provides specific instructions for your dad to fix the issue on
 The watchdog follows a "better safe than sorry - but verify first" approach:
 
 **Multiple Layers of Validation:**
+
 - **Container existence checks:** Uses `docker ps --filter "name=X" --filter "status=running"` to verify containers are running
 - **External HTTP monitoring:** BetterStack checks actual endpoint accessibility from outside
 - **Internal service monitoring:** UptimeKuma validates service health from within the network
 - **No Docker healthchecks needed:** The combination of external monitors + container running checks provides comprehensive coverage
 
 **Why This Works:**
+
 - External monitors catch "container running but service broken" scenarios
 - Container checks catch crashed/stopped containers and Docker daemon issues
 - This dual-layer approach is sufficient - adding Docker healthchecks would be redundant overhead
 - Well-maintained container images rarely have "running but broken" states
 
 **Smart Recovery Process:**
+
 - **Multiple retries:** Transient network issues (1-2 second hiccups) won't trigger recovery
 - **Pre-action verification:** Always re-checks before restarting services
 - **Smart diagnosis:** Distinguishes between hardware issues (needs human) vs software issues (can self-heal)
@@ -1499,62 +1523,62 @@ You can monitor the backup process by:
    ```
 
 3. Directory mappings in containers:
-    - Calibre sees:
-        - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre/config`
-        - `/library` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
-    - Calibre-Web sees:
-        - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre-web/config`
-        - `/books` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
+   - Calibre sees:
+     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre/config`
+     - `/library` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
+   - Calibre-Web sees:
+     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre-web/config`
+     - `/books` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
 
 ### Calibre Setup
 
 1. Access Calibre at `https://calibre.jkrumm.com`
 2. Login with:
-    - Username: jkrumm
-    - Password: Set in `CALIBRE_PASSWORD` environment variable
+   - Username: jkrumm
+   - Password: Set in `CALIBRE_PASSWORD` environment variable
 3. During initial setup:
-    - When prompted for library location, set it to: `/library`
-    - This maps to `/home/jkrumm/ssd/SSD/Bücher/calibre/library` on your host system
-    - Do not use the default `/config/Calibre Library` path
+   - When prompted for library location, set it to: `/library`
+   - This maps to `/home/jkrumm/ssd/SSD/Bücher/calibre/library` on your host system
+   - Do not use the default `/config/Calibre Library` path
 4. Managing Books:
-    - Using Auto-Add folder:
-        - In Calibre, go to Preferences > Adding books
-        - Enable "Automatically add books" and set the folder to `/library/incoming`
-        - Now any books you place in `/home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming` will be automatically
-          imported
-        - Calibre will move the books to the appropriate location in the library after import
-    - After adding books:
-        - Calibre will automatically fetch metadata
-        - You can edit metadata by selecting a book and clicking "Edit metadata"
-        - Configure metadata download sources in Preferences > Metadata download
-        - Books will be available in both Calibre and Calibre-Web
+   - Using Auto-Add folder:
+     - In Calibre, go to Preferences > Adding books
+     - Enable "Automatically add books" and set the folder to `/library/incoming`
+     - Now any books you place in `/home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming` will be automatically
+       imported
+     - Calibre will move the books to the appropriate location in the library after import
+   - After adding books:
+     - Calibre will automatically fetch metadata
+     - You can edit metadata by selecting a book and clicking "Edit metadata"
+     - Configure metadata download sources in Preferences > Metadata download
+     - Books will be available in both Calibre and Calibre-Web
 
 ### Calibre-Web Setup
 
 1. Access Calibre-Web at `https://books.jkrumm.com`
 2. Initial setup:
-    - Default login: admin/admin123
-    - Change the admin password immediately
-    - Set library path to: `/books`
-    - This will use the same library that you manage with Calibre
+   - Default login: admin/admin123
+   - Change the admin password immediately
+   - Set library path to: `/books`
+   - This will use the same library that you manage with Calibre
 3. Configure Calibre Binaries:
-    - Go to Admin > Basic Configuration > External Binaries
-    - Set "Path to Calibre Binaries" to: `/usr/bin`
-    - Save the settings
-    - Features enabled by binaries:
-        - Ebook format conversion
-        - Metadata embedding
-        - Email sending with conversion
-        - Enhanced cover generation
+   - Go to Admin > Basic Configuration > External Binaries
+   - Set "Path to Calibre Binaries" to: `/usr/bin`
+   - Save the settings
+   - Features enabled by binaries:
+     - Ebook format conversion
+     - Metadata embedding
+     - Email sending with conversion
+     - Enhanced cover generation
 4. Additional Configuration:
-    - Set up user accounts and permissions under Admin > Users
-    - Calibre-Web uses the metadata that was fetched by Calibre
-    - No additional metadata configuration needed as this is handled by Calibre
+   - Set up user accounts and permissions under Admin > Users
+   - Calibre-Web uses the metadata that was fetched by Calibre
+   - No additional metadata configuration needed as this is handled by Calibre
 5. Test Format Conversion:
-    - Select any book
-    - Click on "Convert" button
-    - Choose a different format
-    - If conversion works, the binaries are correctly configured
+   - Select any book
+   - Click on "Convert" button
+   - Choose a different format
+   - If conversion works, the binaries are correctly configured
 
 ### Kobo Sync Setup
 
@@ -1563,30 +1587,28 @@ With Cloudflare tunnels, Kobo sync now works seamlessly as Cloudflare provides I
 #### Calibre-Web Configuration
 
 1. Enable Kobo Sync in Admin Settings:
-
-    - Go to Admin > Configuration > Edit Basic Configuration
-    - Expand "Feature Configuration"
-    - Enable "Kobo sync"
-    - Enable "Proxy unknown requests to Kobo Store"
-    - Set "Server External Port" to match Calibre-Web's port (8083)
+   - Go to Admin > Configuration > Edit Basic Configuration
+   - Expand "Feature Configuration"
+   - Enable "Kobo sync"
+   - Enable "Proxy unknown requests to Kobo Store"
+   - Set "Server External Port" to match Calibre-Web's port (8083)
 
 2. Configure User Settings:
-    - Go to your user profile
-    - Enable "Sync only books in selected shelves with Kobo" (recommended)
-    - Create and configure shelves for syncing:
-        - Click "Create a Shelf"
-        - Name your shelf (e.g., "Fantasy", "Science", etc.)
-        - Check "Sync this shelf with Kobo device"
-    - Click "Create/View" under "Kobo Sync Token"
-    - Copy the generated API endpoint URL
+   - Go to your user profile
+   - Enable "Sync only books in selected shelves with Kobo" (recommended)
+   - Create and configure shelves for syncing:
+     - Click "Create a Shelf"
+     - Name your shelf (e.g., "Fantasy", "Science", etc.)
+     - Check "Sync this shelf with Kobo device"
+   - Click "Create/View" under "Kobo Sync Token"
+   - Copy the generated API endpoint URL
 
 #### Kobo Device Configuration
 
 1. Connect Kobo to Computer:
-
-    - Connect via USB
-    - Enable connection on Kobo screen
-    - Access Kobo's root directory
+   - Connect via USB
+   - Enable connection on Kobo screen
+   - Access Kobo's root directory
 
 2. Edit Configuration File:
 
@@ -1600,28 +1622,27 @@ With Cloudflare tunnels, Kobo sync now works seamlessly as Cloudflare provides I
    ```
 
 3. Update API Endpoint:
-
-    - Find the [OneStoreServices] section
-    - Replace or add the api_endpoint line:
+   - Find the [OneStoreServices] section
+   - Replace or add the api_endpoint line:
 
    ```ini
    api_endpoint=https://books.jkrumm.com/kobo/YOURTOKEN
    ```
 
-    - Use the Cloudflare tunnel domain for reliable access
-    - Replace YOURTOKEN with your actual token from Calibre-Web
+   - Use the Cloudflare tunnel domain for reliable access
+   - Replace YOURTOKEN with your actual token from Calibre-Web
 
 4. Sync Your Device:
-    - Safely eject the Kobo
-    - On the Kobo home screen, tap the Sync icon
-    - First sync may take longer as it builds the database
+   - Safely eject the Kobo
+   - On the Kobo home screen, tap the Sync icon
+   - First sync may take longer as it builds the database
 
 #### Known Limitations
 
 1. Store Integration:
-    - Book covers in Kobo Store may show as generic white pages
-    - Overdrive section might have missing covers
-    - These are known limitations of the sync implementation
+   - Book covers in Kobo Store may show as generic white pages
+   - Overdrive section might have missing covers
+   - These are known limitations of the sync implementation
 
 For more detailed information about Kobo sync setup and troubleshooting, refer
 to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo-sync-with-calibre-web/).
@@ -1678,15 +1699,15 @@ To enable acceleration in future, replace the stub files with the appropriate de
 4. Access Immich at `https://immich.jkrumm.com`
 
 5. On first access, you will need to create an admin account:
-    - Enter a valid email address
-    - Create a secure password
-    - Enter your name
+   - Enter a valid email address
+   - Create a secure password
+   - Enter your name
 
 ### Immich Configuration
 
 1. **Machine Learning:** Go to Administration > Machine Learning:
-    - Verify that the machine learning service is connected
-    - Enable Smart Search and People Recognition as needed
+   - Verify that the machine learning service is connected
+   - Enable Smart Search and People Recognition as needed
 
 2. **Hardware Acceleration:** Not active — CPU mode only. See the Hardware Acceleration section above if you want to enable it.
 
@@ -1729,11 +1750,13 @@ To enable acceleration in future, replace the stub files with the appropriate de
 ### Initial Setup
 
 1. Create the data directory:
+
    ```bash
    mkdir -p /home/jkrumm/ssd/SSD/Dokumente/Anderes/excalidash
    ```
 
 2. Start the containers:
+
    ```bash
    op run --env-file=.env.tpl -- docker compose up -d excalidash-backend excalidash-frontend
    ```
@@ -1770,6 +1793,7 @@ To enable acceleration in future, replace the stub files with the appropriate de
 ### Directory Setup
 
 1. Create the public files directory:
+
    ```bash
    mkdir -p /home/jkrumm/ssd/SSD/Public/diagrams
    mkdir -p /home/jkrumm/ssd/SSD/Public/assets
@@ -1778,6 +1802,7 @@ To enable acceleration in future, replace the stub files with the appropriate de
 2. Add the `DUFS_PASSWORD` secret to 1Password (`homelab/dufs/PASSWORD`)
 
 3. Start the container:
+
    ```bash
    op run --env-file=.env.tpl -- docker compose up -d dufs
    ```
@@ -1790,6 +1815,7 @@ To enable acceleration in future, replace the stub files with the appropriate de
 - **Authenticated write**: Only `jkrumm` with password can upload, delete, or modify files
 
 To upload files with authentication:
+
 ```bash
 # Using curl with basic auth
 curl -u jkrumm:PASSWORD -T file.png https://public.jkrumm.com/diagrams/project/file.png
@@ -1800,11 +1826,13 @@ curl -u jkrumm:PASSWORD -T file.png https://public.jkrumm.com/diagrams/project/f
 ### Usage Examples
 
 Embed images in GitHub READMEs:
+
 ```markdown
 ![Architecture Diagram](https://public.jkrumm.com/diagrams/architecture.png)
 ```
 
 Embed in Notion/Linear:
+
 - Paste the direct URL: `https://public.jkrumm.com/diagrams/diagram.png`
 
 ### Features
@@ -1822,12 +1850,12 @@ Embed in Notion/Linear:
 
 The Dufs container is configured with the following optimizations:
 
-| Option | Effect |
-|--------|--------|
-| `-A` | Allow all operations (public read + directory listing) |
-| `--auth jkrumm:$DUFS_PASSWORD@/:rw` | Only authenticated user can write/delete |
-| `--enable-cors` | Allows cross-origin requests (required for GitHub/Notion embeds) |
-| `--hidden .DS_Store,.git,Thumbs.db` | Hides OS/git clutter from directory listings |
+| Option                              | Effect                                                           |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `-A`                                | Allow all operations (public read + directory listing)           |
+| `--auth jkrumm:$DUFS_PASSWORD@/:rw` | Only authenticated user can write/delete                         |
+| `--enable-cors`                     | Allows cross-origin requests (required for GitHub/Notion embeds) |
+| `--hidden .DS_Store,.git,Thumbs.db` | Hides OS/git clutter from directory listings                     |
 
 ## Setup Obsidian (Always-On)
 
@@ -1853,11 +1881,13 @@ Caddy handles path-based routing with `handle_path` (strips prefix before proxyi
 ### Initial Setup
 
 1. Create the data directory:
+
    ```bash
    mkdir -p /home/jkrumm/ssd/obsidian
    ```
 
 2. Start the container:
+
    ```bash
    op run --env-file=.env.tpl -- docker compose up -d obsidian
    ```
@@ -1888,14 +1918,15 @@ Caddy handles path-based routing with `handle_path` (strips prefix before proxyi
 
 ### Storage
 
-| Path (host) | Path (container) | Purpose |
-|-------------|-----------------|---------|
-| `/home/jkrumm/ssd/obsidian` | `/config` | Obsidian data + vault + plugins |
-| `/home/jkrumm/ssd/couchdb/data` | `/opt/couchdb/data` | CouchDB database |
+| Path (host)                     | Path (container)    | Purpose                         |
+| ------------------------------- | ------------------- | ------------------------------- |
+| `/home/jkrumm/ssd/obsidian`     | `/config`           | Obsidian data + vault + plugins |
+| `/home/jkrumm/ssd/couchdb/data` | `/opt/couchdb/data` | CouchDB database                |
 
 ### Monitoring
 
 UptimeKuma monitors:
+
 - **Obsidian - Docker:** Container running check
 - **Obsidian - HTTP:** KasmVNC GUI (accepts 401 as healthy)
 - **Obsidian REST API - HTTP:** Keyword check for `"status":"OK"`

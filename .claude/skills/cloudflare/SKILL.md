@@ -16,12 +16,12 @@ Handle any Cloudflare DNS or tunnel operation for HomeLab-hosted apps.
 
 All 4 secrets are now in `homelab` / `prod`:
 
-| Secret | What it is |
-|-|-|
-| `CLOUDFLARE_API_TOKEN` | Zone:Read + DNS:Edit (all zones) + Tunnel:Edit — same token as VPS |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
-| `CLOUDFLARE_ZONE_ID` | Zone ID for `jkrumm.com` |
-| `CLOUDFLARE_TUNNEL_ID` | UUID of the HomeLab Cloudflare Tunnel |
+| Secret                  | What it is                                                         |
+| ----------------------- | ------------------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN`  | Zone:Read + DNS:Edit (all zones) + Tunnel:Edit — same token as VPS |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID                                              |
+| `CLOUDFLARE_ZONE_ID`    | Zone ID for `jkrumm.com`                                           |
+| `CLOUDFLARE_TUNNEL_ID`  | UUID of the HomeLab Cloudflare Tunnel                              |
 
 ---
 
@@ -35,16 +35,17 @@ The HomeLab uses **specific per-subdomain ingress rules** (not a wildcard like V
 
 **Current public ingress routes:**
 
-| Hostname | Service |
-|-|-|
+| Hostname            | Service           |
+| ------------------- | ----------------- |
 | `glance.jkrumm.com` | `http://caddy:80` |
 | `immich.jkrumm.com` | `http://caddy:80` |
 | `uptime.jkrumm.com` | `http://caddy:80` |
 | `public.jkrumm.com` | `http://caddy:80` |
-| `api.jkrumm.com` | `http://caddy:80` |
-| catch-all | `http_status:404` |
+| `api.jkrumm.com`    | `http://caddy:80` |
+| catch-all           | `http_status:404` |
 
 **Adding a new public service requires all three:**
+
 1. DNS CNAME record pointing subdomain to tunnel
 2. New ingress rule in the tunnel config (before catch-all) — no wildcard exists
 3. New site block in `Caddyfile` (both HTTPS and HTTP variants)
@@ -126,6 +127,7 @@ ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s "https
 ## Workflow: Add a New Public App
 
 1. **Update `Caddyfile` locally** — add site blocks (HTTPS + HTTP variant for cloudflared):
+
    ```
    newapp.jkrumm.com {
      tls {
@@ -146,6 +148,7 @@ ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s "https
 4. **Update tunnel ingress config** — PUT the full list with the new hostname added before the catch-all
 
 5. **Push and deploy:**
+
    ```bash
    git push
    ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy newapp"
@@ -166,6 +169,7 @@ No tunnel changes needed. Services whose containers live in homelab-private go i
 `homelab-private/config/caddy/private-services.caddy` (imported via `import /etc/caddy/private/*.caddy`).
 
 1. **Add Caddyfile entry** — in `homelab-private/config/caddy/private-services.caddy` OR `homelab/Caddyfile` for non-sensitive names:
+
    ```
    newapp.jkrumm.com, http://newapp.jkrumm.com {
      reverse_proxy newapp:PORT
@@ -173,12 +177,15 @@ No tunnel changes needed. Services whose containers live in homelab-private go i
    ```
 
 2. **Add DNS A record** — points directly to Tailscale IP, **no proxy** (DNS-only / grey cloud):
+
    ```bash
    ssh homelab 'op run --env-file=~/homelab/.env.tpl -- bash -c '"'"'curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data "{\"type\":\"A\",\"name\":\"SUBDOMAIN\",\"content\":\"${HOMELAB_TAILSCALE_IP}\",\"proxied\":false}" | python3 -c "import json,sys; r=json.load(sys.stdin); print(\"OK:\",r[\"result\"][\"name\"],\"→\",r[\"result\"][\"content\"]) if r[\"success\"] else print(\"ERR:\",r[\"errors\"])"'"'"''
    ```
+
    Replace `SUBDOMAIN` with the actual subdomain. `proxied: false` = DNS-only = Tailscale-only.
 
 3. **Push and deploy:**
+
    ```bash
    git push  # in homelab
    ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy"
@@ -195,13 +202,13 @@ No tunnel changes needed. Services whose containers live in homelab-private go i
 
 CF API base: `https://api.cloudflare.com/client/v4`
 
-| Endpoint | Method | Purpose |
-|-|-|-|
-| `/zones` | GET | List zones (`?name=domain.com` to filter) |
-| `/zones/{zone_id}/dns_records` | GET | List DNS records |
-| `/zones/{zone_id}/dns_records` | POST | Create DNS record |
-| `/zones/{zone_id}/dns_records/{id}` | DELETE | Delete DNS record |
-| `/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations` | GET | Get tunnel ingress config |
-| `/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations` | PUT | Replace tunnel ingress config |
+| Endpoint                                                       | Method | Purpose                                   |
+| -------------------------------------------------------------- | ------ | ----------------------------------------- |
+| `/zones`                                                       | GET    | List zones (`?name=domain.com` to filter) |
+| `/zones/{zone_id}/dns_records`                                 | GET    | List DNS records                          |
+| `/zones/{zone_id}/dns_records`                                 | POST   | Create DNS record                         |
+| `/zones/{zone_id}/dns_records/{id}`                            | DELETE | Delete DNS record                         |
+| `/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations` | GET    | Get tunnel ingress config                 |
+| `/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations` | PUT    | Replace tunnel ingress config             |
 
 All responses: `{"success": bool, "result": ..., "errors": [...]}`.

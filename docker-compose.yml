@@ -10,8 +10,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "2"
+        max-size: '10m'
+        max-file: '2'
     environment:
       # Read-only access to container/image info
       CONTAINERS: 1
@@ -53,8 +53,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "2"
+        max-size: '10m'
+        max-file: '2'
     environment:
       CONTAINERS: 1
       IMAGES: 1
@@ -70,19 +70,19 @@ services:
       - socket-proxy-watchtower
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"
+      com.centurylinklabs.watchtower.enable: 'false'
 
   caddy:
     image: caddybuilds/caddy-cloudflare:latest
     container_name: caddy
     restart: unless-stopped
     ports:
-      - "443:443"
-      - "80:80"
+      - '443:443'
+      - '80:80'
     networks:
       - cloudflared
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -95,7 +95,7 @@ services:
       glance.parent: uptime
       glance.name: Caddy
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "true"
+      com.centurylinklabs.watchtower.enable: 'true'
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -124,16 +124,16 @@ services:
     container_name: samba
     restart: unless-stopped
     ports:
-      - "139:139"
-      - "445:445"
+      - '139:139'
+      - '445:445'
     environment:
       AVAHI_NAME: StorageServer
-      MODEL: "Macmini"
+      MODEL: 'Macmini'
       SAMBA_CONF_LOG_LEVEL: 3
       ACCOUNT_jkrumm: ${SAMBA_PASSWORD}
-      SAMBA_GLOBAL_CONFIG: "[global]; min protocol=SMB3; smb encrypt=desired; ea support=yes; vfs objects=fruit streams_xattr; fruit:metadata=stream; fruit:model=MacSamba; fruit:veto_appledouble=no; fruit:nfs_aces=no; fruit:wipe_intentionally_left_blank_rfork=yes; fruit:delete_empty_adfiles=yes; fruit:posix_rename=yes"
-      SAMBA_VOLUME_CONFIG_ssd: "[SSD]; path=/mnt/ssd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=SSD"
-      SAMBA_VOLUME_CONFIG_hdd: "[HDD]; path=/mnt/hdd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=HDD"
+      SAMBA_GLOBAL_CONFIG: '[global]; min protocol=SMB3; smb encrypt=desired; ea support=yes; vfs objects=fruit streams_xattr; fruit:metadata=stream; fruit:model=MacSamba; fruit:veto_appledouble=no; fruit:nfs_aces=no; fruit:wipe_intentionally_left_blank_rfork=yes; fruit:delete_empty_adfiles=yes; fruit:posix_rename=yes'
+      SAMBA_VOLUME_CONFIG_ssd: '[SSD]; path=/mnt/ssd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=SSD'
+      SAMBA_VOLUME_CONFIG_hdd: '[HDD]; path=/mnt/hdd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=HDD'
     volumes:
       - /home/jkrumm/ssd:/mnt/ssd
       - /mnt/hdd:/mnt/hdd
@@ -159,11 +159,11 @@ services:
       glance.hide: false
 
   beszel-agent:
-    image: "henrygd/beszel-agent"
+    image: 'henrygd/beszel-agent'
     container_name: beszel-agent
     restart: unless-stopped
     ports:
-      - "${HOMELAB_TAILSCALE_IP}:45876:45876"
+      - '${HOMELAB_TAILSCALE_IP}:45876:45876'
     networks:
       - beszel
       - socket-proxy
@@ -171,7 +171,7 @@ services:
       - /mnt/hdd/.beszel:/extra-filesystems/hdd:ro
     environment:
       PORT: 45876
-      KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf"
+      KEY: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf'
       FILESYSTEMS: /sda/sda3
       DOCKER_HOST: tcp://docker-socket-proxy:2375
     depends_on:
@@ -187,7 +187,7 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
-      - "8080:8080"
+      - '8080:8080'
     networks:
       - cloudflared
       - socket-proxy
@@ -242,26 +242,26 @@ services:
       TZ: Europe/Berlin
       DOCKER_HOST: tcp://docker-socket-proxy-watchtower:2375
       DOCKER_CONFIG: /
-      DOCKER_API_VERSION: "1.44"
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_SCHEDULE: "0 0 4 * * *"
-      WATCHTOWER_NOTIFICATION_URL: "${SLACK_WATCHTOWER_URL}"
+      DOCKER_API_VERSION: '1.44'
+      WATCHTOWER_CLEANUP: 'true'
+      WATCHTOWER_SCHEDULE: '0 0 4 * * *'
+      WATCHTOWER_NOTIFICATION_URL: '${SLACK_WATCHTOWER_URL}'
       WATCHTOWER_NOTIFICATIONS_LEVEL: warn
-      WATCHTOWER_NO_STARTUP_MESSAGE: "true"
+      WATCHTOWER_NO_STARTUP_MESSAGE: 'true'
       WATCHTOWER_WARN_ON_HEAD_FAILURE: never
     labels:
       glance.parent: uptime
       glance.name: Watchtower
       glance.icon: si:watchtower
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false" # don't self-update
+      com.centurylinklabs.watchtower.enable: 'false' # don't self-update
 
   uptime-kuma:
     image: louislam/uptime-kuma:2
     container_name: uptime-kuma
     restart: unless-stopped
     ports:
-      - "3010:3001"
+      - '3010:3001'
     networks:
       - cloudflared
       - socket-proxy
@@ -325,7 +325,7 @@ services:
     restart: unless-stopped
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"
+      com.centurylinklabs.watchtower.enable: 'false'
 
   dozzle-backup-logs:
     container_name: database-backup-logs
@@ -340,7 +340,7 @@ services:
     restart: unless-stopped
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false"
+      com.centurylinklabs.watchtower.enable: 'false'
 
   calibre:
     image: lscr.io/linuxserver/calibre:latest
@@ -393,8 +393,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "50m"
-        max-file: "5"
+        max-size: '50m'
+        max-file: '5'
     extends:
       file: config/hwaccel.transcoding.yml
       service: quicksync
@@ -404,7 +404,7 @@ services:
       # External library - read-only mount for Fuji photos
       - /home/jkrumm/ssd/SSD/Bilder/Fuji:/mnt/media/fuji:ro
     ports:
-      - "2283:2283"
+      - '2283:2283'
     networks:
       - cloudflared
       - immich
@@ -428,7 +428,7 @@ services:
       glance.icon: si:immich
       glance.url: https://immich.jkrumm.com
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: 'false' # managed by /upgrade-stack immich
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -450,7 +450,7 @@ services:
           memory: 4G
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false" # managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: 'false' # managed by /upgrade-stack immich
 
   immich_redis:
     container_name: immich_redis
@@ -462,7 +462,7 @@ services:
       - immich
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false" # digest-pinned, managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: 'false' # digest-pinned, managed by /upgrade-stack immich
 
   immich_postgres:
     container_name: immich_postgres
@@ -473,20 +473,20 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD}
       POSTGRES_USER: postgres
       POSTGRES_DB: immich
-      POSTGRES_INITDB_ARGS: "--data-checksums"
+      POSTGRES_INITDB_ARGS: '--data-checksums'
     volumes:
       - /home/jkrumm/ssd/SSD/Bilder/immich/postgres:/var/lib/postgresql/data
     networks:
       - immich
     labels:
       glance.hide: true
-      com.centurylinklabs.watchtower.enable: "false" # digest-pinned, managed by /upgrade-stack immich
+      com.centurylinklabs.watchtower.enable: 'false' # digest-pinned, managed by /upgrade-stack immich
 
   filebrowser:
     image: filebrowser/filebrowser:latest
     container_name: filebrowser
     restart: unless-stopped
-    user: "1000:1000"
+    user: '1000:1000'
     volumes:
       - /home/jkrumm/ssd/SSD:/srv/ssd
       - /mnt/hdd:/srv/hdd
@@ -513,7 +513,7 @@ services:
     volumes:
       - /home/jkrumm/ssd/SSD/Public:/data
     ports:
-      - "8098:5000"
+      - '8098:5000'
     networks:
       - cloudflared
     labels:
@@ -557,7 +557,7 @@ services:
       glance.icon: si:fastapi
       glance.url: https://api.jkrumm.com
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false" # local build, not from registry
+      com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
 
   couchdb:
     image: couchdb:3
@@ -572,7 +572,7 @@ services:
     networks:
       - cloudflared
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:5984/_up"]
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:5984/_up']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -603,8 +603,7 @@ services:
       glance.icon: si:refine
       glance.url: https://dashboard.jkrumm.com
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: "false" # local build, not from registry
-
+      com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
 
 volumes:
   model-cache:

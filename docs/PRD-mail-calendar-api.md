@@ -36,20 +36,24 @@ GET /gmail/calendar              → upcoming events (days param, default 30, al
 ## Query Parameters
 
 **Email list endpoints:**
+
 - `days` — how many days back to search (default: 7)
 - `maxResults` — max emails returned (default: 50)
 - `query` — free-text search string passed to Gmail query / OData $filter
 
 **Calendar endpoints:**
+
 - `days` — window from today (default: 30 for Google, 10 for Outlook)
 
 ## Filtering Defaults
 
 **Gmail:**
+
 - Label filter: `in:inbox -category:spam -category:promotions -category:social`
 - Sorted by date descending
 
 **Outlook:**
+
 - Focused inbox preferred if available, else all non-junk mail
 - Sorted by receivedDateTime descending
 
@@ -72,9 +76,10 @@ GET /gmail/calendar              → upcoming events (days param, default 30, al
 ## Email Response Shape (detail — :id)
 
 Same as above plus:
+
 ```ts
 {
-  body: string           // plaintext preferred, HTML fallback stripped to text
+  body: string // plaintext preferred, HTML fallback stripped to text
   attachments: Array<{ filename: string; mimeType: string; size: number }>
 }
 ```
@@ -107,6 +112,7 @@ Same as above plus:
 ## App Registrations Required (manual prerequisite)
 
 **Google Cloud Console:**
+
 - Enable: Gmail API, Google Calendar API
 - OAuth 2.0 scopes: `gmail.readonly`, `calendar.readonly`
 - Redirect URI: `https://api.jkrumm.com/oauth/google/callback`

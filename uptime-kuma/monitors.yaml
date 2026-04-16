@@ -14,12 +14,12 @@ settings:
     timeout: 90
     maxretries: 3
     retry_interval: 60
-    accepted_statuscodes: ["200-299"]
+    accepted_statuscodes: ['200-299']
     method: GET
 
   # Cloudflare WAF bypass header (applied to all external monitors)
   cloudflare_bypass_header:
-    X-Uptime-Monitor: "${UPTIME_MONITOR_TOKEN}"
+    X-Uptime-Monitor: '${UPTIME_MONITOR_TOKEN}'
 
 groups:
   # ============================================
@@ -137,7 +137,7 @@ groups:
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
           - name: HomeLab Watchdog - Push
             type: push
-            interval: 700      # Cron runs every 10 min (600s) + buffer for execution
+            interval: 700 # Cron runs every 10 min (600s) + buffer for execution
             timeout: 48
             retry_interval: 700
 
@@ -149,7 +149,7 @@ groups:
             timeout: 120
             maxretries: 5
             headers:
-              Authorization: "Bearer ${BETTERSTACK_API_KEY}"
+              Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
 
       # --- Media subgroup ---
       - name: Media
@@ -206,7 +206,7 @@ groups:
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
           - name: 1Password Backup - Push
             type: push
-            interval: 691200   # 8 days — weekly manual + buffer
+            interval: 691200 # 8 days — weekly manual + buffer
             retry_interval: 691200
 
       # --- Immich subgroup ---
@@ -247,7 +247,7 @@ groups:
             url: https://immich.jkrumm.com/api/server/ping
             interval: 185
             cloudflare_bypass: true
-            accepted_statuscodes: ["200-299"]
+            accepted_statuscodes: ['200-299']
 
           - name: Immich - Uptime
             type: http
@@ -256,7 +256,7 @@ groups:
             timeout: 120
             maxretries: 5
             headers:
-              Authorization: "Bearer ${BETTERSTACK_API_KEY}"
+              Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
 
       # --- CouchDB subgroup ---
       - name: CouchDB
@@ -274,9 +274,7 @@ groups:
             type: http
             url: http://couchdb:5984/_up
             interval: 200
-            accepted_statuscodes: ["200-299"]
-
-
+            accepted_statuscodes: ['200-299']
 
   # ============================================
   # IU Mac - M2 Max local AI machine
@@ -289,31 +287,31 @@ groups:
       - name: Ollama - HTTP
         type: keyword
         url: http://iu-mac-book.dinosaur-sole.ts.net:11434/
-        keyword: "Ollama is running"
+        keyword: 'Ollama is running'
         interval: 120
 
       - name: LLM - Models API
         type: keyword
         url: https://iu-mac-book.dinosaur-sole.ts.net/v1/models
-        keyword: "gemma4-agent"
+        keyword: 'gemma4-agent'
         interval: 120
 
       - name: STT - Whisper
         type: http
         url: https://iu-mac-book.dinosaur-sole.ts.net/v1/audio/transcriptions
         interval: 300
-        accepted_statuscodes: ["405"]
+        accepted_statuscodes: ['405']
 
       - name: TTS - Kokoro
         type: http
         url: https://iu-mac-book.dinosaur-sole.ts.net/v1/audio/speech
         interval: 300
-        accepted_statuscodes: ["405"]
+        accepted_statuscodes: ['405']
 
       - name: Management API
         type: keyword
         url: https://iu-mac-book.dinosaur-sole.ts.net/api/health
-        keyword: "ok"
+        keyword: 'ok'
         interval: 120
 
   # ============================================
@@ -354,7 +352,7 @@ groups:
             type: http
             url: http://${VPS_TAILSCALE_IP}:13133/
             interval: 131
-            accepted_statuscodes: ["200-299"]
+            accepted_statuscodes: ['200-299']
 
           - name: Umami - HTTP
             type: http
@@ -370,7 +368,7 @@ groups:
           # After creating: copy push URL → 1Password vps/config/UPTIME_KUMA_PUSH_URL
           - name: VPS Postgres - Backup
             type: push
-            interval: 90000    # 25h — daily cron at 03:00 UTC + buffer
+            interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
             retry_interval: 90000
 
   # ============================================
@@ -382,7 +380,7 @@ groups:
       - name: FPP - Frontend
         type: http
         url: https://free-planning-poker.com/
-        ip_family: 6  # Force IPv6 (IPv4 path has issues)
+        ip_family: 6 # Force IPv6 (IPv4 path has issues)
         cloudflare_bypass: true
 
       - name: FPP - Server
@@ -392,7 +390,7 @@ groups:
         ip_family: 6
         cloudflare_bypass: true
         headers:
-          Authorization: "Bearer ${FPP_SERVER_AUTH}"
+          Authorization: 'Bearer ${FPP_SERVER_AUTH}'
 
       - name: FPP - Analytics
         type: keyword
@@ -408,7 +406,7 @@ groups:
 
       - name: FPP - DB Backup
         type: push
-        interval: 90000    # 25h — daily cron at 03:00 UTC + buffer
+        interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
         retry_interval: 90000
 
       - name: FPP - Analytics Readmodel
@@ -435,7 +433,7 @@ groups:
         timeout: 120
         maxretries: 5
         headers:
-          Authorization: "Bearer ${BETTERSTACK_API_KEY}"
+          Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
         cloudflare_bypass: true
 
       # Disabled monitors

@@ -34,6 +34,7 @@ Tailscale runs a local DNS server at `100.100.100.100` on every device. It resol
 **On Linux hosts:** With `systemd-resolved` (Ubuntu 24.04 uses this), MagicDNS registers as a per-interface DNS on `tailscale0`. No `/etc/resolv.conf` modification.
 
 **Inside Docker containers:** Containers on user-defined bridge networks use Docker's internal DNS (`127.0.0.11`) and do NOT see MagicDNS. To resolve tailnet names from inside containers, add explicit DNS:
+
 ```yaml
 dns:
   - 100.100.100.100
@@ -48,24 +49,24 @@ dns:
 
 ### HomeLab - Stay on Cloudflare (public)
 
-| Service | Port | Domain | Reason |
-|---------|------|--------|--------|
-| Glance | 8080 | glance.jkrumm.com | Personal dashboard, convenient public |
-| Immich | 2283 | immich.jkrumm.com | Photo sharing with others |
-| UptimeKuma | 3010 | uptime.jkrumm.com | Public status page |
-| ExcaliDash | 8084 | draw.jkrumm.com | Shared whiteboard |
-| Dufs | 8098 | public.jkrumm.com | Public file sharing |
+| Service    | Port | Domain            | Reason                                |
+| ---------- | ---- | ----------------- | ------------------------------------- |
+| Glance     | 8080 | glance.jkrumm.com | Personal dashboard, convenient public |
+| Immich     | 2283 | immich.jkrumm.com | Photo sharing with others             |
+| UptimeKuma | 3010 | uptime.jkrumm.com | Public status page                    |
+| ExcaliDash | 8084 | draw.jkrumm.com   | Shared whiteboard                     |
+| Dufs       | 8098 | public.jkrumm.com | Public file sharing                   |
 
 ### HomeLab - Move to Tailscale only (private)
 
-| Service | Port | Domain | Reason |
-|---------|------|--------|--------|
-| Beszel | 8090 | beszel.jkrumm.com | Admin monitoring |
-| Dozzle | 8081 | dozzle.jkrumm.com | Admin log viewer |
-| Duplicati | 8200 | duplicati.jkrumm.com | Backup management |
-| FileBrowser | 8095 | files.jkrumm.com | File management |
-| Calibre GUI | 8085 | calibre.jkrumm.com | Book management admin |
-| Calibre-Web | 8083 | books.jkrumm.com | Personal e-book library |
+| Service     | Port | Domain               | Reason                  |
+| ----------- | ---- | -------------------- | ----------------------- |
+| Beszel      | 8090 | beszel.jkrumm.com    | Admin monitoring        |
+| Dozzle      | 8081 | dozzle.jkrumm.com    | Admin log viewer        |
+| Duplicati   | 8200 | duplicati.jkrumm.com | Backup management       |
+| FileBrowser | 8095 | files.jkrumm.com     | File management         |
+| Calibre GUI | 8085 | calibre.jkrumm.com   | Book management admin   |
+| Calibre-Web | 8083 | books.jkrumm.com     | Personal e-book library |
 
 ### VPS - Stay on Cloudflare (public apps)
 
@@ -88,19 +89,17 @@ In [Tailscale Admin Console](https://login.tailscale.com/admin):
      "tagOwners": {
        "tag:homelab": ["autogroup:admin"],
        "tag:vps": ["autogroup:admin"],
-       "tag:container": ["autogroup:admin"]
+       "tag:container": ["autogroup:admin"],
      },
-     "grants": [
-       {"src": ["*"], "dst": ["*"], "ip": ["*"]}
-     ],
+     "grants": [{ "src": ["*"], "dst": ["*"], "ip": ["*"] }],
      "ssh": [
        {
          "action": "accept",
          "src": ["autogroup:admin"],
          "dst": ["tag:homelab", "tag:vps"],
-         "users": ["autogroup:nonroot", "root"]
-       }
-     ]
+         "users": ["autogroup:nonroot", "root"],
+       },
+     ],
    }
    ```
 
@@ -111,6 +110,7 @@ In [Tailscale Admin Console](https://login.tailscale.com/admin):
 ## Phase 2: Install Tailscale natively on both hosts ✅ DONE
 
 **HomeLab** (Ubuntu 24.04 x86_64):
+
 ```bash
 ssh jkrumm@homelab.jkrumm.com
 curl -fsSL https://tailscale.com/install.sh | sh
@@ -119,6 +119,7 @@ tailscale ip -4  # → <tailscale-ip-homelab>
 ```
 
 **VPS** (Ubuntu 22.04 ARM64 / Hetzner):
+
 ```bash
 ssh jkrumm@5.75.178.196
 curl -fsSL https://tailscale.com/install.sh | sh
@@ -132,14 +133,15 @@ tailscale ip -4  # → <tailscale-ip-sds>
 
 **Results:**
 
-| Machine | Tailscale IP | MagicDNS Name | Tag |
-|---------|-------------|---------------|-----|
-| HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net | tag:homelab |
-| VPS | <tailscale-ip-sds> | sideproject-docker-stack.dinosaur-sole.ts.net | tag:vps |
-| MacBook | <tailscale-ip-macbook> | iu-mac-book | (personal) |
-| iPhone | <tailscale-ip-iphone> | iphone-15 | (personal) |
+| Machine | Tailscale IP           | MagicDNS Name                                 | Tag         |
+| ------- | ---------------------- | --------------------------------------------- | ----------- |
+| HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net                  | tag:homelab |
+| VPS     | <tailscale-ip-sds>     | sideproject-docker-stack.dinosaur-sole.ts.net | tag:vps     |
+| MacBook | <tailscale-ip-macbook> | iu-mac-book                                   | (personal)  |
+| iPhone  | <tailscale-ip-iphone>  | iphone-15                                     | (personal)  |
 
 **Verification (all passed):**
+
 - `tailscale status` on each machine shows all 4 devices
 - `tailscale ping homelab` from MacBook → pong via DERP(nue) ~130ms (direct connection establishes over time)
 - `tailscale ping sideproject-docker-stack` from MacBook → pong via DERP(nue) ~100ms
@@ -147,6 +149,7 @@ tailscale ip -4  # → <tailscale-ip-sds>
 - SSH via Tailscale IPs works for both machines
 
 **Also completed (from Phase 8, done early):**
+
 - `~/.ssh/config` created with `homelab` → `<tailscale-ip-homelab>`, `vps` → `<tailscale-ip-sds>`, plus `homelab-direct` and `vps-direct` fallbacks
 - `~/.zshrc` aliases updated: `homelab` → `ssh homelab`, `vps` → `ssh vps`
 - Host keys accepted for both Tailscale IPs
@@ -161,6 +164,7 @@ HomeLab currently has no reverse proxy. Add Caddy with the Cloudflare DNS plugin
 ### 3a. Create Caddy Dockerfile
 
 **File:** `~/homelab/caddy/Dockerfile`
+
 ```dockerfile
 FROM caddy:2-builder AS builder
 RUN xcaddy build --with github.com/caddy-dns/cloudflare
@@ -194,30 +198,31 @@ glance.jkrumm.com {
 **File:** `~/homelab/docker-compose.yml`
 
 ```yaml
-  caddy:
-    build:
-      context: ./caddy
-      dockerfile: Dockerfile
-    container_name: caddy
-    restart: unless-stopped
-    ports:
-      - "443:443"
-      - "80:80"
-    networks:
-      - cloudflared
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-    labels:
-      glance.parent: uptime
-      glance.name: Caddy
-      glance.hide: false
+caddy:
+  build:
+    context: ./caddy
+    dockerfile: Dockerfile
+  container_name: caddy
+  restart: unless-stopped
+  ports:
+    - '443:443'
+    - '80:80'
+  networks:
+    - cloudflared
+  volumes:
+    - ./Caddyfile:/etc/caddy/Caddyfile
+    - caddy_data:/data
+    - caddy_config:/config
+  environment:
+    - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+  labels:
+    glance.parent: uptime
+    glance.name: Caddy
+    glance.hide: false
 ```
 
 Add volumes:
+
 ```yaml
 volumes:
   caddy_data:
@@ -300,6 +305,7 @@ books.jkrumm.com {
 In **Cloudflare Zero Trust Dashboard** → Tunnels → homelab tunnel → Public Hostnames:
 
 Change all routes to point to `http://caddy:80` (HTTP, not HTTPS - avoids TLS cert verification issues):
+
 - `*.jkrumm.com` → Service: `http://caddy:80` (catch-all)
 
 Or if catch-all isn't supported for the remotely-managed tunnel, update each public subdomain route individually to `http://caddy:80`.
@@ -311,11 +317,11 @@ Or if catch-all isn't supported for the remotely-managed tunnel, update each pub
 Caddy needs to reach all services. Currently most are on `cloudflared` network. Add Caddy to other networks as needed:
 
 ```yaml
-  caddy:
-    networks:
-      - cloudflared
-      - beszel        # for beszel service
-      - excalidash    # for excalidash-frontend
+caddy:
+  networks:
+    - cloudflared
+    - beszel # for beszel service
+    - excalidash # for excalidash-frontend
 ```
 
 Or simpler: ensure all user-facing services are on a shared network that Caddy is also on. The `cloudflared` network already serves this purpose for most services.
@@ -323,11 +329,12 @@ Or simpler: ensure all user-facing services are on a shared network that Caddy i
 ### 4d. Update cloudflared depends_on
 
 Add `caddy` to cloudflared's dependency list:
+
 ```yaml
-  cloudflared:
-    depends_on:
-      - caddy
-      # ... keep existing depends_on for services
+cloudflared:
+  depends_on:
+    - caddy
+    # ... keep existing depends_on for services
 ```
 
 ### 4e. Deploy and verify
@@ -348,23 +355,23 @@ In **Cloudflare DNS** for `jkrumm.com`:
 
 **Machine access records** (for SSH, Samba, general Tailscale access):
 
-| Type | Name | Content | Proxy | TTL |
-|------|------|---------|-------|-----|
-| A | ts-homelab | `100.x.y.z` (HomeLab TS IP) | DNS only (grey) | Auto |
-| A | ts-vps | `100.x.y.z` (VPS TS IP) | DNS only (grey) | Auto |
+| Type | Name       | Content                     | Proxy           | TTL  |
+| ---- | ---------- | --------------------------- | --------------- | ---- |
+| A    | ts-homelab | `100.x.y.z` (HomeLab TS IP) | DNS only (grey) | Auto |
+| A    | ts-vps     | `100.x.y.z` (VPS TS IP)     | DNS only (grey) | Auto |
 
 > `ts-homelab.jkrumm.com` gives a memorable, Tailscale-only hostname for your HomeLab. Can't reuse `homelab.jkrumm.com` since that's the IPv6 DDNS record (keep as SSH fallback).
 
 **Service records** (for private services via Caddy):
 
-| Type | Name | Content | Proxy | TTL |
-|------|------|---------|-------|-----|
-| A | beszel | `100.x.y.z` (HomeLab TS IP) | DNS only (grey) | Auto |
-| A | dozzle | `100.x.y.z` | DNS only (grey) | Auto |
-| A | duplicati | `100.x.y.z` | DNS only (grey) | Auto |
-| A | files | `100.x.y.z` | DNS only (grey) | Auto |
-| A | calibre | `100.x.y.z` | DNS only (grey) | Auto |
-| A | books | `100.x.y.z` | DNS only (grey) | Auto |
+| Type | Name      | Content                     | Proxy           | TTL  |
+| ---- | --------- | --------------------------- | --------------- | ---- |
+| A    | beszel    | `100.x.y.z` (HomeLab TS IP) | DNS only (grey) | Auto |
+| A    | dozzle    | `100.x.y.z`                 | DNS only (grey) | Auto |
+| A    | duplicati | `100.x.y.z`                 | DNS only (grey) | Auto |
+| A    | files     | `100.x.y.z`                 | DNS only (grey) | Auto |
+| A    | calibre   | `100.x.y.z`                 | DNS only (grey) | Auto |
+| A    | books     | `100.x.y.z`                 | DNS only (grey) | Auto |
 
 These IPs are in the 100.64.0.0/10 CGNAT range - unreachable from the public internet. Only Tailscale devices can connect.
 
@@ -384,6 +391,7 @@ If using individual tunnel routes (not catch-all), also remove the tunnel hostna
 ### 5c. Verify private access
 
 From MacBook (on Tailscale):
+
 ```bash
 curl -v https://beszel.jkrumm.com    # Should work via Tailscale
 curl -v https://dozzle.jkrumm.com    # Should work via Tailscale
@@ -461,8 +469,9 @@ Both Dozzle (log scraping) and Beszel (infra metrics) on HomeLab connect to agen
 ### 7a. Dozzle hub (HomeLab) → Dozzle agent (VPS)
 
 Currently in HomeLab `docker-compose.yml`:
+
 ```yaml
-DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007  # public VPS IP
+DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007 # public VPS IP
 ```
 
 **Docker DNS caveat:** Dozzle runs on a Docker bridge network and cannot resolve MagicDNS names (`vps.dinosaur-sole.ts.net`) because Docker uses its own DNS resolver. Two options:
@@ -471,13 +480,14 @@ DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007  # public VPS IP
 Replace `SIDEPROJECT_DOCKER_STACK_IP` in 1Password with the VPS Tailscale IP (`100.x.y.z`). No docker-compose change needed - the env var already works.
 
 **Option B: Add MagicDNS to Dozzle container:**
+
 ```yaml
-  dozzle:
-    dns:
-      - 100.100.100.100  # Tailscale MagicDNS resolver
-      - 1.1.1.1           # fallback
-    environment:
-      DOZZLE_REMOTE_AGENT: vps.dinosaur-sole.ts.net:7007
+dozzle:
+  dns:
+    - 100.100.100.100 # Tailscale MagicDNS resolver
+    - 1.1.1.1 # fallback
+  environment:
+    DOZZLE_REMOTE_AGENT: vps.dinosaur-sole.ts.net:7007
 ```
 
 **IP routing works regardless** - Docker containers CAN route to Tailscale IPs via the host's routing table. Only DNS resolution is the issue.
@@ -485,13 +495,15 @@ Replace `SIDEPROJECT_DOCKER_STACK_IP` in 1Password with the VPS Tailscale IP (`1
 ### 7b. Beszel hub (HomeLab) → Beszel agent (VPS)
 
 VPS Beszel agent currently connects outbound to the hub:
+
 ```yaml
-HUB_URL: https://beszel.jkrumm.dev  # currently public URL
+HUB_URL: https://beszel.jkrumm.dev # currently public URL
 ```
 
 Change to Tailscale-routed URL:
+
 ```yaml
-HUB_URL: https://beszel.jkrumm.com  # resolves to HomeLab Tailscale IP
+HUB_URL: https://beszel.jkrumm.com # resolves to HomeLab Tailscale IP
 ```
 
 This works because the VPS has Tailscale installed natively, so `beszel.jkrumm.com` (pointing to HomeLab's 100.x.y.z) is reachable from the VPS Beszel agent running in host network mode.
@@ -499,11 +511,14 @@ This works because the VPS has Tailscale installed natively, so `beszel.jkrumm.c
 ### 7c. Restrict agent ports to Tailscale ✅ MOSTLY DONE
 
 **Done (via Docker port binding):**
+
 - VPS dozzle-agent: `<tailscale-ip-sds>:7007:7007` (Tailscale IP only)
 - HomeLab beszel-agent: `<tailscale-ip-homelab>:45876:45876` (Tailscale IP only)
 
 **Remaining (needs interactive sudo for UFW):**
+
 - VPS beszel-agent runs with `network_mode: host` — can't restrict via Docker port binding. Needs UFW:
+
 ```bash
 ssh -t vps "sudo ufw allow from 100.64.0.0/10 to any port 45876 proto tcp && sudo ufw deny 45876/tcp"
 ```
@@ -551,6 +566,7 @@ alias vps="ssh vps"
 ### 8c. Zed IDE remote development
 
 Zed supports SSH remote development. With Tailscale SSH:
+
 - Open Zed → `Open Remote` → select `homelab` or `vps`
 - Edit `~/homelab/` and `~/sideproject-docker-stack/` directly on the servers
 - Git operations (commit, push) happen on the server
@@ -559,6 +575,7 @@ Zed supports SSH remote development. With Tailscale SSH:
 ### 8d. Remove local repos
 
 After verifying Zed remote works:
+
 ```bash
 # Archive or remove local copies
 rm -rf ~/SourceRoot/homelab
@@ -574,6 +591,7 @@ rm -rf ~/SourceRoot/sideproject-docker-stack
 **File:** `~/homelab/docs/tailscale-migration.md`
 
 Document the plan, decisions, and step-by-step migration journey:
+
 - Why: what problems this solves (public admin services, SSH exposure, complex jump host routing)
 - Architecture diagrams: before and after
 - Decision log: why Caddy over sidecars, why own domain over .ts.net, service classification rationale
@@ -583,12 +601,14 @@ Document the plan, decisions, and step-by-step migration journey:
 ### 9b. Update project documentation with final state
 
 **Files to update:**
+
 - `~/homelab/CLAUDE.md` - SSH patterns (Tailscale hostnames), service URLs, workflow (direct edit vs push/pull), Caddy as reverse proxy
 - `~/homelab/README.md` - Connection methods, service access URLs, Caddy config docs, Tailscale setup section
 - `~/sideproject-docker-stack/README.md` - Updated access patterns, Caddy routing docs
 - `~/.claude/CLAUDE.md` - Update SSH aliases section
 
 ### Key documentation changes:
+
 - SSH: `ssh homelab` now uses Tailscale (no jump host needed for IPv4!)
 - Private services: `https://beszel.jkrumm.com` (Tailscale) instead of public Cloudflare URL
 - Public services: still `*.jkrumm.com` via Cloudflare, but now routed through Caddy
@@ -602,29 +622,29 @@ Document the plan, decisions, and step-by-step migration journey:
 
 ## New Files Summary
 
-| File | Machine | Purpose |
-|------|---------|---------|
-| `caddy/Dockerfile` | HomeLab | Custom Caddy with cloudflare DNS plugin |
-| `Caddyfile` | HomeLab | Routing config-as-code (new file) |
-| `caddy/Dockerfile` | VPS | Custom Caddy with cloudflare DNS plugin (replace plain `caddy:2` image) |
-| `docs/tailscale-migration.md` | HomeLab | Migration journey documentation |
+| File                          | Machine | Purpose                                                                 |
+| ----------------------------- | ------- | ----------------------------------------------------------------------- |
+| `caddy/Dockerfile`            | HomeLab | Custom Caddy with cloudflare DNS plugin                                 |
+| `Caddyfile`                   | HomeLab | Routing config-as-code (new file)                                       |
+| `caddy/Dockerfile`            | VPS     | Custom Caddy with cloudflare DNS plugin (replace plain `caddy:2` image) |
+| `docs/tailscale-migration.md` | HomeLab | Migration journey documentation                                         |
 
 ## Modified Files Summary
 
-| File | Machine | Changes |
-|------|---------|---------|
-| `docker-compose.yml` | HomeLab | Add caddy service, caddy volumes, update cloudflared |
-| `docker-compose.yml` | VPS | Custom caddy build, update agent env vars (Tailscale URLs) |
-| `Caddyfile` | VPS | Expand from photos-only to all services |
-| `~/.ssh/config` | MacBook | Create with Tailscale hostnames |
-| `~/.zshrc` | MacBook | Update aliases |
+| File                 | Machine | Changes                                                    |
+| -------------------- | ------- | ---------------------------------------------------------- |
+| `docker-compose.yml` | HomeLab | Add caddy service, caddy volumes, update cloudflared       |
+| `docker-compose.yml` | VPS     | Custom caddy build, update agent env vars (Tailscale URLs) |
+| `Caddyfile`          | VPS     | Expand from photos-only to all services                    |
+| `~/.ssh/config`      | MacBook | Create with Tailscale hostnames                            |
+| `~/.zshrc`           | MacBook | Update aliases                                             |
 
 ## New 1Password Secrets
 
-| Secret | Machine | Purpose |
-|--------|---------|---------|
-| `CLOUDFLARE_API_TOKEN` | HomeLab | Used for Caddy DNS-01 challenge |
-| `CLOUDFLARE_API_TOKEN` | VPS | Needs to be added for Caddy DNS-01 challenge |
+| Secret                 | Machine | Purpose                                      |
+| ---------------------- | ------- | -------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN` | HomeLab | Used for Caddy DNS-01 challenge              |
+| `CLOUDFLARE_API_TOKEN` | VPS     | Needs to be added for Caddy DNS-01 challenge |
 
 ---
 
@@ -633,6 +653,7 @@ Document the plan, decisions, and step-by-step migration journey:
 After each phase, verify before moving to the next:
 
 ### Phase 1-2 (Tailscale native) ✅
+
 - [x] ACL tags configured in admin console before install (grants format, not acls)
 - [x] `tailscale status` shows both machines + MacBook + iPhone (4 devices total)
 - [x] `tailscale ping homelab` from MacBook works (via DERP(nue), ~130ms)
@@ -640,6 +661,7 @@ After each phase, verify before moving to the next:
 - [x] All 26 HomeLab containers still running (Tailscale doesn't interfere with cloudflared)
 
 ### Phase 3-4 (Caddy on HomeLab) ✅
+
 - [x] Caddy container starts, gets TLS cert for all 12 domains (Let's Encrypt via DNS-01)
 - [x] `https://glance.jkrumm.com` works through Cloudflare (public)
 - [x] `https://glance.jkrumm.com` works via Tailscale IP directly (HTTPS :443)
@@ -653,6 +675,7 @@ After each phase, verify before moving to the next:
 > **Learning:** `cloudflared login` stores an Argo Tunnel Token in `~/.cloudflared/cert.pem` that contains a Cloudflare API token (base64-encoded JSON with `apiToken` field). This token has broader permissions than a scoped DNS API token and can manage tunnel configurations via the `/cfd_tunnel/{id}/configurations` API endpoint.
 
 ### Phase 5 (Private services) ✅
+
 - [x] 7 private service DNS records changed from CNAME (proxied/CF tunnel) to A (DNS-only/<tailscale-ip-homelab>)
 - [x] `https://beszel.jkrumm.com` works from MacBook (Tailscale on) — 302
 - [x] Private services unreachable from non-Tailscale (100.x.y.z in CGNAT range)
@@ -662,6 +685,7 @@ After each phase, verify before moving to the next:
 - [x] `ts-homelab.jkrumm.com` and `ts-vps.jkrumm.com` DNS-only A records created
 
 ### Phase 6 (VPS Caddy)
+
 - [x] Custom Caddy with CF DNS plugin built on VPS (ARM64)
 - [x] All 6 TLS certs obtained via DNS-01 challenge
 - [x] All VPS tunnel routes updated to `http://caddy:80`
@@ -672,6 +696,7 @@ After each phase, verify before moving to the next:
 - [x] `bun-email-api` has pre-existing crash (Module not found) — unrelated
 
 ### Phase 7 (Cross-machine)
+
 - [x] Dozzle hub connected to VPS agent via Tailscale (`clients:2`)
 - [x] Beszel agent on VPS connects to hub via Tailscale (`beszel.jkrumm.com`)
 - [x] VPS dozzle-agent port bound to Tailscale IP only
@@ -679,6 +704,7 @@ After each phase, verify before moving to the next:
 - [x] VPS beszel-agent: UFW rule to restrict port 45876 to Tailscale (done in Phase 11a)
 
 ### Phase 8 (Dev workflow)
+
 - [x] `ssh homelab` / `ssh vps` use Tailscale (done early, ~/.ssh/config + ~/.zshrc updated)
 - [ ] Zed remote development works on both machines
 - [ ] Can edit docker-compose.yml and run `docker compose up -d` from Zed terminal
@@ -723,14 +749,15 @@ Full VPS hardening completed:
 
 **Hetzner Cloud Firewall** — reduced to 2 rules:
 
-| Rule | Port | Source |
-|------|------|--------|
-| HTTPS | TCP 443 | Any IPv4/IPv6 |
+| Rule    | Port      | Source        |
+| ------- | --------- | ------------- |
+| HTTPS   | TCP 443   | Any IPv4/IPv6 |
 | MariaDB | TCP 33306 | Any IPv4/IPv6 |
 
 SSH rule removed. Emergency access via Hetzner web console.
 
 **VPS setup.sh** — created in sideproject-docker-stack repo:
+
 - Auto-fixes Hetzner ARM64 apt mirror (`mirror.hetzner.com` → `ports.ubuntu.com`)
 - SSH hardening drop-in (`/etc/ssh/sshd_config.d/99-hardening.conf`): PermitRootLogin no, PasswordAuth no, MaxAuthTries 3, X11/Agent/TcpForwarding disabled
 - UFW: SSH+Beszel(45876) from Tailscale only, HTTPS+MariaDB open, deny all else
@@ -739,11 +766,13 @@ SSH rule removed. Emergency access via Hetzner web console.
 - unattended-upgrades: Docker packages blacklisted, auto-reboot at 4 AM
 
 **Package upgrades:**
+
 - Kernel: 5.15.0-102 → 5.15.0-168 (rebooted after 657 days)
 - Docker 29.2.1, containerd 2.2.1, runc 1.3.4, Compose 5.0.2
 - Tailscale 1.94.1, 1Password 3.75.2
 
 **Docker Compose hardening:**
+
 - `security_opt: [no-new-privileges:true]` on all containers (except beszel-agent: network_mode host)
 - `mem_limit`: MariaDB 2G, fpp-analytics 1G
 - Log rotation: MariaDB (50m/3), fpp-analytics-updater (20m/3)
@@ -753,16 +782,19 @@ SSH rule removed. Emergency access via Hetzner web console.
 ### 11b. HomeLab SSH hardening + UFW ✅ DONE (2026-02-07)
 
 **SSH hardening** — drop-in at `/etc/ssh/sshd_config.d/99-hardening.conf`:
+
 - PermitRootLogin no, PasswordAuthentication no, MaxAuthTries 3
 - X11/Agent/TcpForwarding disabled, ClientAliveInterval 300/CountMax 2
 - Removed `50-cloud-init.conf` (was overriding PasswordAuthentication to yes)
 
 **UFW** — Tailscale-aware rules:
+
 - SSH (22): allow from 100.64.0.0/10 only, deny all else
 - Samba (139, 445): allow from 100.64.0.0/10 only, deny all else
 - Default: deny incoming, allow outgoing
 
 **sysctl hardening** — `/etc/sysctl.d/99-hardening.conf`:
+
 - Same as VPS: kptr_restrict=2, dmesg_restrict=1, ptrace_scope=2, rp_filter=1, log_martians=1, send_redirects=0, unprivileged_bpf_disabled=1
 
 **unattended-upgrades** — Docker packages blacklisted, auto-reboot at 4 AM
@@ -774,6 +806,7 @@ SSH rule removed. Emergency access via Hetzner web console.
 ### 11c. Verification ✅ DONE (2026-02-07)
 
 All checks passed:
+
 - `ssh homelab` / `ssh vps` work via Tailscale
 - `ssh homelab-direct` → "No route to host" (UFW blocks)
 - `ssh vps-direct` → timeout (Hetzner FW blocks)
