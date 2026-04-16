@@ -6,8 +6,10 @@ import type { ChartDataPoint, ExerciseKey, MetricKey, Workout } from './types'
 dayjs.extend(isoWeek)
 
 export function formatXDate(dateStr: string): string {
-  const [, m, d] = dateStr.split('-')
-  return `${parseInt(m)}/${parseInt(d)}`
+  if (typeof dateStr !== 'string') return String(dateStr)
+  const parts = dateStr.split('-')
+  if (parts.length < 3) return dateStr
+  return `${parseInt(parts[1])}/${parseInt(parts[2])}`
 }
 
 export function extractMetric(workout: Workout, metric: MetricKey): number | null {
@@ -51,7 +53,7 @@ export function buildChartData(
 
   for (const w of workouts) {
     const ex = w.exercise as ExerciseKey
-    if (!exercises.includes(ex)) continue
+    if (!exercises.includes(ex) || typeof w.date !== 'string') continue
     const entry = byDate.get(w.date) ?? {}
     const value = extractMetric(w, metric)
     if (value !== null) {
