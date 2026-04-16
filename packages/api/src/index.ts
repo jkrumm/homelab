@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { bearer } from "@elysiajs/bearer";
 import { swagger } from "@elysiajs/swagger";
+import { cors } from "@elysiajs/cors";
 import { healthRoute } from "./routes/health.js";
 import { ticktickRoutes } from "./routes/ticktick.js";
 import { uptimeKumaRoutes } from "./routes/uptime-kuma.js";
@@ -27,7 +28,14 @@ const authGuard = new Elysia({ name: "auth" })
     }
   });
 
-new Elysia()
+export const app = new Elysia()
+  .use(
+    cors({
+      origin: ["https://dashboard.jkrumm.com", "http://localhost:5173"],
+      allowedHeaders: ["Authorization", "Content-Type"],
+      exposeHeaders: ["x-total-count"],
+    }),
+  )
   .use(
     swagger({
       provider: "scalar",
@@ -64,6 +72,8 @@ new Elysia()
   .use(workoutRoutes)
   .use(workoutSetRoutes)
   .listen(4000);
+
+export type App = typeof app;
 
 registerCronJobs();
 console.log("api running on port 4000");

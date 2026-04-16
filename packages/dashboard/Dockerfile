@@ -2,14 +2,22 @@
 FROM oven/bun:1-alpine AS build
 WORKDIR /app
 
+# Build args for VITE_ env vars (embedded at build time)
+ARG VITE_API_URL=https://api.jkrumm.com
+ARG VITE_API_TOKEN
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_API_TOKEN=$VITE_API_TOKEN
+
 # Copy workspace manifests for dependency resolution
 COPY package.json bun.lock ./
 COPY packages/dashboard/package.json ./packages/dashboard/
+COPY packages/api/package.json ./packages/api/
 
-# Install all dependencies (dev included — needed for vite build)
+# Install all workspace dependencies (dev included — needed for vite build + type checking)
 RUN bun install --frozen-lockfile
 
-# Copy dashboard source
+# Copy source — API src needed for @homelab/api type resolution (type-only, stripped at build)
+COPY packages/api/src/ ./packages/api/src/
 COPY packages/dashboard/ ./packages/dashboard/
 
 # Build Vite app

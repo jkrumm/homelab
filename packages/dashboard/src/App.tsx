@@ -1,7 +1,7 @@
 import '@refinedev/antd/dist/reset.css';
 
-import type { DataProvider } from '@refinedev/core';
 import { Refine } from '@refinedev/core';
+import { dataProvider } from './providers/data-provider';
 import routerProvider from '@refinedev/react-router';
 import { ThemedLayout, ThemedSider, useNotificationProvider } from '@refinedev/antd';
 import { App as AntdApp, Button, ConfigProvider, theme } from 'antd';
@@ -23,16 +23,6 @@ function getInitialDark(): boolean {
   if (stored) return stored === 'dark';
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
-
-// Placeholder replaced in Group 4 with Eden Treaty data provider
-const placeholderDataProvider = {
-  getList: async () => ({ data: [], total: 0 }),
-  getOne: async () => ({ data: {} }),
-  create: async () => ({ data: {} }),
-  update: async () => ({ data: {} }),
-  deleteOne: async () => ({ data: {} }),
-  getApiUrl: () => 'http://localhost:4000',
-} as unknown as DataProvider;
 
 const COMING_SOON = [
   { key: 'docker', label: 'Docker', icon: <ContainerOutlined /> },
@@ -83,7 +73,7 @@ export default function App() {
       >
         <AntdApp>
           <Refine
-            dataProvider={placeholderDataProvider}
+            dataProvider={dataProvider}
             routerProvider={routerProvider}
             notificationProvider={useNotificationProvider}
             resources={[
