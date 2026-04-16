@@ -1,5 +1,5 @@
 import { Card, Select, Space, Switch, Typography } from 'antd'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -55,6 +55,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
   const [leftMetric, setLeftMetric] = useState<MetricKey>('estimated_1rm')
   const [rightMetric, setRightMetric] = useState<MetricKey>('max_weight')
   const [showMA, setShowMA] = useState(false)
+  const [showPRs, setShowPRs] = useState(false)
 
   const leftMeta = METRICS.find((m) => m.value === leftMetric)!
   const rightMeta = METRICS.find((m) => m.value === rightMetric)!
@@ -63,6 +64,12 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
     () => findPRPoints(workouts, leftMetric, activeExercises),
     [workouts, leftMetric, activeExercises],
   )
+
+  useEffect(() => {
+    setShowPRs(false)
+    const timer = setTimeout(() => setShowPRs(true), 1000)
+    return () => clearTimeout(timer)
+  }, [prPoints])
 
   const data = useMemo(() => {
     const leftData = buildChartDataWithMA(
@@ -165,7 +172,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
                 isLeft &&
                 !isMA &&
                 prPoints.some((pr) => pr.date === date && pr.exercise === ex)
-              const prTag = isPR ? ' PR' : ''
+              const prTag = isPR ? ' \ud83c\udfc6 PR' : ''
               return [
                 `${value.toFixed(1)} ${meta.unit}${prTag}`,
                 `${exLabel} — ${meta.label}${suffix}`,
@@ -224,18 +231,19 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               opacity={0.6}
             />
           ))}
-          {prPoints.map((pr) => (
-            <ReferenceDot
-              key={`pr_${pr.date}_${pr.exercise}`}
-              x={pr.date}
-              y={pr.value}
-              yAxisId="left"
-              r={5}
-              fill="#faad14"
-              stroke={EXERCISE_COLORS[pr.exercise]}
-              strokeWidth={2}
-            />
-          ))}
+          {showPRs &&
+            prPoints.map((pr) => (
+              <ReferenceDot
+                key={`pr_${pr.date}_${pr.exercise}`}
+                x={pr.date}
+                y={pr.value}
+                yAxisId="left"
+                r={5}
+                fill={EXERCISE_COLORS[pr.exercise]}
+                stroke="#faad14"
+                strokeWidth={2.5}
+              />
+            ))}
         </LineChart>
       </ResponsiveContainer>
     </Card>
