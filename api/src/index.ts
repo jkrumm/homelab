@@ -9,6 +9,7 @@ import { summaryRoute } from "./routes/summary.js";
 import { slackRoutes } from "./routes/slack.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { gmailRoutes } from "./routes/gmail.js";
+import { weatherRoutes } from "./routes/weather.js";
 import { registerCronJobs } from "./cron/index.js";
 
 const SECRET = process.env.API_SECRET;
@@ -53,6 +54,7 @@ new Elysia()
   .use(dockerVpsRoutes)
   .use(slackRoutes)
   .use(gmailRoutes)
+  .use(weatherRoutes)
   .use(summaryRoute)
   .listen(4000);
 

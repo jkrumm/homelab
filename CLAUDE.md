@@ -32,6 +32,7 @@
 | `/commit` | main | Smart git commit with conventional commits (inherited from SourceRoot) |
 
 **IMPORTANT:** Run `/docs` before committing changes that affect infrastructure or scripts.
+**IMPORTANT:** If you change API routes in `api/src/`, `/docs` will regenerate the Hermes API reference at `~/SourceRoot/claude-local/hermes/skills/homelab-api/reference.md` from the live spec — commit that file too.
 
 ---
 

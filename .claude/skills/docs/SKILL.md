@@ -10,6 +10,7 @@ context: main
 - After adding/removing services in docker-compose.yml
 - After creating/modifying scripts
 - After changing ports, paths, or configurations
+- After adding/modifying API routes in `api/src/`
 - Before committing infrastructure changes
 - When detecting new multi-component stacks
 
@@ -22,6 +23,7 @@ context: main
 6. Synchronizes Table of Contents
 7. Updates behavior documentation in docs/
 8. Prompts to extend /upgrade-stack for new stacks
+9. **If `api/src/` changed: regenerates Hermes API reference** at `~/SourceRoot/claude-local/hermes/skills/homelab-api/reference.md` from the live OpenAPI spec
 
 **What this skill does NOT do:**
 - Execute infrastructure changes (only documents them)
@@ -41,6 +43,7 @@ When running this skill, I will check:
 - [ ] Modified config files in `config/`
 - [ ] Changed uptime-kuma/monitors.yaml
 - [ ] Storage mount point changes
+- [ ] New/modified routes in `api/src/` → regenerate Hermes API reference (see below)
 
 ### Multi-Component Stack Detection
 - [ ] Services with `com.centurylinklabs.watchtower.enable: "false"`
@@ -159,7 +162,15 @@ If changes found, update:
 - Update behavior documentation if script logic changed
 - Verify timeouts and states match code
 
-### Phase 3: Extend /upgrade-stack (if needed)
+### Phase 3: Hermes API Reference Sync (if `api/src/` changed)
+
+If any routes were added, removed, or modified in `api/src/`:
+
+1. Fetch the live OpenAPI spec: `curl -s https://api.jkrumm.com/docs/json`
+2. Regenerate `~/SourceRoot/claude-local/hermes/skills/homelab-api/reference.md` — update the endpoint tables to match the spec exactly (keep the Usage Pattern section and Notes intact)
+3. Note the change in the commit message
+
+### Phase 4: Extend /upgrade-stack (if needed)
 
 If new multi-component stack detected:
 
@@ -182,6 +193,7 @@ If new multi-component stack detected:
 | `uptime-kuma/monitors.yaml` | If monitor config changed |
 | `.claude/skills/upgrade-stack/SKILL.md` | New multi-component stacks |
 | `.claude/skills/docs/SKILL.md` | This file - if audit scope changes |
+| `~/SourceRoot/claude-local/hermes/skills/homelab-api/reference.md` | Regenerated from live OpenAPI spec when `api/src/` changes |
 
 ---
 
