@@ -166,15 +166,17 @@ export default function StrengthTrackerPage() {
               onClick={() => toggleExercise(ex.value)}
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: EXERCISE_COLORS[ex.value],
-                    flexShrink: 0,
-                  }}
-                />
+                {!isMobile && (
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: EXERCISE_COLORS[ex.value],
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
                 {ex.label}
               </span>
             </Button>
