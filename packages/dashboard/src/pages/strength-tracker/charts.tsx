@@ -75,6 +75,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
   )
   const [showMA, setShowMA] = useLocalState('st-show-ma', false)
   const [showPRs, setShowPRs] = useState(false)
+  const [prOpacity, setPrOpacity] = useState(0)
 
   const leftMeta = METRICS.find((m) => m.value === leftMetric)
   const rightMeta = METRICS.find((m) => m.value === rightMetric)
@@ -86,8 +87,10 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
 
   useEffect(() => {
     setShowPRs(false)
-    const timer = setTimeout(() => setShowPRs(true), 1000)
-    return () => clearTimeout(timer)
+    setPrOpacity(0)
+    const t1 = setTimeout(() => setShowPRs(true), 1500)
+    const t2 = setTimeout(() => setPrOpacity(1), 1550)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [prPoints])
 
   const data = useMemo(() => {
@@ -270,6 +273,9 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
                 fill={getColor(pr.exercise)}
                 stroke={getColor(pr.exercise)}
                 strokeWidth={2}
+                fillOpacity={prOpacity}
+                strokeOpacity={prOpacity}
+                style={{ transition: 'fill-opacity 500ms ease, stroke-opacity 500ms ease' }}
               />
             ))}
         </LineChart>
@@ -289,6 +295,7 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
   const getColor = useChartColor(activeExercises)
   const [metric, setMetric] = useLocalState<MetricKey>('st-area-metric', 'total_volume')
   const [showPRs, setShowPRs] = useState(false)
+  const [prOpacity, setPrOpacity] = useState(0)
 
   const meta = METRICS.find((m) => m.value === metric)!
 
@@ -299,8 +306,10 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
 
   useEffect(() => {
     setShowPRs(false)
-    const timer = setTimeout(() => setShowPRs(true), 1000)
-    return () => clearTimeout(timer)
+    setPrOpacity(0)
+    const t1 = setTimeout(() => setShowPRs(true), 1500)
+    const t2 = setTimeout(() => setPrOpacity(1), 1550)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [prPoints])
 
   const data = useMemo(
@@ -367,6 +376,9 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
                 fill={getColor(pr.exercise)}
                 stroke={getColor(pr.exercise)}
                 strokeWidth={2}
+                fillOpacity={prOpacity}
+                strokeOpacity={prOpacity}
+                style={{ transition: 'fill-opacity 500ms ease, stroke-opacity 500ms ease' }}
               />
             ))}
         </AreaChart>
