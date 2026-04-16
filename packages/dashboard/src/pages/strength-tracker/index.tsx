@@ -117,7 +117,7 @@ export default function StrengthTrackerPage() {
       />
       <MainChart workouts={displayWorkouts} activeExercises={activeExercises} />
       <AreaMetricChart workouts={displayWorkouts} activeExercises={activeExercises} />
-      <FrequencyChart workouts={displayWorkouts} />
+      <FrequencyChart workouts={displayWorkouts} activeExercises={activeExercises} />
     </>
   )
 

@@ -262,10 +262,14 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
 
 interface FrequencyChartProps {
   workouts: Workout[]
+  activeExercises: ExerciseKey[]
 }
 
-export function FrequencyChart({ workouts }: FrequencyChartProps) {
-  const data = useMemo(() => buildFrequencyData(workouts), [workouts])
+export function FrequencyChart({ workouts, activeExercises }: FrequencyChartProps) {
+  const data = useMemo(
+    () => buildFrequencyData(workouts, activeExercises),
+    [workouts, activeExercises],
+  )
 
   return (
     <Card title="Training Frequency (Sessions / Week)" size="small" style={{ marginBottom: 16 }}>
@@ -274,8 +278,16 @@ export function FrequencyChart({ workouts }: FrequencyChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
           <XAxis dataKey="week" tick={{ fontSize: 10 }} />
           <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={32} />
-          <Tooltip formatter={(value: number) => [`${value} sessions`, 'Sessions']} />
-          <Bar dataKey="count" fill="#6366f1" />
+          <Tooltip
+            formatter={(value: number, name: string): [string, string] => [
+              `${value} session${value !== 1 ? 's' : ''}`,
+              exerciseLabel(name),
+            ]}
+          />
+          <Legend formatter={exerciseLabel} />
+          {activeExercises.map((ex) => (
+            <Bar key={ex} dataKey={ex} fill={EXERCISE_COLORS[ex]} stackId="freq" />
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </Card>

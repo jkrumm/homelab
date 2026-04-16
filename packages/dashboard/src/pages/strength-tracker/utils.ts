@@ -124,7 +124,9 @@ export interface SummaryStatsResult {
   weeklyVolume: number
   weeklyVolumeDelta: number | null
   avgIntensity: number | null
+  intensityDelta: number | null
   freqPerWeek: number
+  freqDelta: number | null
   sessionsLast30: number
   sessionsDelta: number | null
 }
@@ -176,24 +178,37 @@ export function computeSummaryStats(
 
   const weeklyVolumeDelta = pctChange(weeklyVolume, prevWeekVolume)
 
-  // Avg intensity — work set weight / 1RM, last 30d
-  const intensityValues: number[] = []
-  for (const w of filtered.filter((w) => w.date >= d30)) {
+  // Avg intensity — work set weight / 1RM, last 30d vs previous 30d
+  const last30Intensity: number[] = []
+  const prev30Intensity: number[] = []
+  for (const w of filtered) {
     const val = extractMetric(w, 'avg_intensity')
-    if (val !== null) intensityValues.push(val)
+    if (val === null) continue
+    if (w.date >= d30) last30Intensity.push(val)
+    else if (w.date >= d60) prev30Intensity.push(val)
   }
   const avgIntensity =
-    intensityValues.length > 0
-      ? intensityValues.reduce((sum, v) => sum + v, 0) / intensityValues.length
+    last30Intensity.length > 0
+      ? last30Intensity.reduce((sum, v) => sum + v, 0) / last30Intensity.length
       : null
+  const prevIntensity =
+    prev30Intensity.length > 0
+      ? prev30Intensity.reduce((sum, v) => sum + v, 0) / prev30Intensity.length
+      : null
+  const intensityDelta =
+    avgIntensity !== null && prevIntensity !== null ? pctChange(avgIntensity, prevIntensity) : null
 
   // Sessions last 30d + delta vs previous 30d
   const sessionsLast30 = workouts.filter((w) => w.date >= d30).length
   const sessionsPrev30 = workouts.filter((w) => w.date >= d60 && w.date < d30).length
   const sessionsDelta = pctChange(sessionsLast30, sessionsPrev30)
 
-  // Frequency — sessions per week in last 30d
-  const freqPerWeek = Math.round((sessionsLast30 / (30 / 7)) * 10) / 10
+  // Frequency — sessions per week in last 30d vs previous 30d
+  const weeksInPeriod = 30 / 7
+  const freqPerWeek = Math.round((sessionsLast30 / weeksInPeriod) * 10) / 10
+  const prevFreqPerWeek = Math.round((sessionsPrev30 / weeksInPeriod) * 10) / 10
+  const freqDelta =
+    freqPerWeek > 0 && prevFreqPerWeek > 0 ? pctChange(freqPerWeek, prevFreqPerWeek) : null
 
   return {
     best1rm,
@@ -202,24 +217,33 @@ export function computeSummaryStats(
     weeklyVolume,
     weeklyVolumeDelta,
     avgIntensity,
+    intensityDelta,
     freqPerWeek,
+    freqDelta,
     sessionsLast30,
     sessionsDelta,
   }
 }
 
-export function buildFrequencyData(workouts: Workout[]): { week: string; count: number }[] {
-  const byWeek = new Map<string, number>()
+export function buildFrequencyData(
+  workouts: Workout[],
+  exercises: ExerciseKey[],
+): Record<string, string | number>[] {
+  const byWeek = new Map<string, Partial<Record<ExerciseKey, number>>>()
 
   for (const w of workouts) {
+    const ex = w.exercise as ExerciseKey
+    if (!exercises.includes(ex)) continue
     const d = dayjs(w.date)
     const year = d.isoWeekYear()
     const week = d.isoWeek()
     const key = `${year}-W${String(week).padStart(2, '0')}`
-    byWeek.set(key, (byWeek.get(key) ?? 0) + 1)
+    const entry = byWeek.get(key) ?? {}
+    entry[ex] = (entry[ex] ?? 0) + 1
+    byWeek.set(key, entry)
   }
 
   return Array.from(byWeek.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([week, count]) => ({ week, count }))
+    .map(([week, counts]) => ({ week, ...counts }))
 }

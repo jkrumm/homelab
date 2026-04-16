@@ -1,6 +1,6 @@
 import { useCreate } from '@refinedev/core'
 import { App, Button, Card, DatePicker, InputNumber, Select, Space, Typography } from 'antd'
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { CheckOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EXERCISES, SET_TYPE_OPTIONS } from './constants'
@@ -32,16 +32,29 @@ function SetRow({
   set,
   onChange,
   onRemove,
+  onConfirm,
   showRemove,
 }: {
   index: number
   set: SetEntry
   onChange: (field: keyof SetEntry, value: SetEntry[keyof SetEntry]) => void
   onRemove: () => void
+  onConfirm: () => void
   showRemove: boolean
 }) {
+  const locked = set.confirmed === true
+
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+    <div
+      style={{
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+        marginBottom: 8,
+        opacity: locked ? 0.45 : 1,
+        transition: 'opacity 0.2s',
+      }}
+    >
       <Typography.Text type="secondary" style={{ minWidth: 18, fontSize: 12 }}>
         {index + 1}
       </Typography.Text>
@@ -52,6 +65,7 @@ function SetRow({
         size="small"
         style={{ flex: '1 1 30%', minWidth: 0 }}
         popupMatchSelectWidth={false}
+        disabled={locked}
       />
       <InputNumber
         value={set.weight_kg}
@@ -61,6 +75,7 @@ function SetRow({
         size="small"
         style={{ flex: '1 1 35%', minWidth: 0 }}
         addonAfter="kg"
+        disabled={locked}
       />
       <InputNumber
         value={set.reps}
@@ -70,8 +85,18 @@ function SetRow({
         size="small"
         style={{ flex: '1 1 25%', minWidth: 0 }}
         addonAfter="×"
+        disabled={locked}
       />
-      {showRemove && (
+      <Button
+        type="text"
+        size="small"
+        icon={<CheckOutlined />}
+        onClick={onConfirm}
+        style={{
+          color: locked ? '#52c41a' : undefined,
+        }}
+      />
+      {showRemove && !locked && (
         <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={onRemove} />
       )}
     </div>
@@ -125,7 +150,7 @@ export function WorkoutForm({
   const addSet = useCallback(() => {
     setSets((prev) => {
       const last = prev[prev.length - 1] ?? { set_type: 'work' as SetType, weight_kg: 60, reps: 5 }
-      return [...prev, { ...last }]
+      return [...prev, { set_type: last.set_type, weight_kg: last.weight_kg, reps: last.reps }]
     })
   }, [])
 
@@ -140,6 +165,10 @@ export function WorkoutForm({
     setSets((prev) => prev.filter((_, idx) => idx !== i))
   }, [])
 
+  const confirmSet = useCallback((i: number) => {
+    setSets((prev) => prev.map((s, idx) => (idx === i ? { ...s, confirmed: !s.confirmed } : s)))
+  }, [])
+
   const handleSubmit = () => {
     if (sets.length === 0) {
       void message.error('Add at least one set')
@@ -151,7 +180,12 @@ export function WorkoutForm({
         values: {
           date: date.format('YYYY-MM-DD'),
           exercise,
-          sets: sets.map((s, i) => ({ ...s, set_number: i + 1 })),
+          sets: sets.map((s, i) => ({
+            set_number: i + 1,
+            set_type: s.set_type,
+            weight_kg: s.weight_kg,
+            reps: s.reps,
+          })),
         },
       },
       {
@@ -211,6 +245,7 @@ export function WorkoutForm({
               set={s}
               onChange={(field, value) => updateSet(i, field, value)}
               onRemove={() => removeSet(i)}
+              onConfirm={() => confirmSet(i)}
               showRemove={sets.length > 1}
             />
           ))}

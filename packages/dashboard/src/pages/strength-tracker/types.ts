@@ -35,6 +35,7 @@ export interface SetEntry {
   set_type: SetType
   weight_kg: number
   reps: number
+  confirmed?: boolean
 }
 
 export interface ChartDataPoint {

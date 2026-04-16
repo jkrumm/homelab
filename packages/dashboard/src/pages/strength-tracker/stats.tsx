@@ -63,17 +63,17 @@ export function SummaryStats({ workouts, activeExercises, isLoading }: SummarySt
       label: 'Intensity',
       value: stats.avgIntensity !== null ? stats.avgIntensity.toFixed(0) : '—',
       suffix: stats.avgIntensity !== null ? '%' : '',
-      delta: null,
+      delta: stats.intensityDelta,
       tooltip:
-        'Average work set weight as a percentage of your estimated 1RM (last 30 days). 70-85% = hypertrophy zone, 85%+ = maximal strength. Most training should stay in the 70-85% range.',
+        'Average work set weight as a percentage of your estimated 1RM (last 30 days vs previous 30 days). 70-85% = hypertrophy zone, 85%+ = maximal strength. Rising intensity with stable volume = peaking. Dropping intensity with rising volume = accumulation phase.',
     },
     {
       label: 'Frequency',
       value: stats.freqPerWeek,
       suffix: 'x/wk',
-      delta: null,
+      delta: stats.freqDelta,
       tooltip:
-        'Average training sessions per week over the last 30 days. Research shows 2x per muscle group per week is optimal for strength and hypertrophy.',
+        'Average training sessions per week (last 30 days vs previous 30 days). Research shows 2x per muscle group per week is optimal. A drop may signal recovery issues or schedule changes.',
     },
     {
       label: 'Sessions',
