@@ -9,6 +9,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceDot,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,7 +17,13 @@ import {
 } from 'recharts'
 import { EXERCISE_COLORS, EXERCISES, METRICS } from './constants'
 import type { ExerciseKey, MetricKey, Workout } from './types'
-import { buildChartData, buildChartDataWithMA, buildFrequencyData, formatXDate } from './utils'
+import {
+  buildChartData,
+  buildChartDataWithMA,
+  buildFrequencyData,
+  findPRPoints,
+  formatXDate,
+} from './utils'
 
 const GRID_STROKE = 'rgba(128,128,128,0.15)'
 const CHART_MARGIN = { top: 5, right: 16, bottom: 5, left: 0 }
@@ -41,6 +48,11 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
 
   const leftMeta = METRICS.find((m) => m.value === leftMetric)!
   const rightMeta = METRICS.find((m) => m.value === rightMetric)!
+
+  const prPoints = useMemo(
+    () => findPRPoints(workouts, leftMetric, activeExercises),
+    [workouts, leftMetric, activeExercises],
+  )
 
   const data = useMemo(() => {
     const leftData = buildChartDataWithMA(
@@ -186,6 +198,18 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               strokeDasharray="8 4"
               connectNulls
               opacity={0.6}
+            />
+          ))}
+          {prPoints.map((pr) => (
+            <ReferenceDot
+              key={`pr_${pr.date}_${pr.exercise}`}
+              x={pr.date}
+              y={pr.value}
+              yAxisId="left"
+              r={4}
+              fill={EXERCISE_COLORS[pr.exercise]}
+              stroke="#fff"
+              strokeWidth={2}
             />
           ))}
         </LineChart>

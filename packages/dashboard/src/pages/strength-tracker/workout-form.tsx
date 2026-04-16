@@ -1,9 +1,11 @@
 import { useCreate } from '@refinedev/core'
-import { App, Button, Card, DatePicker, InputNumber, Select, Space, Typography } from 'antd'
-import { CheckOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { App, Button, Card, DatePicker, Select, Space, Typography } from 'antd'
+import { TrophyOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { EXERCISES, SET_TYPE_OPTIONS } from './constants'
+import { detectAchievements, fireConfetti } from './achievements'
+import { EXERCISES } from './constants'
+import { SetEditor } from './set-editor'
 import type { ExerciseKey, SetEntry, SetType, Workout } from './types'
 
 export const FORM_STORAGE_KEY = 'strength-tracker-form'
@@ -25,84 +27,6 @@ export function loadStoredForm(): StoredForm | null {
   }
 }
 
-// ── SetRow ─────────────────────────────────────────────────────────────────
-
-function SetRow({
-  index,
-  set,
-  onChange,
-  onRemove,
-  onConfirm,
-  showRemove,
-}: {
-  index: number
-  set: SetEntry
-  onChange: (field: keyof SetEntry, value: SetEntry[keyof SetEntry]) => void
-  onRemove: () => void
-  onConfirm: () => void
-  showRemove: boolean
-}) {
-  const locked = set.confirmed === true
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 8,
-        alignItems: 'center',
-        marginBottom: 8,
-        opacity: locked ? 0.45 : 1,
-        transition: 'opacity 0.2s',
-      }}
-    >
-      <Typography.Text type="secondary" style={{ minWidth: 18, fontSize: 12 }}>
-        {index + 1}
-      </Typography.Text>
-      <Select
-        value={set.set_type}
-        onChange={(v) => onChange('set_type', v)}
-        options={SET_TYPE_OPTIONS}
-        size="small"
-        style={{ flex: '1 1 30%', minWidth: 0 }}
-        popupMatchSelectWidth={false}
-        disabled={locked}
-      />
-      <InputNumber
-        value={set.weight_kg}
-        onChange={(v) => v !== null && onChange('weight_kg', v)}
-        min={0}
-        step={2.5}
-        size="small"
-        style={{ flex: '1 1 35%', minWidth: 0 }}
-        addonAfter="kg"
-        disabled={locked}
-      />
-      <InputNumber
-        value={set.reps}
-        onChange={(v) => v !== null && onChange('reps', Number(v))}
-        min={1}
-        max={100}
-        size="small"
-        style={{ flex: '1 1 25%', minWidth: 0 }}
-        addonAfter="×"
-        disabled={locked}
-      />
-      <Button
-        type="text"
-        size="small"
-        icon={<CheckOutlined />}
-        onClick={onConfirm}
-        style={{
-          color: locked ? '#52c41a' : undefined,
-        }}
-      />
-      {showRemove && !locked && (
-        <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={onRemove} />
-      )}
-    </div>
-  )
-}
-
 // ── WorkoutForm ────────────────────────────────────────────────────────────
 
 export function WorkoutForm({
@@ -112,7 +36,7 @@ export function WorkoutForm({
   onSuccess?: () => void
   workouts: Workout[]
 }) {
-  const { message } = App.useApp()
+  const { message, notification } = App.useApp()
 
   const stored = useMemo(() => loadStoredForm(), [])
   const [exercise, setExercise] = useState<ExerciseKey>(stored?.exercise ?? 'bench_press')
@@ -147,52 +71,43 @@ export function WorkoutForm({
 
   const { mutate, mutation } = useCreate()
 
-  const addSet = useCallback(() => {
-    setSets((prev) => {
-      const last = prev[prev.length - 1] ?? { set_type: 'work' as SetType, weight_kg: 60, reps: 5 }
-      return [...prev, { set_type: last.set_type, weight_kg: last.weight_kg, reps: last.reps }]
-    })
-  }, [])
-
-  const updateSet = useCallback(
-    (i: number, field: keyof SetEntry, value: SetEntry[keyof SetEntry]) => {
-      setSets((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)))
-    },
-    [],
-  )
-
-  const removeSet = useCallback((i: number) => {
-    setSets((prev) => prev.filter((_, idx) => idx !== i))
-  }, [])
-
-  const confirmSet = useCallback((i: number) => {
-    setSets((prev) => prev.map((s, idx) => (idx === i ? { ...s, confirmed: !s.confirmed } : s)))
-  }, [])
-
   const handleSubmit = () => {
     if (sets.length === 0) {
       void message.error('Add at least one set')
       return
     }
+    const submittedSets = sets.map((s, i) => ({
+      set_number: i + 1,
+      set_type: s.set_type,
+      weight_kg: s.weight_kg,
+      reps: s.reps,
+    }))
     mutate(
       {
         resource: 'workouts',
-        values: {
-          date: date.format('YYYY-MM-DD'),
-          exercise,
-          sets: sets.map((s, i) => ({
-            set_number: i + 1,
-            set_type: s.set_type,
-            weight_kg: s.weight_kg,
-            reps: s.reps,
-          })),
-        },
+        values: { date: date.format('YYYY-MM-DD'), exercise, sets: submittedSets },
       },
       {
         onSuccess: () => {
-          void message.success('Workout logged!')
+          const achievements = detectAchievements(exercise, submittedSets, workouts)
+
+          if (achievements.length > 0) {
+            if (achievements.some((a) => a.confetti)) fireConfetti()
+            for (const a of achievements) {
+              notification.open({
+                message: a.title,
+                description: a.description,
+                placement: 'top',
+                duration: 6,
+                icon: <TrophyOutlined style={{ color: '#faad14' }} />,
+              })
+            }
+          } else {
+            void message.success('Workout logged!')
+          }
+
           localStorage.removeItem(FORM_STORAGE_KEY)
-          setSets((prev) => [{ set_type: 'work', weight_kg: prev[0]?.weight_kg ?? 60, reps: 5 }])
+          setSets([{ set_type: 'work', weight_kg: sets[0]?.weight_kg ?? 60, reps: 5 }])
           onSuccess?.()
         },
         onError: (err) => {
@@ -231,34 +146,7 @@ export function WorkoutForm({
           />
         </div>
 
-        <div>
-          <Typography.Text
-            type="secondary"
-            style={{ fontSize: 12, display: 'block', marginBottom: 6 }}
-          >
-            Sets
-          </Typography.Text>
-          {sets.map((s, i) => (
-            <SetRow
-              key={i}
-              index={i}
-              set={s}
-              onChange={(field, value) => updateSet(i, field, value)}
-              onRemove={() => removeSet(i)}
-              onConfirm={() => confirmSet(i)}
-              showRemove={sets.length > 1}
-            />
-          ))}
-          <Button
-            type="dashed"
-            icon={<PlusOutlined />}
-            onClick={addSet}
-            style={{ width: '100%', marginTop: 4 }}
-            size="small"
-          >
-            Add Set
-          </Button>
-        </div>
+        <SetEditor sets={sets} onChange={setSets} showConfirm />
 
         <Button
           type="primary"

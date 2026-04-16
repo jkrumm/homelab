@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   DatePicker,
-  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -13,98 +12,12 @@ import {
   Tag,
   Typography,
 } from 'antd'
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useMemo, useState } from 'react'
 import { EXERCISE_COLORS, EXERCISES, SET_TYPE_OPTIONS } from './constants'
-import type { ExerciseKey, SetType, Workout, WorkoutSet } from './types'
-
-// ── Edit Modal Set Editor ─────────────────────────────────────────────────
-
-interface EditSet {
-  set_type: SetType
-  weight_kg: number
-  reps: number
-}
-
-function SetEditor({ sets, onChange }: { sets: EditSet[]; onChange: (sets: EditSet[]) => void }) {
-  return (
-    <div>
-      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-        Sets
-      </Typography.Text>
-      {sets.map((s, i) => (
-        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-          <Typography.Text type="secondary" style={{ minWidth: 18, fontSize: 12 }}>
-            {i + 1}
-          </Typography.Text>
-          <Select
-            value={s.set_type}
-            onChange={(v) =>
-              onChange(sets.map((s2, idx) => (idx === i ? { ...s2, set_type: v } : s2)))
-            }
-            options={SET_TYPE_OPTIONS}
-            size="small"
-            style={{ flex: '1 1 30%', minWidth: 0 }}
-            popupMatchSelectWidth={false}
-          />
-          <InputNumber
-            value={s.weight_kg}
-            onChange={(v) =>
-              v !== null &&
-              onChange(sets.map((s2, idx) => (idx === i ? { ...s2, weight_kg: v } : s2)))
-            }
-            min={0}
-            step={2.5}
-            size="small"
-            style={{ flex: '1 1 35%', minWidth: 0 }}
-            addonAfter="kg"
-          />
-          <InputNumber
-            value={s.reps}
-            onChange={(v) =>
-              v !== null &&
-              onChange(sets.map((s2, idx) => (idx === i ? { ...s2, reps: Number(v) } : s2)))
-            }
-            min={1}
-            max={100}
-            size="small"
-            style={{ flex: '1 1 25%', minWidth: 0 }}
-            addonAfter="x"
-          />
-          {sets.length > 1 && (
-            <Button
-              type="text"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => onChange(sets.filter((_, idx) => idx !== i))}
-            />
-          )}
-        </div>
-      ))}
-      <Button
-        type="dashed"
-        icon={<PlusOutlined />}
-        onClick={() => {
-          const last = sets[sets.length - 1] ?? {
-            set_type: 'work' as SetType,
-            weight_kg: 60,
-            reps: 5,
-          }
-          onChange([
-            ...sets,
-            { set_type: last.set_type, weight_kg: last.weight_kg, reps: last.reps },
-          ])
-        }}
-        style={{ width: '100%' }}
-        size="small"
-      >
-        Add Set
-      </Button>
-    </div>
-  )
-}
+import { SetEditor } from './set-editor'
+import type { ExerciseKey, SetEntry, SetType, Workout, WorkoutSet } from './types'
 
 // ── Edit State ────────────────────────────────────────────────────────────
 
@@ -112,7 +25,7 @@ interface EditState {
   id: number
   exercise: ExerciseKey
   date: Dayjs
-  sets: EditSet[]
+  sets: SetEntry[]
 }
 
 // ── WorkoutHistory ────────────────────────────────────────────────────────

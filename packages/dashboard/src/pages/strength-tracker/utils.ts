@@ -249,3 +249,34 @@ export function buildFrequencyData(
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([week, counts]) => ({ week, ...counts }))
 }
+
+export interface PRPoint {
+  date: string
+  exercise: ExerciseKey
+  value: number
+}
+
+export function findPRPoints(
+  workouts: Workout[],
+  metric: MetricKey,
+  exercises: ExerciseKey[],
+): PRPoint[] {
+  const points: PRPoint[] = []
+
+  for (const ex of exercises) {
+    let runningMax = -Infinity
+    const exWorkouts = workouts
+      .filter((w) => w.exercise === ex)
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    for (let i = 0; i < exWorkouts.length; i++) {
+      const value = extractMetric(exWorkouts[i], metric)
+      if (value !== null && value > runningMax) {
+        runningMax = value
+        if (i > 0) points.push({ date: exWorkouts[i].date, exercise: ex, value })
+      }
+    }
+  }
+
+  return points
+}
