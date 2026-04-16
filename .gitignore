@@ -8,5 +8,12 @@ cert.pem
 key.pem
 # CouchDB writes runtime state (uuid, admin hash) into this file
 config/couchdb/local.ini
-/api/node_modules/
-/api/data/
+/packages/api/node_modules/
+/packages/api/data/
+/packages/dashboard/node_modules/
+/packages/dashboard/dist/
+node_modules/
+
+# RALPH loop state + logs
+.ralph-tasks.json
+.ralph-logs/

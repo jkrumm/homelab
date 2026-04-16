@@ -46,7 +46,7 @@ function calcCpuPercent(stats: DockerStats): number {
   return Math.round(((cpuDelta / systemDelta) * numCpus * 100) * 100) / 100
 }
 
-function createDockerRoutes(proxyUrl: string, tag: string): Elysia {
+function createDockerRoutes(proxyUrl: string, tag: string) {
   async function dockerGet<T>(path: string): Promise<T> {
     const res = await fetch(`${proxyUrl}${path}`)
     if (!res.ok) throw new Error(`Docker API ${res.status}: ${await res.text()}`)

@@ -1,22 +1,26 @@
 {
-  "name": "api",
+  "name": "@homelab/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "bun run src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@elysiajs/bearer": "^1",
     "@elysiajs/swagger": "^1",
     "@hey-api/client-fetch": "^0.13.1",
     "croner": "^9",
+    "drizzle-orm": "^0.38.0",
     "elysia": "^1.4.26",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "bun-types": "^1",
+    "drizzle-kit": "^0.29.0",
     "typescript": "^5"
   }
 }

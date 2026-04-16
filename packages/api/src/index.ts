@@ -10,7 +10,9 @@ import { slackRoutes } from "./routes/slack.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { gmailRoutes } from "./routes/gmail.js";
 import { weatherRoutes } from "./routes/weather.js";
+import { queryRoute } from "./routes/query.js";
 import { registerCronJobs } from "./cron/index.js";
+import "./db/index.js"; // Initialize DB and ensure tables exist
 
 const SECRET = process.env.API_SECRET;
 
@@ -56,6 +58,7 @@ new Elysia()
   .use(gmailRoutes)
   .use(weatherRoutes)
   .use(summaryRoute)
+  .use(queryRoute)
   .listen(4000);
 
 registerCronJobs();

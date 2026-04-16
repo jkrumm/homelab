@@ -523,7 +523,9 @@ services:
       glance.hide: false
 
   api:
-    build: ./api
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
     container_name: api
     restart: unless-stopped
     networks:
@@ -542,7 +544,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     volumes:
-      - /home/jkrumm/homelab/api/data:/app/data
+      - /home/jkrumm/homelab/packages/api/data:/app/data
     depends_on:
       - docker-socket-proxy
       - uptime-kuma

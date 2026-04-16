@@ -1,0 +1,13 @@
+**/node_modules
+.git
+packages/dashboard
+docs
+scripts
+config
+uptime-kuma
+Caddyfile
+docker-compose.yml
+*.md
+setup.sh
+dozzle
+caddy

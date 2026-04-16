@@ -1,0 +1,5 @@
+{
+  "name": "homelab",
+  "private": true,
+  "workspaces": ["packages/*"]
+}
