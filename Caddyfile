@@ -83,6 +83,14 @@ http://couchdb.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
+# Dashboard (private, Tailscale only — Refine v5 homelab dashboard)
+dashboard.jkrumm.com {
+	reverse_proxy dashboard:80
+}
+http://dashboard.jkrumm.com {
+	redir https://{host}{uri} permanent
+}
+
 
 # Private service overrides — loaded from homelab-private (not tracked here)
 import /etc/caddy/private/*.caddy

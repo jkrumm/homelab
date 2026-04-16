@@ -586,6 +586,25 @@ services:
       glance.url: https://couchdb.jkrumm.com
       glance.hide: false
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+    container_name: dashboard
+    restart: unless-stopped
+    networks:
+      - cloudflared
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    labels:
+      glance.name: Dashboard
+      glance.icon: si:refine
+      glance.url: https://dashboard.jkrumm.com
+      glance.hide: false
+      com.centurylinklabs.watchtower.enable: "false" # local build, not from registry
+
 
 volumes:
   model-cache:
