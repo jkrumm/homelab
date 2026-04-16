@@ -2,14 +2,7 @@ import { useList } from '@refinedev/core'
 import { Button, Col, DatePicker, Row, Space, Switch, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ComparisonChart,
-  FrequencyChart,
-  MaxWeightChart,
-  OneRmChart,
-  SessionDensityChart,
-  VolumeChart,
-} from './charts'
+import { AreaMetricChart, FrequencyChart, MainChart } from './charts'
 import { DEFAULT_DATE_FROM, DEFAULT_DATE_TO, EXERCISE_COLORS, EXERCISES } from './constants'
 import { generateDemoWorkouts } from './demo-data'
 import { SummaryStats } from './stats'
@@ -41,7 +34,6 @@ export default function StrengthTrackerPage() {
   ])
   const [dateFrom, setDateFrom] = useState(DEFAULT_DATE_FROM)
   const [dateTo, setDateTo] = useState(DEFAULT_DATE_TO)
-  const [showMA, setShowMA] = useState(false)
   const [useDemoData, setUseDemoData] = useState(false)
 
   const toggleExercise = useCallback((ex: ExerciseKey) => {
@@ -116,17 +108,6 @@ export default function StrengthTrackerPage() {
     </Row>
   )
 
-  const maToggle = (
-    <div style={{ marginBottom: 12 }}>
-      <Space size={8} align="center">
-        <Switch size="small" checked={showMA} onChange={setShowMA} />
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          Show 30d moving avg
-        </Typography.Text>
-      </Space>
-    </div>
-  )
-
   const charts = (
     <>
       <SummaryStats
@@ -134,17 +115,9 @@ export default function StrengthTrackerPage() {
         activeExercises={activeExercises}
         isLoading={isLoading && !useDemoData}
       />
-      {maToggle}
-      <OneRmChart workouts={displayWorkouts} activeExercises={activeExercises} showMA={showMA} />
-      <MaxWeightChart
-        workouts={displayWorkouts}
-        activeExercises={activeExercises}
-        showMA={showMA}
-      />
-      <VolumeChart workouts={displayWorkouts} activeExercises={activeExercises} showMA={showMA} />
-      <SessionDensityChart workouts={displayWorkouts} activeExercises={activeExercises} />
+      <MainChart workouts={displayWorkouts} activeExercises={activeExercises} />
+      <AreaMetricChart workouts={displayWorkouts} activeExercises={activeExercises} />
       <FrequencyChart workouts={displayWorkouts} />
-      <ComparisonChart workouts={displayWorkouts} activeExercises={activeExercises} />
     </>
   )
 
