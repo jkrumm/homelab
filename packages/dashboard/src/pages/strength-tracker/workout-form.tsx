@@ -1,5 +1,5 @@
 import { useCreate } from '@refinedev/core'
-import { App, Button, Card, DatePicker, Select, Space, Typography } from 'antd'
+import { App, Button, Card, DatePicker, Modal, Select, Space, Typography } from 'antd'
 import { TrophyOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -42,11 +42,26 @@ export function WorkoutForm({
   const [exercise, setExercise] = useState<ExerciseKey>(stored?.exercise ?? 'bench_press')
   const [date, setDate] = useState<Dayjs>(stored?.date ? dayjs(stored.date) : dayjs())
   const [sets, setSets] = useState<SetEntry[]>(stored?.sets ?? DEFAULT_SETS)
+  const [showReview, setShowReview] = useState(false)
 
   useEffect(() => {
     const data: StoredForm = { exercise, date: date.format('YYYY-MM-DD'), sets }
     localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(data))
   }, [exercise, date, sets])
+
+  const previousSets = useMemo(() => {
+    const latest = [...workouts]
+      .filter((w) => w.exercise === exercise)
+      .sort((a, b) => b.date.localeCompare(a.date))[0]
+    if (!latest?.sets.length) return undefined
+    return latest.sets
+      .sort((a, b) => a.set_number - b.set_number)
+      .map((s) => ({
+        set_type: s.set_type as SetType,
+        weight_kg: s.weight_kg,
+        reps: s.reps,
+      }))
+  }, [workouts, exercise])
 
   const loadLatestSets = useCallback(
     (ex: ExerciseKey) => {
@@ -121,6 +136,7 @@ export function WorkoutForm({
             void message.success('Workout logged!')
           }
 
+          setShowReview(false)
           localStorage.removeItem(FORM_STORAGE_KEY)
           setSets([{ set_type: 'work', weight_kg: sets[0]?.weight_kg ?? 60, reps: 5 }])
           onSuccess?.()
@@ -132,46 +148,89 @@ export function WorkoutForm({
     )
   }
 
+  const exerciseLabel = EXERCISES.find((e) => e.value === exercise)?.label ?? exercise
+  const workSets = sets.filter((s) => s.set_type === 'work')
+  const totalVolume = sets.reduce((sum, s) => sum + s.weight_kg * s.reps, 0)
+
   return (
-    <Card title="Log Workout" size="small">
-      <Space direction="vertical" style={{ width: '100%' }} size={12}>
-        <div>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Exercise
-          </Typography.Text>
-          <Select
-            value={exercise}
-            onChange={handleExerciseChange}
-            options={EXERCISES}
+    <>
+      <Card title="Log Workout" size="small">
+        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <div>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Exercise
+            </Typography.Text>
+            <Select
+              value={exercise}
+              onChange={handleExerciseChange}
+              options={EXERCISES}
+              style={{ width: '100%', marginTop: 4 }}
+              size="large"
+            />
+          </div>
+
+          <div>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Date
+            </Typography.Text>
+            <DatePicker
+              value={date}
+              onChange={(d) => d && setDate(d)}
+              style={{ width: '100%', marginTop: 4 }}
+              allowClear={false}
+              size="large"
+            />
+          </div>
+
+          <SetEditor sets={sets} onChange={setSets} previousSets={previousSets} showConfirm />
+
+          <Button
+            type="default"
+            onClick={() => setShowReview(true)}
+            disabled={!sets.every((s) => s.confirmed)}
             style={{ width: '100%', marginTop: 4 }}
-            size="large"
-          />
+          >
+            Log Workout
+          </Button>
+        </Space>
+      </Card>
+
+      <Modal
+        title={
+          <span>
+            {exerciseLabel}{' '}
+            <Typography.Text type="secondary" style={{ fontSize: 13, fontWeight: 400 }}>
+              — {date.format('MMM D, YYYY')}
+            </Typography.Text>
+          </span>
+        }
+        open={showReview}
+        onCancel={() => setShowReview(false)}
+        centered
+        okText="Log Workout"
+        onOk={handleSubmit}
+        confirmLoading={mutation.isPending}
+        width={360}
+      >
+        <div style={{ margin: '16px 0 8px' }}>
+          <SetEditor sets={sets} previousSets={previousSets} readOnly />
         </div>
-
-        <div>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Date
-          </Typography.Text>
-          <DatePicker
-            value={date}
-            onChange={(d) => d && setDate(d)}
-            style={{ width: '100%', marginTop: 4 }}
-            allowClear={false}
-            size="large"
-          />
-        </div>
-
-        <SetEditor sets={sets} onChange={setSets} showConfirm />
-
-        <Button
-          type="default"
-          onClick={handleSubmit}
-          loading={mutation.isPending}
-          style={{ width: '100%', marginTop: 4 }}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: '8px 0 0',
+            borderTop: '1px solid rgba(128,128,128,0.12)',
+            fontSize: 12,
+            color: 'rgba(128,128,128,0.65)',
+          }}
         >
-          Log Workout
-        </Button>
-      </Space>
-    </Card>
+          <span>
+            {workSets.length} work set{workSets.length !== 1 ? 's' : ''}
+          </span>
+          <span>{totalVolume.toLocaleString()} kg volume</span>
+        </div>
+      </Modal>
+    </>
   )
 }

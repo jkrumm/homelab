@@ -17,6 +17,7 @@ import {
 } from 'recharts'
 import { EXERCISE_COLORS, EXERCISES, METRICS } from './constants'
 import type { ExerciseKey, MetricKey, Workout } from './types'
+import { useLocalState } from './use-local-state'
 import {
   buildChartData,
   buildChartDataWithMA,
@@ -64,9 +65,15 @@ const METRIC_OPTIONS_WITH_NONE = [{ value: 'none', label: 'None' }, ...METRICS]
 
 export function MainChart({ workouts, activeExercises }: MainChartProps) {
   const getColor = useChartColor(activeExercises)
-  const [leftMetric, setLeftMetric] = useState<MetricKey | 'none'>('estimated_1rm')
-  const [rightMetric, setRightMetric] = useState<MetricKey | 'none'>('max_weight')
-  const [showMA, setShowMA] = useState(false)
+  const [leftMetric, setLeftMetric] = useLocalState<MetricKey | 'none'>(
+    'st-left-metric',
+    'estimated_1rm',
+  )
+  const [rightMetric, setRightMetric] = useLocalState<MetricKey | 'none'>(
+    'st-right-metric',
+    'max_weight',
+  )
+  const [showMA, setShowMA] = useLocalState('st-show-ma', false)
   const [showPRs, setShowPRs] = useState(false)
 
   const leftMeta = METRICS.find((m) => m.value === leftMetric)
@@ -280,7 +287,7 @@ interface AreaMetricChartProps {
 
 export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartProps) {
   const getColor = useChartColor(activeExercises)
-  const [metric, setMetric] = useState<MetricKey>('total_volume')
+  const [metric, setMetric] = useLocalState<MetricKey>('st-area-metric', 'total_volume')
   const [showPRs, setShowPRs] = useState(false)
 
   const meta = METRICS.find((m) => m.value === metric)!

@@ -1,4 +1,5 @@
 import { useList } from '@refinedev/core'
+import { UndoOutlined } from '@ant-design/icons'
 import { Button, Col, DatePicker, Row, Segmented, Select, Space, Switch, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -15,6 +16,7 @@ import { WorkoutHistory } from './history'
 import { RecentRecords } from './records'
 import { SummaryStats } from './stats'
 import type { ExerciseKey, Workout } from './types'
+import { useLocalState, resetConfig } from './use-local-state'
 import { WorkoutForm } from './workout-form'
 
 // ── Responsive hook ────────────────────────────────────────────────────────
@@ -34,48 +36,44 @@ function useIsMobile() {
 export default function StrengthTrackerPage() {
   const isMobile = useIsMobile()
 
-  const [activeExercises, setActiveExercises] = useState<ExerciseKey[]>([
+  const [activeExercises, setActiveExercises] = useLocalState<ExerciseKey[]>('st-exercises', [
     'bench_press',
     'deadlift',
     'squat',
     'pull_ups',
   ])
-  const [datePreset, setDatePreset] = useState<DatePreset>(
-    () => (localStorage.getItem('st-date-preset') as DatePreset) || 'all',
-  )
-  const [customRange, setCustomRange] = useState<[string, string]>(() => {
-    const saved = localStorage.getItem('st-custom-range')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch {}
-    }
-    return [dayjs().subtract(3, 'month').format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')]
-  })
+  const [datePreset, setDatePreset] = useLocalState<DatePreset>('st-date-preset', 'all')
+  const [customRange, setCustomRange] = useLocalState<[string, string]>('st-custom-range', [
+    dayjs().subtract(3, 'month').format('YYYY-MM-DD'),
+    dayjs().format('YYYY-MM-DD'),
+  ])
 
-  const initRange = getDateRange(
-    (localStorage.getItem('st-date-preset') as DatePreset) || 'all',
-    customRange,
-  )
+  const initRange = getDateRange(datePreset, customRange)
   const [dateFrom, setDateFrom] = useState(initRange[0])
   const [dateTo, setDateTo] = useState(initRange[1])
 
   const applyPreset = useCallback(
     (preset: DatePreset, range: [string, string] = customRange) => {
       setDatePreset(preset)
-      localStorage.setItem('st-date-preset', preset)
       const [from, to] = getDateRange(preset, range)
       setDateFrom(from)
       setDateTo(to)
     },
-    [customRange],
+    [customRange, setDatePreset],
   )
-  const [view, setView] = useState<'charts' | 'history'>('charts')
+  const [view, setView] = useLocalState<'charts' | 'history'>('st-view', 'charts')
   const [useDemoData, setUseDemoData] = useState(false)
 
-  const toggleExercise = useCallback((ex: ExerciseKey) => {
-    setActiveExercises((prev) => (prev.includes(ex) ? prev.filter((e) => e !== ex) : [...prev, ex]))
-  }, [])
+  const toggleExercise = useCallback(
+    (ex: ExerciseKey) => {
+      setActiveExercises(
+        activeExercises.includes(ex)
+          ? activeExercises.filter((e) => e !== ex)
+          : [...activeExercises, ex],
+      )
+    },
+    [activeExercises, setActiveExercises],
+  )
 
   const { result, query } = useList<Workout>({
     resource: 'workouts',
@@ -142,7 +140,6 @@ export default function StrengthTrackerPage() {
                     dates[1].format('YYYY-MM-DD'),
                   ]
                   setCustomRange(range)
-                  localStorage.setItem('st-custom-range', JSON.stringify(range))
                   applyPreset('custom', range)
                 }
               }}
@@ -169,6 +166,14 @@ export default function StrengthTrackerPage() {
             </Typography.Text>
             <Switch size="small" checked={useDemoData} onChange={setUseDemoData} />
           </Space>
+          <Button
+            type="text"
+            size="small"
+            icon={<UndoOutlined />}
+            onClick={resetConfig}
+            title="Reset all settings"
+            style={{ opacity: 0.5 }}
+          />
         </Space>
       </Col>
     </Row>
