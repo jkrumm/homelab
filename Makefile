@@ -18,7 +18,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help api-deploy api-rebuild api-restart api-logs deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export
+.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,10 @@ help: ## Show all targets
 	@echo "    make api-rebuild         Rebuild image (no cache) + restart (no git pull)"
 	@echo "    make api-restart         Restart container only (picks up new env vars, no rebuild)"
 	@echo "    make api-logs            Follow API logs"
+	@echo ""
+	@echo "  Dashboard Operations"
+	@echo "    make dash-deploy         Full deploy: git pull + rebuild (no cache) + restart"
+	@echo "    make dash-rebuild        Rebuild image (no cache) + restart (no git pull)"
 	@echo ""
 	@echo "  Stack Operations"
 	@echo "    make deploy              Full deploy: git pull + recreate all services"
@@ -58,6 +62,14 @@ api-restart: ## Restart API container (no rebuild, picks up new env vars)
 
 api-logs: ## Follow API logs
 	$(SSH) "docker logs -f --tail=100 api"
+
+# ── Dashboard Operations ─────────────────────────────────────────────────────
+
+dash-deploy: ## Full deploy: git pull + rebuild dashboard (no cache) + restart with secrets
+	$(SSH) "$(CD) && git pull && $(DC) build --no-cache dashboard && $(DC) up -d dashboard"
+
+dash-rebuild: ## Rebuild dashboard image (no cache) and restart with secrets
+	$(SSH) "$(CD) && $(DC) build --no-cache dashboard && $(DC) up -d dashboard"
 
 # ── Stack Operations ─────────────────────────────────────────────────────────
 
