@@ -1,6 +1,6 @@
 import { useList } from '@refinedev/core'
 import { UndoOutlined } from '@ant-design/icons'
-import { Button, DatePicker, Segmented, Select, Space } from 'antd'
+import { Button, DatePicker, Select, Space } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AreaMetricChart, FrequencyChart, MainChart } from './charts'
@@ -103,14 +103,20 @@ export default function StrengthTrackerPage() {
       }}
     >
       <Space size={8} wrap align="center">
-        <Segmented
-          options={[
-            { label: 'Charts', value: 'charts' },
-            { label: 'History', value: 'history' },
-          ]}
-          value={view}
-          onChange={(v) => setView(v as 'charts' | 'history')}
-        />
+        <Space.Compact>
+          <Button
+            onClick={() => setView('charts')}
+            style={view === 'charts' ? { fontWeight: 600 } : { opacity: 0.65 }}
+          >
+            Charts
+          </Button>
+          <Button
+            onClick={() => setView('history')}
+            style={view === 'history' ? { fontWeight: 600 } : { opacity: 0.65 }}
+          >
+            History
+          </Button>
+        </Space.Compact>
         <Select
           value={datePreset}
           onChange={(v) => applyPreset(v)}
