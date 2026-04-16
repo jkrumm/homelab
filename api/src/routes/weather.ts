@@ -99,6 +99,7 @@ const HourlyEntrySchema = t.Object({
 
 const DailyEntrySchema = t.Object({
   date: t.String(),
+  day: t.String({ description: "Day of week (Monday, Tuesday, ...)" }),
   temp_max: t.Number({ description: "°C" }),
   temp_min: t.Number({ description: "°C" }),
   feels_like_max: t.Number({ description: "°C" }),
@@ -115,6 +116,7 @@ const DailyEntrySchema = t.Object({
 
 const ForecastSchema = t.Object({
   location: t.String(),
+  today: t.String({ description: "Current date in YYYY-MM-DD format (Europe/Berlin timezone)" }),
   current: CurrentSchema,
   hourly_48h: t.Array(HourlyEntrySchema),
   daily_7d: t.Array(DailyEntrySchema),
@@ -153,9 +155,11 @@ function transformResponse(raw: OpenMeteoResponse) {
     condition: describeWeatherCode((h.weather_code[i] as number) ?? 0),
   }));
 
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const dates = d.time as unknown as string[];
   const daily_7d = dates.map((date, i) => ({
     date,
+    day: dayNames[new Date(date + "T12:00:00").getDay()],
     temp_max: (d.temperature_2m_max[i] as number) ?? 0,
     temp_min: (d.temperature_2m_min[i] as number) ?? 0,
     feels_like_max: (d.apparent_temperature_max[i] as number) ?? 0,
@@ -170,7 +174,8 @@ function transformResponse(raw: OpenMeteoResponse) {
     sunset: String(d.sunset[i]),
   }));
 
-  return { location: "Munich, Germany", current, hourly_48h, daily_7d };
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" });
+  return { location: "Munich, Germany", today, current, hourly_48h, daily_7d };
 }
 
 export const weatherRoutes = new Elysia({ prefix: "/weather" })
