@@ -450,7 +450,6 @@ export default function StrengthTrackerPage() {
     setActiveExercises((prev) => (prev.includes(ex) ? prev.filter((e) => e !== ex) : [...prev, ex]))
   }, [])
 
-  // Refine v5: useList returns { result, query } not { data, isLoading }
   const { result, query } = useList<Workout>({
     resource: 'workouts',
     pagination: { currentPage: 1, pageSize: 500 },
@@ -515,7 +514,7 @@ export default function StrengthTrackerPage() {
       {isMobile ? (
         // Mobile: form on top, charts below
         <Space direction="vertical" style={{ width: '100%' }} size={16}>
-          <WorkoutForm />
+          <WorkoutForm onSuccess={() => void query.refetch()} />
           <WorkoutCharts
             workouts={workouts}
             isLoading={isLoading}
@@ -533,7 +532,7 @@ export default function StrengthTrackerPage() {
             />
           </div>
           <div style={{ width: 360, flexShrink: 0 }}>
-            <WorkoutForm />
+            <WorkoutForm onSuccess={() => void query.refetch()} />
           </div>
         </div>
       )}

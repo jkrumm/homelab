@@ -325,7 +325,7 @@ This is a **Bun workspace monorepo** (`packages/api` + `packages/dashboard`).
 homelab/
 ├── package.json             # Workspace root (scripts: lint, format, format:check)
 ├── .oxlintrc.json           # Lint rules (oxlint)
-├── .prettierrc              # Format config (Prettier)
+├── .oxfmtrc.json            # Format config (oxfmt)
 ├── packages/
 │   ├── api/                 # Elysia/Bun API (port 4000)
 │   │   ├── src/

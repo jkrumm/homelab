@@ -28,7 +28,7 @@ sqlite.run(`
 sqlite.run(`
   CREATE TABLE IF NOT EXISTS workout_sets (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    workout_id INTEGER NOT NULL REFERENCES workouts(id),
+    workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
     set_number INTEGER NOT NULL,
     set_type TEXT NOT NULL,
     weight_kg REAL NOT NULL,
@@ -36,5 +36,7 @@ sqlite.run(`
     created_at TEXT DEFAULT (datetime('now'))
   )
 `)
+
+sqlite.run('CREATE INDEX IF NOT EXISTS idx_workout_sets_workout_id ON workout_sets(workout_id)')
 
 export const db = drizzle(sqlite, { schema })

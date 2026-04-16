@@ -3,6 +3,8 @@
 Personal homelab dashboard built with Refine v5, React 19, Ant Design v5, Recharts, and Eden Treaty
 for type-safe API calls.
 
+**Refine docs:** https://context7.com/websites/refine_dev — use `/research` skill or WebFetch to query when unsure about Refine v5 APIs.
+
 ---
 
 ## Directory Structure
@@ -261,8 +263,8 @@ From repo root:
 ```bash
 bun run lint         # oxlint — zero warnings/errors expected
 bun run lint:fix     # oxlint --fix (auto-fixable rules)
-bun run format       # prettier --write
-bun run format:check # prettier --check
+bun run format       # oxfmt --write
+bun run format:check # oxfmt --check
 ```
 
 ---
