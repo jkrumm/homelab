@@ -3,7 +3,7 @@ import { EXERCISES, PULL_UPS_BODYWEIGHT } from './constants'
 import type { ExerciseKey, Workout } from './types'
 
 export interface Achievement {
-  type: 'weight_milestone' | 'max_weight_pr' | 'estimated_1rm_pr' | 'volume_pr'
+  type: 'first_workout' | 'weight_milestone' | 'max_weight_pr' | 'estimated_1rm_pr' | 'volume_pr'
   title: string
   description: string
   confetti: boolean
@@ -57,6 +57,20 @@ export function detectAchievements(
   const { maxWeight, estimated1rm, totalVolume } = computeClientMetrics(sets, exercise)
 
   if (maxWeight === 0) return achievements
+
+  // First workout for this exercise — single combined celebration
+  if (history.length === 0) {
+    const parts = [`${maxWeight}kg top set`]
+    if (estimated1rm > 0) parts.push(`${estimated1rm.toFixed(1)}kg est. 1RM`)
+    parts.push(`${Math.round(totalVolume).toLocaleString()}kg volume`)
+    achievements.push({
+      type: 'first_workout',
+      title: `First ${exLabel} Workout!`,
+      description: parts.join(', '),
+      confetti: true,
+    })
+    return achievements
+  }
 
   const isPullUps = exercise === 'pull_ups'
 

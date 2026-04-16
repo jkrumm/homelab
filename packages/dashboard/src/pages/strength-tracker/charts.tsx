@@ -167,7 +167,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               type="monotone"
               dataKey={`left_${ex}`}
               stroke={EXERCISE_COLORS[ex]}
-              dot={false}
+              dot={data.length < 10 ? { r: 3, fill: EXERCISE_COLORS[ex] } : false}
               strokeWidth={2}
               connectNulls
             />
@@ -193,7 +193,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               type="monotone"
               dataKey={`right_${ex}`}
               stroke={EXERCISE_COLORS[ex]}
-              dot={false}
+              dot={data.length < 10 ? { r: 2, fill: EXERCISE_COLORS[ex], opacity: 0.6 } : false}
               strokeWidth={2}
               strokeDasharray="8 4"
               connectNulls
@@ -274,6 +274,7 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
               strokeWidth={1.5}
               stackId="area"
               connectNulls
+              dot={data.length < 10 ? { r: 3, fill: EXERCISE_COLORS[ex] } : false}
             />
           ))}
         </AreaChart>
