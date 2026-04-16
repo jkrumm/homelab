@@ -70,6 +70,18 @@ groups:
             url: http://api:4000/health
             interval: 114
 
+          - name: Dashboard - Docker
+            type: docker
+            docker_container: dashboard
+            interval: 116
+            timeout: 120
+            maxretries: 5
+
+          - name: Dashboard - HTTP
+            type: http
+            url: http://dashboard:80/
+            interval: 118
+
           - name: Docker Socket Proxy - Docker
             type: docker
             docker_container: docker-socket-proxy
