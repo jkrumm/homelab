@@ -1,49 +1,13 @@
 import confetti from 'canvas-confetti'
 import { EXERCISES, PULL_UPS_BODYWEIGHT } from './constants'
 import type { ExerciseKey, Workout } from './types'
+import { computeWorkoutMetrics } from './utils'
 
 export interface Achievement {
   type: 'first_workout' | 'weight_milestone' | 'max_weight_pr' | 'estimated_1rm_pr' | 'volume_pr'
   title: string
   description: string
   confetti: boolean
-}
-
-function computeClientMetrics(
-  sets: { set_type: string; weight_kg: number; reps: number }[],
-  exercise: ExerciseKey,
-) {
-  const isPullUps = exercise === 'pull_ups'
-  const workSets = sets.filter((s) => s.set_type === 'work')
-
-  const maxWeight =
-    workSets.length > 0
-      ? Math.max(
-          ...workSets.map((s) => (isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg)),
-        )
-      : 0
-
-  let maxEpley = 0
-  let maxBrzycki = 0
-  for (const s of workSets) {
-    const ew = isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
-    maxEpley = Math.max(maxEpley, ew * (1 + s.reps / 30))
-    if (s.reps < 37) {
-      maxBrzycki = Math.max(maxBrzycki, (ew * 36) / (37 - s.reps))
-    }
-  }
-  const estimated1rm =
-    workSets.length > 0 && maxBrzycki > 0
-      ? Math.round(((maxEpley + maxBrzycki) / 2) * 10) / 10
-      : Math.round(maxEpley * 10) / 10
-
-  let totalVolume = 0
-  for (const s of sets) {
-    const ew = isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
-    totalVolume += ew * s.reps
-  }
-
-  return { maxWeight, estimated1rm, totalVolume }
 }
 
 export function detectAchievements(
@@ -54,7 +18,7 @@ export function detectAchievements(
   const achievements: Achievement[] = []
   const exLabel = EXERCISES.find((e) => e.value === exercise)?.label ?? exercise
   const history = historicalWorkouts.filter((w) => w.exercise === exercise)
-  const { maxWeight, estimated1rm, totalVolume } = computeClientMetrics(sets, exercise)
+  const { maxWeight, estimated1rm, totalVolume } = computeWorkoutMetrics(sets, exercise)
 
   if (maxWeight === 0) return achievements
 

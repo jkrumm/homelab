@@ -48,19 +48,11 @@ export default function StrengthTrackerPage() {
     dayjs().format('YYYY-MM-DD'),
   ])
 
-  const initRange = getDateRange(datePreset, customRange)
-  const [dateFrom, setDateFrom] = useState(initRange[0])
-  const [dateTo, setDateTo] = useState(initRange[1])
-
-  const applyPreset = useCallback(
-    (preset: DatePreset, range: [string, string] = customRange) => {
-      setDatePreset(preset)
-      const [from, to] = getDateRange(preset, range)
-      setDateFrom(from)
-      setDateTo(to)
-    },
-    [customRange, setDatePreset],
+  const [dateFrom, dateTo] = useMemo(
+    () => getDateRange(datePreset, customRange),
+    [datePreset, customRange],
   )
+
   const [view, setView] = useLocalState<'charts' | 'history'>('st-view', 'charts')
   const [useDemoData, setUseDemoData] = useLocalState('st-demo-data', false)
 
@@ -119,7 +111,7 @@ export default function StrengthTrackerPage() {
         </Space.Compact>
         <Select
           value={datePreset}
-          onChange={(v) => applyPreset(v)}
+          onChange={(v) => setDatePreset(v)}
           options={DATE_PRESET_OPTIONS}
           style={{ minWidth: 100 }}
         />
@@ -128,23 +120,14 @@ export default function StrengthTrackerPage() {
             value={[dayjs(customRange[0]), dayjs(customRange[1])]}
             onChange={(dates) => {
               if (dates?.[0] && dates?.[1]) {
-                const range: [string, string] = [
-                  dates[0].format('YYYY-MM-DD'),
-                  dates[1].format('YYYY-MM-DD'),
-                ]
-                setCustomRange(range)
-                applyPreset('custom', range)
+                setCustomRange([dates[0].format('YYYY-MM-DD'), dates[1].format('YYYY-MM-DD')])
               }
             }}
             allowClear={false}
           />
         )}
         <Space.Compact>
-          <Button
-            icon={<UndoOutlined />}
-            onClick={resetConfig}
-            style={{ opacity: 0.65 }}
-          >
+          <Button icon={<UndoOutlined />} onClick={resetConfig} style={{ opacity: 0.65 }}>
             Reset
           </Button>
           <Button

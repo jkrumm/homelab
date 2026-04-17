@@ -11,7 +11,7 @@ export interface WorkoutSet {
 export interface Workout {
   id: number
   date: string
-  exercise: string
+  exercise: ExerciseKey
   notes: string | null
   created_at: string | null
   sets: WorkoutSet[]

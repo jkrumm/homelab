@@ -18,6 +18,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { EXERCISE_COLORS, EXERCISES, SET_TYPE_OPTIONS } from './constants'
 import { SetEditor } from './set-editor'
 import type { ExerciseKey, SetEntry, SetType, Workout, WorkoutSet } from './types'
+import { exerciseLabel } from './utils'
 
 // ── Edit State ────────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ export function WorkoutHistory({
   const filtered = useMemo(
     () =>
       workouts
-        .filter((w) => activeExercises.includes(w.exercise as ExerciseKey))
+        .filter((w) => activeExercises.includes(w.exercise))
         .sort((a, b) => b.date.localeCompare(a.date)),
     [workouts, activeExercises],
   )
@@ -57,7 +58,7 @@ export function WorkoutHistory({
   const openEdit = useCallback((w: Workout) => {
     setEditing({
       id: w.id,
-      exercise: w.exercise as ExerciseKey,
+      exercise: w.exercise,
       date: dayjs(w.date),
       sets: [...w.sets]
         .sort((a, b) => a.set_number - b.set_number)
@@ -126,9 +127,7 @@ export function WorkoutHistory({
       title: 'Exercise',
       dataIndex: 'exercise',
       render: (ex: string) => (
-        <Tag color={EXERCISE_COLORS[ex as ExerciseKey]}>
-          {EXERCISES.find((e) => e.value === ex)?.label ?? ex}
-        </Tag>
+        <Tag color={EXERCISE_COLORS[ex as ExerciseKey]}>{exerciseLabel(ex)}</Tag>
       ),
       width: 130,
     },

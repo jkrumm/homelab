@@ -2,18 +2,7 @@ import { Elysia, t } from 'elysia'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { workoutSets } from '../db/schema.js'
-
-const SetTypeSchema = t.Union([t.Literal('warmup'), t.Literal('work'), t.Literal('drop')])
-
-const WorkoutSetSchema = t.Object({
-  id: t.Number(),
-  workout_id: t.Number(),
-  set_number: t.Number(),
-  set_type: t.String(),
-  weight_kg: t.Number(),
-  reps: t.Number(),
-  created_at: t.Union([t.String(), t.Null()]),
-})
+import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 
 export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
   .get(

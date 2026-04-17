@@ -15,13 +15,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { EXERCISE_COLORS, EXERCISES, METRICS } from './constants'
+import { EXERCISE_COLORS, METRICS } from './constants'
 import type { ExerciseKey, MetricKey, Workout } from './types'
 import { useLocalState } from './use-local-state'
 import {
   buildChartData,
   buildChartDataWithMA,
   buildFrequencyData,
+  exerciseLabel,
   findPRPoints,
   formatXDate,
 } from './utils'
@@ -37,12 +38,6 @@ const TOOLTIP_STYLE = {
   },
   labelStyle: { color: 'rgba(255, 255, 255, 0.85)' },
   itemStyle: { color: 'rgba(255, 255, 255, 0.85)' },
-}
-
-function exerciseLabel(value: string): string {
-  const ex = value.replace('_ma', '')
-  const label = EXERCISES.find((e) => e.value === ex)?.label ?? ex
-  return value.endsWith('_ma') ? `${label} (30d avg)` : label
 }
 
 function useChartColor(activeExercises: ExerciseKey[]) {
@@ -90,7 +85,10 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
     setPrOpacity(0)
     const t1 = setTimeout(() => setShowPRs(true), 1500)
     const t2 = setTimeout(() => setPrOpacity(1), 1550)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
   }, [prPoints])
 
   const data = useMemo(() => {
@@ -192,7 +190,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               const isMA = name.includes('_ma')
               const isLeft = name.startsWith('left_')
               const ex = name.replace('left_', '').replace('right_', '').replace('_ma', '')
-              const exLabel = EXERCISES.find((e) => e.value === ex)?.label ?? ex
+              const exLabel = exerciseLabel(ex)
               const meta = isLeft ? leftMeta : rightMeta
               if (!meta) return [`${value.toFixed(1)}`, exLabel]
               const suffix = isMA ? ' (30d avg)' : ''
@@ -211,7 +209,7 @@ export function MainChart({ workouts, activeExercises }: MainChartProps) {
               const isMA = value.includes('_ma')
               const isLeft = value.startsWith('left_')
               const ex = value.replace('left_', '').replace('right_', '').replace('_ma', '')
-              const exLabel = EXERCISES.find((e) => e.value === ex)?.label ?? ex
+              const exLabel = exerciseLabel(ex)
               const meta = isLeft ? leftMeta : rightMeta
               if (!meta) return exLabel
               const suffix = isMA ? ' (avg)' : ''
@@ -309,7 +307,10 @@ export function AreaMetricChart({ workouts, activeExercises }: AreaMetricChartPr
     setPrOpacity(0)
     const t1 = setTimeout(() => setShowPRs(true), 1500)
     const t2 = setTimeout(() => setPrOpacity(1), 1550)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
   }, [prPoints])
 
   const data = useMemo(

@@ -271,12 +271,11 @@ bun run format:check # oxfmt --check
 
 ## Environment Variables
 
-| Variable         | Default                  | Purpose                                     |
-| ---------------- | ------------------------ | ------------------------------------------- |
-| `VITE_API_URL`   | `https://api.jkrumm.com` | API base URL                                |
-| `VITE_API_TOKEN` | `""`                     | Bearer token (set at build time for Docker) |
+| Variable       | Default                  | Purpose      |
+| -------------- | ------------------------ | ------------ |
+| `VITE_API_URL` | `https://api.jkrumm.com` | API base URL |
 
-Set in Docker: `--build-arg VITE_API_TOKEN=<value>` or via `.env` for local dev.
+Set in Docker: `--build-arg VITE_API_URL=<value>` or via `.env` for local dev.
 
 ---
 

@@ -69,7 +69,9 @@ http://books.jkrumm.com {
 
 # API (private, Tailscale only — personal homelab API)
 api.jkrumm.com {
-	reverse_proxy api:4000
+	reverse_proxy api:4000 {
+		header_up Authorization "Bearer {env.API_SECRET}"
+	}
 }
 http://api.jkrumm.com {
 	redir https://{host}{uri} permanent

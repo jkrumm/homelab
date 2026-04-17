@@ -4,9 +4,7 @@ WORKDIR /app
 
 # Build args for VITE_ env vars (embedded at build time)
 ARG VITE_API_URL=https://api.jkrumm.com
-ARG VITE_API_TOKEN
 ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_API_TOKEN=$VITE_API_TOKEN
 
 # Copy workspace manifests for dependency resolution
 COPY package.json bun.lock ./

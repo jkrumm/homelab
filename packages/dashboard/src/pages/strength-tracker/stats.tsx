@@ -1,4 +1,4 @@
-import { Card, Col, Row, Spin, Statistic, Tooltip, Typography } from 'antd'
+import { Card, Col, Row, Spin, Statistic, Tooltip } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons'
 import { useMemo } from 'react'
 import type { ExerciseKey, Workout } from './types'

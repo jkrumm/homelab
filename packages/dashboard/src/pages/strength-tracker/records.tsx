@@ -2,10 +2,10 @@ import { TrophyOutlined } from '@ant-design/icons'
 import { Card, Empty, Select } from 'antd'
 import dayjs from 'dayjs'
 import { useMemo } from 'react'
-import { EXERCISE_COLORS, EXERCISES, METRICS } from './constants'
+import { EXERCISE_COLORS, METRICS } from './constants'
 import type { ExerciseKey, MetricKey, Workout } from './types'
 import { useLocalState } from './use-local-state'
-import { findPRPoints, type PRPoint } from './utils'
+import { exerciseLabel, findPRPoints, type PRPoint } from './utils'
 
 const RECORD_METRICS: MetricKey[] = [
   'estimated_1rm',
@@ -129,7 +129,7 @@ export function RecentRecords({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {EXERCISES.find((e) => e.value === r.exercise)?.label ?? r.exercise}
+                {exerciseLabel(r.exercise)}
               </span>
               <span
                 style={{

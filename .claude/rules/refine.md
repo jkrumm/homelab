@@ -1,3 +1,8 @@
+---
+paths:
+  - packages/dashboard/**
+---
+
 # Refine v5 + Ant Design + Eden Treaty
 
 Rules and patterns for the homelab dashboard. This stack: Refine v5 + React 19 + Ant Design v5 +
@@ -76,8 +81,10 @@ import '@refinedev/antd/dist/reset.css'
 ```ts
 import { treaty } from '@elysiajs/eden'
 import type { App } from '@homelab/api'
-export const api = treaty<App>(API_URL, { headers: { Authorization: `Bearer ${API_TOKEN}` } })
+export const api = treaty<App>(API_URL)
 ```
+
+Auth is handled server-side — Caddy injects the `Authorization` header when proxying to the API.
 
 ### Adding a new resource
 

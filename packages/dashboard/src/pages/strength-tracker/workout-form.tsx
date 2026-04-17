@@ -7,6 +7,7 @@ import { detectAchievements, fireConfetti } from './achievements'
 import { EXERCISES } from './constants'
 import { SetEditor } from './set-editor'
 import type { ExerciseKey, SetEntry, SetType, Workout } from './types'
+import { exerciseLabel } from './utils'
 
 export const FORM_STORAGE_KEY = 'strength-tracker-form'
 export const DEFAULT_SETS: SetEntry[] = [{ set_type: 'work', weight_kg: 60, reps: 5 }]
@@ -148,7 +149,7 @@ export function WorkoutForm({
     )
   }
 
-  const exerciseLabel = EXERCISES.find((e) => e.value === exercise)?.label ?? exercise
+  const currentExerciseLabel = exerciseLabel(exercise)
   const workSets = sets.filter((s) => s.set_type === 'work')
   const totalVolume = sets.reduce((sum, s) => sum + s.weight_kg * s.reps, 0)
 
@@ -198,7 +199,7 @@ export function WorkoutForm({
       <Modal
         title={
           <span>
-            {exerciseLabel}{' '}
+            {currentExerciseLabel}{' '}
             <Typography.Text type="secondary" style={{ fontSize: 13, fontWeight: 400 }}>
               — {date.format('MMM D, YYYY')}
             </Typography.Text>

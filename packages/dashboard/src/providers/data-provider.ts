@@ -1,7 +1,5 @@
 import type { DataProvider } from '@refinedev/core'
-import { api } from './eden'
-
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'https://api.jkrumm.com'
+import { api, API_URL } from './eden'
 
 type FlatFilter = { field: string; operator: string; value: unknown }
 

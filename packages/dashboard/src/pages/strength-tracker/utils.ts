@@ -1,7 +1,64 @@
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
-import { PULL_UPS_BODYWEIGHT } from './constants'
+import { EXERCISES, PULL_UPS_BODYWEIGHT } from './constants'
 import type { ChartDataPoint, ExerciseKey, MetricKey, Workout } from './types'
+
+export function exerciseLabel(key: string): string {
+  return EXERCISES.find((e) => e.value === key)?.label ?? key
+}
+
+function epley(weight: number, reps: number): number {
+  if (reps === 1) return weight
+  return weight * (1 + reps / 30)
+}
+
+function brzycki(weight: number, reps: number): number {
+  if (reps === 1) return weight
+  return (weight * 36) / (37 - reps)
+}
+
+function mayhew(weight: number, reps: number): number {
+  if (reps === 1) return weight
+  return weight / (0.522 + 0.419 * Math.exp(-0.055 * reps))
+}
+
+export function estimate1RM(weight: number, reps: number): number {
+  if (reps === 1) return weight
+  const formulas = [epley(weight, reps), mayhew(weight, reps)]
+  if (reps < 37) formulas.push(brzycki(weight, reps))
+  return formulas.reduce((sum, v) => sum + v, 0) / formulas.length
+}
+
+export function computeWorkoutMetrics(
+  sets: { set_type: string; weight_kg: number; reps: number }[],
+  exercise: ExerciseKey,
+): { maxWeight: number; estimated1rm: number; totalVolume: number } {
+  const isPullUps = exercise === 'pull_ups'
+  const workSets = sets.filter((s) => s.set_type === 'work')
+
+  const maxWeight =
+    workSets.length > 0
+      ? Math.max(
+          ...workSets.map((s) => (isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg)),
+        )
+      : 0
+
+  let best1rm = 0
+  for (const s of workSets) {
+    const ew = isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
+    const val = estimate1RM(ew, s.reps)
+    if (val > best1rm) best1rm = val
+  }
+  const estimated1rm = workSets.length > 0 ? Math.round(best1rm * 10) / 10 : 0
+
+  let totalVolume = 0
+  for (const s of sets) {
+    const ew = isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
+    totalVolume += ew * s.reps
+  }
+
+  return { maxWeight, estimated1rm, totalVolume }
+}
 
 dayjs.extend(isoWeek)
 
@@ -13,7 +70,7 @@ export function formatXDate(dateStr: string): string {
 }
 
 export function extractMetric(workout: Workout, metric: MetricKey): number | null {
-  const ex = workout.exercise as ExerciseKey
+  const ex = workout.exercise
   const isPullUps = ex === 'pull_ups'
 
   switch (metric) {
@@ -52,7 +109,7 @@ export function buildChartData(
   const byDate = new Map<string, Partial<Record<ExerciseKey, number>>>()
 
   for (const w of workouts) {
-    const ex = w.exercise as ExerciseKey
+    const ex = w.exercise
     if (!exercises.includes(ex) || typeof w.date !== 'string') continue
     const entry = byDate.get(w.date) ?? {}
     const value = extractMetric(w, metric)
@@ -143,7 +200,7 @@ export function computeSummaryStats(
   const d30 = now.subtract(30, 'day').format('YYYY-MM-DD')
   const d60 = now.subtract(60, 'day').format('YYYY-MM-DD')
 
-  const filtered = workouts.filter((w) => exercises.includes(w.exercise as ExerciseKey))
+  const filtered = workouts.filter((w) => exercises.includes(w.exercise))
 
   // Best 1RM — all-time peak
   const best1rm = filtered
@@ -234,7 +291,7 @@ export function buildFrequencyData(
   const byWeek = new Map<string, Partial<Record<ExerciseKey, number>>>()
 
   for (const w of workouts) {
-    const ex = w.exercise as ExerciseKey
+    const ex = w.exercise
     if (!exercises.includes(ex)) continue
     const d = dayjs(w.date)
     const year = d.isoWeekYear()
