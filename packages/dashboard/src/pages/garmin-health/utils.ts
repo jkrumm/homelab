@@ -226,25 +226,11 @@ export function computeFitnessSummary(data: DailyMetric[]) {
   return { vo2max, rhrDelta, hrvDelta, chronicFirst, chronicLast }
 }
 
-const SHORT_MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
-
-/** Format date for chart X axis — "20 Apr" */
+/** Format date for chart X axis — "17.04" */
 export function formatXDate(date: string): string {
-  const d = new Date(date + 'T00:00:00')
-  return `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`
+  const p = date.split('-')
+  if (p.length !== 3) return date
+  return `${p[2]}.${p[1]}`
 }
 
 // ── Training Load (ACWR) ─────────────────────────────────────────────────
