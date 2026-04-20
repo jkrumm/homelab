@@ -1,7 +1,15 @@
 import { useList } from '@refinedev/core'
 import { Col, Row, Select, Space, Typography } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityChart, BodyBatteryChart, HeartHrvChart, SleepChart, StressChart } from './charts'
+import {
+  ActivityChart,
+  BodyBatteryChart,
+  HeartHrvChart,
+  LoadBalanceChart,
+  SleepChart,
+  StressChart,
+  TrainingLoadChart,
+} from './charts'
 import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
 import { TopStats } from './stats'
 import type { DailyMetric, DatePreset } from './types'
@@ -62,6 +70,9 @@ export default function GarminHealthPage() {
   const hasHeartData = metrics.some((m) => m.resting_hr !== null || m.hrv_last_night_avg !== null)
   const hasStressData = metrics.some((m) => m.avg_stress !== null)
   const hasActivityData = metrics.some((m) => m.steps !== null)
+  const hasLoadData = metrics.some(
+    (m) => m.moderate_intensity_min !== null || m.vigorous_intensity_min !== null,
+  )
 
   return (
     <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
@@ -129,6 +140,21 @@ export default function GarminHealthPage() {
                 <StressChart data={metrics} />
               </Col>
             )}
+          </Row>
+        </>
+      )}
+
+      {/* Training Load */}
+      {hasLoadData && (
+        <>
+          <SectionTitle title="Training Load" />
+          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+            <Col xs={24} lg={12}>
+              <TrainingLoadChart data={metrics} />
+            </Col>
+            <Col xs={24} lg={12}>
+              <LoadBalanceChart data={metrics} />
+            </Col>
           </Row>
         </>
       )}

@@ -165,3 +165,101 @@ export function formatXDate(date: string): string {
   const d = new Date(date)
   return `${d.getDate()}/${d.getMonth() + 1}`
 }
+
+// ── Training Load (ACWR) ─────────────────────────────────────────────────
+
+export interface TrainingLoadPoint {
+  date: string
+  dailyLoad: number
+  acute: number
+  chronic: number
+  acwr: number | null
+  zone: 'undertrained' | 'optimal' | 'caution' | 'danger' | null
+}
+
+/**
+ * Compute ACWR (Acute:Chronic Workload Ratio) using EWMA.
+ *
+ * Daily load approximated from Garmin intensity minutes:
+ *   load = moderate_min × 1.0 + vigorous_min × 1.8
+ *
+ * EWMA decay rates (Hulin et al. 2017, BJSM):
+ *   λ_acute  = 2/(7+1)  = 0.25   (~7-day half-life)
+ *   λ_chronic = 2/(28+1) ≈ 0.069  (~28-day half-life)
+ *
+ * Zones (Gabbett 2016, BJSM):
+ *   <0.8 undertrained | 0.8-1.3 optimal | 1.3-1.5 caution | >1.5 danger
+ */
+export function computeTrainingLoad(data: DailyMetric[]): TrainingLoadPoint[] {
+  if (data.length === 0) return []
+
+  const λA = 2 / (7 + 1)
+  const λC = 2 / (28 + 1)
+
+  const dailyLoads = data.map((d) => {
+    const mod = d.moderate_intensity_min ?? 0
+    const vig = d.vigorous_intensity_min ?? 0
+    return mod * 1.0 + vig * 1.8
+  })
+
+  // Seed EWMA with average of available days (max 7)
+  const seedN = Math.min(dailyLoads.length, 7)
+  const seed = dailyLoads.slice(0, seedN).reduce((a, b) => a + b, 0) / seedN
+
+  let ewmaA = seed
+  let ewmaC = seed
+
+  return data.map((d, i) => {
+    const load = dailyLoads[i]!
+    ewmaA = load * λA + ewmaA * (1 - λA)
+    ewmaC = load * λC + ewmaC * (1 - λC)
+    const acwr = ewmaC > 0 ? Math.round((ewmaA / ewmaC) * 100) / 100 : null
+
+    let zone: TrainingLoadPoint['zone'] = null
+    if (acwr !== null) {
+      if (acwr < 0.8) zone = 'undertrained'
+      else if (acwr <= 1.3) zone = 'optimal'
+      else if (acwr <= 1.5) zone = 'caution'
+      else zone = 'danger'
+    }
+
+    return {
+      date: d.date,
+      dailyLoad: Math.round(load * 10) / 10,
+      acute: Math.round(ewmaA * 10) / 10,
+      chronic: Math.round(ewmaC * 10) / 10,
+      acwr,
+      zone,
+    }
+  })
+}
+
+export function acwrZoneColor(zone: TrainingLoadPoint['zone']): string {
+  switch (zone) {
+    case 'optimal':
+      return '#00c853'
+    case 'caution':
+      return '#ffd600'
+    case 'danger':
+      return '#ff3d00'
+    case 'undertrained':
+      return '#2979ff'
+    default:
+      return '#999'
+  }
+}
+
+export function acwrZoneLabel(zone: TrainingLoadPoint['zone']): string {
+  switch (zone) {
+    case 'optimal':
+      return 'Optimal'
+    case 'caution':
+      return 'High Load'
+    case 'danger':
+      return 'Overtraining Risk'
+    case 'undertrained':
+      return 'Undertrained'
+    default:
+      return '\u2014'
+  }
+}

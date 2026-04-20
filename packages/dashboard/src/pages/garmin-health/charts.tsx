@@ -10,6 +10,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -19,11 +20,14 @@ import {
 import type { DailyMetric } from './types'
 import { COLORS, METRIC_TOOLTIPS } from './constants'
 import {
+  acwrZoneColor,
+  acwrZoneLabel,
   buildActivityData,
   buildBodyBatteryData,
   buildHeartChartData,
   buildSleepChartData,
   buildStressData,
+  computeTrainingLoad,
   formatXDate,
 } from './utils'
 
@@ -402,6 +406,142 @@ export function ActivityChart({ data }: { data: DailyMetric[] }) {
             stroke={COLORS.intensityMin}
             strokeWidth={2}
             dot={chartData.length < 15 ? { r: 3, fill: COLORS.intensityMin } : false}
+            connectNulls
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </Card>
+  )
+}
+
+// ── Training Load (ACWR) — ratio with optimal zone band ─────────────────
+
+export function TrainingLoadChart({ data }: { data: DailyMetric[] }) {
+  const loadData = useMemo(() => computeTrainingLoad(data), [data])
+  const latest = loadData[loadData.length - 1]
+  const showDots = loadData.length < 15
+
+  return (
+    <Card
+      title={<ChartTitle title="Training Load (ACWR)" tooltip={METRIC_TOOLTIPS.trainingLoad} />}
+      size="small"
+      style={{ marginBottom: 16 }}
+      extra={
+        latest?.acwr !== null && latest?.acwr !== undefined ? (
+          <span style={{ fontSize: 16, fontWeight: 600 }}>
+            <span style={{ color: acwrZoneColor(latest.zone) }}>{latest.acwr.toFixed(2)}</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 400,
+                marginLeft: 6,
+                color: acwrZoneColor(latest.zone),
+              }}
+            >
+              {acwrZoneLabel(latest.zone)}
+            </span>
+          </span>
+        ) : null
+      }
+    >
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={loadData} margin={CHART_MARGIN}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
+          <YAxis domain={[0, 'auto']} tick={{ fontSize: 11 }} width={36} />
+          {/* Optimal zone band (0.8 - 1.3) */}
+          <ReferenceArea y1={0.8} y2={1.3} fill="#00c853" fillOpacity={0.08} />
+          {/* Caution zone (1.3 - 1.5) */}
+          <ReferenceArea y1={1.3} y2={1.5} fill="#ffd600" fillOpacity={0.06} />
+          <ReferenceLine y={0.8} stroke="rgba(41,121,255,0.3)" strokeDasharray="4 4" />
+          <ReferenceLine y={1.3} stroke="rgba(0,200,83,0.3)" strokeDasharray="4 4" />
+          <ReferenceLine y={1.5} stroke="rgba(255,61,0,0.3)" strokeDasharray="4 4" />
+          <Tooltip
+            {...TOOLTIP_STYLE}
+            formatter={(value: number, name: string) => {
+              if (name === 'acwr') return [value.toFixed(2), 'ACWR']
+              return [`${value}`, name]
+            }}
+          />
+          <Legend formatter={() => 'ACWR (acute / chronic)'} />
+          <Line
+            type="monotone"
+            dataKey="acwr"
+            stroke={COLORS.acwr}
+            strokeWidth={2.5}
+            dot={showDots ? { r: 4, fill: COLORS.acwr } : false}
+            connectNulls
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </Card>
+  )
+}
+
+// ── Load Balance — acute vs chronic EWMA lines ──────────────────────────
+
+export function LoadBalanceChart({ data }: { data: DailyMetric[] }) {
+  const loadData = useMemo(() => computeTrainingLoad(data), [data])
+  const latest = loadData[loadData.length - 1]
+  const showDots = loadData.length < 15
+
+  return (
+    <Card
+      title={<ChartTitle title="Load Balance" tooltip={METRIC_TOOLTIPS.loadBalance} />}
+      size="small"
+      style={{ marginBottom: 16 }}
+      extra={
+        latest ? (
+          <span style={{ fontSize: 13 }}>
+            <span style={{ color: COLORS.acute, fontWeight: 600 }}>{latest.acute}</span>
+            <span style={{ opacity: 0.5, margin: '0 4px' }}>short</span>
+            <span style={{ color: COLORS.chronic, fontWeight: 600 }}>{latest.chronic}</span>
+            <span style={{ opacity: 0.5 }}> long</span>
+          </span>
+        ) : null
+      }
+    >
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={loadData} margin={CHART_MARGIN}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} width={40} domain={[0, 'auto']} />
+          <Tooltip
+            {...TOOLTIP_STYLE}
+            formatter={(value: number, name: string) => {
+              const labels: Record<string, string> = {
+                acute: 'Short-term (7d)',
+                chronic: 'Long-term (28d)',
+                dailyLoad: 'Daily Load',
+              }
+              return [value.toFixed(1), labels[name] ?? name]
+            }}
+          />
+          <Legend
+            formatter={(value: string) => {
+              const labels: Record<string, string> = {
+                acute: 'Short-term (7d)',
+                chronic: 'Long-term (28d)',
+                dailyLoad: 'Daily Load',
+              }
+              return labels[value] ?? value
+            }}
+          />
+          <Bar dataKey="dailyLoad" fill="rgba(128,128,128,0.15)" radius={[2, 2, 0, 0]} />
+          <Line
+            type="monotone"
+            dataKey="acute"
+            stroke={COLORS.acute}
+            strokeWidth={2}
+            dot={showDots ? { r: 3, fill: COLORS.acute } : false}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="chronic"
+            stroke={COLORS.chronic}
+            strokeWidth={2}
+            dot={showDots ? { r: 3, fill: COLORS.chronic } : false}
             connectNulls
           />
         </ComposedChart>
