@@ -101,6 +101,9 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/dufs/PASSWORD`           | Public file server auth                                 |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `homelab/couchdb/PASSWORD`        | CouchDB admin password                                  |
+| `homelab/garmin/EMAIL`            | Garmin Connect login email                              |
+| `homelab/garmin/PASSWORD`         | Garmin Connect login password                           |
+| `homelab/garmin/PUSH_URL`         | UptimeKuma push URL for garmin-sync heartbeat           |
 | `homelab/slack/WEBHOOK_ALERTS`    | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `homelab/slack/WATCHTOWER_URL`    | Shoutrrr-formatted Slack webhook for Watchtower         |
 
@@ -148,6 +151,10 @@ Run `make help` for all available targets.
 | `make down`               | Stop all services                                        |
 | `make ps`                 | Show running containers                                  |
 | `make logs svc=<name>`    | Follow logs for any service                              |
+| `make garmin-deploy`      | Full garmin-sync deploy (git pull + rebuild + restart)   |
+| `make garmin-rebuild`     | Rebuild garmin-sync (no cache) + restart (no git pull)   |
+| `make garmin-restart`     | Restart garmin-sync (picks up new env vars)              |
+| `make garmin-logs`        | Follow garmin-sync logs                                  |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync`            | Apply all Uptime Kuma monitors (public + private)        |
 | `make uk-dry-run`         | Preview Uptime Kuma monitor changes                      |
@@ -244,6 +251,7 @@ docker events --since 1h --filter container=<name>
 | Immich Postgres/Redis | Immich databases                                                                                             |
 | Plausible             | Web analytics (shared Immich Postgres)                                                                       |
 | CouchDB               | CouchDB document database                                                                                    |
+| Garmin Sync           | Python sidecar — syncs daily Garmin health metrics to SQLite every 6h, pings UptimeKuma                      |
 
 ### Network Topology
 
@@ -333,9 +341,13 @@ homelab/
 │   │   ├── src/
 │   │   │   ├── index.ts     # App entry, auth guard, plugin registration
 │   │   │   ├── db/          # Drizzle ORM + SQLite (schema, connection)
-│   │   │   ├── routes/      # CRUD routes (workouts, workout-sets, + existing)
+│   │   │   ├── routes/      # CRUD routes (workouts, workout-sets, daily-metrics, weight-log, user-profile)
 │   │   │   └── clients/     # External API clients (google, slack, ticktick, uptime-kuma)
 │   │   └── Dockerfile       # Alpine + Bun (build context = repo root)
+│   ├── garmin-sync/         # Python sidecar — Garmin Connect → SQLite daily sync
+│   │   ├── sync.py          # Main sync loop (6h interval, 7-day backfill, UptimeKuma push)
+│   │   ├── requirements.txt # garminconnect library
+│   │   └── Dockerfile       # python:3.13-alpine
 │   └── dashboard/           # Refine v5 dashboard (port 5173 dev / nginx prod)
 │       ├── src/
 │       │   ├── App.tsx      # Refine, router, theme toggle, sidebar
@@ -702,7 +714,7 @@ When making changes that affect infrastructure or script behavior:
 **Update tiers:**
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `caddy` (custom build), `docker-socket-proxy-watchtower`, `watchtower` itself
+- **Opted-out** (other): `caddy` (custom build), `garmin-sync` (local build), `docker-socket-proxy-watchtower`, `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else
 
 | Command                            | Purpose                    |

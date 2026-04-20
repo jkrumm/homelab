@@ -246,6 +246,24 @@ groups:
             headers:
               Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
 
+      # --- CouchDB subgroup ---
+      - name: CouchDB
+        type: group
+        interval: 245
+        monitors:
+          - name: CouchDB - Docker
+            type: docker
+            docker_container: couchdb
+            interval: 195
+            timeout: 120
+            maxretries: 5
+
+          - name: CouchDB - HTTP
+            type: http
+            url: http://couchdb:5984/_up
+            interval: 200
+            accepted_statuscodes: ['200-299']
+
       # --- Apps subgroup ---
       - name: Apps
         type: group
@@ -274,19 +292,6 @@ groups:
             type: http
             url: http://dashboard:80/
             interval: 118
-
-          - name: CouchDB - Docker
-            type: docker
-            docker_container: couchdb
-            interval: 195
-            timeout: 120
-            maxretries: 5
-
-          - name: CouchDB - HTTP
-            type: http
-            url: http://couchdb:5984/_up
-            interval: 200
-            accepted_statuscodes: ['200-299']
 
           # Push monitors
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)

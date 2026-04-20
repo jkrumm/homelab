@@ -4,14 +4,14 @@ Runs on a 6-hour loop, fetches rolling 7-day window, upserts to daily_metrics ta
 Pings UptimeKuma push monitor on success.
 """
 
-import json
 import logging
 import os
 import sqlite3
 import sys
 import time
+import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from garminconnect import Garmin
 
@@ -140,9 +140,11 @@ def fetch_day(client: Garmin, target_date: str) -> dict:
 
 def is_day_complete(target_date: str) -> bool:
     """A day is complete if it ended more than 6 hours ago (buffer for late syncs)."""
-    day_end = date.fromisoformat(target_date) + timedelta(days=1)
-    hours_since = (date.today() - day_end).days * 24
-    return hours_since >= 6
+    day_end = datetime(
+        *date.fromisoformat(target_date).timetuple()[:3],
+        tzinfo=timezone.utc,
+    ) + timedelta(days=1)
+    return datetime.now(timezone.utc) - day_end >= timedelta(hours=6)
 
 
 def upsert_metrics(conn: sqlite3.Connection, metrics: dict):
@@ -169,9 +171,6 @@ def upsert_metrics(conn: sqlite3.Connection, metrics: dict):
         log.info("Inserted %s (completed=%d)", target_date, completed)
     else:
         # Update: only overwrite with non-null values, preserve existing non-null
-        col_names = [desc[0] for desc in conn.execute("SELECT * FROM daily_metrics LIMIT 0").description]
-        existing_dict = dict(zip(col_names, existing))
-
         updates = []
         values = []
         for key, new_val in metrics.items():
@@ -211,15 +210,14 @@ def ping_uptime_kuma(status: str = "up", msg: str = ""):
 
 def run_sync():
     """Execute one sync cycle."""
-    import urllib.parse
-
     log.info("Starting sync cycle (backfill=%d days)", BACKFILL_DAYS)
 
     client = get_garmin_client()
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=30000")
 
     days_synced = 0
     days_skipped = 0

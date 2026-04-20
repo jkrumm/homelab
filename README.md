@@ -120,6 +120,28 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
 ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
 ```
 
+### Garmin Sync
+
+```bash
+# Deploy garmin-sync (git pull + rebuild + restart)
+make garmin-deploy
+
+# Rebuild without git pull
+make garmin-rebuild
+
+# Restart container (picks up new env vars)
+make garmin-restart
+
+# Follow logs
+make garmin-logs
+
+# Re-authenticate after MFA/token expiry:
+# 1. Run explore.py locally with credentials (triggers MFA prompt)
+# 2. Copy refreshed tokens to server:
+#    scp ~/.garminconnect/garmin_tokens.json homelab:~/ssd/garmin-tokens/
+# 3. Restart: make garmin-restart
+```
+
 ### SigNoz (Observability)
 
 ```bash
@@ -229,6 +251,7 @@ ssh homelab "docker system prune -af"
    - [Watchdog Management](#watchdog-management)
    - [Container Diagnostics](#container-diagnostics)
    - [Uptime Kuma Config-as-Code](#uptime-kuma-config-as-code)
+   - [Garmin Sync](#garmin-sync)
    - [SigNoz (Observability)](#signoz-observability)
    - [HDD Diagnostics](#hdd-diagnostics)
    - [Database Backup](#database-backup)
