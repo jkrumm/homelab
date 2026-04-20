@@ -37,13 +37,17 @@ import {
 const SYNC_ID = 'garmin'
 const GRID_STROKE = 'rgba(128,128,128,0.15)'
 const CHART_MARGIN = { top: 5, right: 16, bottom: 5, left: 0 }
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 function formatTooltipDate(label: string): string {
-  const d = new Date(label + 'T00:00:00')
+  const parts = label.split('-')
+  if (parts.length !== 3) return label
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
   if (Number.isNaN(d.getTime())) return label
-  return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yy = String(d.getFullYear()).slice(2)
+  return `${DAYS[d.getDay()]} ${dd}.${mm}.${yy}`
 }
 
 const TOOLTIP_STYLE = {
