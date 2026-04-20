@@ -240,6 +240,9 @@ export interface TrainingLoadPoint {
   acute: number
   chronic: number
   acwr: number | null
+  divergence: number
+  divPos: number
+  divNeg: number
   zone: 'undertrained' | 'optimal' | 'caution' | 'danger' | null
 }
 
@@ -289,12 +292,16 @@ export function computeTrainingLoad(data: DailyMetric[]): TrainingLoadPoint[] {
       else zone = 'danger'
     }
 
+    const div = Math.round((ewmaA - ewmaC) * 10) / 10
     return {
       date: d.date,
       dailyLoad: Math.round(load * 10) / 10,
       acute: Math.round(ewmaA * 10) / 10,
       chronic: Math.round(ewmaC * 10) / 10,
       acwr,
+      divergence: div,
+      divPos: Math.max(0, div),
+      divNeg: Math.min(0, div),
       zone,
     }
   })
@@ -328,4 +335,84 @@ export function acwrZoneLabel(zone: TrainingLoadPoint['zone']): string {
     default:
       return '\u2014'
   }
+}
+
+// ── Recovery Trend ──────────────────────────────────────────────────────
+
+/** Compute recovery score for every day in the dataset */
+export function buildRecoveryTrendData(data: DailyMetric[]) {
+  const avgHrv = fieldAvg(data, 'hrv_last_night_avg')
+  const rhrValues = data.map((d) => d.resting_hr).filter((v): v is number => v !== null)
+  const minRhr = rhrValues.length > 0 ? Math.min(...rhrValues) : null
+  const maxRhr = rhrValues.length > 0 ? Math.max(...rhrValues) : null
+  const avgRhr = fieldAvg(data, 'resting_hr')
+
+  return data
+    .map((d) => ({
+      date: d.date,
+      recovery: computeRecoveryScore(d, avgHrv, avgRhr, minRhr, maxRhr),
+      sleepScore: d.sleep_score,
+      bbHigh: d.bb_highest,
+    }))
+    .filter((d) => d.recovery !== null)
+}
+
+// ── Fitness Direction ───────────────────────────────────────────────────
+
+/** Simple linear regression slope */
+function linearSlope(values: (number | null)[]): number | null {
+  const valid: [number, number][] = []
+  values.forEach((v, i) => {
+    if (v !== null) valid.push([i, v])
+  })
+  if (valid.length < 3) return null
+
+  const n = valid.length
+  let sumX = 0
+  let sumY = 0
+  let sumXY = 0
+  let sumX2 = 0
+  for (const [x, y] of valid) {
+    sumX += x
+    sumY += y
+    sumXY += x * y
+    sumX2 += x * x
+  }
+  const denom = n * sumX2 - sumX * sumX
+  if (denom === 0) return null
+  return (n * sumXY - sumX * sumY) / denom
+}
+
+export interface FitnessDirection {
+  signal: string
+  label: string
+  color: string
+  rhrDelta: number | null
+  hrvDelta: number | null
+  vo2max: number | null
+}
+
+/** Compute 5-level fitness direction from RHR + HRV slopes */
+export function computeFitnessDirection(data: DailyMetric[]): FitnessDirection {
+  const recent = data.slice(-14)
+  const rhrSlope = linearSlope(recent.map((d) => d.resting_hr))
+  const hrvSlope = linearSlope(recent.map((d) => d.hrv_last_night_avg))
+
+  const rhrImproving = rhrSlope !== null && rhrSlope < -0.05
+  const hrvImproving = hrvSlope !== null && hrvSlope > 0.1
+  const rhrDeclining = rhrSlope !== null && rhrSlope > 0.05
+  const hrvDeclining = hrvSlope !== null && hrvSlope < -0.1
+
+  // Summary deltas for display
+  const summary = computeFitnessSummary(data)
+
+  if (rhrImproving && hrvImproving)
+    return { signal: '\u25b2\u25b2', label: 'Accelerating', color: '#00c853', ...summary }
+  if ((rhrImproving || hrvImproving) && !rhrDeclining && !hrvDeclining)
+    return { signal: '\u25b2', label: 'Improving', color: '#64dd17', ...summary }
+  if (rhrDeclining && hrvDeclining)
+    return { signal: '\u25bc\u25bc', label: 'Regressing', color: '#ff3d00', ...summary }
+  if ((rhrDeclining || hrvDeclining) && !rhrImproving && !hrvImproving)
+    return { signal: '\u25bc', label: 'Declining', color: '#ffd600', ...summary }
+  return { signal: '\u25ba', label: 'Maintaining', color: '#78909c', ...summary }
 }

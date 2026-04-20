@@ -5,14 +5,14 @@ import {
   ActivityChart,
   BodyBatteryChart,
   FitnessChart,
-  HeartHrvChart,
-  LoadBalanceChart,
+  LoadMACDChart,
+  RecoveryTrendChart,
   SleepChart,
   StressChart,
   TrainingLoadChart,
 } from './charts'
 import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
-import { TopStats } from './stats'
+import { HeroStats } from './stats'
 import type { DailyMetric, DatePreset } from './types'
 
 // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -66,14 +66,17 @@ export default function GarminHealthPage() {
   const metrics = (result.data as DailyMetric[] | undefined) ?? []
   const isLoading = query.isLoading
 
-  const hasSleepData = metrics.some((m) => m.sleep_score !== null)
-  const hasBodyBattery = metrics.some((m) => m.bb_highest !== null)
   const hasHeartData = metrics.some((m) => m.resting_hr !== null || m.hrv_last_night_avg !== null)
-  const hasStressData = metrics.some((m) => m.avg_stress !== null)
-  const hasActivityData = metrics.some((m) => m.steps !== null)
   const hasLoadData = metrics.some(
     (m) => m.moderate_intensity_min !== null || m.vigorous_intensity_min !== null,
   )
+  const hasSleepData = metrics.some((m) => m.sleep_score !== null)
+  const hasRecoveryData = metrics.some(
+    (m) => m.sleep_score !== null || m.hrv_last_night_avg !== null,
+  )
+  const hasBodyBattery = metrics.some((m) => m.bb_highest !== null)
+  const hasStressData = metrics.some((m) => m.avg_stress !== null)
+  const hasActivityData = metrics.some((m) => m.steps !== null)
 
   return (
     <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
@@ -104,48 +107,10 @@ export default function GarminHealthPage() {
         </Space>
       </div>
 
-      {/* Summary stats */}
-      <TopStats data={metrics} isLoading={isLoading} />
+      {/* Hero: 3 composite cards */}
+      <HeroStats data={metrics} isLoading={isLoading} />
 
-      {/* Sleep & Recovery */}
-      {(hasSleepData || hasBodyBattery) && (
-        <>
-          <SectionTitle title="Sleep & Recovery" />
-          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
-            {hasSleepData && (
-              <Col xs={24} lg={12}>
-                <SleepChart data={metrics} />
-              </Col>
-            )}
-            {hasBodyBattery && (
-              <Col xs={24} lg={12}>
-                <BodyBatteryChart data={metrics} />
-              </Col>
-            )}
-          </Row>
-        </>
-      )}
-
-      {/* Heart & Wellness */}
-      {(hasHeartData || hasStressData) && (
-        <>
-          <SectionTitle title="Heart & Wellness" />
-          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
-            {hasHeartData && (
-              <Col xs={24} lg={12}>
-                <HeartHrvChart data={metrics} />
-              </Col>
-            )}
-            {hasStressData && (
-              <Col xs={24} lg={12}>
-                <StressChart data={metrics} />
-              </Col>
-            )}
-          </Row>
-        </>
-      )}
-
-      {/* Fitness Progression */}
+      {/* Section 1: Fitness Progression */}
       {hasHeartData && (
         <>
           <SectionTitle title="Fitness Progression" />
@@ -153,7 +118,7 @@ export default function GarminHealthPage() {
         </>
       )}
 
-      {/* Training Load */}
+      {/* Section 2: Training Load */}
       {hasLoadData && (
         <>
           <SectionTitle title="Training Load" />
@@ -162,17 +127,52 @@ export default function GarminHealthPage() {
               <TrainingLoadChart data={metrics} />
             </Col>
             <Col xs={24} lg={12}>
-              <LoadBalanceChart data={metrics} />
+              <LoadMACDChart data={metrics} />
             </Col>
           </Row>
         </>
       )}
 
-      {/* Activity */}
-      {hasActivityData && (
+      {/* Section 3: Recovery & Sleep */}
+      {(hasRecoveryData || hasSleepData) && (
         <>
-          <SectionTitle title="Activity" />
-          <ActivityChart data={metrics} />
+          <SectionTitle title="Recovery & Sleep" />
+          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+            {hasRecoveryData && (
+              <Col xs={24} lg={12}>
+                <RecoveryTrendChart data={metrics} />
+              </Col>
+            )}
+            {hasSleepData && (
+              <Col xs={24} lg={12}>
+                <SleepChart data={metrics} />
+              </Col>
+            )}
+          </Row>
+        </>
+      )}
+
+      {/* Section 4: Supporting Metrics */}
+      {(hasBodyBattery || hasStressData || hasActivityData) && (
+        <>
+          <SectionTitle title="Supporting Metrics" />
+          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+            {hasBodyBattery && (
+              <Col xs={24} lg={8}>
+                <BodyBatteryChart data={metrics} />
+              </Col>
+            )}
+            {hasStressData && (
+              <Col xs={24} lg={8}>
+                <StressChart data={metrics} />
+              </Col>
+            )}
+            {hasActivityData && (
+              <Col xs={24} lg={8}>
+                <ActivityChart data={metrics} />
+              </Col>
+            )}
+          </Row>
         </>
       )}
     </div>

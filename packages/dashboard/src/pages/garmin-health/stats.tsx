@@ -1,190 +1,199 @@
-import { Card, Col, Row, Spin, Statistic, Tag, Tooltip } from 'antd'
+import { Card, Col, Row, Spin, Tooltip } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons'
 import { useMemo } from 'react'
 import type { DailyMetric } from './types'
-import { METRIC_TOOLTIPS, hrvStatusColor, scoreColor, stressColor } from './constants'
+import { METRIC_TOOLTIPS, scoreColor } from './constants'
 import {
+  acwrZoneColor,
+  acwrZoneLabel,
+  computeFitnessDirection,
   computeRecoveryScore,
+  computeTrainingLoad,
   fieldAvg,
-  formatDuration,
-  latestStringValue,
   latestValue,
-  periodDelta,
 } from './utils'
 
-function DeltaBadge({ delta, invert }: { delta: number | null; invert?: boolean }) {
-  if (delta === null) return null
-  const adjusted = invert ? -delta : delta
-  const sign = adjusted >= 0 ? '+' : ''
-  const color = adjusted > 0 ? '#52c41a' : adjusted < 0 ? '#ff4d4f' : 'rgba(128,128,128,0.6)'
+function InfoIcon({ tooltip }: { tooltip: string }) {
   return (
-    <span style={{ fontSize: 13, fontWeight: 500, color, marginLeft: 6 }}>
-      {sign}
-      {adjusted.toFixed(0)}%
-    </span>
+    <Tooltip title={tooltip} placement="bottom">
+      <InfoCircleOutlined
+        style={{ fontSize: 11, marginLeft: 4, color: 'rgba(128,128,128,0.45)', cursor: 'help' }}
+      />
+    </Tooltip>
   )
 }
 
-interface TopStatsProps {
+interface HeroStatsProps {
   data: DailyMetric[]
   isLoading: boolean
 }
 
-export function TopStats({ data, isLoading }: TopStatsProps) {
-  const stats = useMemo(() => {
-    const sleepScore = latestValue(data, 'sleep_score')
-    const bbHigh = latestValue(data, 'bb_highest')
-    const hrv = latestValue(data, 'hrv_last_night_avg')
-    const hrvStatus = latestStringValue(data, 'hrv_status')
-    const restingHr = latestValue(data, 'resting_hr')
-    const steps = latestValue(data, 'steps')
-    const stress = latestValue(data, 'avg_stress')
-
+export function HeroStats({ data, isLoading }: HeroStatsProps) {
+  const recovery = useMemo(() => {
+    if (data.length === 0) return null
     const avgHrv = fieldAvg(data, 'hrv_last_night_avg')
     const avgRhr = fieldAvg(data, 'resting_hr')
-    const rhrValues = data.map((d) => d.resting_hr).filter((v): v is number => v !== null)
-    const minRhr = rhrValues.length > 0 ? Math.min(...rhrValues) : null
-    const maxRhr = rhrValues.length > 0 ? Math.max(...rhrValues) : null
-
-    const latestMetric = data[data.length - 1]
-    const recovery = latestMetric
-      ? computeRecoveryScore(latestMetric, avgHrv, avgRhr, minRhr, maxRhr)
-      : null
-
+    const rhrVals = data.map((d) => d.resting_hr).filter((v): v is number => v !== null)
+    const minRhr = rhrVals.length > 0 ? Math.min(...rhrVals) : null
+    const maxRhr = rhrVals.length > 0 ? Math.max(...rhrVals) : null
+    const latest = data[data.length - 1]!
+    const score = computeRecoveryScore(latest, avgHrv, avgRhr, minRhr, maxRhr)
+    const label =
+      score === null
+        ? '\u2014'
+        : score >= 70
+          ? 'Push hard'
+          : score >= 40
+            ? 'Normal session'
+            : 'Prioritize rest'
     return {
-      sleepScore,
-      sleepScoreAvg: fieldAvg(data, 'sleep_score'),
-      sleepScoreDelta: periodDelta(data, 'sleep_score'),
-      sleepDuration: latestValue(data, 'sleep_duration_sec'),
-      bbHigh,
-      bbHighAvg: fieldAvg(data, 'bb_highest'),
-      bbDelta: periodDelta(data, 'bb_highest'),
-      hrv,
-      hrvStatus,
-      hrvAvg: avgHrv,
-      hrvDelta: periodDelta(data, 'hrv_last_night_avg'),
-      restingHr,
-      restingHrAvg: avgRhr,
-      restingHrDelta: periodDelta(data, 'resting_hr', true),
-      steps,
-      stepsAvg: fieldAvg(data, 'steps'),
-      stepsDelta: periodDelta(data, 'steps'),
-      stress,
-      stressAvg: fieldAvg(data, 'avg_stress'),
-      stressDelta: periodDelta(data, 'avg_stress', true),
-      recovery,
+      score,
+      label,
+      hrv: latestValue(data, 'hrv_last_night_avg'),
+      sleep: latestValue(data, 'sleep_score'),
+      rhr: latestValue(data, 'resting_hr'),
+      bb: latestValue(data, 'bb_highest'),
     }
   }, [data])
 
-  const cards = [
-    {
-      label: 'Sleep Score',
-      value: stats.sleepScore ?? '\u2014',
-      valueColor: scoreColor(stats.sleepScore),
-      suffix: (
-        <>
-          <DeltaBadge delta={stats.sleepScoreDelta} />
-        </>
-      ),
-      sub: stats.sleepDuration !== null ? formatDuration(stats.sleepDuration) : null,
-      tooltip: METRIC_TOOLTIPS.sleepScore,
-    },
-    {
-      label: 'Body Battery',
-      value: stats.bbHigh ?? '\u2014',
-      valueColor: scoreColor(stats.bbHigh),
-      suffix: <DeltaBadge delta={stats.bbDelta} />,
-      sub: stats.bbHighAvg !== null ? `avg ${Math.round(stats.bbHighAvg)}` : null,
-      tooltip: METRIC_TOOLTIPS.bodyBattery,
-    },
-    {
-      label: 'HRV',
-      value: stats.hrv ?? '\u2014',
-      valueColor: hrvStatusColor(stats.hrvStatus),
-      suffix: (
-        <>
-          {stats.hrv !== null && <span style={{ fontSize: 13, opacity: 0.6 }}> ms</span>}
-          <DeltaBadge delta={stats.hrvDelta} />
-        </>
-      ),
-      sub: stats.hrvStatus ? (
-        <Tag
-          color={hrvStatusColor(stats.hrvStatus)}
-          style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
-        >
-          {stats.hrvStatus}
-        </Tag>
-      ) : null,
-      tooltip: METRIC_TOOLTIPS.hrv,
-    },
-    {
-      label: 'Resting HR',
-      value: stats.restingHr ?? '\u2014',
-      valueColor: stats.restingHr !== null ? '#ff5252' : '#999',
-      suffix: (
-        <>
-          {stats.restingHr !== null && <span style={{ fontSize: 13, opacity: 0.6 }}> bpm</span>}
-          <DeltaBadge delta={stats.restingHrDelta} invert />
-        </>
-      ),
-      sub: stats.restingHrAvg !== null ? `avg ${Math.round(stats.restingHrAvg)} bpm` : null,
-      tooltip: METRIC_TOOLTIPS.restingHr,
-    },
-    {
-      label: 'Steps',
-      value: stats.steps !== null ? stats.steps.toLocaleString() : '\u2014',
-      valueColor: stats.steps !== null && stats.steps >= 10000 ? '#00c853' : undefined,
-      suffix: <DeltaBadge delta={stats.stepsDelta} />,
-      sub: stats.stepsAvg !== null ? `avg ${Math.round(stats.stepsAvg).toLocaleString()}` : null,
-      tooltip: METRIC_TOOLTIPS.steps,
-    },
-    {
-      label: 'Avg Stress',
-      value: stats.stress ?? '\u2014',
-      valueColor: stressColor(stats.stress),
-      suffix: <DeltaBadge delta={stats.stressDelta} invert />,
-      sub: stats.stressAvg !== null ? `avg ${Math.round(stats.stressAvg)}` : null,
-      tooltip: METRIC_TOOLTIPS.stress,
-    },
-  ]
+  const fitness = useMemo(() => {
+    if (data.length < 3) return null
+    return computeFitnessDirection(data)
+  }, [data])
+
+  const training = useMemo(() => {
+    const loadData = computeTrainingLoad(data)
+    if (loadData.length === 0) return null
+    const latest = loadData[loadData.length - 1]!
+    return latest
+  }, [data])
 
   return (
     <Spin spinning={isLoading}>
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        {cards.map((card) => (
-          <Col xs={12} sm={8} md={4} key={card.label}>
-            <Card size="small">
-              <Statistic
-                title={
-                  <span>
-                    {card.label}
-                    <Tooltip title={card.tooltip} placement="bottom">
-                      <InfoCircleOutlined
-                        style={{
-                          fontSize: 11,
-                          marginLeft: 4,
-                          color: 'rgba(128,128,128,0.45)',
-                          cursor: 'help',
-                        }}
-                      />
-                    </Tooltip>
-                  </span>
-                }
-                value={card.value}
-                valueStyle={{
-                  fontSize: 22,
-                  ...(card.valueColor ? { color: card.valueColor } : {}),
+        {/* Recovery Score */}
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ height: '100%' }}>
+            <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+              Recovery
+              <InfoIcon tooltip={METRIC_TOOLTIPS.recoveryScore} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: recovery?.score !== null ? scoreColor(recovery?.score ?? null) : '#999',
+                  lineHeight: 1,
                 }}
-                suffix={card.suffix}
-              />
-              {card.sub && (
-                <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.6)', marginTop: -2 }}>
-                  {card.sub}
-                </div>
-              )}
-            </Card>
-          </Col>
-        ))}
+              >
+                {recovery?.score ?? '\u2014'}
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: recovery?.score !== null ? scoreColor(recovery?.score ?? null) : '#999',
+                }}
+              >
+                {recovery?.label ?? ''}
+              </span>
+            </div>
+            {recovery && (
+              <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+                {recovery.hrv !== null && <span>HRV {recovery.hrv}ms</span>}
+                {recovery.sleep !== null && <span> | Sleep {recovery.sleep}</span>}
+                {recovery.rhr !== null && <span> | RHR {recovery.rhr}</span>}
+                {recovery.bb !== null && <span> | BB {recovery.bb}</span>}
+              </div>
+            )}
+          </Card>
+        </Col>
+
+        {/* Fitness Direction */}
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ height: '100%' }}>
+            <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+              Fitness
+              <InfoIcon tooltip={METRIC_TOOLTIPS.fitnessTrends} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: fitness?.color ?? '#999',
+                  lineHeight: 1,
+                }}
+              >
+                {fitness?.signal ?? '\u2014'}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: fitness?.color ?? '#999' }}>
+                {fitness?.label ?? 'Need more data'}
+              </span>
+            </div>
+            {fitness && (
+              <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+                {fitness.rhrDelta !== null && (
+                  <span style={{ color: fitness.rhrDelta <= 0 ? '#00c853' : '#ff3d00' }}>
+                    RHR {fitness.rhrDelta > 0 ? '+' : ''}
+                    {fitness.rhrDelta.toFixed(0)}
+                  </span>
+                )}
+                {fitness.hrvDelta !== null && (
+                  <span
+                    style={{
+                      color: fitness.hrvDelta >= 0 ? '#00c853' : '#ff3d00',
+                      marginLeft: 8,
+                    }}
+                  >
+                    HRV {fitness.hrvDelta > 0 ? '+' : ''}
+                    {fitness.hrvDelta.toFixed(0)}
+                  </span>
+                )}
+                {fitness.vo2max !== null && (
+                  <span style={{ marginLeft: 8 }}>VO2 {fitness.vo2max.toFixed(1)}</span>
+                )}
+              </div>
+            )}
+          </Card>
+        </Col>
+
+        {/* Training Balance */}
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ height: '100%' }}>
+            <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+              Training
+              <InfoIcon tooltip={METRIC_TOOLTIPS.trainingLoad} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: training ? acwrZoneColor(training.zone) : '#999',
+                  lineHeight: 1,
+                }}
+              >
+                {training?.acwr?.toFixed(2) ?? '\u2014'}
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: training ? acwrZoneColor(training.zone) : '#999',
+                }}
+              >
+                {training ? acwrZoneLabel(training.zone) : ''}
+              </span>
+            </div>
+            {training && (
+              <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+                Acute {training.acute} | Chronic {training.chronic}
+              </div>
+            )}
+          </Card>
+        </Col>
       </Row>
     </Spin>
   )
