@@ -1,16 +1,8 @@
 import { useList } from '@refinedev/core'
 import { Col, Row, Select, Space, Typography } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
-import {
-  ActivityChart,
-  BodyBatteryChart,
-  FitnessChart,
-  LoadMACDChart,
-  RecoveryTrendChart,
-  SleepChart,
-  StressChart,
-  TrainingLoadChart,
-} from './charts'
+import { ActivityChart, BodyBatteryChart, FitnessChart, SleepChart, StressChart } from './charts'
+import { ACWRThresholdChart, DivergenceThresholdChart, RecoveryThresholdChart } from './visx-charts'
 import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
 import { HeroStats } from './stats'
 import type { DailyMetric, DatePreset } from './types'
@@ -124,10 +116,10 @@ export default function GarminHealthPage() {
           <SectionTitle title="Training Load" />
           <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
             <Col xs={24} lg={12}>
-              <TrainingLoadChart data={metrics} />
+              <ACWRThresholdChart data={metrics} />
             </Col>
             <Col xs={24} lg={12}>
-              <LoadMACDChart data={metrics} />
+              <DivergenceThresholdChart data={metrics} />
             </Col>
           </Row>
         </>
@@ -140,7 +132,7 @@ export default function GarminHealthPage() {
           <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
             {hasRecoveryData && (
               <Col xs={24} lg={12}>
-                <RecoveryTrendChart data={metrics} />
+                <RecoveryThresholdChart data={metrics} />
               </Col>
             )}
             {hasSleepData && (
