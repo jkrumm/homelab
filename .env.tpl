@@ -24,6 +24,11 @@ SLACK_USER_TOKEN=op://homelab/slack/USER_TOKEN
 GOOGLE_CLIENT_ID=op://homelab/google-oauth/CLIENT_ID
 GOOGLE_CLIENT_SECRET=op://homelab/google-oauth/CLIENT_SECRET
 
+# --- Garmin Sync ---
+GARMIN_EMAIL=op://homelab/garmin/EMAIL
+GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
+GARMIN_SYNC_PUSH_URL=op://homelab/garmin/PUSH_URL
+
 # --- Duplicati ---
 DUPLICATI_ENCRYPTION_KEY=op://homelab/duplicati/ENCRYPTION_KEY
 DUPLICATI_WEBSERVICE_PASSWORD=op://homelab/duplicati/WEBSERVICE_PASSWORD

@@ -153,6 +153,14 @@ groups:
             timeout: 48
             retry_interval: 700
 
+          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          # After creating: copy push URL → 1Password homelab/garmin/PUSH_URL
+          - name: Garmin Sync - Push
+            type: push
+            interval: 28800 # 8h — sync runs every 6h + buffer
+            timeout: 48
+            retry_interval: 28800
+
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
             type: http

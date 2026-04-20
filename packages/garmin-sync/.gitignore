@@ -1,0 +1,3 @@
+.venv/
+garmin_sample_*.json
+__pycache__/

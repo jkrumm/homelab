@@ -14,6 +14,9 @@ import { weatherRoutes } from './routes/weather.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
 import { workoutSetRoutes } from './routes/workout-sets.js'
+import { dailyMetricsRoutes } from './routes/daily-metrics.js'
+import { weightLogRoutes } from './routes/weight-log.js'
+import { userProfileRoutes } from './routes/user-profile.js'
 import { registerCronJobs } from './cron/index.js'
 // eslint-disable-next-line import/no-unassigned-import
 import './db/index.js' // Initialize DB and ensure tables exist
@@ -71,6 +74,9 @@ export const app = new Elysia()
   .use(queryRoute)
   .use(workoutRoutes)
   .use(workoutSetRoutes)
+  .use(dailyMetricsRoutes)
+  .use(weightLogRoutes)
+  .use(userProfileRoutes)
   .listen(4000)
 
 export type App = typeof app

@@ -18,7 +18,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export
+.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -41,6 +41,12 @@ help: ## Show all targets
 	@echo "    make down                Stop all services"
 	@echo "    make ps                  Show running containers"
 	@echo "    make logs svc=<name>     Follow logs for a service"
+	@echo ""
+	@echo "  Garmin Sync Operations"
+	@echo "    make garmin-deploy       Full deploy: git pull + rebuild (no cache) + restart"
+	@echo "    make garmin-rebuild      Rebuild image (no cache) + restart (no git pull)"
+	@echo "    make garmin-restart      Restart container only"
+	@echo "    make garmin-logs         Follow garmin-sync logs"
 	@echo ""
 	@echo "  Infrastructure"
 	@echo "    make caddy-reload        Force-recreate Caddy (picks up Caddyfile changes)"
@@ -92,6 +98,20 @@ ps: ## Show running containers
 logs: ## Follow logs for a service: make logs svc=<name>
 	@[ -n "$(svc)" ] || { echo "ERROR: Specify service — make logs svc=<name>"; exit 1; }
 	$(SSH) "docker logs -f --tail=100 $(svc)"
+
+# ── Garmin Sync Operations ───────────────────────────────────────────────────
+
+garmin-deploy: ## Full deploy: git pull + rebuild garmin-sync (no cache) + restart
+	$(SSH) "$(CD) && git pull && $(DC) build --no-cache garmin-sync && $(DC) up -d garmin-sync"
+
+garmin-rebuild: ## Rebuild garmin-sync image (no cache) and restart with secrets
+	$(SSH) "$(CD) && $(DC) build --no-cache garmin-sync && $(DC) up -d garmin-sync"
+
+garmin-restart: ## Restart garmin-sync container (no rebuild)
+	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-sync"
+
+garmin-logs: ## Follow garmin-sync logs
+	$(SSH) "docker logs -f --tail=100 garmin-sync"
 
 # ── Infrastructure ───────────────────────────────────────────────────────────
 

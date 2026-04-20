@@ -560,6 +560,38 @@ services:
       glance.hide: false
       com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
 
+  garmin-sync:
+    build:
+      context: .
+      dockerfile: packages/garmin-sync/Dockerfile
+    container_name: garmin-sync
+    restart: unless-stopped
+    environment:
+      - GARMIN_EMAIL=${GARMIN_EMAIL}
+      - GARMIN_PASSWORD=${GARMIN_PASSWORD}
+      - UPTIME_KUMA_PUSH_URL=${GARMIN_SYNC_PUSH_URL}
+      - DB_PATH=/app/data/homelab.db
+      - TOKEN_DIR=/app/tokens
+      - SYNC_INTERVAL=21600
+      - BACKFILL_DAYS=7
+    volumes:
+      - /home/jkrumm/homelab/packages/api/data:/app/data
+      - /home/jkrumm/ssd/garmin-tokens:/app/tokens
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ['CMD', 'python', '-c', 'import os, time; db="/app/data/homelab.db"; exit(0 if os.path.exists(db) and time.time() - os.path.getmtime(db) < 86400 else 1)']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      glance.parent: API
+      glance.hide: true
+      com.centurylinklabs.watchtower.enable: 'false'
+
   couchdb:
     image: couchdb:3
     container_name: couchdb
