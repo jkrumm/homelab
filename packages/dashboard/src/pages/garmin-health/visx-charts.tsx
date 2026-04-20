@@ -24,13 +24,16 @@ import {
 const MARGIN = { top: 12, right: 16, bottom: 30, left: 44 }
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-function fmtDate(date: string): string {
-  const p = date.split('-')
-  if (p.length !== 3) return date
-  return `${p[2]}.${p[1]}`
+function fmtDate(value: unknown): string {
+  const s = String(value ?? '')
+  // Extract YYYY-MM-DD if present anywhere in the string
+  const match = s.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return `${match[3]}.${match[2]}`
+  return s.length > 10 ? s.slice(0, 10) : s
 }
 
-function fmtTooltipDate(date: string): string {
+function fmtTooltipDate(date: unknown): string {
+  if (typeof date !== 'string') return String(date ?? '')
   const p = date.split('-')
   if (p.length !== 3) return date
   const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
@@ -309,11 +312,13 @@ export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
         ) : null
       }
     >
-      <ParentSize debounceTime={100}>
-        {({ width }) => (
-          <ACWRChartInner data={loadData} width={Math.max(width, 200)} height={280} />
-        )}
-      </ParentSize>
+      <div style={{ height: 280 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <ACWRChartInner data={loadData} width={Math.max(width, 200)} height={280} />
+          )}
+        </ParentSize>
+      </div>
     </Card>
   )
 }
@@ -508,11 +513,13 @@ export function DivergenceThresholdChart({ data }: { data: DailyMetric[] }) {
       size="small"
       style={{ marginBottom: 16 }}
     >
-      <ParentSize debounceTime={100}>
-        {({ width }) => (
-          <DivergenceChartInner data={loadData} width={Math.max(width, 200)} height={280} />
-        )}
-      </ParentSize>
+      <div style={{ height: 280 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <DivergenceChartInner data={loadData} width={Math.max(width, 200)} height={280} />
+          )}
+        </ParentSize>
+      </div>
     </Card>
   )
 }
@@ -751,11 +758,13 @@ export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
       size="small"
       style={{ marginBottom: 16 }}
     >
-      <ParentSize debounceTime={100}>
-        {({ width }) => (
-          <RecoveryChartInner data={chartData} width={Math.max(width, 200)} height={280} />
-        )}
-      </ParentSize>
+      <div style={{ height: 280 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <RecoveryChartInner data={chartData} width={Math.max(width, 200)} height={280} />
+          )}
+        </ParentSize>
+      </div>
     </Card>
   )
 }

@@ -227,11 +227,18 @@ export function computeFitnessSummary(data: DailyMetric[]) {
 }
 
 /** Format date for chart X axis — "17.04" */
-export function formatXDate(date: string | number): string {
-  if (typeof date !== 'string') return String(date)
-  const p = date.split('-')
-  if (p.length !== 3) return date
-  return `${p[2]}.${p[1]}`
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function formatXDate(date: any): string {
+  // Handle Date objects directly
+  if (date instanceof Date) {
+    const dd = String(date.getDate()).padStart(2, '0')
+    const mm = String(date.getMonth() + 1).padStart(2, '0')
+    return `${dd}.${mm}`
+  }
+  const s = String(date ?? '')
+  const match = s.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return `${match[3]}.${match[2]}`
+  return s.length > 10 ? s.slice(0, 10) : s
 }
 
 // ── Training Load (ACWR) ─────────────────────────────────────────────────
