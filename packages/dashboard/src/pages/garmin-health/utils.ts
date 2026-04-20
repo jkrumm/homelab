@@ -227,7 +227,8 @@ export function computeFitnessSummary(data: DailyMetric[]) {
 }
 
 /** Format date for chart X axis — "17.04" */
-export function formatXDate(date: string): string {
+export function formatXDate(date: string | number): string {
+  if (typeof date !== 'string') return String(date)
   const p = date.split('-')
   if (p.length !== 3) return date
   return `${p[2]}.${p[1]}`

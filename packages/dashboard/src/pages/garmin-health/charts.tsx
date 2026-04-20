@@ -39,7 +39,8 @@ const GRID_STROKE = 'rgba(128,128,128,0.15)'
 const CHART_MARGIN = { top: 5, right: 16, bottom: 5, left: 0 }
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-function formatTooltipDate(label: string): string {
+function formatTooltipDate(label: string | number): string {
+  if (typeof label !== 'string') return String(label)
   const parts = label.split('-')
   if (parts.length !== 3) return label
   const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
