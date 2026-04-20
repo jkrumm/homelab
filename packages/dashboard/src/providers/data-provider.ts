@@ -49,6 +49,30 @@ export const dataProvider: DataProvider = {
       return { data: (data ?? []) as never[], total }
     }
 
+    if (resource === 'daily-metrics') {
+      const query: Record<string, string> = {}
+      for (const f of flatFilters) {
+        if (f.field === 'date' && f.operator === 'gte') query.date_from = String(f.value)
+        if (f.field === 'date' && f.operator === 'lte') query.date_to = String(f.value)
+      }
+      const sorter = flatSorters[0]
+      if (sorter) query._order = sorter.order
+      const { data, error, response } = await api['daily-metrics'].get({ query })
+      if (error) throw new Error(String(error.value))
+      const total = Number(response.headers.get('x-total-count') ?? 0)
+      return { data: (data ?? []) as never[], total }
+    }
+
+    if (resource === 'weight-log') {
+      const query: Record<string, string> = {}
+      const sorter = flatSorters[0]
+      if (sorter) query._order = sorter.order
+      const { data, error, response } = await api['weight-log'].get({ query })
+      if (error) throw new Error(String(error.value))
+      const total = Number(response.headers.get('x-total-count') ?? 0)
+      return { data: (data ?? []) as never[], total }
+    }
+
     throw new Error(`Unsupported resource for getList: ${resource}`)
   },
 
@@ -67,6 +91,11 @@ export const dataProvider: DataProvider = {
       if (error) throw new Error(String(error.value))
       return { data: data as never }
     }
+    if (resource === 'weight-log') {
+      const { data, error } = await api['weight-log'].post(variables as never)
+      if (error) throw new Error(String(error.value))
+      return { data: data as never }
+    }
     throw new Error(`Unsupported resource for create: ${resource}`)
   },
 
@@ -82,6 +111,11 @@ export const dataProvider: DataProvider = {
   deleteOne: async ({ resource, id }) => {
     if (resource === 'workouts') {
       const { data, error } = await api.workouts({ id: String(id) }).delete()
+      if (error) throw new Error(String(error.value))
+      return { data: data as never }
+    }
+    if (resource === 'weight-log') {
+      const { data, error } = await api['weight-log']({ id: String(id) }).delete()
       if (error) throw new Error(String(error.value))
       return { data: data as never }
     }

@@ -10,12 +10,14 @@ import {
   CheckSquareOutlined,
   ContainerOutlined,
   DashboardOutlined,
+  HeartOutlined,
   MoonFilled,
   TrophyOutlined,
 } from '@ant-design/icons'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { useCallback, useState } from 'react'
 
+import GarminHealthPage from './pages/garmin-health'
 import StrengthTrackerPage from './pages/strength-tracker'
 
 function getInitialDark(): boolean {
@@ -55,6 +57,14 @@ export default function App() {
             routerProvider={routerProvider}
             notificationProvider={useNotificationProvider}
             resources={[
+              {
+                name: 'daily-metrics',
+                list: '/garmin-health',
+                meta: {
+                  label: 'Garmin Health',
+                  icon: <HeartOutlined />,
+                },
+              },
               {
                 name: 'workouts',
                 list: '/strength-tracker',
@@ -133,9 +143,10 @@ export default function App() {
                   </ThemedLayout>
                 }
               >
-                <Route index element={<Navigate to="/strength-tracker" replace />} />
+                <Route index element={<Navigate to="/garmin-health" replace />} />
+                <Route path="/garmin-health" element={<GarminHealthPage />} />
                 <Route path="/strength-tracker" element={<StrengthTrackerPage />} />
-                <Route path="*" element={<Navigate to="/strength-tracker" replace />} />
+                <Route path="*" element={<Navigate to="/garmin-health" replace />} />
               </Route>
             </Routes>
           </Refine>
