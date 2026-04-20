@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityChart,
   BodyBatteryChart,
+  FitnessChart,
   HeartHrvChart,
   LoadBalanceChart,
   SleepChart,
@@ -141,6 +142,14 @@ export default function GarminHealthPage() {
               </Col>
             )}
           </Row>
+        </>
+      )}
+
+      {/* Fitness Progression */}
+      {hasHeartData && (
+        <>
+          <SectionTitle title="Fitness Progression" />
+          <FitnessChart data={metrics} />
         </>
       )}
 

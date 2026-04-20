@@ -160,6 +160,72 @@ export function buildActivityData(data: DailyMetric[]) {
     }))
 }
 
+// ── Moving Average ───────────────────────────────────────────────────────
+
+function movingAverage(values: (number | null)[], window: number): (number | null)[] {
+  return values.map((_, i) => {
+    const start = Math.max(0, i - window + 1)
+    const slice = values.slice(start, i + 1).filter((v): v is number => v !== null)
+    return slice.length >= Math.min(3, window)
+      ? Math.round((slice.reduce((a, b) => a + b, 0) / slice.length) * 10) / 10
+      : null
+  })
+}
+
+/** Build fitness progression data — 7-day moving averages for trend visibility */
+export function buildFitnessData(data: DailyMetric[]) {
+  const rhrMA = movingAverage(
+    data.map((d) => d.resting_hr),
+    7,
+  )
+  const hrvMA = movingAverage(
+    data.map((d) => d.hrv_last_night_avg),
+    7,
+  )
+
+  return data
+    .map((d, i) => ({
+      date: d.date,
+      rhrMA: rhrMA[i],
+      hrvMA: hrvMA[i],
+      rhr: d.resting_hr,
+      hrv: d.hrv_last_night_avg,
+      vo2max: d.vo2_max,
+    }))
+    .filter((d) => d.rhrMA !== null || d.hrvMA !== null)
+}
+
+/** Compute fitness direction summary */
+export function computeFitnessSummary(data: DailyMetric[]) {
+  // VO2 Max — latest non-null
+  const vo2Values = data.filter((d) => d.vo2_max !== null)
+  const vo2max = vo2Values.length > 0 ? vo2Values[vo2Values.length - 1]!.vo2_max : null
+
+  // RHR trend: compare last 7d avg to first 7d avg (lower = better)
+  const rhrFirst = fieldAvg(data.slice(0, Math.min(7, Math.floor(data.length / 2))), 'resting_hr')
+  const rhrLast = fieldAvg(data.slice(-Math.min(7, Math.ceil(data.length / 2))), 'resting_hr')
+  const rhrDelta = rhrFirst !== null && rhrLast !== null ? rhrLast - rhrFirst : null
+
+  // HRV trend: compare last 7d avg to first 7d avg (higher = better)
+  const hrvFirst = fieldAvg(
+    data.slice(0, Math.min(7, Math.floor(data.length / 2))),
+    'hrv_last_night_avg',
+  )
+  const hrvLast = fieldAvg(
+    data.slice(-Math.min(7, Math.ceil(data.length / 2))),
+    'hrv_last_night_avg',
+  )
+  const hrvDelta = hrvFirst !== null && hrvLast !== null ? hrvLast - hrvFirst : null
+
+  // Chronic load trend (training capacity)
+  const loadData = computeTrainingLoad(data)
+  const chronicFirst =
+    loadData.length > 7 ? loadData[Math.min(6, loadData.length - 1)]!.chronic : null
+  const chronicLast = loadData.length > 0 ? loadData[loadData.length - 1]!.chronic : null
+
+  return { vo2max, rhrDelta, hrvDelta, chronicFirst, chronicLast }
+}
+
 /** Format date for chart X axis */
 export function formatXDate(date: string): string {
   const d = new Date(date)
