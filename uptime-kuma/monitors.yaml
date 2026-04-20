@@ -58,30 +58,6 @@ groups:
             url: http://dozzle:8081/
             interval: 155
 
-          - name: API - Docker
-            type: docker
-            docker_container: api
-            interval: 112
-            timeout: 120
-            maxretries: 5
-
-          - name: API - HTTP
-            type: http
-            url: http://api:4000/health
-            interval: 114
-
-          - name: Dashboard - Docker
-            type: docker
-            docker_container: dashboard
-            interval: 116
-            timeout: 120
-            maxretries: 5
-
-          - name: Dashboard - HTTP
-            type: http
-            url: http://dashboard:80/
-            interval: 118
-
           - name: Docker Socket Proxy - Docker
             type: docker
             docker_container: docker-socket-proxy
@@ -152,14 +128,6 @@ groups:
             interval: 700 # Cron runs every 10 min (600s) + buffer for execution
             timeout: 48
             retry_interval: 700
-
-          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
-          # After creating: copy push URL → 1Password homelab/garmin/PUSH_URL
-          - name: Garmin Sync - Push
-            type: push
-            interval: 28800 # 8h — sync runs every 6h + buffer
-            timeout: 48
-            retry_interval: 28800
 
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
@@ -278,11 +246,35 @@ groups:
             headers:
               Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
 
-      # --- CouchDB subgroup ---
-      - name: CouchDB
+      # --- Apps subgroup ---
+      - name: Apps
         type: group
-        interval: 245
+        interval: 210
         monitors:
+          - name: API - Docker
+            type: docker
+            docker_container: api
+            interval: 112
+            timeout: 120
+            maxretries: 5
+
+          - name: API - HTTP
+            type: http
+            url: http://api:4000/health
+            interval: 114
+
+          - name: Dashboard - Docker
+            type: docker
+            docker_container: dashboard
+            interval: 116
+            timeout: 120
+            maxretries: 5
+
+          - name: Dashboard - HTTP
+            type: http
+            url: http://dashboard:80/
+            interval: 118
+
           - name: CouchDB - Docker
             type: docker
             docker_container: couchdb
@@ -295,6 +287,15 @@ groups:
             url: http://couchdb:5984/_up
             interval: 200
             accepted_statuscodes: ['200-299']
+
+          # Push monitors
+          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          # After creating: copy push URL → 1Password homelab/garmin/PUSH_URL
+          - name: Garmin Sync - Push
+            type: push
+            interval: 28800 # 8h — sync runs every 6h + buffer
+            timeout: 48
+            retry_interval: 28800
 
   # ============================================
   # IU Mac - M2 Max local AI machine

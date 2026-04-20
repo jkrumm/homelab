@@ -566,6 +566,8 @@ services:
       dockerfile: packages/garmin-sync/Dockerfile
     container_name: garmin-sync
     restart: unless-stopped
+    networks:
+      - cloudflared
     environment:
       - GARMIN_EMAIL=${GARMIN_EMAIL}
       - GARMIN_PASSWORD=${GARMIN_PASSWORD}
