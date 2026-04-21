@@ -1,352 +1,346 @@
-# Garmin Health Analytics — PRD
+# Garmin Health Analytics — Reference
 
-> Wearable-enriched health analytics. 33 daily Garmin metrics distilled into 4 actionable answers.
-> The goal is not to display raw data — it's to answer questions and surface insights.
+> Wearable-enriched health analytics. ~33 daily Garmin metrics distilled into 4 actionable answers.
+> The goal is not to display raw data — it's to **answer questions and surface insights**.
+>
+> This doc is the analytics reference (the *what* and *why*). For chart implementation status,
+> kind/primitive contracts, and migration phases, see [CHARTS-VISX-MIGRATION.md](./CHARTS-VISX-MIGRATION.md).
 
 ---
 
 ## The 4 Questions This Dashboard Answers
 
-| # | Question | Composite Signal | Minimum data |
+| # | Question | Composite signal | Min data |
 |-|-|-|-|
-| 1 | Am I recovered enough today? | Recovery Score (0-100) | 7 days |
+| 1 | Am I recovered enough today? | Recovery Score (0–100) | 7 days |
 | 2 | Am I getting fitter over time? | Fitness Direction (5-level) | 14 days |
-| 3 | Am I training the right amount? | Training Balance (ACWR) | 14 days |
-| 4 | How well am I sleeping? | Sleep Quality | Immediate |
+| 3 | Am I training the right amount? | Daily Activity Score + ACWR | 14 days |
+| 4 | How well am I sleeping? | Sleep Score + diverging stage stack | Immediate |
 
-Everything in this document serves these 4 questions. If a metric or chart doesn't help answer one of them, it doesn't belong in the primary view.
+If a metric doesn't help answer one of these four, it's supporting context, not a primary view.
 
 ---
 
-## Part 1: Data Architecture
+## Part 1 — Data Architecture
 
-### 1.1 Data Flow
+### 1.1 Flow
 
 ```mermaid
 graph LR
-    subgraph Input
-        GC[Garmin Connect API]
-        WL[Manual Weight Log]
-    end
-
-    subgraph Sync
-        GS[garmin-sync<br/>Python, 6h, 7-day backfill]
-    end
-
-    subgraph Storage
-        DB[(SQLite<br/>WAL mode)]
-    end
-
-    subgraph Compute
-        API[Elysia API<br/>GET /daily-metrics]
-        CLIENT[Dashboard<br/>client-side analytics]
-    end
-
-    GC --> GS --> DB
-    WL -->|POST /weight-log| DB
-    DB --> API --> CLIENT
-    CLIENT -->|4 answers| USER((User))
+  subgraph Input
+    GC[Garmin Connect API]
+    WL[Manual Weight Log]
+  end
+  subgraph Sync
+    GS[garmin-sync sidecar<br/>Python · 6h cadence · 7-day backfill]
+  end
+  subgraph Storage
+    DB[(SQLite WAL)]
+  end
+  subgraph Compute
+    API[Elysia API<br/>GET /daily-metrics]
+    CLIENT[Dashboard<br/>client-side analytics]
+  end
+  GC --> GS --> DB
+  WL -->|POST /weight-log| DB
+  DB --> API --> CLIENT
+  CLIENT -->|4 answers| USER((User))
 ```
 
 ### 1.2 Source Data
 
-**daily_metrics** — one row per day, 33 nullable fields:
+`daily_metrics` — one row per day, all fields nullable.
 
 | Category | Fields | Purpose |
 |-|-|-|
-| Activity | steps, distance_m, total_kcal, active_kcal, floors_ascended, moderate_intensity_min, vigorous_intensity_min | Training load input, activity tracking |
-| Heart Rate | resting_hr, max_hr, min_hr | Cardiovascular fitness trend |
-| HRV | hrv_last_night_avg, hrv_last_night_5min_high, hrv_weekly_avg, hrv_status | Recovery capacity, autonomic health |
-| Sleep | sleep_score, sleep_duration_sec, deep_sleep_sec, light_sleep_sec, rem_sleep_sec, awake_sleep_sec, avg_sleep_stress, avg_sleep_hr, avg_sleep_respiration | Sleep quality, recovery input |
-| Stress & Energy | avg_stress, max_stress, bb_highest, bb_lowest, bb_charged, bb_drained | Energy balance, stress load |
-| Respiration | avg_waking_respiration | Illness early warning |
-| SpO2 | avg_spo2, lowest_spo2 | Sleep apnea screening |
-| Fitness | vo2_max | Cardiorespiratory fitness |
+| Activity | `steps`, `distance_m`, `total_kcal`, `active_kcal`, `floors_ascended`, `moderate_intensity_min`, `vigorous_intensity_min` | Daily Activity Score input |
+| Heart Rate | `resting_hr`, `max_hr`, `min_hr` | Cardiovascular fitness trend |
+| HRV | `hrv_last_night_avg`, `hrv_last_night_5min_high`, `hrv_weekly_avg`, `hrv_status` | Recovery capacity, autonomic load |
+| Sleep | `sleep_score`, `sleep_duration_sec`, `deep_sleep_sec`, `light_sleep_sec`, `rem_sleep_sec`, `awake_sleep_sec`, `avg_sleep_stress`, `avg_sleep_hr`, `avg_sleep_respiration` | Sleep quality, recovery input |
+| Stress & Energy | `avg_stress`, `max_stress`, `bb_highest`, `bb_lowest`, `bb_charged`, `bb_drained` | Energy balance |
+| Respiration | `avg_waking_respiration` | Illness early warning |
+| SpO2 | `avg_spo2`, `lowest_spo2` | Sleep apnea screening |
+| Fitness | `vo2_max` | Cardiorespiratory fitness |
 
-**Supporting tables:** weight_log (manual body weight), user_profile (height, birth_date, gender, goal_weight)
+**Supporting tables:** `weight_log`, `user_profile`.
 
-**Key design decisions:**
-- **All computation is client-side** — the API returns raw rows, the dashboard derives everything. This keeps the API simple and allows iterating on analytics without API changes.
-- **No per-workout HR streams** — Garmin syncs daily summaries only. Training load is approximated from intensity minutes, not EPOC or TRIMP.
-- **Null-safe everywhere** — any field can be null on any day. Components gracefully degrade.
+### 1.3 Design Constraints
+
+- **All computation client-side.** API returns raw rows; the dashboard derives everything. Iterate on analytics without touching the API.
+- **No per-workout HR streams.** Garmin syncs daily aggregates only. This rules out true TRIMP / Whoop-Strain (which need per-minute HR). We approximate effort via **MET-minutes** instead — see Part 2.
+- **Null-safe everywhere.** Any field can be null on any day. Components degrade gracefully.
 
 ---
 
-## Part 2: Metric Definitions
+## Part 2 — Metric Definitions
 
-### 2.1 Stored Metrics (raw, from Garmin sync)
+### 2.1 Stored Metrics
 
-33 fields arrive as-is from the Garmin Connect API. See schema in CLAUDE.md for full field reference. All nullable — sensor availability varies by day and watch model.
+Arrive raw from the Garmin Connect API. Schema documented in `packages/dashboard/src/pages/garmin-health/types.ts`.
 
-### 2.2 Computed Metrics (per-day transformations)
+### 2.2 Daily Activity Score (canonical effort metric)
 
-Derived from single-day data. No historical context needed.
-
-**Sleep Duration (hours)**
-```
-sleep_hours = sleep_duration_sec / 3600
-```
-
-**Sleep Stage Distribution (%)**
-```
-total_stages = deep + light + rem + awake
-deep%  = deep / total_stages x 100
-rem%   = rem / total_stages x 100
-light% = light / total_stages x 100
-```
-Targets: Deep 13-23%, REM 20-25%. Consistently low deep or REM may indicate alcohol, stress, or sleep disorders.
-
-**Weighted Intensity Load (daily training stress proxy)**
-```
-daily_load = moderate_intensity_min x 1.0 + vigorous_intensity_min x 1.8
-```
-The 1.8 vigorous multiplier derives from Banister zone-midpoint TRIMP weighting (%HRR ~0.72 vs ~0.55 for moderate). This is the best available proxy without per-workout HR streams.
-
-**Stress-Recovery Ratio**
-```
-sr_ratio = bb_charged / bb_drained
-```
-Values > 1.0 = more recovery than drain. Consistently < 0.8 = chronic energy deficit.
-
-### 2.3 Derived Metrics (time-series analysis)
-
-Require historical data. Computed client-side from the daily metrics array.
-
-**Moving Averages (MA)**
-```
-MA(field, N) = mean of last N non-null values
-
-Used: RHR 7d MA, HRV 7d MA
-Minimum 3 valid values within window required.
-```
-
-**EWMA (Exponentially Weighted Moving Average)**
-
-From Hulin et al. (2017, BJSM). Decays older values exponentially — more sensitive to recent load changes than simple rolling averages.
+The single source of truth for "how hard did I work today" — replaces the old TRIMP-style `mod×1 + vig×1.8` formula. Built from MET-multipliers per the **Compendium of Physical Activities** (Ainsworth et al. 2011), the citable standard for activity intensity scoring.
 
 ```
-lambda = 2 / (N + 1)
-ewma_today = load x lambda + ewma_prev x (1 - lambda)
+intensity_steps  = (moderate_min + vigorous_min) × 100   # de-double-count
+walking_steps    = max(0, steps − intensity_steps)
+walking_score    = walking_steps × 0.03                  # ≈3 MET, ~1 min per 100 steps
+moderate_score   = moderate_min × 4                       # 4 MET (mid of 3–6 range)
+vigorous_score   = vigorous_min × 8                       # 8 MET (mid of 6–10+ range)
 
-Acute:  lambda = 2/(7+1)  = 0.25    (~7-day half-life)
-Chronic: lambda = 2/(28+1) = 0.069   (~28-day half-life)
-
-Seed: mean of first min(7, available) days
+score (MET-min)  = walking_score + moderate_score + vigorous_score
 ```
 
-**ACWR (Acute:Chronic Workload Ratio)**
+**Daily target:** 600 MET-min — the "100% day" reference. Calibrated for a sportive young adult. WHO's weekly floor is 500–1000 MET-min/week; 600/day sits ~3.5× that, consistent with trained athletes.
+
+**Properties:**
+
+- WHO's "1 vigorous = 2 moderate" weighting is preserved naturally (8/4 = 2).
+- Walking earns score for low-intensity daily volume, not only structured workouts.
+- Steps already counted as intensity-min (≈100 steps/min) are excluded from the walking term to avoid double counting.
+- Bounded only by your activity — no artificial cap. A 90-min vigorous day legitimately scores ~720+.
+
+**Reference values for a sportive young adult (45 vig min/day target):**
+
+| Day type | vig | mod | steps | Score | % of target |
+|-|-|-|-|-|-|
+| Rest | 0 | 0 | 8 000 | 240 | 40% |
+| Moderate | 0 | 45 | 10 000 | 480 | 80% |
+| Active | 45 | 15 | 12 000 | 540 | 90% |
+| Hard | 60 | 0 | 14 000 | 780 | 130% |
+
+**Why MET-min beats Whoop Strain here:** Whoop's 0–21 strain requires per-minute HR. We don't have it. MET-min is reproducible from daily aggregates, well-validated in exercise science, and interpretable.
+
+### 2.3 Single-Day Computed Metrics
+
+Derived from one day, no historical context.
+
+```
+sleep_hours          = sleep_duration_sec / 3600
+deep%/light%/rem%    = stage / (deep+light+rem+awake) × 100
+sr_ratio             = bb_charged / bb_drained          # >1 = recovering
+```
+
+Sleep targets: deep 13–23%, REM 20–25%. Persistent low deep/REM may indicate alcohol, stress, or a sleep disorder.
+
+### 2.4 Time-Series Metrics
+
+**Moving averages** — `MA(field, N) = mean of last N non-null values`. Min 3 valid in window.
+Used: RHR 7d MA, HRV 7d MA, Activity Score 30d MA.
+
+**EWMA (exponentially weighted)** — Hulin et al. (2017, BJSM). Decays old values:
+
+```
+λ            = 2 / (N + 1)
+ewma_today   = load × λ + ewma_prev × (1 − λ)
+
+acute        λ = 2/(7+1)  = 0.250   (~7-day half-life)
+chronic      λ = 2/(28+1) ≈ 0.069   (~28-day half-life)
+
+seed         mean of first min(7, available) days
+```
+
+The `load` input here is the **Daily Activity Score** (MET-min) — same metric as the Activity card, so the page has one shared definition of effort.
+
+### 2.5 ACWR (Acute:Chronic Workload Ratio)
+
 ```
 ACWR = ewma_acute / ewma_chronic
-
-Zones (Gabbett 2016, BJSM):
-  < 0.8   Undertrained  — insufficient stimulus, detraining risk
-  0.8-1.3 Optimal       — adaptation sweet spot
-  1.3-1.5 Caution       — elevated injury risk
-  > 1.5   Danger        — high injury probability
-```
-The >1.5 threshold has strong empirical backing. The 0.8-1.3 "sweet spot" is practitioner convention — the lower bound is less evidence-based than the upper.
-
-**Load Divergence (MACD-style)**
-```
-divergence = ewma_acute - ewma_chronic
-
-Positive = building load (acute rising above baseline)
-Negative = shedding load (detraining or recovery phase)
-Crossover (sign change) = load direction inflection point
-```
-Inspired by the MACD indicator from technical analysis. The divergence histogram shows the rate and direction of load change. Green bars when building, red when shedding.
-
-**Recovery Score (0-100)**
-
-Weighted composite of 4 inputs, each normalized against the period baseline:
-
-```
-recovery = (
-  hrv_component  x 0.35 +
-  sleep_component x 0.30 +
-  rhr_component  x 0.20 +
-  bb_component   x 0.15
-)
-
-where:
-  hrv_component  = min(100, (hrv_today / hrv_period_avg) x 100)
-  sleep_component = sleep_score  (already 0-100)
-  rhr_component  = (1 - (rhr - rhr_min) / (rhr_max - rhr_min)) x 100
-  bb_component   = bb_highest  (already 0-100, morning peak energy)
-
-If a component is null, redistribute its weight proportionally.
-
-Zones:
-  >= 70  Push   — train hard, attempt intensity
-  40-69  Normal — standard session
-  < 40   Rest   — prioritize recovery
 ```
 
-**Fitness Direction (5-level signal)**
+| Range | Zone | Interpretation |
+|-|-|-|
+| < 0.8 | Undertrained | insufficient stimulus, detraining risk |
+| 0.8–1.3 | Optimal | adaptation sweet spot |
+| 1.3–1.5 | Caution | elevated injury risk |
+| > 1.5 | Danger | high injury probability |
 
-Combines RHR and HRV trend slopes over the available data window:
+Thresholds from Gabbett (2016, BJSM). Strong empirical support for the >1.5 upper bound; the 0.8 lower bound is practitioner convention. Ratio is scale-invariant — switching the underlying load definition (TRIMP → MET-min) preserves zone meaning.
+
+### 2.6 Load Divergence (MACD-style)
 
 ```
-rhr_slope = linear regression slope of RHR values
-hrv_slope = linear regression slope of HRV values
-
-rhr_improving = rhr_slope < -0.05 bpm/day
-hrv_improving = hrv_slope > 0.1 ms/day
-rhr_declining = rhr_slope > 0.05 bpm/day
-hrv_declining = hrv_slope < -0.1 ms/day
-
-Signal:
-  Accelerating    both improving
-  Improving       one improving, neither declining
-  Maintaining     neither improving nor declining
-  Declining       one declining, neither improving
-  Regressing      both declining
+divergence = ewma_acute − ewma_chronic
 ```
 
-VO2 Max trend can override when available (>=2 measurements): rising VO2 Max with flat RHR/HRV = still improving.
+Positive = building load (acute above baseline). Negative = shedding load (deload or detraining). Sign change = inflection point. Visual: green bars when positive, red when negative.
+
+### 2.7 Recovery Score (0–100)
+
+Weighted composite, with optional strain-context adjustment.
+
+```
+recovery_raw =
+  hrv_component      × 0.35 +
+  sleep_component    × 0.30 +
+  rhr_component      × 0.20 +
+  bb_component       × 0.15
+
+  hrv_component   = min(100, (hrv_today / hrv_period_avg) × 100)
+  sleep_component = sleep_score                                       (0–100)
+  rhr_component   = (1 − (rhr − rhr_min) / (rhr_max − rhr_min)) × 100
+  bb_component    = bb_highest                                        (0–100)
+
+  Null components → redistribute weight proportionally.
+```
+
+**Strain-debt adjustment** (proposed; not yet implemented — see CHARTS-VISX-MIGRATION.md Phase A4):
+
+```
+strain_debt = clamp(0, 1, yesterday_score / 1000)
+recovery    = recovery_raw × (1 − strain_debt × 0.20)
+```
+
+A maximum-effort yesterday (1 000 MET-min) drags today's recovery by 20%. A typical hard day (700) shaves ~14%. Rest days don't penalise.
+
+**Zones:**
+
+| Range | Verdict |
+|-|-|
+| ≥ 70 | **Push** — train hard, attempt intensity |
+| 40–69 | **Normal** — standard session |
+| < 40 | **Rest** — prioritise recovery |
+
+### 2.8 Fitness Direction (5-level signal)
+
+Linear-regression slope over the available window for RHR + HRV.
+
+```
+rhr_improving  = rhr_slope < −0.05 bpm/day
+hrv_improving  = hrv_slope > +0.10 ms/day
+rhr_declining  = rhr_slope > +0.05 bpm/day
+hrv_declining  = hrv_slope < −0.10 ms/day
+
+Accelerating   both improving
+Improving      one improving, none declining
+Maintaining    neither improving nor declining
+Declining      one declining, none improving
+Regressing     both declining
+```
+
+VO2 Max trend (when ≥2 measurements present) overrides: rising VO2 with flat RHR/HRV → still improving.
+
+### 2.9 Sleep Score Bands (Garmin)
+
+```
+≥90  Excellent
+80–89  Good
+60–79  Fair
+<60   Poor
+```
 
 ---
 
-## Part 3: Composite Signals
+## Part 3 — Composite Signals
 
-### 3.1 Overtraining Detection
-
-No single metric reliably detects overtraining. Combining signals:
+### 3.1 Overtraining Signal
 
 ```
-Overtraining signal =
-  ACWR > 1.3                                     — load spike
-  AND recovery_score < 50                         — poor recovery
-  AND (rhr_7d_ma rising OR hrv_7d_ma declining)   — physiological stress
-
-Confidence increases with:
-  - Sleep score < 60 for 3+ consecutive days
-  - avg_stress > 50 for 3+ consecutive days
-  - Body battery failing to reach 75 for 3+ days
+ACWR > 1.3
+AND recovery_score < 50
+AND (rhr_7d_MA rising OR hrv_7d_MA declining)
 ```
 
-### 3.2 Detraining Detection
+Confidence rises with: sleep score < 60 for 3+ days · avg_stress > 50 for 3+ days · BB never reaching 75 for 3+ days.
+
+### 3.2 Detraining Signal
 
 ```
-Detraining signal =
-  ACWR < 0.8                  — insufficient load
-  AND chronic_load declining  — capacity dropping
-  AND rhr_trending_up         — cardiovascular deconditioning
+ACWR < 0.8
+AND chronic_load declining
+AND rhr trending up
 ```
 
 ### 3.3 Training-Recovery Alignment
 
-The most actionable insight: is today's training level appropriate for today's recovery state?
+The most actionable insight — is today's training appropriate for today's recovery state?
 
-```
-Aligned (good):
-  Recovery >= 70  + ACWR 1.0-1.3   — recovered AND pushing = ideal
-  Recovery 40-69  + ACWR 0.8-1.0   — moderate all around = sustainable
-  Recovery < 40   + ACWR < 0.8     — resting AND reducing = correct deload
-
-Misaligned (warning):
-  Recovery < 40   + ACWR > 1.3     — exhausted AND pushing = injury risk
-  Recovery >= 70  + ACWR < 0.8     — fully recovered, not training = wasted potential
-```
+| Recovery | ACWR | Verdict |
+|-|-|-|
+| ≥ 70 | 1.0–1.3 | **Aligned · push** — recovered AND pushing → ideal |
+| 40–69 | 0.8–1.0 | **Aligned · sustain** — moderate all around |
+| < 40 | < 0.8 | **Aligned · deload** — resting AND reducing → correct |
+| < 40 | > 1.3 | **Misaligned · risk** — exhausted AND pushing → injury |
+| ≥ 70 | < 0.8 | **Misaligned · waste** — fully recovered, not training |
 
 ---
 
-## Part 4: Visualization Strategy
+## Part 4 — Visualisation Strategy
 
-### 4.1 Dashboard Layout
+### 4.1 Layout
 
 ```
-+--------------------------------------------------------------+
-|  HERO ROW (3 composite cards — the three-second read)        |
-|  [Recovery: 74 Normal] [Fitness: Improving] [ACWR: 1.04]     |
-+--------------------------------------------------------------+
-|  SECTION 1: FITNESS PROGRESSION (full width)                 |
-|  RHR 7d MA + HRV 7d MA + VO2 Max dots                       |
-|  Faint daily dots + bold trend lines                         |
-+-------------------------------+------------------------------+
-|  SECTION 2: TRAINING LOAD    |                              |
-|  [ACWR ratio + zone bands]   | [Load MACD — divergence]    |
-+-------------------------------+------------------------------+
-|  SECTION 3: RECOVERY & SLEEP                                |
-|  [Recovery trend + zones]    | [Sleep stages + score]       |
-+-------------------------------+------------------------------+
-|  SECTION 4: SUPPORTING METRICS (secondary)                   |
-|  [Body Battery range]  [Stress levels]  [Steps + Activity]  |
-+--------------------------------------------------------------+
+┌────────────────────────────────────────────────────────────────┐
+│ HERO ROW (3 composite cards — the three-second read)           │
+│ [Recovery 74 Normal] [Fitness Improving] [ACWR 1.04 Optimal]   │
+├────────────────────────────────────────────────────────────────┤
+│ SECTION 1 · EFFORT & ADAPTATION (50/50)                        │
+│ [Daily Activity (MET-min Score)]   [Fitness Trends]            │
+├────────────────────────────────────────────────────────────────┤
+│ SECTION 2 · TRAINING LOAD (50/50)                              │
+│ [ACWR + zones]                     [Load Divergence (MACD)]    │
+├────────────────────────────────────────────────────────────────┤
+│ SECTION 3 · RECOVERY & SLEEP (50/50)                           │
+│ [Recovery Trend + zones]           [Sleep Breakdown diverging] │
+├────────────────────────────────────────────────────────────────┤
+│ SECTION 4 · BODY STATE (50/50)                                 │
+│ [Body Battery range]               [Stress Levels]             │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Advanced Chart Techniques
+Activity sits next to Fitness Trends — pairs "what I did today" with "what my body is becoming". Training-load pair (ACWR + Divergence) reads as one story. The 33/33/33 supporting row is gone; everything is paired or hero.
 
-**Synced Cursors**
-All charts share `syncId="garmin"`. Hovering any chart highlights the same date across all charts simultaneously. This enables cross-metric correlation at a glance — see how a recovery dip corresponds to a training spike on the same day.
+### 4.2 Cross-Chart Hover Sync
 
-**MACD-Style Divergence (Training Load)**
-Two-panel stacked chart:
-- Top panel: Acute (orange) + Chronic (red) signal lines
-- Bottom panel: Divergence histogram (acute - chronic)
-  - Green bars when positive (building load)
-  - Red bars when negative (shedding load)
-  - Crossover points indicate load direction changes
-- Both panels synchronized via syncId. Top hides x-axis labels.
+`HoverContext` provider wraps the page. Hovering any chart's overlay broadcasts the date; every other chart draws a ghost crosshair at the same x. Direct hover also shows the tooltip. Implemented via `useHoverSync<T>` hook — never reimplement the closest-point loop inline.
 
-**Gradient Zone Fills (Recovery Trend)**
-- Background ReferenceAreas: green (70-100), yellow (40-70), red (0-40)
-- Area chart with vertical SVG gradient: green at top fading to red at bottom
-- Creates intuitive visual: high recovery = green area, low = red area
+### 4.3 Chart-Specific Treatments
 
-**Faint/Bold Overlay (Fitness Trends)**
-- Daily values as small dots with 25% opacity (noise layer)
-- 7-day moving average as bold 2.5px lines (signal layer)
-- VO2 Max as prominent orange dots with white border (sparse events)
-- RHR on reversed Y-axis (lower = top = better)
-- Dual Y-axes: bpm (left, inverted) and ms (right, normal)
-
-**Dynamic Bar Coloring**
-Using Recharts `<Cell>` component to color individual bars based on value:
-- Positive divergence bars → green
-- Negative divergence bars → red
-- ACWR threshold coloring → zone-based
-
-### 4.3 Mobile Behavior
-
-All chart rows collapse to single-column on `< 768px`. Hero cards shrink to show value + label only. Chart heights reduce proportionally.
+| Chart | Visx kind / shape | Notes |
+|-|-|-|
+| Daily Activity | `Bars` (stacked) | 3 segments: walking (light) → moderate (dark green) → vigorous (orange). Header shows today's Score. 30d trend dashed grey on left axis. Target band ≥600. |
+| Fitness Trends | bespoke dual-axis | RHR (left, inverted) + HRV (right) as 7-day MA lines, VO2 Max as orange dots. |
+| ACWR | `ZonedLine` | 0.8/1.3/1.5 ref lines, optimal-zone band, threshold fills (green above 0.8 threshold, red above 1.3). |
+| Load Divergence | bespoke dual-panel | Top: acute + chronic lines colour-flipping at crossover. Bottom: divergence histogram, green when positive. |
+| Recovery Trend | `ZonedLine` | Push/Normal/Rest zone bands, threshold-fill above/below. |
+| Sleep Breakdown | `Bars` (diverging) | Deep/Light/REM stack above baseline, Awake stack below. Sleep score line on right axis. Target band 7–9h. |
+| Body Battery | bespoke (planned) | Filled high-low band via visx `<Threshold>`, ref line at 50. |
+| Stress Levels | bespoke (planned) | Avg + sleep stress lines, ref lines at 25 and 50. |
 
 ---
 
-## Part 5: What's Displayed vs. What's Input
+## Part 5 — Tier System
 
 | Tier | Content | Purpose |
 |-|-|-|
-| **Tier 1 — Answers** | 3 hero cards (Recovery, Fitness, Training) | Three-second read |
-| **Tier 2 — Evidence** | Fitness Trends, ACWR, Load MACD, Recovery Trend, Sleep | The data behind the answers |
-| **Tier 3 — Supporting** | Body Battery, Stress, Activity | Raw inputs for drill-down |
+| Tier 1 — Answers | 3 hero cards | Three-second read |
+| Tier 2 — Evidence | All 8 charts | The data behind the answers |
+| Tier 3 — Drill-down | Tooltip per chart | Specific values for any date |
 
-The dashboard reads top-to-bottom as: answer → evidence → supporting data.
+The dashboard reads top-to-bottom: answer → evidence → date-level detail.
 
 ---
 
-## Part 6: Implementation Phases
+## Part 6 — Implementation Status
 
-### Phase 1 — Data Pipeline (done)
-- garmin-sync container (Python, 6h interval, 7-day backfill)
-- 33-field daily_metrics table with null-safe upserts
-- API routes (GET /daily-metrics, CRUD /weight-log, GET+PUT /user-profile)
-- UptimeKuma monitoring, Slack alerts
+| Phase | Status | Notes |
+|-|-|-|
+| Data pipeline | ✅ done | garmin-sync sidecar (6h, 7-day backfill), 33-field daily_metrics, API CRUD, monitoring |
+| Raw dashboard | ✅ done | 6 stat cards, 5 raw charts, ACWR + Load Balance, Fitness Trends, tooltip context |
+| Composite hero cards | ✅ done | Recovery, Fitness Direction, Training Balance |
+| Visx migration — primitives + ZonedLine + Bars | ✅ done | `AxisRightNumeric`, `Bars` kind (stacked/grouped, weights, dual axis), tokens, `VX.goodSoft`/`vigorousMin` |
+| Sleep diverging redesign | ✅ done | Bars kind with negativeBars, target band, score line on right axis |
+| Daily Activity → MET-min Score | ✅ done | Stacked walking/moderate/vigorous, 30d trend, header chip, target zone |
+| **Activity tooltip cleanup + layout reorg** | ⏳ pending | Score → header only, drop duplicate rows. Activity moves 50/50 next to Fitness Trends. |
+| **Unify computeTrainingLoad on MET-min** | ⏳ pending | Replaces `mod×1 + vig×1.8`; ACWR/Divergence use the same effort metric as Activity |
+| **Recovery + strain-debt adjustment** | ⏳ pending | Optional; subtracts up to 20% based on yesterday's score |
+| Migrate Fitness Trends to visx | ⏳ pending | Bespoke (single-instance dual-axis line + dot scatter) |
+| Migrate Body Battery to visx | ⏳ pending | Bespoke (range band via `<Threshold>`) |
+| Migrate Stress Levels to visx | ⏳ pending | Bespoke (area + line + ref lines) |
+| Drop recharts entirely | ⏳ pending | After three remaining migrations land |
 
-### Phase 2 — Raw Dashboard (done)
-- 6 raw stat cards (sleep, BB, HRV, RHR, steps, stress)
-- 5 raw metric charts (sleep stages, body battery, HR/HRV, stress, activity)
-- ACWR + Load Balance charts
-- Fitness Trends chart (RHR/HRV moving averages)
-- Health-context tooltips on every metric
-
-### Phase 3 — Analytics Dashboard (current)
-- 3 composite hero cards (Recovery Score, Fitness Direction, Training Balance)
-- MACD-style training load chart (two-panel: lines + divergence histogram)
-- Recovery Score trend chart with gradient zone fills
-- Synced cursors across all charts
-- Restructured layout: answers → evidence → supporting
-- Fitness Direction with linear regression slope analysis
+See `docs/CHARTS-VISX-MIGRATION.md` for phase-by-phase implementation prompts.
 
 ---
 
@@ -354,11 +348,12 @@ The dashboard reads top-to-bottom as: answer → evidence → supporting data.
 
 | Source | Contribution |
 |-|-|
+| Ainsworth et al. (2011) — *Compendium of Physical Activities* | MET multipliers (8 vigorous, 4 moderate, 3 walking) |
+| WHO (2020) — Physical Activity Guidelines | 1 vigorous min = 2 moderate; 500–1000 MET-min/week target |
 | Hulin et al. (2017) — BJSM | EWMA model for ACWR, superior to rolling average |
-| Gabbett (2016) — BJSM | Training-injury prevention paradox, ACWR zone thresholds |
-| Banister (1991) — TRIMP | Training impulse formula, HR zone weighting |
-| Firstbeat Analytics / Garmin | Body Battery, Training Load, HRV Status algorithms |
-| PMC8138569 (2021) | ACWR systematic review — upper threshold well-supported, lower less so |
-| Nature Scientific Reports (2025) | HRV-guided training readiness |
-| WHO (2020) | Physical activity guidelines (150-300 moderate min/week) |
-| Bevel Health | ACWR visualization patterns, Load Balance concept |
+| Gabbett (2016) — BJSM | Training-injury prevention, ACWR zone thresholds |
+| Banister (1991) — TRIMP | Original training-impulse formula (now superseded here) |
+| Firstbeat Analytics / Garmin | Body Battery, HRV Status algorithms |
+| Whoop — *How Strain Works 101* | Confirmed Strain needs per-minute HR; informed why we use MET-min instead |
+| Nature Sci Reports (2025) | HRV-guided training readiness |
+| PMC8138569 (2021) | ACWR systematic review — upper threshold supported, lower less so |
