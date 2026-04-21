@@ -17,5 +17,27 @@
     "import/no-duplicates": "error",
     "import/no-unassigned-import": "off"
   },
-  "ignorePatterns": ["packages/api/src/generated/**", "packages/dashboard/dist/**"]
+  "ignorePatterns": ["packages/api/src/generated/**", "packages/dashboard/dist/**"],
+  "overrides": [
+    {
+      "files": [
+        "packages/dashboard/src/charts/**",
+        "packages/dashboard/src/pages/**/visx-charts.tsx",
+        "packages/dashboard/src/pages/**/charts.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@visx/tooltip",
+                "message": "Use ChartTooltip + TooltipHeader/Row/Body from src/charts/primitives instead — they are theme-aware."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
