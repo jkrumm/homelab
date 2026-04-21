@@ -577,6 +577,7 @@ const activityGetValue = (d: ActivityPoint, k: string): number | null => {
 
 export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildActivityData(data), [data])
+  const { line2 } = useVxTheme()
 
   return (
     <ChartCard title="Daily Activity" tooltip={METRIC_TOOLTIPS.intensityMinutes}>
@@ -610,7 +611,7 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
                 {
                   key: 'stepsMA',
                   label: '30d avg',
-                  color: VX.series.steps,
+                  color: line2,
                   axisSide: 'left',
                   dashed: true,
                   strokeWidth: 1.5,
@@ -642,7 +643,7 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
           {
             key: 'stepsMA',
             label: '30d avg',
-            color: VX.series.steps,
+            color: line2,
             strokeWidth: 1.5,
             dashed: true,
           },
