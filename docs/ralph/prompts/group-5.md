@@ -1,156 +1,175 @@
-# Group 5: Linting + Claude Code Enablement
+# Group 5 — Readiness & Deload
 
 ## What You're Doing
 
-Set up oxlint + oxfmt for the monorepo, and create Claude Code rules and documentation so future dashboard pages can be vibe-coded in a single prompt. After this group, `bun lint` and `bun format:check` pass clean, and the CLAUDE.md + rules files enable rapid LLM-assisted development.
+Wire the strength page into the existing Garmin wearable data. Ship **Readiness × Strain** (reuse
+Garmin's recovery chart with a fatigue-debt adjustment) and the **Training–Recovery Alignment**
+matrix (bespoke calendar/heatmap). Compute the multi-signal **Deload Signal** per §3.5 and surface
+it as a banner above the hero row when triggered. Swap the third hero card from **Balance** to
+**Readiness** when wearable data is present — Balance moves into its own section below.
+
+This group is gated on the user having at least some rows in `daily_metrics`. If the current
+date range returns zero daily_metrics rows, the entire readiness section (and its hero card
+swap) is hidden — same pattern as Garmin Health's `hasHeartData` / `hasSleepData` guards.
 
 ---
 
 ## Research & Exploration First
 
-1. Read all files in `packages/dashboard/src/` — understand the actual structure that was built
-2. Read `packages/api/src/routes/workouts.ts` — understand the actual CRUD pattern
-3. Read `packages/api/src/db/schema.ts` — understand the actual Drizzle pattern
-4. Read `packages/dashboard/src/providers/data-provider.ts` — understand the actual Eden Treaty provider
-5. Read existing `.claude/rules/` in the homelab repo (if any) and in `~/SourceRoot/claude-local/rules/` for pattern reference
-6. Read existing `CLAUDE.md` files — understand the documentation convention
-7. Research **oxlint** current state:
-   - Latest version, installation (`bun add -D oxlint`)
-   - Configuration file format (`.oxlintrc.json` or `oxlint.json`)
-   - Available rule categories: correctness, suspicious, pedantic, style, restriction, nursery
-   - React-specific rules (hooks, JSX)
-   - TypeScript-specific rules
-   - Import rules
-   - Which categories to enable for this stack
-8. Research **oxfmt** current state:
-   - Is it released? (oxfmt may still be experimental — check current status)
-   - If not available: use Prettier as fallback (it's the standard)
-   - Configuration format
-9. Research what ESLint plugins/rules would be most useful for:
-   - Elysia patterns
-   - Vite
-   - React v19 (new features like `use`, server components awareness)
-   - Ant Design (import optimization, component usage)
-   - Refine v5 (any Refine-specific linting?)
-   - Map these to equivalent oxlint rules where available
+1. Read `docs/STRENGTH-ANALYTICS.md` §3.4 (Readiness × Strain), §3.5 (Deload Signal), §4.5
+   (Training–Recovery Alignment chart spec).
+2. Read `docs/GARMIN-HEALTH.md` §2.7 (Recovery Score formula + strain-debt adjustment) — the
+   readiness number we consume.
+3. Read `packages/dashboard/src/pages/garmin-health/utils.ts` — specifically the `computeRecovery`
+   function. Look for an exported helper; if not, extract one. You need to be able to reuse it
+   from the strength page without duplicating logic.
+4. Read `packages/dashboard/src/pages/garmin-health/visx-charts.tsx` — `RecoveryThresholdChart`.
+   Study its zone bands, threshold fills, and tooltip shape.
+5. Read the Garmin Health overtraining signal definition in `GARMIN-HEALTH.md` §3.1. Your deload
+   signal is a peer — same multi-signal AND-pattern.
 
 ---
 
 ## What to Implement
 
-### 1. oxlint setup
+### 1. Reuse the Garmin Recovery computation
 
-- Install `oxlint` at workspace root as dev dependency
-- Create `.oxlintrc.json` at workspace root:
-  - Enable categories: `correctness` (errors), `suspicious` (likely bugs), `pedantic` (best practices)
-  - Enable specific useful rules for the stack:
-    - React: hooks rules (rules-of-hooks, exhaustive-deps), JSX key, no-direct-mutation
-    - TypeScript: no-explicit-any, no-unused-vars, prefer-ts-expect-error
-    - Import: no-duplicates, order (if available)
-    - General: no-console (warn), eqeqeq, no-var
-  - Disable rules that conflict with the codebase patterns (research what makes sense)
-- Add `"lint": "oxlint ."` to root `package.json` scripts
-- Add `"lint:fix": "oxlint --fix ."` to root `package.json` scripts
+- If `computeRecovery` (or equivalent) in Garmin's `utils.ts` isn't exported, refactor: export
+  it. Don't duplicate the 0–100 recovery formula on the strength side.
+- In `strength-tracker/analytics.ts`, add:
+  ```ts
+  export function fatigueDebtAdjustedRecovery(
+    recoveryGarmin: number,
+    recentWorkouts: Workout[],
+    bodyWeight: (date: string) => number,
+    today: string,
+  ): number
+  ```
+  Per §3.4:
+  - `fatigue_ceiling = max(1.0, p90(inol_per_session over last 90d))`
+  - `yesterday_inol = INOL of the most recent session within last 2 days` (or null)
+  - `fatigue_debt = clamp(0, 1, yesterday_inol / fatigue_ceiling)`
+  - `readiness_strength = recoveryGarmin × (1 − fatigue_debt × 0.25)`
+  - Additional: if a session in the last 48h had INOL > 1.2, apply a further 10% dampening.
+  Document the stacking order in a comment.
 
-### 2. Formatting setup (oxfmt or Prettier)
+### 2. `ReadinessStrainChart` — reuse `RecoveryThresholdChart`
 
-- Check if oxfmt is stable and released. If yes, use it. If not, use Prettier.
-- Configure formatter:
-  - Match existing API code style (check: tabs vs spaces, single vs double quotes, semicolons, trailing commas)
-  - Print width: 100 or whatever existing code uses
-- Add `"format": "<formatter> --write ."` to root `package.json` scripts
-- Add `"format:check": "<formatter> --check ."` to root `package.json` scripts
+- Same zones as Garmin (Push ≥ 70, Normal 40–69, Rest < 40).
+- Plot the `fatigueDebtAdjustedRecovery` series per day over the selected range.
+- Subtitle: `"Am I ready to push?"`
+- Header extra: today's score + verdict (Push / Normal / Rest).
+- Optional: render a small dot (`VX.badSoft`) annotation on days where `fatigue_debt > 0.25` to
+  make the penalty visible.
 
-### 3. Fix lint/format violations
+### 3. `TrainingRecoveryAlignmentChart` — bespoke matrix
 
-- Run linter and formatter on all existing code
-- Fix all violations (auto-fix where possible, manual where needed)
-- Ensure zero warnings on both packages
+A 3×3 grid (not 5×5 — simpler and readable):
 
-### 4. Dashboard CLAUDE.md
+```
+             ACWR Under  ACWR Optimal  ACWR Caution/Danger
+Rec High     Waste       Aligned Push  Misaligned Risk
+Rec Normal   Light       Aligned       Overload Risk
+Rec Low      Aligned Rest Misaligned   Critical Risk
+```
 
-Create `packages/dashboard/CLAUDE.md` with:
+Render as a 3×3 SVG grid of cells. Each cell:
+- Filled with `VX.goodSoft` / `VX.warnSoft` / `VX.badSoft` depending on the verdict type.
+- Today's (recovery, ACWR) cell highlighted with a thicker border.
+- Cell label = verdict name + count of sessions in the selected range that fell in that cell.
+- Tooltip on hover: list the dates of those sessions.
 
-- Project overview (Refine v5 + Ant Design + Recharts dashboard)
-- Directory structure (actual, not planned)
-- How to add a new dashboard page end-to-end:
-  1. Define Drizzle schema in `packages/api/src/db/schema.ts`
-  2. Create CRUD routes in `packages/api/src/routes/<resource>.ts`
-  3. Register routes in `packages/api/src/index.ts`
-  4. Add Refine resource in `packages/dashboard/src/App.tsx`
-  5. Create page in `packages/dashboard/src/pages/<name>/`
-  6. Add navigation item in sidebar
-- Data provider details (Eden Treaty, how it maps Refine ↔ API)
-- Theme system (how to use dark/light mode in components)
-- Chart patterns (Recharts conventions used in this project)
-- Form patterns (Ant Design form + dynamic fields)
-- Mobile responsiveness patterns
-- Available scripts (dev, build, lint, format)
+Use `ChartCard` as the wrapper. No `useHoverSync` needed — this chart isn't time-series, so it
+doesn't participate in the date-crosshair sync. That's fine — hover-sync is only required for
+time-series charts.
 
-### 5. Refine rules file
+- Subtitle: `"Does today match my body?"`
+- Header extra: today's cell verdict ("Aligned · Push").
 
-Create `.claude/rules/refine.md` (in the homelab repo's `.claude/rules/` directory):
+### 4. Deload signal + banner
 
-- Refine v5 core concepts: resources, data providers, hooks (`useList`, `useOne`, `useCreate`, `useUpdate`, `useDelete`)
-- Ant Design v5 integration patterns: `<ConfigProvider>`, theme tokens, Layout/Sider
-- Eden Treaty data provider: how it works, how to extend for new resources
-- Recharts patterns: `ResponsiveContainer`, dark mode color handling, tooltip formatting
-- Common pitfalls (from what was learned in Groups 1-4, check RALPH_NOTES.md)
-- Mobile-responsive patterns with Ant Design Grid
+Compute per §3.5 — this is a page-level signal, not per-chart:
 
-### 6. Update root CLAUDE.md
+```ts
+export function deloadSignal(workouts, dailyMetrics, activeExerciseIds, today): {
+  verdict: 'deload' | 'monitor' | 'progress',
+  activeSignals: string[],      // which of the 4 are firing
+  physioAvailable: boolean,     // true iff daily_metrics provided the physio signal
+}
+```
 
-Update `CLAUDE.md` in the repo root to reflect:
+Logic: each of the 4 signals in §3.5 evaluates independently. Verdict = 'deload' when ≥2 are
+active, 'monitor' when 1 is active, 'progress' when 0. "Progress mode for >8 weeks" is a soft
+override — if verdict = 'progress' AND the user has been in that state for 56+ days, bump to
+'monitor' with signal label "prolonged accumulation — proactive deload recommended".
 
-- Monorepo structure (packages/api + packages/dashboard)
-- New scripts (lint, format)
-- Dashboard deployment (container, Caddy route)
-- How to develop locally (API + dashboard dev servers)
-- Reference to `packages/dashboard/CLAUDE.md` for dashboard-specific conventions
+Render a banner above the hero row:
+
+- Verdict = 'deload' → AntD `Alert` with `type="warning"`, message "Deload recommended", sub-text
+  listing the active signals.
+- Verdict = 'monitor' → AntD `Alert` with `type="info"`, message "Monitor — 1 stressor active",
+  sub-text naming it.
+- Verdict = 'progress' → render nothing (quiet state is the healthy state).
+
+### 5. Hero card swap
+
+When `daily_metrics` has any rows in the selected range (mirror Garmin's `hasRecoveryData`
+guard):
+
+- Hero row becomes: **Strength** · **Load Quality** · **Readiness** (instead of Balance).
+- Balance moves into its own section below the hero — still renders, just not in the hero row.
+- Readiness card shape: primary = score 0–100, verdict label = Push / Normal / Rest, sub-text =
+  the biggest driver ("HRV 15% below baseline" or "Fatigue debt 0.6 · hard session yesterday").
+
+When no daily_metrics → keep the Group 4 hero row (Strength · Load Quality · Balance) and hide
+the entire Readiness section. The deload banner still renders — its fallback logic in §3.4 works
+without wearable data.
+
+### 6. Page layout update
+
+Section 5 (Readiness) renders when wearable data is present. It contains Readiness × Strain +
+Training–Recovery Alignment in a 50/50 row. When there's no data, the entire section is removed
+from the DOM (not hidden via CSS). The deload banner always evaluates.
 
 ---
 
 ## Validation
 
 ```bash
-# Lint — zero warnings
-bun lint
-
-# Format check — zero changes needed
-bun format:check
-
-# Typecheck both packages still pass
-cd packages/api && bun tsc --noEmit
-cd packages/dashboard && bun tsc --noEmit
-
-# Build still works
-cd packages/dashboard && bun run build
+bun install && bun run lint
+cd packages/dashboard && bun tsc --noEmit && bun run build
+bun run format:check  # if script exists
 ```
 
-Verify:
-
-- All lint rules make sense for the stack (no false positives on valid patterns)
-- Formatting is consistent across both packages
-- CLAUDE.md files are accurate to the actual codebase (not aspirational)
-- The refine rules file would enable an LLM to generate a new dashboard page correctly
+Manual dev-server checks:
+- With production data (dev server points at `api.jkrumm.com`), Readiness × Strain renders and
+  shows a score that roughly matches Garmin Health's current reading (small divergence expected
+  due to fatigue-debt adjustment).
+- Alignment matrix renders 3×3 with today's cell highlighted.
+- Deload banner appears or not depending on real data state — test by temporarily setting the
+  `activeSignals` check thresholds lower to force a deload verdict, then revert.
+- Hero row has 3 cards with Readiness as card 3 when wearable data is present.
+- Switch date preset to a range with no daily_metrics data — Readiness section disappears, hero
+  falls back to Balance as card 3. Banner still evaluates (with physio signal unavailable).
+- Cross-chart hover still works: hovering 1RM Trend still draws a crosshair on Readiness ×
+  Strain.
 
 ---
 
 ## Commit
 
+```bash
+git add packages/dashboard
+git -c commit.gpgsign=false commit --no-verify -m "feat(dashboard): readiness × strain, deload banner, training–recovery alignment matrix"
 ```
-feat(monorepo): add oxlint and formatting configuration
 
-docs(dashboard): add CLAUDE.md and Refine rules for LLM-assisted development
-
-docs: update root CLAUDE.md for monorepo structure
-```
+Fallback per shared-context.md if it fails.
 
 ---
 
 ## Done
 
-Append learning notes to `docs/ralph/RALPH_NOTES.md`, then:
+Append notes (especially on any refactor of Garmin `computeRecovery` for cross-page reuse), then:
 
 ```
 RALPH_TASK_COMPLETE: Group 5

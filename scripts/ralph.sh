@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Homelab Dashboard — RALPH Loop Runner
+# Homelab Dashboard — RALPH Loop Runner (Strength Tracker v2)
 #
 # Usage:
 #   ./scripts/ralph.sh              # Run all pending groups
@@ -30,15 +30,16 @@ CLAUDE_TIMEOUT=2700  # 45 minutes per group
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
 
-TOTAL_GROUPS=5
+TOTAL_GROUPS=6
 
 GROUP_TITLES=(
   ""  # 1-indexed
-  "Monorepo + Database Foundation"
-  "Workout REST API"
-  "Dashboard Scaffold + Deployment"
-  "Eden Treaty Data Provider + Workout Page"
-  "Linting + Claude Code Enablement"
+  "Schema Foundation"
+  "Visx Migration & Strength Trajectory"
+  "Load Quality & Efficiency"
+  "Balance & Composite Hero"
+  "Readiness & Deload"
+  "Polish, Sparklines, Drop Recharts"
 )
 
 log_info()    { echo -e "${BLUE}[ralph]${NC} $*"; }
@@ -64,7 +65,7 @@ init_state() {
   log_info "Initializing task state..."
   python3 - <<PYEOF
 import json
-titles = ["Monorepo + Database Foundation", "Workout REST API", "Dashboard Scaffold + Deployment", "Eden Treaty Data Provider + Workout Page", "Linting + Claude Code Enablement"]
+titles = ["Schema Foundation", "Visx Migration & Strength Trajectory", "Load Quality & Efficiency", "Balance & Composite Hero", "Readiness & Deload", "Polish, Sparklines, Drop Recharts"]
 groups = [{"id": i+1, "title": t, "status": "pending", "attempts": 0,
            "started_at": None, "completed_at": None}
           for i, t in enumerate(titles)]
@@ -147,13 +148,35 @@ validate() {
   log_info "Validation${label:+ ($label)}..."
   cd "$REPO_ROOT"
 
-  # Workspace resolution
-  if ! bun install --frozen-lockfile 2>&1; then
+  # Workspace resolution (allow lockfile updates — Group 1 adds/removes deps)
+  if ! bun install 2>&1; then
     log_error "bun install failed"
     return 1
   fi
 
-  # API typecheck (always present)
+  # Lint — zero warnings expected
+  if ! bun run lint 2>&1; then
+    log_error "oxlint failed"
+    return 1
+  fi
+
+  # Formatting — auto-fix and auto-commit if Claude forgot. This self-heals the common
+  # failure mode where a group skips `bun run format` before committing.
+  if grep -q '"format"' package.json 2>/dev/null; then
+    if ! bun run format 2>&1; then
+      log_error "bun run format failed"
+      return 1
+    fi
+    if [[ -n "$(git status --porcelain packages/ 2>/dev/null)" ]]; then
+      log_warn "Auto-format modified files — creating cleanup commit."
+      git add packages
+      if ! git -c commit.gpgsign=false commit --no-verify -m "style: post-group auto-format" 2>&1; then
+        log_warn "Auto-format commit failed — continuing with uncommitted format changes."
+      fi
+    fi
+  fi
+
+  # API typecheck
   if [[ -f "packages/api/tsconfig.json" ]]; then
     if ! (cd packages/api && bun tsc --noEmit 2>&1); then
       log_error "API typecheck failed"
@@ -161,7 +184,7 @@ validate() {
     fi
   fi
 
-  # Dashboard typecheck + build (only after group 3)
+  # Dashboard typecheck + build
   if [[ -f "packages/dashboard/tsconfig.json" ]]; then
     if ! (cd packages/dashboard && bun tsc --noEmit 2>&1); then
       log_error "Dashboard typecheck failed"

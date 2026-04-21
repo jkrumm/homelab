@@ -1,154 +1,171 @@
-# Group 4: Eden Treaty Data Provider + Workout Tracker Page
+# Group 4 — Balance & Composite Hero
 
 ## What You're Doing
 
-Wire the dashboard to the API via Eden Treaty for type-safe data fetching, then build the full workout tracker page with charts and form. After this group, you can log workouts via the form, see them persist in SQLite, and visualize progress with Recharts — on both desktop and mobile.
+Cross-lift comparisons and the three-card hero row. Ship **Relative Progression** (multi-line
+normalized %) and **Strength Ratios** (DOTS-adjusted horizontal bars) as Section 4. Replace the
+v1 `SummaryStats` row with a three-card `HeroStats` component in the Garmin Health style:
+**Strength**, **Load Quality**, **Balance**.
+
+This group is where the dashboard starts feeling like Garmin Health — the answer tier (hero)
+snaps into place above the evidence tier (sections).
 
 ---
 
 ## Research & Exploration First
 
-1. Read `packages/api/src/index.ts` — the full Elysia app to understand its type export
-2. Read `packages/api/src/routes/workouts.ts` — the CRUD endpoints from Group 2
-3. Read `packages/api/src/routes/workout-sets.ts` — set endpoints
-4. Read `packages/dashboard/src/App.tsx` — current app shell from Group 3
-5. Read `packages/dashboard/src/` directory — understand the scaffold structure
-6. Research **Eden Treaty** (Elysia's type-safe client):
-   - How to set up Eden Treaty in a separate package that imports Elysia app types
-   - How to configure base URL and headers (bearer token)
-   - How Eden Treaty handles GET/POST/PATCH/DELETE
-   - How to export the Elysia app type for cross-package consumption
-7. Research **Refine data provider interface**:
-   - What methods must a custom data provider implement? (`getList`, `getOne`, `create`, `update`, `deleteOne`, etc.)
-   - How does Refine pass pagination, sort, and filter params?
-   - How does Refine expect responses to be formatted?
-8. Research **Recharts** components:
-   - `LineChart`, `BarChart`, `ResponsiveContainer`, `Tooltip`, `Legend`
-   - How to make charts responsive
-   - Best practices for time-series data
+1. Read `docs/STRENGTH-ANALYTICS.md` §2.4 (relative strength), §2.8 (DOTS ratios), §2.6 (for
+   Strength Direction hero), §3.1–§3.3 (all three hero composites), §4.1–§4.2 (layout + naming
+   rule).
+2. Read `packages/dashboard/src/pages/garmin-health/stats.tsx` — `HeroStats` shape, 3-card
+   layout, AntD `Statistic` usage, sub-text pattern, `Tooltip` icons.
+3. Read the DOTS coefficient: fetch the official IPF 2020 formula (search "DOTS formula
+   powerlifting coefficient 2020" via Tavily or WebSearch — don't trust training data for exact
+   coefficients). The formula is:
+   ```
+   DOTS = 500 / (A + B·x + C·x² + D·x³ + E·x⁴) × kg_lifted
+   where x = bodyweight_kg and A–E are sex-specific constants
+   ```
+   Confirm the current constants from the IPF site or a reputable secondary source before
+   coding.
+4. Read `packages/dashboard/src/providers/eden.ts` + the user-profile route — confirm how gender
+   is retrieved (needed for DOTS coefficient selection).
+5. Read the Garmin Health `HeroStats` sub-text pattern — each card has a primary value, a
+   verdict label, and sub-text showing the contributing signals.
 
 ---
 
 ## What to Implement
 
-### 1. Eden Treaty setup
+### 1. DOTS helper (`analytics.ts` or a new `dots.ts`)
 
-- Export the Elysia app type from `packages/api/src/index.ts` (e.g., `export type App = typeof app`)
-- Install `@elysiajs/eden` in `packages/dashboard`
-- Create Eden Treaty client in `packages/dashboard/src/providers/eden.ts`:
-  - Import the app type from `@homelab/api` (workspace dependency)
-  - Configure base URL (env var `VITE_API_URL`, defaults to `https://api.jkrumm.com`)
-  - Configure bearer token header (env var `VITE_API_TOKEN`)
+```ts
+export function dotsCoefficient(bodyWeightKg: number, gender: 'male' | 'female'): number
+export function dotsAdjusted(e1RM: number, bodyWeightKg: number, gender: 'male' | 'female'): number
+```
 
-### 2. Custom Refine data provider
+- Implement per the IPF 2020 formula. Copy the constants from official source.
+- Gender fallback: if `user_profile.gender` is null, default to 'male' and log a console warning
+  on page load (one time). Add a settings reminder in `RecentRecords`/sidebar if gender is missing.
 
-Create `packages/dashboard/src/providers/data-provider.ts`:
+### 2. Ratio analytics (`analytics.ts`)
 
-- Implement Refine's `DataProvider` interface using Eden Treaty under the hood
-- Map Refine operations to API calls:
-  - `getList` → `GET /<resource>` with `_start`, `_end`, `_sort`, `_order`, filter params; parse `x-total-count` header for total
-  - `getOne` → `GET /<resource>/:id`
-  - `create` → `POST /<resource>` with body
-  - `update` → `PATCH /<resource>/:id` with body
-  - `deleteOne` → `DELETE /<resource>/:id`
-- Handle the resource name → API path mapping (e.g., Refine resource `workouts` → `/workouts`)
-- Error handling: convert API errors to Refine-compatible format
+- `strengthRatios(best1RMs: Record<string, number>, bodyWeight: number, gender)` — returns
+  normative-range status for each pair defined in §2.8:
+  ```
+  { deadliftOverSquat: { ratio, range: [1.0, 1.25], status: 'balanced' | 'imbalanced' | 'critical' },
+    squatOverBench:    { ratio, range: [1.2, 1.5],  status },
+    deadliftOverBench: { ratio, range: [1.5, 2.0],  status },
+    pullupOverBw:      { ratio, range: [0.4, 0.7],  status }  // (added_weight / bw) only
+  }
+  ```
+  Use DOTS-adjusted values for every ratio.
+- `balanceComposite(ratios)` — returns the worst-offender status and the offending pair.
 
-### 3. Workout tracker page — Form (right panel)
+### 3. `RelativeProgressionChart` — bespoke multi-line
 
-Create `packages/dashboard/src/pages/strength-tracker/index.tsx` (or similar structure):
+Not a new kind — the shape is specific enough that composing primitives is the right call.
 
-**Form component** (`WorkoutForm` or similar):
+- X-axis: dates across the selected filter range.
+- Y-axis: % change vs the e1RM at filter-start date per lift (start = 100%, plot in percentage
+  points).
+- One line per active lift using `VX.series.<exercise>`.
+- Legend-hover dim-others (shipped pattern).
+- Subtitle: `"Which lifts are lagging?"`
+- Header extra: leader lift + % / laggard lift + % (e.g. "Squat +14% · Pull-ups −3%").
 
-- Exercise selector: dropdown with bench_press, deadlift, squat, pull_ups (display-friendly labels)
-- Date picker: defaults to today
-- Dynamic set list:
-  - "Add Set" button appends a new row
-  - Each row: set_type dropdown (warmup/work/drop), weight_kg number input, reps number input, delete button
-  - Auto-increment set_number
-  - Sensible defaults (work type, last used weight)
-- Submit button: creates workout + sets via Refine's `useCreate` hook
-- Success feedback: clear form, show notification
-- Mobile-optimized: large touch targets, stacked inputs
+### 4. `StrengthRatiosChart` — bespoke horizontal bars
 
-### 4. Workout tracker page — Charts (left panel)
+- One horizontal bar per ratio pair. Layout is stacked rows, not a normal chart grid.
+- Each row: label on the left, a horizontal scale behind, a green band for the normative range,
+  a colored tick for the current value, status label on the right.
+- When a ratio is `imbalanced`, tick is yellow (`VX.warnSolid`); `critical` is red (`VX.badSolid`);
+  `balanced` is green (`VX.goodSolid`).
+- Subtitle: `"Are my lifts balanced?"`
+- Header extra: worst-offender pair + its status (e.g. "Squat/Bench critical · 1.05").
 
-**Chart components** using Recharts:
+Implementation can be AntD `Progress` + custom CSS, or a small bespoke SVG. The former is
+simpler and matches how `bb_highest` renders in Garmin Health's stats. Your call — keep it tidy.
 
-- **1RM Trend** (LineChart):
-  - X axis: date
-  - Y axis: estimated 1RM (kg)
-  - One line per exercise (color-coded)
-  - Tooltip showing date, exercise, 1RM value
-  - Use `estimated_1rm` from API response (average of Epley + Brzycki)
+### 5. `HeroStats` (`strength-tracker/stats.tsx` rewrite)
 
-- **Volume per Session** (BarChart):
-  - X axis: date
-  - Y axis: total volume (kg)
-  - Stacked or grouped by exercise
-  - Tooltip with breakdown
+Replace the existing `SummaryStats` 6-card row with a 3-card hero row mirroring Garmin Health's
+`HeroStats`. Three cards:
 
-- **Max Weight Progression** (LineChart):
-  - X axis: date
-  - Y axis: max weight used in work sets
-  - Per exercise
+**Card 1 — Strength**
+- Primary: direction arrow ▲/►/▼ from `strengthDirection` of the primary active lift.
+- Verdict label: "Improving" / "Stable" / "Declining".
+- Sub-text: leader lift name + % velocity ("Squat +14% / mo"), and f''(t) sign ("accelerating"
+  / "linear" / "decelerating").
 
-- **Summary Cards** (Ant Design `Card` + `Statistic`):
-  - Current estimated 1RM (latest workout per exercise)
-  - Personal best 1RM (all time per exercise)
-  - Total volume this week
-  - Workout count this month
+**Card 2 — Load Quality**
+- Primary: score 0–100 from `loadQualityComposite`.
+- Verdict label: "Quality" / "Adequate" / "Poor".
+- Sub-text: identify the dragging component (e.g. "INOL avg 1.4 · high") so the user knows why
+  the score isn't 100.
 
-### 5. Page layout
+**Card 3 — Balance**
+- Primary: worst-offender status symbol (✓ / △ / ✗).
+- Verdict label: "Balanced" / "Imbalanced" / "Critical".
+- Sub-text: offending pair + current ratio (e.g. "Squat/Bench · 1.05").
 
-- Desktop (≥768px): CSS Grid or Ant Design `Row`/`Col` — 3/4 charts, 1/4 form
-- Mobile (<768px): stacked — form on top (primary gym use), charts below
-- Filter bar above charts: exercise multi-select tabs, date range picker
-- Charts fetch data via Refine's `useList` hook or custom `useQuery` with the `/query` endpoint for complex aggregations
+Each card has the AntD `InfoCircleOutlined` tooltip icon — tooltip text explains the metric
+(mirror the tooltip copy style from the v1 `SummaryStats`).
 
-### 6. Wire into Refine
+### 6. Page layout update
 
-- Register `workouts` and `workout-sets` as Refine resources in `App.tsx`
-- Set up routes: `/strength-tracker` renders the workout tracker page
-- Replace placeholder data provider with Eden Treaty provider
+- `strength-tracker/index.tsx`: replace `SummaryStats` with `HeroStats` above the filter bar's
+  content area. Keep the filter bar above the hero.
+- Render Section 4 (Balance) under Sections 1–3. Section 5 (Readiness) stays as a placeholder —
+  coming in Group 5.
+
+### 7. Naming rule enforcement
+
+Audit the page against `STRENGTH-ANALYTICS.md` §4.2. Every hero card's label matches its section
+title matches its chart card title. "Strength", "Load Quality", "Balance" each appear in exactly
+one place each. No "Training Load" ambiguity — Load Quality is the hero; Training Load (ACWR) is
+one chart inside the Load Quality section.
 
 ---
 
 ## Validation
 
 ```bash
-# Typecheck both packages
-cd packages/api && bun tsc --noEmit
-cd packages/dashboard && bun tsc --noEmit
-
-# Build dashboard
-cd packages/dashboard && bun run build
+bun install && bun run lint
+cd packages/dashboard && bun tsc --noEmit && bun run build
+bun run format:check  # if script exists
 ```
 
-Manual verification (describe what should work):
-
-- Form renders with exercise dropdown, date picker, and set inputs
-- Adding/removing sets works dynamically
-- Submitting a workout saves to SQLite via API
-- Charts render (may need seed data — use the form or curl to create a few workouts)
-- Mobile layout stacks form above charts
-- Theme toggle still works with charts (Recharts respects theme colors)
+Manual dev-server checks:
+- Hero row sits above filter bar (desktop) or above content (mobile stack).
+- 3 cards fit one row on desktop (`xs={24} sm={24} md={8}` or similar Garmin-style breakpoints).
+  Stacks cleanly on mobile.
+- Each card shows the primary value + verdict + sub-text.
+- Info tooltip on each card works.
+- Relative Progression chart normalizes correctly — the leftmost point for every active lift is
+  100%.
+- Strength Ratios bars show all four pairs; bands are visible; current ticks are colored by
+  status.
+- DOTS values look sane — cross-check against a DOTS calculator online for your current 1RMs.
+- No console errors. No raw hex. No `@visx/tooltip` imports.
 
 ---
 
 ## Commit
 
+```bash
+git add packages/dashboard
+git -c commit.gpgsign=false commit --no-verify -m "feat(dashboard): hero row + Balance section (relative progression, DOTS ratios)"
 ```
-feat(dashboard): add Eden Treaty data provider with type-safe API integration
 
-feat(dashboard): implement workout tracker page with charts and form
-```
+Fallback per shared-context.md if it fails.
 
 ---
 
 ## Done
 
-Append learning notes to `docs/ralph/RALPH_NOTES.md`, then:
+Append notes (call out the DOTS constants source you used + any edge cases in gender fallback),
+then:
 
 ```
 RALPH_TASK_COMPLETE: Group 4
