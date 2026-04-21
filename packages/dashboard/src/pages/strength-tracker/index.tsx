@@ -31,6 +31,7 @@ import {
   TrainingRecoveryAlignmentChart,
   WeeklyVolumeChart,
 } from './visx-charts'
+import { StrengthSparklineGrid } from './sparkline-grid'
 import { WorkoutForm } from './workout-form'
 import type { DailyMetric } from '../garmin-health/types'
 
@@ -73,7 +74,7 @@ export default function StrengthTrackerPage() {
     [datePreset, customRange],
   )
 
-  const [view, setView] = useLocalState<'charts' | 'history'>('st-view', 'charts')
+  const [view, setView] = useLocalState<'charts' | 'history' | 'sparklines'>('st-view', 'charts')
   const [useDemoData, setUseDemoData] = useLocalState('st-demo-data', false)
 
   const [hover, setHoverState] = useState<{ date: string | null; source: string | null }>({
@@ -176,6 +177,12 @@ export default function StrengthTrackerPage() {
             Charts
           </Button>
           <Button
+            onClick={() => setView('sparklines')}
+            style={view === 'sparklines' ? { fontWeight: 600 } : { opacity: 0.65 }}
+          >
+            Scan
+          </Button>
+          <Button
             onClick={() => setView('history')}
             style={view === 'history' ? { fontWeight: 600 } : { opacity: 0.65 }}
           >
@@ -264,7 +271,9 @@ export default function StrengthTrackerPage() {
         isLoading={isLoading && !useDemoData}
         readinessInfo={readinessInfo}
       />
-      {view === 'charts' ? (
+      {view === 'sparklines' ? (
+        <StrengthSparklineGrid workouts={displayWorkouts} activeExercises={activeExercises} />
+      ) : view === 'charts' ? (
         <>
           <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
             Strength Trajectory

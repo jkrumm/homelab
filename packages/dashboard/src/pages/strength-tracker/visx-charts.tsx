@@ -90,6 +90,14 @@ function fmtWeight(kg: number): string {
   return Number.isInteger(kg) ? String(kg) : kg.toFixed(1)
 }
 
+function inolZoneLabel(inol: number): string {
+  if (inol < 0.4) return 'Underdosed'
+  if (inol < 0.6) return 'Low'
+  if (inol <= 1.0) return 'Optimal'
+  if (inol <= 1.5) return 'High'
+  return 'Excessive'
+}
+
 // ── 1RM Trend Chart ───────────────────────────────────────────────────────
 
 type OneRmInnerProps = {
@@ -875,7 +883,7 @@ export function WeeklyVolumeChart({
   return (
     <ChartCard
       title="Weekly Volume"
-      subtitle="Set type breakdown by week"
+      subtitle="Am I progressively overloading?"
       tooltip={METRIC_TOOLTIPS.weeklyVolume}
       extra={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -1097,12 +1105,38 @@ export function TrainingLoadChart({
     [workouts, activeExercises],
   )
 
+  const acwrExtra = useMemo(() => {
+    if (!chartData.length) return null
+    const last = chartData[chartData.length - 1]!
+    const primaryEx = activeExercises[0]
+    if (!primaryEx) return null
+    const ratio = last.acwr[primaryEx]
+    const zone = last.zone[primaryEx]
+    if (ratio === null || ratio === undefined || zone === null || zone === undefined) return null
+    const solidColor =
+      zone === 'optimal'
+        ? VX.goodSolid
+        : zone === 'caution'
+          ? VX.warnSolid
+          : zone === 'danger'
+            ? VX.badSolid
+            : VX.series.acwr
+    return (
+      <span style={{ fontSize: 12 }}>
+        <span style={{ fontWeight: 600, fontSize: 14, color: solidColor }}>{ratio.toFixed(2)}</span>
+        <span style={{ opacity: 0.5 }}> ACWR </span>
+        <span style={{ fontWeight: 600, color: solidColor }}>{acwrZoneLabel(zone)}</span>
+      </span>
+    )
+  }, [chartData, activeExercises])
+
   if (!chartData.length) {
     return (
       <ChartCard
         title="Training Load (ACWR)"
-        subtitle="Acute:chronic workload ratio"
+        subtitle="Is my load spiking?"
         tooltip={METRIC_TOOLTIPS.trainingLoad}
+        extra={null}
       >
         <div
           style={{
@@ -1124,8 +1158,9 @@ export function TrainingLoadChart({
   return (
     <ChartCard
       title="Training Load (ACWR)"
-      subtitle="Acute:chronic workload ratio"
+      subtitle="Is my load spiking?"
       tooltip={METRIC_TOOLTIPS.trainingLoad}
+      extra={acwrExtra}
     >
       <div style={{ height: 260 }}>
         <ParentSize debounceTime={100}>
@@ -1359,25 +1394,30 @@ export function InolChart({
 
   const latest = chartData[chartData.length - 1]
 
+  const inolExtra = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {latest?.inol !== null && latest?.inol !== undefined ? (
+        <span style={{ fontSize: 12 }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: inolDotColor(latest.inol) }}>
+            {latest.inol.toFixed(2)}
+          </span>
+          <span style={{ opacity: 0.5 }}> · </span>
+          <span style={{ fontWeight: 600, color: inolDotColor(latest.inol) }}>
+            {inolZoneLabel(latest.inol)}
+          </span>
+        </span>
+      ) : null}
+      {exerciseSelector}
+    </span>
+  )
+
   return (
     <ChartCard
-      title="INOL"
-      subtitle="Session load quality"
+      title="INOL per Session"
+      subtitle="Am I loading smart?"
       tooltip={METRIC_TOOLTIPS.inol}
-      extra={exerciseSelector}
+      extra={inolExtra}
     >
-      {latest && (
-        <div style={{ marginBottom: 4, fontSize: 12 }}>
-          {latest.inol !== null && (
-            <span style={{ color: inolDotColor(latest.inol), fontWeight: 600, marginRight: 8 }}>
-              {latest.inol.toFixed(2)} last session
-            </span>
-          )}
-          {latest.ma10 !== null && (
-            <span style={{ opacity: 0.55 }}>10-session avg {latest.ma10.toFixed(2)}</span>
-          )}
-        </div>
-      )}
       <div style={{ height: 240 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
@@ -1645,23 +1685,36 @@ export function MomentumChart({
       />
     ) : null
 
-  const latest = chartData[chartData.length - 1]
   const exColor = colorForExercise(selectedExercise)
+  const vel = velocityPctPerDay(workouts, selectedExercise)
+  const velDir = strengthDirection(vel)
+  const velNum = vel ?? 0
 
-  const headerChip =
-    latest?.e1rmMA !== null ? (
-      <span style={{ fontSize: 12, color: exColor, fontWeight: 600 }}>
-        {latest?.e1rmMA?.toFixed(1)} kg MA
+  const headerChip = (
+    <span style={{ fontSize: 12 }}>
+      <span style={{ fontWeight: 600, fontSize: 14, color: directionColor(velDir) }}>
+        {velNum >= 0 ? '+' : ''}
+        {velNum.toFixed(2)}%
       </span>
-    ) : null
+      <span style={{ opacity: 0.5 }}>/day </span>
+      <span style={{ fontWeight: 600, color: directionColor(velDir) }}>
+        {directionArrow(velDir)}
+      </span>
+    </span>
+  )
 
   if (!chartData.length) {
     return (
       <ChartCard
-        title="e1RM Momentum"
-        subtitle="Strength trend + velocity"
+        title="Momentum"
+        subtitle="Where am I heading next?"
         tooltip={METRIC_TOOLTIPS.momentum}
-        extra={exerciseSelector}
+        extra={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {headerChip}
+            {exerciseSelector}
+          </span>
+        }
       >
         <div
           style={{
@@ -1682,8 +1735,8 @@ export function MomentumChart({
 
   return (
     <ChartCard
-      title="e1RM Momentum"
-      subtitle="Strength trend + velocity"
+      title="Momentum"
+      subtitle="Where am I heading next?"
       tooltip={METRIC_TOOLTIPS.momentum}
       extra={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

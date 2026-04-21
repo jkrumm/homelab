@@ -39,3 +39,5 @@ export {
   type BarsRefLine,
   type BarsAxisConfig,
 } from './kinds/Bars'
+
+export { LineSparkline, BarSparkline } from './sparklines'
