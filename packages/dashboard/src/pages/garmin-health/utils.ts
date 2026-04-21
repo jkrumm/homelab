@@ -145,25 +145,41 @@ export function buildStressData(data: DailyMetric[]) {
     }))
 }
 
-/** Build activity chart data — includes 30d rolling averages for trend context */
+/** Targets used for the composite Daily Activity score. */
+export const ACTIVITY_INTENSITY_TARGET = 45 // min/day
+export const ACTIVITY_STEPS_TARGET = 10000 // steps/day
+
+/**
+ * Composite Daily Activity score — 1.0 = hit both targets equally weighted
+ * (70% intensity, 30% steps). Capped at 1.5 per metric so a single huge
+ * day doesn't dominate the trend. Returns null when both inputs are null.
+ */
+function activityScore(steps: number | null, intensityMin: number | null): number | null {
+  if (steps === null && intensityMin === null) return null
+  const intensityPart =
+    intensityMin !== null ? Math.min(1.5, intensityMin / ACTIVITY_INTENSITY_TARGET) : 0
+  const stepsPart = steps !== null ? Math.min(1.5, steps / ACTIVITY_STEPS_TARGET) : 0
+  return 0.7 * intensityPart + 0.3 * stepsPart
+}
+
+/** Build activity chart data — includes a composite 30d activity trend */
 export function buildActivityData(data: DailyMetric[]) {
-  const stepsMA = movingAverage(
-    data.map((d) => d.steps),
-    30,
-  )
   const intensityArr = data.map((d) =>
     d.moderate_intensity_min !== null || d.vigorous_intensity_min !== null
       ? (d.moderate_intensity_min ?? 0) + (d.vigorous_intensity_min ?? 0)
       : null,
   )
-  const intensityMA = movingAverage(intensityArr, 30)
+  const scoreArr = data.map((d, i) => activityScore(d.steps, intensityArr[i] ?? null))
+  const scoreMA = movingAverage(scoreArr, 30)
   return data
     .map((d, i) => ({
       date: d.date,
       steps: d.steps,
-      stepsMA: stepsMA[i] ?? null,
       intensityMin: intensityArr[i] ?? null,
-      intensityMA: intensityMA[i] ?? null,
+      activityScore: scoreArr[i],
+      // Plot the trend on the intensity-min axis: score 1.0 → 45 min-equivalent
+      activityMAEquiv: scoreMA[i] !== null ? scoreMA[i]! * ACTIVITY_INTENSITY_TARGET : null,
+      activityMAPct: scoreMA[i] !== null ? scoreMA[i]! * 100 : null,
       calories: d.total_kcal,
       activeCal: d.active_kcal,
     }))
