@@ -1,9 +1,9 @@
 import { useList } from '@refinedev/core'
 import { UndoOutlined } from '@ant-design/icons'
-import { Button, DatePicker, Select, Space } from 'antd'
+import { Button, Card, Col, DatePicker, Row, Select, Space, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AreaMetricChart, FrequencyChart, MainChart } from './charts'
+import { HoverContext } from '../../charts'
 import {
   DATE_PRESET_OPTIONS,
   type DatePreset,
@@ -17,6 +17,7 @@ import { RecentRecords } from './records'
 import { SummaryStats } from './stats'
 import type { ExerciseKey, Workout } from './types'
 import { useLocalState, resetConfig } from './use-local-state'
+import { OneRmTrendChart, StrengthCompositeChart } from './visx-charts'
 import { WorkoutForm } from './workout-form'
 
 // ── Responsive hook ────────────────────────────────────────────────────────
@@ -55,6 +56,16 @@ export default function StrengthTrackerPage() {
 
   const [view, setView] = useLocalState<'charts' | 'history'>('st-view', 'charts')
   const [useDemoData, setUseDemoData] = useLocalState('st-demo-data', false)
+
+  const [hover, setHoverState] = useState<{ date: string | null; source: string | null }>({
+    date: null,
+    source: null,
+  })
+  const setHover = useCallback(
+    (date: string | null, source: string | null) => setHoverState({ date, source }),
+    [],
+  )
+  const hoverCtx = useMemo(() => ({ ...hover, setHover }), [hover, setHover])
 
   const toggleExercise = useCallback(
     (ex: ExerciseKey) => {
@@ -178,9 +189,65 @@ export default function StrengthTrackerPage() {
       />
       {view === 'charts' ? (
         <>
-          <MainChart workouts={displayWorkouts} activeExercises={activeExercises} />
-          <AreaMetricChart workouts={displayWorkouts} activeExercises={activeExercises} />
-          <FrequencyChart workouts={displayWorkouts} activeExercises={activeExercises} />
+          <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
+            Strength Trajectory
+          </Typography.Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <OneRmTrendChart workouts={displayWorkouts} activeExercises={activeExercises} />
+            </Col>
+            <Col xs={24} lg={12}>
+              <StrengthCompositeChart workouts={displayWorkouts} activeExercises={activeExercises} />
+            </Col>
+          </Row>
+
+          <Typography.Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>
+            Load Quality
+          </Typography.Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <Card size="small">
+                <Typography.Text type="secondary">Coming in Group 3</Typography.Text>
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card size="small">
+                <Typography.Text type="secondary">Coming in Group 3</Typography.Text>
+              </Card>
+            </Col>
+          </Row>
+
+          <Typography.Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>
+            Efficiency &amp; Momentum
+          </Typography.Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <Card size="small">
+                <Typography.Text type="secondary">Coming in Group 4</Typography.Text>
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card size="small">
+                <Typography.Text type="secondary">Coming in Group 4</Typography.Text>
+              </Card>
+            </Col>
+          </Row>
+
+          <Typography.Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>
+            Balance
+          </Typography.Title>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <Card size="small">
+                <Typography.Text type="secondary">Coming in Group 5</Typography.Text>
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card size="small">
+                <Typography.Text type="secondary">Coming in Group 5</Typography.Text>
+              </Card>
+            </Col>
+          </Row>
         </>
       ) : (
         <WorkoutHistory
@@ -194,24 +261,26 @@ export default function StrengthTrackerPage() {
   )
 
   return (
-    <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
-      {filterBar}
+    <HoverContext.Provider value={hoverCtx}>
+      <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
+        {filterBar}
 
-      {isMobile ? (
-        <Space direction="vertical" style={{ width: '100%' }} size={16}>
-          <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
-          {content}
-          <RecentRecords workouts={displayWorkouts} activeExercises={activeExercises} />
-        </Space>
-      ) : (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
-          <div style={{ width: 360, flexShrink: 0 }}>
+        {isMobile ? (
+          <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
+            {content}
             <RecentRecords workouts={displayWorkouts} activeExercises={activeExercises} />
+          </Space>
+        ) : (
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
+            <div style={{ width: 360, flexShrink: 0 }}>
+              <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
+              <RecentRecords workouts={displayWorkouts} activeExercises={activeExercises} />
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </HoverContext.Provider>
   )
 }
