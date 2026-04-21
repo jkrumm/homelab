@@ -11,6 +11,7 @@ import { METRIC_TOOLTIPS } from './constants'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
+  AxisRightNumeric,
   Bars,
   ChartCard,
   ChartLegend,
@@ -31,8 +32,10 @@ import {
   acwrZoneColor,
   acwrZoneLabel,
   buildActivityData,
+  buildFitnessData,
   buildRecoveryTrendData,
   buildSleepChartData,
+  computeFitnessSummary,
   computeTrainingLoad,
   formatHoursMin,
   sleepScoreLabel,
@@ -759,6 +762,288 @@ export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
           { key: 'recovery', label: 'Recovery Score', color: line },
           { key: 'push', label: 'Push (>70)', color: VX.goodSolid, shape: 'bar' },
           { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },
+        ]}
+        highlighted={null}
+        onHighlight={() => {}}
+      />
+    </ChartCard>
+  )
+}
+
+// ── Fitness Trends — dual-axis RHR + HRV + VO2 Max dots ─────────────────
+
+type FitnessPoint = ReturnType<typeof buildFitnessData>[number]
+
+function FitnessTrendChartInner({
+  data,
+  width,
+  height,
+}: {
+  data: FitnessPoint[]
+  width: number
+  height: number
+}) {
+  const MARGIN_LOCAL = useMemo(
+    () => ({
+      ...VX.margin,
+      left: Math.max(VX.margin.left, 56),
+      right: Math.max(VX.margin.right, 48),
+    }),
+    [],
+  )
+  const xMax = width - MARGIN_LOCAL.left - MARGIN_LOCAL.right
+  const yMax = height - MARGIN_LOCAL.top - MARGIN_LOCAL.bottom
+
+  const xScale = useMemo(
+    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
+    [data, xMax],
+  )
+
+  // RHR left axis — padded auto domain
+  const leftScale = useMemo(() => {
+    const vals = data.map((d) => d.rhrMA).filter((v): v is number => v !== null)
+    if (vals.length === 0) return scaleLinear<number>({ domain: [40, 60], range: [yMax, 0] })
+    const lo = Math.min(...vals)
+    const hi = Math.max(...vals)
+    const pad = Math.max((hi - lo) * 0.15, 1)
+    return scaleLinear<number>({ domain: [lo - pad, hi + pad], range: [yMax, 0], nice: true })
+  }, [data, yMax])
+
+  // HRV + VO2 right axis — shared; VO2 typically 30–70, HRV 20–150
+  const rightScale = useMemo(() => {
+    const vals: number[] = []
+    for (const d of data) {
+      if (d.hrvMA !== null) vals.push(d.hrvMA)
+      if (d.vo2max !== null) vals.push(d.vo2max)
+    }
+    if (vals.length === 0) return scaleLinear<number>({ domain: [30, 120], range: [yMax, 0] })
+    const lo = Math.min(...vals)
+    const hi = Math.max(...vals)
+    const pad = Math.max((hi - lo) * 0.15, 2)
+    return scaleLinear<number>({ domain: [lo - pad, hi + pad], range: [yMax, 0], nice: true })
+  }, [data, yMax])
+
+  const tooltipStyles = useTooltipStyles()
+  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
+    useHoverSync<FitnessPoint>({
+      data,
+      chartId: 'fitness',
+      getX: (d) => d.date,
+      xScale,
+      marginLeft: MARGIN_LOCAL.left,
+    })
+
+  const tickValues = useMemo(
+    () =>
+      smartTicks(
+        data.map((d) => d.date),
+        xMax,
+      ),
+    [data, xMax],
+  )
+
+  const rhrValid = useMemo(
+    () => data.filter((d): d is FitnessPoint & { rhrMA: number } => d.rhrMA !== null),
+    [data],
+  )
+  const hrvValid = useMemo(
+    () => data.filter((d): d is FitnessPoint & { hrvMA: number } => d.hrvMA !== null),
+    [data],
+  )
+  const vo2Valid = useMemo(
+    () => data.filter((d): d is FitnessPoint & { vo2max: number } => d.vo2max !== null),
+    [data],
+  )
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg width={width} height={height}>
+        <Group left={MARGIN_LOCAL.left} top={MARGIN_LOCAL.top}>
+          <GridRows scale={leftScale} width={xMax} stroke={VX.grid} numTicks={5} />
+
+          <LinePath<FitnessPoint & { rhrMA: number }>
+            data={rhrValid}
+            x={(d) => xScale(d.date) ?? 0}
+            y={(d) => leftScale(d.rhrMA)}
+            stroke={VX.series.restingHr}
+            strokeWidth={2.5}
+            curve={curveMonotoneX}
+          />
+          <LinePath<FitnessPoint & { hrvMA: number }>
+            data={hrvValid}
+            x={(d) => xScale(d.date) ?? 0}
+            y={(d) => rightScale(d.hrvMA)}
+            stroke={VX.series.hrv}
+            strokeWidth={2.5}
+            curve={curveMonotoneX}
+          />
+
+          {vo2Valid.map((d) => (
+            <circle
+              key={`vo2-${d.date}`}
+              cx={xScale(d.date) ?? 0}
+              cy={rightScale(d.vo2max)}
+              r={5}
+              fill={VX.series.vo2max}
+              stroke={VX.dotStroke}
+              strokeWidth={2}
+            />
+          ))}
+
+          {syncedPoint &&
+            (() => {
+              const sx = xScale(syncedPoint.date) ?? 0
+              return (
+                <>
+                  <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
+                  {syncedPoint.rhrMA !== null && (
+                    <circle
+                      cx={sx}
+                      cy={leftScale(syncedPoint.rhrMA)}
+                      r={4}
+                      fill={VX.series.restingHr}
+                      stroke={VX.dotStroke}
+                      strokeWidth={2}
+                    />
+                  )}
+                  {syncedPoint.hrvMA !== null && (
+                    <circle
+                      cx={sx}
+                      cy={rightScale(syncedPoint.hrvMA)}
+                      r={4}
+                      fill={VX.series.hrv}
+                      stroke={VX.dotStroke}
+                      strokeWidth={2}
+                    />
+                  )}
+                </>
+              )
+            })()}
+
+          <AxisLeftNumeric
+            scale={leftScale}
+            numTicks={5}
+            tickFormat={(v) => `${Math.round(Number(v))} bpm`}
+          />
+          <AxisRightNumeric
+            scale={rightScale}
+            left={xMax}
+            numTicks={5}
+            tickFormat={(v) => `${Math.round(Number(v))} ms`}
+          />
+          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
+
+          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
+        </Group>
+      </svg>
+      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
+        {tip && isDirectHover && (
+          <>
+            <TooltipHeader date={tip.data.date} />
+            <TooltipBody>
+              {tip.data.rhrMA !== null && (
+                <TooltipRow
+                  color={VX.series.restingHr}
+                  label="RHR (7d)"
+                  value={`${Math.round(tip.data.rhrMA)} bpm`}
+                  shape="line"
+                  strokeWidth={2.5}
+                />
+              )}
+              {tip.data.hrvMA !== null && (
+                <TooltipRow
+                  color={VX.series.hrv}
+                  label="HRV (7d)"
+                  value={`${Math.round(tip.data.hrvMA)} ms`}
+                  shape="line"
+                  strokeWidth={2.5}
+                />
+              )}
+              {tip.data.vo2max !== null && (
+                <TooltipRow
+                  color={VX.series.vo2max}
+                  label="VO2 Max"
+                  value={tip.data.vo2max.toFixed(1)}
+                  shape="dot"
+                />
+              )}
+            </TooltipBody>
+          </>
+        )}
+      </ChartTooltip>
+    </div>
+  )
+}
+
+export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
+  const chartData = useMemo(() => buildFitnessData(data), [data])
+  const summary = useMemo(() => computeFitnessSummary(data), [data])
+
+  const headerExtra = (
+    <span style={{ fontSize: 12 }}>
+      {summary.vo2max !== null && (
+        <span style={{ marginRight: 12 }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: VX.series.vo2max }}>
+            {summary.vo2max.toFixed(1)}
+          </span>
+          <span style={{ opacity: 0.5 }}> VO2</span>
+        </span>
+      )}
+      {summary.rhrDelta !== null && (
+        <span style={{ marginRight: 12 }}>
+          <span
+            style={{
+              color: summary.rhrDelta <= 0 ? VX.goodSolid : VX.badSolid,
+              fontWeight: 600,
+            }}
+          >
+            {summary.rhrDelta > 0 ? '+' : ''}
+            {summary.rhrDelta.toFixed(0)}
+          </span>
+          <span style={{ opacity: 0.5 }}> RHR</span>
+        </span>
+      )}
+      {summary.hrvDelta !== null && (
+        <span>
+          <span
+            style={{
+              color: summary.hrvDelta >= 0 ? VX.goodSolid : VX.badSolid,
+              fontWeight: 600,
+            }}
+          >
+            {summary.hrvDelta > 0 ? '+' : ''}
+            {summary.hrvDelta.toFixed(0)}
+          </span>
+          <span style={{ opacity: 0.5 }}> HRV</span>
+        </span>
+      )}
+    </span>
+  )
+
+  return (
+    <ChartCard title="Fitness Trends" tooltip={METRIC_TOOLTIPS.fitnessTrends} extra={headerExtra}>
+      <div style={{ height: 300 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <FitnessTrendChartInner data={chartData} width={Math.max(width, 200)} height={300} />
+          )}
+        </ParentSize>
+      </div>
+      <ChartLegend
+        items={[
+          {
+            key: 'rhr',
+            label: 'RHR (7d avg) ↓ better',
+            color: VX.series.restingHr,
+            strokeWidth: 2.5,
+          },
+          {
+            key: 'hrv',
+            label: 'HRV (7d avg) ↑ better',
+            color: VX.series.hrv,
+            strokeWidth: 2.5,
+          },
+          { key: 'vo2', label: 'VO2 Max', color: VX.series.vo2max, shape: 'bar' },
         ]}
         highlighted={null}
         onHighlight={() => {}}

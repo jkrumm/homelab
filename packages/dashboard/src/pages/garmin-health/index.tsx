@@ -1,12 +1,13 @@
 import { useList } from '@refinedev/core'
 import { Col, Row, Select, Space, Typography } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BodyBatteryChart, FitnessChart, StressChart } from './charts'
+import { BodyBatteryChart, StressChart } from './charts'
 import { HoverContext } from '../../charts'
 import {
   ACWRThresholdChart,
   ActivityBarChart,
   DivergenceThresholdChart,
+  FitnessTrendChart,
   RecoveryThresholdChart,
   SleepBreakdownChart,
 } from './visx-charts'
@@ -131,7 +132,7 @@ export default function GarminHealthPage() {
               )}
               {hasHeartData && (
                 <Col xs={24} lg={12}>
-                  <FitnessChart data={metrics} />
+                  <FitnessTrendChart data={metrics} />
                 </Col>
               )}
             </Row>

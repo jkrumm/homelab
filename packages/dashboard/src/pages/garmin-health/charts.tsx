@@ -5,8 +5,6 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  ComposedChart,
-  Legend,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -17,13 +15,7 @@ import {
 import type { DailyMetric } from './types'
 import { METRIC_TOOLTIPS } from './constants'
 import { VX } from '../../charts'
-import {
-  buildBodyBatteryData,
-  buildFitnessData,
-  buildStressData,
-  computeFitnessSummary,
-  formatXDate,
-} from './utils'
+import { buildBodyBatteryData, buildStressData, formatXDate } from './utils'
 
 const SYNC_ID = 'garmin'
 const GRID_STROKE = 'rgba(128,128,128,0.15)'
@@ -67,125 +59,6 @@ function ChartTitle({ title, tooltip }: { title: string; tooltip: string }) {
         />
       </AntTooltip>
     </span>
-  )
-}
-
-// ── Fitness Progression — smoothed RHR + HRV trends ─────────────────────
-
-export function FitnessChart({ data }: { data: DailyMetric[] }) {
-  const chartData = useMemo(() => buildFitnessData(data), [data])
-  const summary = useMemo(() => computeFitnessSummary(data), [data])
-
-  const headerExtra = (
-    <span style={{ fontSize: 12 }}>
-      {summary.vo2max !== null && (
-        <span style={{ marginRight: 12 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: VX.series.vo2max }}>
-            {summary.vo2max.toFixed(1)}
-          </span>
-          <span style={{ opacity: 0.5 }}> VO2</span>
-        </span>
-      )}
-      {summary.rhrDelta !== null && (
-        <span style={{ marginRight: 12 }}>
-          <span style={{ color: summary.rhrDelta <= 0 ? '#00c853' : '#ff3d00', fontWeight: 600 }}>
-            {summary.rhrDelta > 0 ? '+' : ''}
-            {summary.rhrDelta.toFixed(0)}
-          </span>
-          <span style={{ opacity: 0.5 }}> RHR</span>
-        </span>
-      )}
-      {summary.hrvDelta !== null && (
-        <span>
-          <span style={{ color: summary.hrvDelta >= 0 ? '#00c853' : '#ff3d00', fontWeight: 600 }}>
-            {summary.hrvDelta > 0 ? '+' : ''}
-            {summary.hrvDelta.toFixed(0)}
-          </span>
-          <span style={{ opacity: 0.5 }}> HRV</span>
-        </span>
-      )}
-    </span>
-  )
-
-  return (
-    <Card
-      title={<ChartTitle title="Fitness Trends" tooltip={METRIC_TOOLTIPS.fitnessTrends} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-      extra={headerExtra}
-    >
-      <ResponsiveContainer width="100%" height={300}>
-        <ComposedChart data={chartData} margin={CHART_MARGIN} syncId={SYNC_ID}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
-          <YAxis
-            yAxisId="hr"
-            tick={{ fontSize: 11 }}
-            unit=" bpm"
-            width={56}
-            domain={['auto', 'auto']}
-          />
-          <YAxis
-            yAxisId="hrv"
-            orientation="right"
-            tick={{ fontSize: 11 }}
-            unit=" ms"
-            width={52}
-            domain={['auto', 'auto']}
-          />
-          <Tooltip
-            {...TOOLTIP_STYLE}
-            formatter={(value: number, name: string) => {
-              const labels: Record<string, [string, string]> = {
-                rhrMA: [`${value} bpm`, 'RHR (7d avg)'],
-                hrvMA: [`${value} ms`, 'HRV (7d avg)'],
-                vo2max: [`${value.toFixed(1)}`, 'VO2 Max'],
-              }
-              return labels[name] ?? [`${value}`, name]
-            }}
-          />
-          <Legend
-            formatter={(value: string) => {
-              const labels: Record<string, string> = {
-                rhrMA: 'RHR (7d avg) \u2193 better',
-                hrvMA: 'HRV (7d avg) \u2191 better',
-                vo2max: 'VO2 Max',
-              }
-              return labels[value] ?? value
-            }}
-          />
-          {/* 7-day moving average trend lines */}
-          <Line
-            yAxisId="hr"
-            type="monotone"
-            dataKey="rhrMA"
-            stroke={VX.series.restingHr}
-            strokeWidth={2.5}
-            dot={false}
-            connectNulls
-          />
-          <Line
-            yAxisId="hrv"
-            type="monotone"
-            dataKey="hrvMA"
-            stroke={VX.series.hrv}
-            strokeWidth={2.5}
-            dot={false}
-            connectNulls
-          />
-          {/* VO2 Max as prominent dots */}
-          <Line
-            yAxisId="hrv"
-            type="monotone"
-            dataKey="vo2max"
-            stroke={VX.series.vo2max}
-            strokeWidth={0}
-            dot={{ r: 5, fill: VX.series.vo2max, strokeWidth: 2, stroke: '#fff' }}
-            connectNulls={false}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </Card>
   )
 }
 
