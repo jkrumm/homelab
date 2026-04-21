@@ -647,36 +647,26 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
                 autoMaxFloor: ACTIVITY_TARGET_SCORE * 1.2,
                 numTicks: 5,
               }}
-              renderPrefixTooltipRows={(d) => {
+              tooltipLabel={(d) => {
                 if (d.score === null) return null
                 const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
-                return (
-                  <TooltipRow
-                    color={line2}
-                    label="Score"
-                    value={`${Math.round(d.score)} · ${pct}%`}
-                    shape="line"
-                    strokeWidth={2}
-                  />
-                )
+                return {
+                  text: `${Math.round(d.score)} · ${pct}%`,
+                  color: d.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : tooltipMuted,
+                }
               }}
-              renderExtraTooltipRows={(d) => (
+              hideBarTooltipRows
+              renderPrefixTooltipRows={(d) => (
                 <>
-                  <div
-                    style={{
-                      borderTop: '1px solid rgba(128,128,128,0.15)',
-                      margin: '4px 10px',
-                    }}
-                  />
                   <TooltipRow
                     color={tooltipMuted}
-                    label="Vigorous min"
+                    label="Vigorous"
                     value={`${d.vigorousMin ?? 0} min`}
                     shape="dot"
                   />
                   <TooltipRow
                     color={tooltipMuted}
-                    label="Moderate min"
+                    label="Moderate"
                     value={`${d.moderateMin ?? 0} min`}
                     shape="dot"
                   />

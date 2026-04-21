@@ -121,6 +121,8 @@ export type BarsProps<T> = {
   renderPrefixTooltipRows?: (d: T) => ReactNode
   /** Tooltip rows rendered AFTER the generated bar/line rows. */
   renderExtraTooltipRows?: (d: T) => ReactNode
+  /** Skip the auto-generated positive/negative bar rows in the tooltip (chart still renders them). */
+  hideBarTooltipRows?: boolean
   /** Default value formatter if a series doesn't define its own. */
   formatValue?: (v: number) => string
   /** X-axis tick count override. */
@@ -156,6 +158,7 @@ export function Bars<T>(props: BarsProps<T>) {
     tooltipLabel,
     renderPrefixTooltipRows,
     renderExtraTooltipRows,
+    hideBarTooltipRows = false,
     formatValue = (v) => String(Math.round(v)),
     numTicksX,
   } = props
@@ -523,32 +526,34 @@ export function Bars<T>(props: BarsProps<T>) {
             />
             <TooltipBody>
               {renderPrefixTooltipRows?.(tip.data)}
-              {positiveBars.map((b) => {
-                const v = getValue(tip.data, b.key)
-                if (v === null || Number.isNaN(v)) return null
-                return (
-                  <TooltipRow
-                    key={b.key}
-                    color={b.color}
-                    label={b.label}
-                    value={formatBar(b, v)}
-                    shape="bar"
-                  />
-                )
-              })}
-              {negativeBars.map((b) => {
-                const v = getValue(tip.data, b.key)
-                if (v === null || Number.isNaN(v)) return null
-                return (
-                  <TooltipRow
-                    key={b.key}
-                    color={b.color}
-                    label={b.label}
-                    value={formatBar(b, v)}
-                    shape="bar"
-                  />
-                )
-              })}
+              {!hideBarTooltipRows &&
+                positiveBars.map((b) => {
+                  const v = getValue(tip.data, b.key)
+                  if (v === null || Number.isNaN(v)) return null
+                  return (
+                    <TooltipRow
+                      key={b.key}
+                      color={b.color}
+                      label={b.label}
+                      value={formatBar(b, v)}
+                      shape="bar"
+                    />
+                  )
+                })}
+              {!hideBarTooltipRows &&
+                negativeBars.map((b) => {
+                  const v = getValue(tip.data, b.key)
+                  if (v === null || Number.isNaN(v)) return null
+                  return (
+                    <TooltipRow
+                      key={b.key}
+                      color={b.color}
+                      label={b.label}
+                      value={formatBar(b, v)}
+                      shape="bar"
+                    />
+                  )
+                })}
               {lines.map((ln) => {
                 const v = getValue(tip.data, ln.key)
                 if (v === null || Number.isNaN(v)) return null
