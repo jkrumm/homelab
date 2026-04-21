@@ -22,6 +22,10 @@ public.jkrumm.com, http://public.jkrumm.com {
 	reverse_proxy dufs:5000
 }
 
+books.jkrumm.com, http://books.jkrumm.com {
+	reverse_proxy calibre-web:8083
+}
+
 # === PRIVATE SERVICES (Tailscale only, HTTPS enforced) ===
 # HTTP requests are permanently redirected to HTTPS
 
@@ -57,13 +61,6 @@ calibre.jkrumm.com {
 	reverse_proxy calibre:8080
 }
 http://calibre.jkrumm.com {
-	redir https://{host}{uri} permanent
-}
-
-books.jkrumm.com {
-	reverse_proxy calibre-web:8083
-}
-http://books.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
