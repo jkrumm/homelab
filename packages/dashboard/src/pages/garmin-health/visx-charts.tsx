@@ -482,6 +482,7 @@ const sleepGetValue = (d: SleepPoint, k: string): number | null => {
 
 export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildSleepChartData(data), [data])
+  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   return (
     <ChartCard title="Sleep Breakdown" tooltip={METRIC_TOOLTIPS.sleepStages}>
@@ -545,6 +546,7 @@ export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
                   />
                 )
               }}
+              highlightedKey={highlighted}
             />
           )}
         </ParentSize>
@@ -557,8 +559,8 @@ export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
           { key: 'awake', label: 'Awake', color: VX.series.awake, shape: 'bar' },
           { key: 'sleepScore', label: 'Sleep Score', color: VX.series.sleepScore, strokeWidth: 2 },
         ]}
-        highlighted={null}
-        onHighlight={() => {}}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
       />
     </ChartCard>
   )
@@ -585,6 +587,7 @@ const activityGetValue = (d: ActivityPoint, k: string): number | null => {
 export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildActivityData(data), [data])
   const { line2, tooltipMuted } = useVxTheme()
+  const [highlighted, setHighlighted] = useState<string | null>(null)
   const latest = chartData[chartData.length - 1]
 
   return (
@@ -682,25 +685,36 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
                   />
                 </>
               )}
+              highlightedKey={highlighted}
             />
           )}
         </ParentSize>
       </div>
       <ChartLegend
         items={[
-          { key: 'vigorous', label: 'Vigorous', color: VX.series.vigorousMin, shape: 'bar' },
-          { key: 'moderate', label: 'Moderate', color: VX.series.intensityMin, shape: 'bar' },
-          { key: 'walking', label: 'Walking', color: VX.series.steps, shape: 'bar' },
           {
-            key: 'trend',
+            key: 'vigorousScore',
+            label: 'Vigorous',
+            color: VX.series.vigorousMin,
+            shape: 'bar',
+          },
+          {
+            key: 'moderateScore',
+            label: 'Moderate',
+            color: VX.series.intensityMin,
+            shape: 'bar',
+          },
+          { key: 'walkingScore', label: 'Walking', color: VX.series.steps, shape: 'bar' },
+          {
+            key: 'scoreMA',
             label: '30d avg',
             color: line2,
             strokeWidth: 1.5,
             dashed: true,
           },
         ]}
-        highlighted={null}
-        onHighlight={() => {}}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
       />
     </ChartCard>
   )
@@ -783,12 +797,15 @@ function FitnessTrendChartInner({
   data,
   width,
   height,
+  highlighted,
 }: {
   data: FitnessPoint[]
   width: number
   height: number
+  highlighted: string | null
 }) {
   const { axis } = useVxTheme()
+  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
   const MARGIN_LOCAL = useMemo(
     () => ({
       ...VX.margin,
@@ -877,6 +894,7 @@ function FitnessTrendChartInner({
             y={(d) => yScale(d.rhrZ)}
             stroke={VX.series.restingHr}
             strokeWidth={2.5}
+            strokeOpacity={dim('rhr')}
             curve={curveMonotoneX}
           />
           <LinePath<FitnessPoint & { hrvZ: number }>
@@ -885,6 +903,7 @@ function FitnessTrendChartInner({
             y={(d) => yScale(d.hrvZ)}
             stroke={VX.series.hrv}
             strokeWidth={2.5}
+            strokeOpacity={dim('hrv')}
             curve={curveMonotoneX}
           />
 
@@ -895,8 +914,10 @@ function FitnessTrendChartInner({
               cy={yScale(d.vo2Z)}
               r={5}
               fill={VX.series.vo2max}
+              fillOpacity={dim('vo2')}
               stroke={VX.dotStroke}
               strokeWidth={2}
+              strokeOpacity={dim('vo2')}
             />
           ))}
 
@@ -978,6 +999,7 @@ function FitnessTrendChartInner({
 export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildFitnessData(data), [data])
   const summary = useMemo(() => computeFitnessSummary(data), [data])
+  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const headerExtra = (
     <span style={{ fontSize: 12 }}>
@@ -1025,7 +1047,12 @@ export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
       <div style={{ height: 300 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
-            <FitnessTrendChartInner data={chartData} width={Math.max(width, 200)} height={300} />
+            <FitnessTrendChartInner
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={300}
+              highlighted={highlighted}
+            />
           )}
         </ParentSize>
       </div>
@@ -1045,8 +1072,8 @@ export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
           },
           { key: 'vo2', label: 'VO2 Max', color: VX.series.vo2max, shape: 'bar' },
         ]}
-        highlighted={null}
-        onHighlight={() => {}}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
       />
     </ChartCard>
   )
@@ -1060,11 +1087,14 @@ function BodyBatteryRangeChartInner({
   data,
   width,
   height,
+  highlighted,
 }: {
   data: BodyBatteryPoint[]
   width: number
   height: number
+  highlighted: string | null
 }) {
+  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
 
@@ -1117,7 +1147,7 @@ function BodyBatteryRangeChartInner({
         <Group left={MARGIN.left} top={MARGIN.top}>
           <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
 
-          {/* Filled range band between low (y0) and high (y1) */}
+          {/* Filled range band between low (y0) and high (y1) — dims when either legend item is focused */}
           <Threshold<BodyBatteryPoint & { high: number; low: number }>
             id="bb-range"
             data={bandData}
@@ -1127,8 +1157,14 @@ function BodyBatteryRangeChartInner({
             clipAboveTo={0}
             clipBelowTo={yMax}
             curve={curveMonotoneX}
-            belowAreaProps={{ fill: VX.series.bodyBatteryHigh, fillOpacity: 0.25 }}
-            aboveAreaProps={{ fill: VX.series.bodyBatteryHigh, fillOpacity: 0.25 }}
+            belowAreaProps={{
+              fill: VX.series.bodyBatteryHigh,
+              fillOpacity: 0.25 * (highlighted === null ? 1 : 0.6),
+            }}
+            aboveAreaProps={{
+              fill: VX.series.bodyBatteryHigh,
+              fillOpacity: 0.25 * (highlighted === null ? 1 : 0.6),
+            }}
           />
 
           {/* Reference line at 50 */}
@@ -1148,6 +1184,7 @@ function BodyBatteryRangeChartInner({
             y={(d) => yScale(d.high)}
             stroke={VX.series.bodyBatteryHigh}
             strokeWidth={2}
+            strokeOpacity={dim('high')}
             curve={curveMonotoneX}
           />
           {/* Bottom edge — dashed 1.5px (Morning Low) */}
@@ -1158,6 +1195,7 @@ function BodyBatteryRangeChartInner({
             stroke={VX.series.bodyBatteryLow}
             strokeWidth={1.5}
             strokeDasharray="4 4"
+            strokeOpacity={dim('low')}
             curve={curveMonotoneX}
           />
 
@@ -1239,6 +1277,7 @@ function BodyBatteryRangeChartInner({
 
 export function BodyBatteryRangeChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildBodyBatteryData(data), [data])
+  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   return (
     <ChartCard title="Body Battery" tooltip={METRIC_TOOLTIPS.bodyBattery}>
@@ -1249,6 +1288,7 @@ export function BodyBatteryRangeChart({ data }: { data: DailyMetric[] }) {
               data={chartData}
               width={Math.max(width, 200)}
               height={220}
+              highlighted={highlighted}
             />
           )}
         </ParentSize>
@@ -1269,8 +1309,8 @@ export function BodyBatteryRangeChart({ data }: { data: DailyMetric[] }) {
             dashed: true,
           },
         ]}
-        highlighted={null}
-        onHighlight={() => {}}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
       />
     </ChartCard>
   )
@@ -1284,11 +1324,14 @@ function StressLevelsChartInner({
   data,
   width,
   height,
+  highlighted,
 }: {
   data: StressPoint[]
   width: number
   height: number
+  highlighted: string | null
 }) {
+  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
 
@@ -1342,8 +1385,8 @@ function StressLevelsChartInner({
             clipAboveTo={0}
             clipBelowTo={yMax}
             curve={curveMonotoneX}
-            belowAreaProps={{ fill: VX.series.stress, fillOpacity: 0.15 }}
-            aboveAreaProps={{ fill: VX.series.stress, fillOpacity: 0.15 }}
+            belowAreaProps={{ fill: VX.series.stress, fillOpacity: 0.15 * dim('avg') }}
+            aboveAreaProps={{ fill: VX.series.stress, fillOpacity: 0.15 * dim('avg') }}
           />
 
           {/* Reference lines at 25 (relaxed) and 50 (elevated) */}
@@ -1370,6 +1413,7 @@ function StressLevelsChartInner({
             y={(d) => yScale(d.avgStress)}
             stroke={VX.series.stress}
             strokeWidth={2}
+            strokeOpacity={dim('avg')}
             curve={curveMonotoneX}
           />
           <LinePath<StressPoint & { sleepStress: number }>
@@ -1378,6 +1422,7 @@ function StressLevelsChartInner({
             y={(d) => yScale(d.sleepStress)}
             stroke={VX.series.sleepStress}
             strokeWidth={1.5}
+            strokeOpacity={dim('sleep')}
             curve={curveMonotoneX}
           />
 
@@ -1450,13 +1495,19 @@ function StressLevelsChartInner({
 
 export function StressLevelsChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildStressData(data), [data])
+  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   return (
     <ChartCard title="Stress Levels" tooltip={METRIC_TOOLTIPS.stress}>
       <div style={{ height: 220 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
-            <StressLevelsChartInner data={chartData} width={Math.max(width, 200)} height={220} />
+            <StressLevelsChartInner
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={220}
+              highlighted={highlighted}
+            />
           )}
         </ParentSize>
       </div>
@@ -1470,8 +1521,8 @@ export function StressLevelsChart({ data }: { data: DailyMetric[] }) {
             strokeWidth: 1.5,
           },
         ]}
-        highlighted={null}
-        onHighlight={() => {}}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
       />
     </ChartCard>
   )

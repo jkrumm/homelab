@@ -127,6 +127,11 @@ export type BarsProps<T> = {
   formatValue?: (v: number) => string
   /** X-axis tick count override. */
   numTicksX?: number
+  /**
+   * Series currently highlighted via legend hover. When set, bars and lines
+   * whose `key` does NOT match are dimmed. null → no dimming.
+   */
+  highlightedKey?: string | null
 }
 
 /**
@@ -161,7 +166,11 @@ export function Bars<T>(props: BarsProps<T>) {
     hideBarTooltipRows = false,
     formatValue = (v) => String(Math.round(v)),
     numTicksX,
+    highlightedKey = null,
   } = props
+
+  const dimOpacity = (key: string): number =>
+    highlightedKey === null || highlightedKey === key ? 1 : 0.15
 
   // Widen right margin when a right axis is rendered — labels need ~36px to fit "100"/"60m" etc.
   const MARGIN = useMemo(
@@ -389,7 +398,7 @@ export function Bars<T>(props: BarsProps<T>) {
                     width={groupWidth}
                     height={yBottom - yTop}
                     fill={b.color}
-                    fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
+                    fillOpacity={(barOpacity?.(d, b.key) ?? 0.85) * dimOpacity(b.key)}
                   />,
                 )
                 posOffset = top
@@ -409,7 +418,7 @@ export function Bars<T>(props: BarsProps<T>) {
                     width={groupWidth}
                     height={yBottom - yTop}
                     fill={b.color}
-                    fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
+                    fillOpacity={(barOpacity?.(d, b.key) ?? 0.85) * dimOpacity(b.key)}
                   />,
                 )
                 negOffset = top
@@ -429,7 +438,7 @@ export function Bars<T>(props: BarsProps<T>) {
                     width={groupedBarWidths[i] ?? 0}
                     height={yBottom - yTop}
                     fill={b.color}
-                    fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
+                    fillOpacity={(barOpacity?.(d, b.key) ?? 0.85) * dimOpacity(b.key)}
                   />,
                 )
               })
@@ -456,6 +465,7 @@ export function Bars<T>(props: BarsProps<T>) {
                 stroke={ln.color}
                 strokeWidth={ln.strokeWidth ?? VX.lineWidth}
                 strokeDasharray={ln.dashed ? '4 4' : undefined}
+                strokeOpacity={dimOpacity(ln.key)}
                 curve={curveMonotoneX}
               />
             )
