@@ -145,44 +145,84 @@ export function buildStressData(data: DailyMetric[]) {
     }))
 }
 
-/** Targets used for the composite Daily Activity score. */
-export const ACTIVITY_INTENSITY_TARGET = 45 // min/day
-export const ACTIVITY_STEPS_TARGET = 10000 // steps/day
-
 /**
- * Composite Daily Activity score — 1.0 = hit both targets equally weighted
- * (70% intensity, 30% steps). Capped at 1.5 per metric so a single huge
- * day doesn't dominate the trend. Returns null when both inputs are null.
+ * Daily Activity Score — MET-minutes accumulated across vigorous, moderate, and walking
+ * (residual steps not already counted as intensity).
+ *
+ * MET multipliers per Compendium of Physical Activities (Ainsworth et al. 2011):
+ *   vigorous = 8 MET (midpoint of vigorous range 6–10+)
+ *   moderate = 4 MET (midpoint of moderate range 3–6)
+ *   walking  = 3 MET (typical brisk pace ~100 steps/min → 0.03 MET-min per step)
+ *
+ * Steps are de-double-counted: each intensity minute is assumed to consume ~100 steps,
+ * those steps are subtracted before the walking MET-min contribution is added.
+ *
+ * Daily target: 600 MET-min/day (~3.5× the WHO weekly floor of 500–1000 MET-min/week,
+ * appropriate for a sportive young adult). 1 vigorous minute earns 8 MET-min, so a
+ * 45 vig + 10k steps day lands ~540 — close to target without any moderate work.
  */
-function activityScore(steps: number | null, intensityMin: number | null): number | null {
-  if (steps === null && intensityMin === null) return null
-  const intensityPart =
-    intensityMin !== null ? Math.min(1.5, intensityMin / ACTIVITY_INTENSITY_TARGET) : 0
-  const stepsPart = steps !== null ? Math.min(1.5, steps / ACTIVITY_STEPS_TARGET) : 0
-  return 0.7 * intensityPart + 0.3 * stepsPart
+export const ACTIVITY_TARGET_SCORE = 600 // MET-min per day → "100% day"
+const STEPS_PER_INTENSITY_MIN = 100
+const STEPS_MET_PER_STEP = 0.03 // ≈ 3 MET × 1 min per 100 steps
+const MODERATE_MET = 4
+const VIGOROUS_MET = 8
+
+export type ActivityComponents = {
+  vigorousScore: number
+  moderateScore: number
+  walkingScore: number
+  walkingSteps: number
+  total: number
 }
 
-/** Build activity chart data — includes a composite 30d activity trend */
+export function activityComponents(
+  steps: number | null,
+  moderateMin: number | null,
+  vigorousMin: number | null,
+): ActivityComponents | null {
+  if (steps === null && moderateMin === null && vigorousMin === null) return null
+  const mod = moderateMin ?? 0
+  const vig = vigorousMin ?? 0
+  const totalSteps = steps ?? 0
+  const intensitySteps = (mod + vig) * STEPS_PER_INTENSITY_MIN
+  const walkingSteps = Math.max(0, totalSteps - intensitySteps)
+  const vigorousScore = vig * VIGOROUS_MET
+  const moderateScore = mod * MODERATE_MET
+  const walkingScore = walkingSteps * STEPS_MET_PER_STEP
+  return {
+    vigorousScore,
+    moderateScore,
+    walkingScore,
+    walkingSteps,
+    total: vigorousScore + moderateScore + walkingScore,
+  }
+}
+
+/** Build activity chart data — stacked Activity Score components + 30d trend */
 export function buildActivityData(data: DailyMetric[]) {
-  const intensityArr = data.map((d) =>
-    d.moderate_intensity_min !== null || d.vigorous_intensity_min !== null
-      ? (d.moderate_intensity_min ?? 0) + (d.vigorous_intensity_min ?? 0)
-      : null,
+  const componentsArr = data.map((d) =>
+    activityComponents(d.steps, d.moderate_intensity_min, d.vigorous_intensity_min),
   )
-  const scoreArr = data.map((d, i) => activityScore(d.steps, intensityArr[i] ?? null))
-  const scoreMA = movingAverage(scoreArr, 30)
+  const scoreMA = movingAverage(
+    componentsArr.map((c) => c?.total ?? null),
+    30,
+  )
   return data
-    .map((d, i) => ({
-      date: d.date,
-      steps: d.steps,
-      intensityMin: intensityArr[i] ?? null,
-      activityScore: scoreArr[i],
-      // Plot the trend on the intensity-min axis: score 1.0 → 45 min-equivalent
-      activityMAEquiv: scoreMA[i] !== null ? scoreMA[i]! * ACTIVITY_INTENSITY_TARGET : null,
-      activityMAPct: scoreMA[i] !== null ? scoreMA[i]! * 100 : null,
-      calories: d.total_kcal,
-      activeCal: d.active_kcal,
-    }))
+    .map((d, i) => {
+      const c = componentsArr[i]
+      return {
+        date: d.date,
+        steps: d.steps,
+        moderateMin: d.moderate_intensity_min,
+        vigorousMin: d.vigorous_intensity_min,
+        walkingSteps: c?.walkingSteps ?? 0,
+        vigorousScore: c?.vigorousScore ?? 0,
+        moderateScore: c?.moderateScore ?? 0,
+        walkingScore: c?.walkingScore ?? 0,
+        score: c?.total ?? null,
+        scoreMA: scoreMA[i] ?? null,
+      }
+    })
     .filter((d) => d.steps !== null)
 }
 

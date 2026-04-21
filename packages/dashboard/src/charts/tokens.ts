@@ -80,6 +80,7 @@ export const VX = {
     sleepStress: '#5c6bc0',
     steps: '#4caf50',
     intensityMin: '#2e7d32',
+    vigorousMin: '#e65100',
     calories: '#ffa726',
     spo2: '#2979ff',
     respiration: '#26a69a',

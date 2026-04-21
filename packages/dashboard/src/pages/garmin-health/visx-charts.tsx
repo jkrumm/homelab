@@ -27,6 +27,7 @@ import {
   useVxTheme,
 } from '../../charts'
 import {
+  ACTIVITY_TARGET_SCORE,
   acwrZoneColor,
   acwrZoneLabel,
   buildActivityData,
@@ -559,28 +560,50 @@ export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
   )
 }
 
-// ── Activity — steps bars + 30d MA + intensity minutes ──────────────────
+// ── Daily Activity — stacked MET-min Score + 30d trend ──────────────────
 
 type ActivityPoint = ReturnType<typeof buildActivityData>[number]
 
 const activityGetValue = (d: ActivityPoint, k: string): number | null => {
   switch (k) {
-    case 'steps':
-      return d.steps
-    case 'intensityMin':
-      return d.intensityMin
-    case 'activityMAEquiv':
-      return d.activityMAEquiv
+    case 'walkingScore':
+      return d.walkingScore
+    case 'moderateScore':
+      return d.moderateScore
+    case 'vigorousScore':
+      return d.vigorousScore
+    case 'scoreMA':
+      return d.scoreMA
   }
   return null
 }
 
 export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildActivityData(data), [data])
-  const { line2 } = useVxTheme()
+  const { line2, tooltipMuted } = useVxTheme()
+  const latest = chartData[chartData.length - 1]
 
   return (
-    <ChartCard title="Daily Activity" tooltip={METRIC_TOOLTIPS.intensityMinutes}>
+    <ChartCard
+      title="Daily Activity"
+      tooltip={METRIC_TOOLTIPS.intensityMinutes}
+      extra={
+        latest?.score !== null && latest?.score !== undefined ? (
+          <span style={{ fontSize: 12 }}>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: latest.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : tooltipMuted,
+              }}
+            >
+              {Math.round(latest.score)}
+            </span>
+            <span style={{ opacity: 0.5 }}> Score</span>
+          </span>
+        ) : null
+      }
+    >
       <div style={{ height: 220 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
@@ -592,58 +615,91 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
               getX={(d) => d.date}
               getValue={activityGetValue}
               positiveBars={[
-                {
-                  key: 'intensityMin',
-                  label: 'Intensity Min',
-                  color: VX.series.intensityMin,
-                  axisSide: 'right',
-                  formatValue: (v) => `${Math.round(v)} min`,
-                },
-                {
-                  key: 'steps',
-                  label: 'Steps',
-                  color: VX.series.steps,
-                  axisSide: 'left',
-                  formatValue: (v) => v.toLocaleString(),
-                },
+                { key: 'walkingScore', label: 'Walking', color: VX.series.steps },
+                { key: 'moderateScore', label: 'Moderate', color: VX.series.intensityMin },
+                { key: 'vigorousScore', label: 'Vigorous', color: VX.series.vigorousMin },
               ]}
               lines={[
                 {
-                  key: 'activityMAEquiv',
-                  label: '30d Activity',
+                  key: 'scoreMA',
+                  label: '30d avg',
                   color: line2,
-                  axisSide: 'right',
+                  axisSide: 'left',
                   dashed: true,
                   strokeWidth: 1.5,
-                  formatValue: (v) => `${Math.round(v)} min · ${Math.round((v / 45) * 100)}%`,
+                  formatValue: (v) =>
+                    `${Math.round(v)} · ${Math.round((v / ACTIVITY_TARGET_SCORE) * 100)}%`,
                 },
               ]}
-              barLayout="grouped"
-              zones={[{ from: 45, to: Infinity, fill: VX.goodSoft, axisSide: 'right' }]}
-              refLines={[{ value: 45, color: VX.goodRef, dashed: true, axisSide: 'right' }]}
-              leftAxis={{ domain: 'auto', autoMaxFloor: 12000, numTicks: 5 }}
-              rightAxis={{
+              zones={[
+                { from: ACTIVITY_TARGET_SCORE, to: Infinity, fill: VX.goodSoft, axisSide: 'left' },
+              ]}
+              refLines={[
+                {
+                  value: ACTIVITY_TARGET_SCORE,
+                  color: VX.goodRef,
+                  dashed: true,
+                  axisSide: 'left',
+                },
+              ]}
+              leftAxis={{
                 domain: 'auto',
-                autoMaxFloor: 60,
-                numTicks: 4,
-                formatTick: (v) => `${v}m`,
+                autoMaxFloor: ACTIVITY_TARGET_SCORE * 1.2,
+                numTicks: 5,
               }}
+              renderPrefixTooltipRows={(d) => {
+                if (d.score === null) return null
+                const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
+                return (
+                  <TooltipRow
+                    color={line2}
+                    label="Score"
+                    value={`${Math.round(d.score)} · ${pct}%`}
+                    shape="line"
+                    strokeWidth={2}
+                  />
+                )
+              }}
+              renderExtraTooltipRows={(d) => (
+                <>
+                  <div
+                    style={{
+                      borderTop: '1px solid rgba(128,128,128,0.15)',
+                      margin: '4px 10px',
+                    }}
+                  />
+                  <TooltipRow
+                    color={tooltipMuted}
+                    label="Vigorous min"
+                    value={`${d.vigorousMin ?? 0} min`}
+                    shape="dot"
+                  />
+                  <TooltipRow
+                    color={tooltipMuted}
+                    label="Moderate min"
+                    value={`${d.moderateMin ?? 0} min`}
+                    shape="dot"
+                  />
+                  <TooltipRow
+                    color={tooltipMuted}
+                    label="Steps"
+                    value={(d.steps ?? 0).toLocaleString()}
+                    shape="dot"
+                  />
+                </>
+              )}
             />
           )}
         </ParentSize>
       </div>
       <ChartLegend
         items={[
-          {
-            key: 'intensityMin',
-            label: 'Intensity Min',
-            color: VX.series.intensityMin,
-            shape: 'bar',
-          },
-          { key: 'steps', label: 'Steps', color: VX.series.steps, shape: 'bar' },
+          { key: 'vigorous', label: 'Vigorous', color: VX.series.vigorousMin, shape: 'bar' },
+          { key: 'moderate', label: 'Moderate', color: VX.series.intensityMin, shape: 'bar' },
+          { key: 'walking', label: 'Walking', color: VX.series.steps, shape: 'bar' },
           {
             key: 'trend',
-            label: '30d Activity',
+            label: '30d avg',
             color: line2,
             strokeWidth: 1.5,
             dashed: true,
