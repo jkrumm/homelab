@@ -78,14 +78,50 @@ sqlite.run(`
 `)
 
 sqlite.run(`
+  CREATE TABLE IF NOT EXISTS exercises (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    muscle_group TEXT NOT NULL,
+    is_bodyweight INTEGER DEFAULT 0,
+    display_order INTEGER DEFAULT 0
+  )
+`)
+
+// Seed reference exercises (safe to re-run)
+sqlite.run(`
+  INSERT OR IGNORE INTO exercises (id, name, category, muscle_group, is_bodyweight, display_order)
+  VALUES
+    ('bench_press', 'Bench Press', 'push', 'chest', 0, 1),
+    ('squat', 'Squat', 'legs', 'quads', 0, 2),
+    ('deadlift', 'Deadlift', 'hinge', 'posterior', 0, 3),
+    ('pull_ups', 'Pull-ups', 'pull', 'back', 1, 4)
+`)
+
+sqlite.run(`
   CREATE TABLE IF NOT EXISTS workouts (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     date TEXT NOT NULL,
-    exercise TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    rir INTEGER,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   )
 `)
+
+// One-time migration: rename exercise → exercise_id if the old column still exists
+try {
+  sqlite.run('ALTER TABLE workouts RENAME COLUMN exercise TO exercise_id')
+} catch {
+  // Already renamed or column doesn't exist — safe to ignore
+}
+
+// One-time migration: add rir column if it doesn't exist yet
+try {
+  sqlite.run('ALTER TABLE workouts ADD COLUMN rir INTEGER')
+} catch {
+  // Already exists — safe to ignore
+}
 
 sqlite.run(`
   CREATE TABLE IF NOT EXISTS workout_sets (

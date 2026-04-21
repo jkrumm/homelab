@@ -1,13 +1,16 @@
 import { Elysia, t } from 'elysia'
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { workouts, workoutSets } from '../db/schema.js'
-import { ExerciseSchema, SetTypeSchema, WorkoutSetSchema } from './schemas.js'
+import { workouts, workoutSets, exercises } from '../db/schema.js'
+import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 
 const WorkoutWithSetsSchema = t.Object({
   id: t.Number(),
   date: t.String(),
-  exercise: t.String(),
+  exercise_id: t.String(),
+  exercise_name: t.Union([t.String(), t.Null()]),
+  is_bodyweight: t.Union([t.Number(), t.Null()]),
+  rir: t.Union([t.Integer(), t.Null()]),
   notes: t.Union([t.String(), t.Null()]),
   created_at: t.Union([t.String(), t.Null()]),
   sets: t.Array(WorkoutSetSchema),
@@ -17,52 +20,61 @@ const WorkoutWithSetsSchema = t.Object({
   total_volume: t.Number(),
 })
 
-// Compute 1RM estimates and volume from a workout's sets.
-// Pull-ups use bodyweight (70 kg) + added weight as effective load.
+// e1RM validity gates per STRENGTH-ANALYTICS.md §2.2.
+// Bodyweight for pull-ups falls back to 80 kg (no user context available server-side).
+const PULL_UPS_BW = 80
+
 function computeMetrics(
   sets: Array<{ set_type: string; weight_kg: number; reps: number }>,
-  exercise: string,
+  exercise_id: string,
+  rir: number | null | undefined,
 ) {
-  const workSets = sets.filter((s) => s.set_type === 'work')
+  const isPullUps = exercise_id === 'pull_ups'
   let totalVolume = 0
-  let maxEpley = 0
+  let maxEpley: number | null = null
   let maxBrzycki: number | null = null
 
   for (const s of sets) {
-    const ew = exercise === 'pull_ups' ? s.weight_kg + 70 : s.weight_kg
+    const ew = isPullUps ? s.weight_kg + PULL_UPS_BW : s.weight_kg
     totalVolume += ew * s.reps
   }
 
-  for (const s of workSets) {
-    const ew = exercise === 'pull_ups' ? s.weight_kg + 70 : s.weight_kg
-    maxEpley = Math.max(maxEpley, ew * (1 + s.reps / 30))
-    if (s.reps < 37) {
-      const b = (ew * 36) / (37 - s.reps)
-      maxBrzycki = maxBrzycki === null ? b : Math.max(maxBrzycki, b)
+  for (const s of sets) {
+    const eligible =
+      (s.set_type === 'work' || s.set_type === 'amrap') &&
+      s.reps >= 1 &&
+      s.reps <= 12 &&
+      (rir === null || rir === undefined || rir <= 3)
+    if (!eligible) continue
+
+    const ew = isPullUps ? s.weight_kg + PULL_UPS_BW : s.weight_kg
+    const epley = ew * (1 + s.reps / 30)
+    maxEpley = maxEpley === null ? epley : Math.max(maxEpley, epley)
+
+    if (s.reps <= 10) {
+      const brzycki = (ew * 36) / (37 - s.reps)
+      maxBrzycki = maxBrzycki === null ? brzycki : Math.max(maxBrzycki, brzycki)
     }
   }
 
-  if (workSets.length === 0) {
-    return {
-      estimated_1rm_epley: null,
-      estimated_1rm_brzycki: null,
-      estimated_1rm: null,
-      total_volume: Math.round(totalVolume * 10) / 10,
-    }
-  }
+  const e = maxEpley !== null ? Math.round(maxEpley * 10) / 10 : null
+  const b = maxBrzycki !== null ? Math.round(maxBrzycki * 10) / 10 : null
 
-  const epley = Math.round(maxEpley * 10) / 10
-  const brzycki = maxBrzycki !== null ? Math.round(maxBrzycki * 10) / 10 : null
+  let e1rm: number | null = null
+  if (e !== null && b !== null) e1rm = Math.round(((e + b) / 2) * 10) / 10
+  else if (b !== null) e1rm = b
+  else if (e !== null) e1rm = e
+
   return {
-    estimated_1rm_epley: epley,
-    estimated_1rm_brzycki: brzycki,
-    estimated_1rm: brzycki !== null ? Math.round(((epley + brzycki) / 2) * 10) / 10 : epley,
+    estimated_1rm_epley: e,
+    estimated_1rm_brzycki: b,
+    estimated_1rm: e1rm,
     total_volume: Math.round(totalVolume * 10) / 10,
   }
 }
 
 function orderColumn(field: string) {
-  if (field === 'exercise') return workouts.exercise
+  if (field === 'exercise_id' || field === 'exercise') return workouts.exercise_id
   if (field === 'id') return workouts.id
   if (field === 'created_at') return workouts.created_at
   return workouts.date
@@ -77,7 +89,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       const limit = Math.max(0, end - start)
 
       const conds = []
-      if (query.exercise) conds.push(eq(workouts.exercise, query.exercise))
+      if (query.exercise) conds.push(eq(workouts.exercise_id, query.exercise))
       if (query.date_from) conds.push(gte(workouts.date, query.date_from))
       if (query.date_to) conds.push(lte(workouts.date, query.date_to))
       const where = conds.length > 0 ? and(...conds) : undefined
@@ -93,8 +105,18 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
 
       const col = orderColumn(query._sort ?? 'date')
       const rows = await db
-        .select()
+        .select({
+          id: workouts.id,
+          date: workouts.date,
+          exercise_id: workouts.exercise_id,
+          exercise_name: exercises.name,
+          is_bodyweight: exercises.is_bodyweight,
+          rir: workouts.rir,
+          notes: workouts.notes,
+          created_at: workouts.created_at,
+        })
         .from(workouts)
+        .leftJoin(exercises, eq(workouts.exercise_id, exercises.id))
         .where(where)
         .orderBy((query._order ?? 'desc') === 'asc' ? asc(col) : desc(col))
         .limit(limit)
@@ -118,7 +140,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return rows.map((w) => {
         const wSets = setMap.get(w.id) ?? []
-        return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise) }
+        return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise_id, w.rir) }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any
     },
@@ -145,18 +167,28 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/:id',
     async ({ params, set }) => {
-      const [workout] = await db
-        .select()
+      const [row] = await db
+        .select({
+          id: workouts.id,
+          date: workouts.date,
+          exercise_id: workouts.exercise_id,
+          exercise_name: exercises.name,
+          is_bodyweight: exercises.is_bodyweight,
+          rir: workouts.rir,
+          notes: workouts.notes,
+          created_at: workouts.created_at,
+        })
         .from(workouts)
+        .leftJoin(exercises, eq(workouts.exercise_id, exercises.id))
         .where(eq(workouts.id, Number(params.id)))
-      if (!workout) {
+      if (!row) {
         set.status = 404
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return 'Not found' as any
       }
-      const sets = await db.select().from(workoutSets).where(eq(workoutSets.workout_id, workout.id))
+      const sets = await db.select().from(workoutSets).where(eq(workoutSets.workout_id, row.id))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { ...workout, sets, ...computeMetrics(sets, workout.exercise) } as any
+      return { ...row, sets, ...computeMetrics(sets, row.exercise_id, row.rir) } as any
     },
     {
       params: t.Object({ id: t.String() }),
@@ -179,7 +211,8 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           .insert(workouts)
           .values({
             date: body.date,
-            exercise: body.exercise,
+            exercise_id: body.exercise_id,
+            rir: body.rir ?? null,
             notes: body.notes ?? null,
           })
           .returning()
@@ -202,7 +235,8 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
     {
       body: t.Object({
         date: t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'YYYY-MM-DD' }),
-        exercise: ExerciseSchema,
+        exercise_id: t.String(),
+        rir: t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 5 }), t.Null()])),
         notes: t.Optional(t.String()),
         sets: t.Array(
           t.Object({
@@ -237,7 +271,8 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       await db.transaction(async (tx) => {
         const updateData: Partial<typeof workouts.$inferInsert> = {}
         if (body.date !== undefined) updateData.date = body.date
-        if (body.exercise !== undefined) updateData.exercise = body.exercise
+        if (body.exercise_id !== undefined) updateData.exercise_id = body.exercise_id
+        if (body.rir !== undefined) updateData.rir = body.rir
         if (body.notes !== undefined) updateData.notes = body.notes
 
         if (Object.keys(updateData).length > 0) {
@@ -269,7 +304,8 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       params: t.Object({ id: t.String() }),
       body: t.Object({
         date: t.Optional(t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })),
-        exercise: t.Optional(ExerciseSchema),
+        exercise_id: t.Optional(t.String()),
+        rir: t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 5 }), t.Null()])),
         notes: t.Optional(t.Union([t.String(), t.Null()])),
         sets: t.Optional(
           t.Array(
@@ -288,7 +324,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       },
       detail: {
         tags: ['Workouts'],
-        summary: 'Update workout metadata (date, exercise, notes — sets have their own endpoint)',
+        summary: 'Update workout (exercise_id, date, rir, notes, sets)',
         security: [{ BearerAuth: [] }],
       },
     },

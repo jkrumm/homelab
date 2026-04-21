@@ -1,6 +1,17 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
+// ── Exercises reference table ────────────────────────────────────────────────
+
+export const exercises = sqliteTable('exercises', {
+  id: text('id').primaryKey(), // "bench_press" | "squat" | "deadlift" | "pull_ups"
+  name: text('name').notNull(), // "Bench Press"
+  category: text('category').notNull(), // "push" | "pull" | "legs" | "hinge"
+  muscle_group: text('muscle_group').notNull(), // "chest" | "back" | "quads" | "glutes" | "posterior"
+  is_bodyweight: integer('is_bodyweight').default(0),
+  display_order: integer('display_order').default(0),
+})
+
 // ── Garmin daily metrics (auto-synced via garmin-sync cron) ─────────
 
 export const dailyMetrics = sqliteTable('daily_metrics', {
@@ -85,7 +96,8 @@ export const userProfile = sqliteTable('user_profile', {
 export const workouts = sqliteTable('workouts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   date: text('date').notNull(),
-  exercise: text('exercise').notNull(),
+  exercise_id: text('exercise_id').notNull(),
+  rir: integer('rir'),
   notes: text('notes'),
   created_at: text('created_at').default(sql`(datetime('now'))`),
 })
