@@ -595,7 +595,15 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
                   key: 'steps',
                   label: 'Steps',
                   color: VX.series.steps,
+                  axisSide: 'left',
                   formatValue: (v) => v.toLocaleString(),
+                },
+                {
+                  key: 'intensityMin',
+                  label: 'Intensity Min',
+                  color: VX.series.intensityMin,
+                  axisSide: 'right',
+                  formatValue: (v) => `${Math.round(v)} min`,
                 },
               ]}
               lines={[
@@ -608,15 +616,8 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
                   strokeWidth: 1.5,
                   formatValue: (v) => v.toLocaleString(),
                 },
-                {
-                  key: 'intensityMin',
-                  label: 'Intensity Min',
-                  color: VX.series.intensityMin,
-                  axisSide: 'right',
-                  strokeWidth: 2,
-                  formatValue: (v) => `${Math.round(v)} min`,
-                },
               ]}
+              barLayout="grouped"
               zones={[{ from: 10000, to: Infinity, fill: VX.goodSoft, axisSide: 'left' }]}
               refLines={[{ value: 10000, color: VX.goodRef, dashed: true, axisSide: 'left' }]}
               leftAxis={{ domain: 'auto', autoMaxFloor: 12000, numTicks: 5 }}
@@ -625,7 +626,6 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
                 numTicks: 4,
                 formatTick: (v) => `${v}m`,
               }}
-              barOpacity={(d) => 0.5 + 0.5 * Math.min(1, (d.intensityMin ?? 0) / 60)}
             />
           )}
         </ParentSize>
@@ -634,17 +634,17 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
         items={[
           { key: 'steps', label: 'Steps', color: VX.series.steps, shape: 'bar' },
           {
+            key: 'intensityMin',
+            label: 'Intensity Min',
+            color: VX.series.intensityMin,
+            shape: 'bar',
+          },
+          {
             key: 'stepsMA',
             label: '30d avg',
             color: VX.series.steps,
             strokeWidth: 1.5,
             dashed: true,
-          },
-          {
-            key: 'intensityMin',
-            label: 'Intensity Min',
-            color: VX.series.intensityMin,
-            strokeWidth: 2,
           },
         ]}
         highlighted={null}

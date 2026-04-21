@@ -26,6 +26,8 @@ export type BarsBar = {
   color: string
   /** Per-series tooltip value formatter — overrides top-level formatValue. */
   formatValue?: (v: number) => string
+  /** Y axis to plot against. Honored only in grouped layout. Default 'left'. */
+  axisSide?: 'left' | 'right'
 }
 
 export type BarsLine = {
@@ -100,6 +102,14 @@ export type BarsProps<T> = {
   /** Bar width as fraction of slot width. Default 0.6. */
   barWidthRatio?: number
 
+  /**
+   * How multiple positive bars are arranged per x slot.
+   * - `stacked` (default): bars stack vertically on the left axis; negativeBars stack below baseline.
+   * - `grouped`: bars sit side-by-side within the slot. Each bar honors its own `axisSide`.
+   *   negativeBars are ignored in grouped layout.
+   */
+  barLayout?: 'stacked' | 'grouped'
+
   /** Per-bar opacity override. Receives the data point + bar key. Default 0.85. */
   barOpacity?: (d: T, key: string) => number
 
@@ -139,6 +149,7 @@ export function Bars<T>(props: BarsProps<T>) {
     leftAxis,
     rightAxis,
     barWidthRatio = 0.6,
+    barLayout = 'stacked',
     barOpacity,
     tooltipLabel,
     renderPrefixTooltipRows,
@@ -168,19 +179,30 @@ export function Bars<T>(props: BarsProps<T>) {
       const autoPad = leftAxis.autoPad ?? 1.1
       let maxSum = 0
       let minSum = 0
-      for (const d of data) {
-        let pos = 0
-        for (const b of positiveBars) {
-          const v = getValue(d, b.key)
-          if (v !== null && !Number.isNaN(v) && v > 0) pos += v
+      if (barLayout === 'stacked') {
+        for (const d of data) {
+          let pos = 0
+          for (const b of positiveBars) {
+            const v = getValue(d, b.key)
+            if (v !== null && !Number.isNaN(v) && v > 0) pos += v
+          }
+          let neg = 0
+          for (const b of negativeBars) {
+            const v = getValue(d, b.key)
+            if (v !== null && !Number.isNaN(v) && v > 0) neg -= v
+          }
+          if (pos > maxSum) maxSum = pos
+          if (neg < minSum) minSum = neg
         }
-        let neg = 0
-        for (const b of negativeBars) {
-          const v = getValue(d, b.key)
-          if (v !== null && !Number.isNaN(v) && v > 0) neg -= v
+      } else {
+        for (const d of data) {
+          for (const b of positiveBars) {
+            if ((b.axisSide ?? 'left') !== 'left') continue
+            const v = getValue(d, b.key)
+            if (v === null || Number.isNaN(v)) continue
+            if (v > maxSum) maxSum = v
+          }
         }
-        if (pos > maxSum) maxSum = pos
-        if (neg < minSum) minSum = neg
       }
       for (const ln of lines) {
         if ((ln.axisSide ?? 'left') !== 'left') continue
@@ -197,7 +219,7 @@ export function Bars<T>(props: BarsProps<T>) {
       return scaleLinear<number>({ domain: [lower, upper], range: [yMax, 0], nice: true })
     }
     return scaleLinear<number>({ domain: leftAxis.domain, range: [yMax, 0] })
-  }, [data, leftAxis, positiveBars, negativeBars, lines, getValue, yMax])
+  }, [data, leftAxis, positiveBars, negativeBars, lines, getValue, yMax, barLayout])
 
   const rightYScale = useMemo(() => {
     if (!rightAxis) return null
@@ -205,6 +227,17 @@ export function Bars<T>(props: BarsProps<T>) {
       const autoPad = rightAxis.autoPad ?? 1.1
       let max = -Infinity
       let min = Infinity
+      if (barLayout === 'grouped') {
+        for (const d of data) {
+          for (const b of positiveBars) {
+            if ((b.axisSide ?? 'left') !== 'right') continue
+            const v = getValue(d, b.key)
+            if (v === null || Number.isNaN(v)) continue
+            if (v > max) max = v
+            if (v < min) min = v
+          }
+        }
+      }
       for (const ln of lines) {
         if ((ln.axisSide ?? 'left') !== 'right') continue
         for (const d of data) {
@@ -232,7 +265,7 @@ export function Bars<T>(props: BarsProps<T>) {
       return scaleLinear<number>({ domain: [lower, upper], range: [yMax, 0], nice: true })
     }
     return scaleLinear<number>({ domain: rightAxis.domain, range: [yMax, 0] })
-  }, [data, rightAxis, lines, zones, refLines, getValue, yMax])
+  }, [data, rightAxis, lines, zones, refLines, positiveBars, getValue, yMax, barLayout])
 
   const tooltipStyles = useTooltipStyles()
   const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } = useHoverSync<T>(
@@ -251,7 +284,11 @@ export function Bars<T>(props: BarsProps<T>) {
     [data, xMax, getX, numTicksX],
   )
 
-  const barWidth = Math.max((xMax / Math.max(data.length, 1)) * barWidthRatio, 2)
+  const groupWidth = Math.max((xMax / Math.max(data.length, 1)) * barWidthRatio, 2)
+  const barWidth =
+    barLayout === 'grouped'
+      ? Math.max(groupWidth / Math.max(positiveBars.length, 1), 2)
+      : groupWidth
 
   const scaleFor = (side: 'left' | 'right' | undefined) =>
     side === 'right' && rightYScale ? rightYScale : leftYScale
@@ -316,58 +353,73 @@ export function Bars<T>(props: BarsProps<T>) {
 
           {data.map((d) => {
             const cx = xScale(getX(d)) ?? 0
-            const x = cx - barWidth / 2
+            const groupLeft = cx - groupWidth / 2
 
-            let posOffset = 0
-            const posEls: ReactNode[] = []
-            for (const b of positiveBars) {
-              const v = getValue(d, b.key)
-              if (v === null || Number.isNaN(v) || v <= 0) continue
-              const top = posOffset + v
-              const yTop = leftYScale(top)
-              const yBottom = leftYScale(posOffset)
-              posEls.push(
-                <rect
-                  key={`${getX(d)}-${b.key}`}
-                  x={x}
-                  y={yTop}
-                  width={barWidth}
-                  height={yBottom - yTop}
-                  fill={b.color}
-                  fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
-                />,
-              )
-              posOffset = top
+            const els: ReactNode[] = []
+
+            if (barLayout === 'stacked') {
+              let posOffset = 0
+              for (const b of positiveBars) {
+                const v = getValue(d, b.key)
+                if (v === null || Number.isNaN(v) || v <= 0) continue
+                const top = posOffset + v
+                const yTop = leftYScale(top)
+                const yBottom = leftYScale(posOffset)
+                els.push(
+                  <rect
+                    key={`${getX(d)}-${b.key}`}
+                    x={groupLeft}
+                    y={yTop}
+                    width={barWidth}
+                    height={yBottom - yTop}
+                    fill={b.color}
+                    fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
+                  />,
+                )
+                posOffset = top
+              }
+              let negOffset = 0
+              for (const b of negativeBars) {
+                const v = getValue(d, b.key)
+                if (v === null || Number.isNaN(v) || v <= 0) continue
+                const top = negOffset + v
+                const yTop = leftYScale(-negOffset)
+                const yBottom = leftYScale(-top)
+                els.push(
+                  <rect
+                    key={`${getX(d)}-${b.key}-neg`}
+                    x={groupLeft}
+                    y={yTop}
+                    width={barWidth}
+                    height={yBottom - yTop}
+                    fill={b.color}
+                    fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
+                  />,
+                )
+                negOffset = top
+              }
+            } else {
+              positiveBars.forEach((b, i) => {
+                const v = getValue(d, b.key)
+                if (v === null || Number.isNaN(v) || v <= 0) return
+                const scale = scaleFor(b.axisSide)
+                const yTop = scale(v)
+                const yBottom = scale(0)
+                els.push(
+                  <rect
+                    key={`${getX(d)}-${b.key}`}
+                    x={groupLeft + i * barWidth}
+                    y={yTop}
+                    width={barWidth}
+                    height={yBottom - yTop}
+                    fill={b.color}
+                    fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
+                  />,
+                )
+              })
             }
 
-            let negOffset = 0
-            const negEls: ReactNode[] = []
-            for (const b of negativeBars) {
-              const v = getValue(d, b.key)
-              if (v === null || Number.isNaN(v) || v <= 0) continue
-              const top = negOffset + v
-              const yTop = leftYScale(-negOffset)
-              const yBottom = leftYScale(-top)
-              negEls.push(
-                <rect
-                  key={`${getX(d)}-${b.key}-neg`}
-                  x={x}
-                  y={yTop}
-                  width={barWidth}
-                  height={yBottom - yTop}
-                  fill={b.color}
-                  fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
-                />,
-              )
-              negOffset = top
-            }
-
-            return (
-              <g key={`bars-${getX(d)}`}>
-                {posEls}
-                {negEls}
-              </g>
-            )
+            return <g key={`bars-${getX(d)}`}>{els}</g>
           })}
 
           {lines.map((ln) => {
