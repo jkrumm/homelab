@@ -11,6 +11,7 @@ import { METRIC_TOOLTIPS } from './constants'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
+  Bars,
   ChartCard,
   ChartLegend,
   ChartTooltip,
@@ -28,8 +29,12 @@ import {
 import {
   acwrZoneColor,
   acwrZoneLabel,
+  buildActivityData,
   buildRecoveryTrendData,
+  buildSleepChartData,
   computeTrainingLoad,
+  formatHoursMin,
+  sleepScoreLabel,
   type TrainingLoadPoint,
 } from './utils'
 
@@ -181,17 +186,23 @@ function DivergenceChartInner({
   }, [data, xScale, yScaleTop, yMaxTop])
 
   const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } = useHoverSync<
-    TrainingLoadPoint
-  >({
-    data,
-    chartId: 'divergence',
-    getX: (d) => d.date,
-    xScale,
-    marginLeft: MARGIN.left,
-  })
+  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
+    useHoverSync<TrainingLoadPoint>({
+      data,
+      chartId: 'divergence',
+      getX: (d) => d.date,
+      xScale,
+      marginLeft: MARGIN.left,
+    })
 
-  const tickValues = useMemo(() => smartTicks(data.map((d) => d.date), xMax), [data, xMax])
+  const tickValues = useMemo(
+    () =>
+      smartTicks(
+        data.map((d) => d.date),
+        xMax,
+      ),
+    [data, xMax],
+  )
 
   const acuteOpa = highlighted === null || highlighted === 'acute' ? 0.7 : 0.1
   const chronicOpa = highlighted === null || highlighted === 'chronic' ? 0.85 : 0.1
@@ -202,10 +213,18 @@ function DivergenceChartInner({
         {/* Top panel: signal lines with threshold fill between them */}
         <Group left={MARGIN.left} top={MARGIN.top}>
           <defs>
-            <clipPath id="div-clip-above-chronic"><path d={clipAboveChronic} /></clipPath>
-            <clipPath id="div-clip-below-chronic"><path d={clipBelowChronic} /></clipPath>
-            <clipPath id="div-clip-above-acute"><path d={clipAboveAcute} /></clipPath>
-            <clipPath id="div-clip-below-acute"><path d={clipBelowAcute} /></clipPath>
+            <clipPath id="div-clip-above-chronic">
+              <path d={clipAboveChronic} />
+            </clipPath>
+            <clipPath id="div-clip-below-chronic">
+              <path d={clipBelowChronic} />
+            </clipPath>
+            <clipPath id="div-clip-above-acute">
+              <path d={clipAboveAcute} />
+            </clipPath>
+            <clipPath id="div-clip-below-acute">
+              <path d={clipBelowAcute} />
+            </clipPath>
           </defs>
           <GridRows scale={yScaleTop} width={xMax} stroke={VX.grid} numTicks={4} />
           <Threshold<TrainingLoadPoint>
@@ -223,30 +242,85 @@ function DivergenceChartInner({
 
           {/* Short-term (acute): green above chronic, red below — thinner, less opacity */}
           <g clipPath="url(#div-clip-above-chronic)">
-            <LinePath<TrainingLoadPoint> data={data} x={(d) => xScale(d.date) ?? 0} y={(d) => yScaleTop(d.acute)} stroke={VX.goodSolid} strokeWidth={2} strokeOpacity={acuteOpa} curve={curveMonotoneX} />
+            <LinePath<TrainingLoadPoint>
+              data={data}
+              x={(d) => xScale(d.date) ?? 0}
+              y={(d) => yScaleTop(d.acute)}
+              stroke={VX.goodSolid}
+              strokeWidth={2}
+              strokeOpacity={acuteOpa}
+              curve={curveMonotoneX}
+            />
           </g>
           <g clipPath="url(#div-clip-below-chronic)">
-            <LinePath<TrainingLoadPoint> data={data} x={(d) => xScale(d.date) ?? 0} y={(d) => yScaleTop(d.acute)} stroke={VX.badSolid} strokeWidth={2} strokeOpacity={acuteOpa} curve={curveMonotoneX} />
+            <LinePath<TrainingLoadPoint>
+              data={data}
+              x={(d) => xScale(d.date) ?? 0}
+              y={(d) => yScaleTop(d.acute)}
+              stroke={VX.badSolid}
+              strokeWidth={2}
+              strokeOpacity={acuteOpa}
+              curve={curveMonotoneX}
+            />
           </g>
 
           {/* Long-term (chronic): green when acute above, red when acute below — thicker, more opacity */}
           <g clipPath="url(#div-clip-below-acute)">
-            <LinePath<TrainingLoadPoint> data={data} x={(d) => xScale(d.date) ?? 0} y={(d) => yScaleTop(d.chronic)} stroke={VX.goodSolid} strokeWidth={2.5} strokeOpacity={chronicOpa} curve={curveMonotoneX} />
+            <LinePath<TrainingLoadPoint>
+              data={data}
+              x={(d) => xScale(d.date) ?? 0}
+              y={(d) => yScaleTop(d.chronic)}
+              stroke={VX.goodSolid}
+              strokeWidth={2.5}
+              strokeOpacity={chronicOpa}
+              curve={curveMonotoneX}
+            />
           </g>
           <g clipPath="url(#div-clip-above-acute)">
-            <LinePath<TrainingLoadPoint> data={data} x={(d) => xScale(d.date) ?? 0} y={(d) => yScaleTop(d.chronic)} stroke={VX.badSolid} strokeWidth={2.5} strokeOpacity={chronicOpa} curve={curveMonotoneX} />
+            <LinePath<TrainingLoadPoint>
+              data={data}
+              x={(d) => xScale(d.date) ?? 0}
+              y={(d) => yScaleTop(d.chronic)}
+              stroke={VX.badSolid}
+              strokeWidth={2.5}
+              strokeOpacity={chronicOpa}
+              curve={curveMonotoneX}
+            />
           </g>
 
-          {syncedPoint && (() => {
-            const bothColor = syncedPoint.acute >= syncedPoint.chronic ? VX.goodSolid : VX.badSolid
-            return (
-              <>
-                <line x1={xScale(syncedPoint.date) ?? 0} x2={xScale(syncedPoint.date) ?? 0} y1={0} y2={yMaxTop} stroke={VX.crosshair} strokeWidth={1} />
-                <circle cx={xScale(syncedPoint.date) ?? 0} cy={yScaleTop(syncedPoint.acute)} r={4} fill={bothColor} stroke={VX.dotStroke} strokeWidth={2} />
-                <circle cx={xScale(syncedPoint.date) ?? 0} cy={yScaleTop(syncedPoint.chronic)} r={4} fill={bothColor} stroke={VX.dotStroke} strokeWidth={2} />
-              </>
-            )
-          })()}
+          {syncedPoint &&
+            (() => {
+              const bothColor =
+                syncedPoint.acute >= syncedPoint.chronic ? VX.goodSolid : VX.badSolid
+              return (
+                <>
+                  <line
+                    x1={xScale(syncedPoint.date) ?? 0}
+                    x2={xScale(syncedPoint.date) ?? 0}
+                    y1={0}
+                    y2={yMaxTop}
+                    stroke={VX.crosshair}
+                    strokeWidth={1}
+                  />
+                  <circle
+                    cx={xScale(syncedPoint.date) ?? 0}
+                    cy={yScaleTop(syncedPoint.acute)}
+                    r={4}
+                    fill={bothColor}
+                    stroke={VX.dotStroke}
+                    strokeWidth={2}
+                  />
+                  <circle
+                    cx={xScale(syncedPoint.date) ?? 0}
+                    cy={yScaleTop(syncedPoint.chronic)}
+                    r={4}
+                    fill={bothColor}
+                    stroke={VX.dotStroke}
+                    strokeWidth={2}
+                  />
+                </>
+              )
+            })()}
           <AxisLeftNumeric scale={yScaleTop} numTicks={4} />
           <HoverOverlay width={xMax} height={yMaxTop} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
@@ -256,7 +330,7 @@ function DivergenceChartInner({
           <GridRows scale={yScaleBottom} width={xMax} stroke={VX.grid} numTicks={3} />
           {data.map((d) => {
             const x = xScale(d.date) ?? 0
-            const barWidth = Math.max(xMax / data.length * 0.6, 2)
+            const barWidth = Math.max((xMax / data.length) * 0.6, 2)
             const y0 = yScaleBottom(0)
             const yVal = yScaleBottom(d.divergence)
             const barH = Math.abs(yVal - y0)
@@ -273,36 +347,56 @@ function DivergenceChartInner({
               />
             )
           })}
-          <line
-            x1={0}
-            x2={xMax}
-            y1={yScaleBottom(0)}
-            y2={yScaleBottom(0)}
-            stroke={VX.grid}
-          />
+          <line x1={0} x2={xMax} y1={yScaleBottom(0)} y2={yScaleBottom(0)} stroke={VX.grid} />
           {syncedPoint && (
-            <line x1={xScale(syncedPoint.date) ?? 0} x2={xScale(syncedPoint.date) ?? 0} y1={0} y2={yMaxBottom} stroke={VX.crosshair} strokeWidth={1} />
+            <line
+              x1={xScale(syncedPoint.date) ?? 0}
+              x2={xScale(syncedPoint.date) ?? 0}
+              y1={0}
+              y2={yMaxBottom}
+              stroke={VX.crosshair}
+              strokeWidth={1}
+            />
           )}
           <AxisLeftNumeric scale={yScaleBottom} numTicks={3} />
           <AxisBottomDate top={yMaxBottom} scale={xScale} tickValues={tickValues} />
-          <HoverOverlay width={xMax} height={yMaxBottom} onMove={handleMouse} onLeave={handleLeave} />
+          <HoverOverlay
+            width={xMax}
+            height={yMaxBottom}
+            onMove={handleMouse}
+            onLeave={handleLeave}
+          />
         </Group>
       </svg>
       <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (() => {
-          const bothColor = tip.data.acute >= tip.data.chronic ? VX.goodSolid : VX.badSolid
-          const divColor = tip.data.divergence >= 0 ? VX.goodSolid : VX.badSolid
-          const divLabel = `${tip.data.divergence >= 0 ? '+' : ''}${tip.data.divergence.toFixed(1)}`
-          return (
-            <>
-              <TooltipHeader date={tip.data.date} label={divLabel} labelColor={divColor} />
-              <TooltipBody>
-                <TooltipRow color={bothColor} label="Short" value={String(tip.data.acute)} shape="line" strokeWidth={2} />
-                <TooltipRow color={bothColor} label="Long" value={String(tip.data.chronic)} shape="line" strokeWidth={2.5} />
-              </TooltipBody>
-            </>
-          )
-        })()}
+        {tip &&
+          isDirectHover &&
+          (() => {
+            const bothColor = tip.data.acute >= tip.data.chronic ? VX.goodSolid : VX.badSolid
+            const divColor = tip.data.divergence >= 0 ? VX.goodSolid : VX.badSolid
+            const divLabel = `${tip.data.divergence >= 0 ? '+' : ''}${tip.data.divergence.toFixed(1)}`
+            return (
+              <>
+                <TooltipHeader date={tip.data.date} label={divLabel} labelColor={divColor} />
+                <TooltipBody>
+                  <TooltipRow
+                    color={bothColor}
+                    label="Short"
+                    value={String(tip.data.acute)}
+                    shape="line"
+                    strokeWidth={2}
+                  />
+                  <TooltipRow
+                    color={bothColor}
+                    label="Long"
+                    value={String(tip.data.chronic)}
+                    shape="line"
+                    strokeWidth={2.5}
+                  />
+                </TooltipBody>
+              </>
+            )
+          })()}
       </ChartTooltip>
     </div>
   )
@@ -317,18 +411,243 @@ export function DivergenceThresholdChart({ data }: { data: DailyMetric[] }) {
       <div style={{ height: 260 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
-            <DivergenceChartInner data={loadData} width={Math.max(width, 200)} height={260} highlighted={highlighted} />
+            <DivergenceChartInner
+              data={loadData}
+              width={Math.max(width, 200)}
+              height={260}
+              highlighted={highlighted}
+            />
           )}
         </ParentSize>
       </div>
       <ChartLegend
         items={[
-          { key: 'acute', label: 'Short-term (7d)', color: VX.goodSolid, secondColor: VX.badSolid, strokeWidth: 2, shape: 'splitLine' },
-          { key: 'chronic', label: 'Long-term (28d)', color: VX.goodSolid, secondColor: VX.badSolid, strokeWidth: 3, shape: 'splitLine' },
-          { key: 'divergence', label: 'Divergence', color: VX.goodSolid, secondColor: VX.badSolid, shape: 'split' },
+          {
+            key: 'acute',
+            label: 'Short-term (7d)',
+            color: VX.goodSolid,
+            secondColor: VX.badSolid,
+            strokeWidth: 2,
+            shape: 'splitLine',
+          },
+          {
+            key: 'chronic',
+            label: 'Long-term (28d)',
+            color: VX.goodSolid,
+            secondColor: VX.badSolid,
+            strokeWidth: 3,
+            shape: 'splitLine',
+          },
+          {
+            key: 'divergence',
+            label: 'Divergence',
+            color: VX.goodSolid,
+            secondColor: VX.badSolid,
+            shape: 'split',
+          },
         ]}
         highlighted={highlighted}
         onHighlight={setHighlighted}
+      />
+    </ChartCard>
+  )
+}
+
+// ── Sleep Breakdown — diverging stacked bars + score line ──────────────
+
+type SleepPoint = ReturnType<typeof buildSleepChartData>[number]
+
+const SLEEP_KEYS = ['deep', 'light', 'rem', 'awake', 'sleepScore'] as const
+
+const sleepGetValue = (d: SleepPoint, k: string): number | null => {
+  switch (k as (typeof SLEEP_KEYS)[number]) {
+    case 'deep':
+      return d.deep
+    case 'light':
+      return d.light
+    case 'rem':
+      return d.rem
+    case 'awake':
+      return d.awake
+    case 'sleepScore':
+      return d.sleepScore
+  }
+  return null
+}
+
+export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
+  const chartData = useMemo(() => buildSleepChartData(data), [data])
+
+  return (
+    <ChartCard title="Sleep Breakdown" tooltip={METRIC_TOOLTIPS.sleepStages}>
+      <div style={{ height: 280 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <Bars<SleepPoint>
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={280}
+              chartId="sleep"
+              getX={(d) => d.date}
+              getValue={sleepGetValue}
+              positiveBars={[
+                { key: 'deep', label: 'Deep', color: VX.series.deep, formatValue: formatHoursMin },
+                {
+                  key: 'light',
+                  label: 'Light',
+                  color: VX.series.light,
+                  formatValue: formatHoursMin,
+                },
+                { key: 'rem', label: 'REM', color: VX.series.rem, formatValue: formatHoursMin },
+              ]}
+              negativeBars={[
+                {
+                  key: 'awake',
+                  label: 'Awake',
+                  color: VX.series.awake,
+                  formatValue: formatHoursMin,
+                },
+              ]}
+              lines={[
+                {
+                  key: 'sleepScore',
+                  label: 'Sleep Score',
+                  color: VX.series.sleepScore,
+                  axisSide: 'right',
+                  strokeWidth: 2,
+                },
+              ]}
+              zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
+              leftAxis={{
+                domain: 'auto',
+                autoPad: 1.05,
+                autoMaxFloor: 9,
+                numTicks: 5,
+                formatTick: (v) => (v < 0 ? `${Math.abs(v)}h` : `${v}h`),
+              }}
+              rightAxis={{ domain: [0, 100], numTicks: 4 }}
+              tooltipLabel={(d) => sleepScoreLabel(d.sleepScore)}
+              renderPrefixTooltipRows={(d) => {
+                const total = (d.deep ?? 0) + (d.light ?? 0) + (d.rem ?? 0)
+                if (total === 0) return null
+                return (
+                  <TooltipRow
+                    color={VX.series.sleepScore}
+                    label="Total"
+                    value={`${total.toFixed(1)}h`}
+                    shape="line"
+                    strokeWidth={2}
+                  />
+                )
+              }}
+            />
+          )}
+        </ParentSize>
+      </div>
+      <ChartLegend
+        items={[
+          { key: 'deep', label: 'Deep', color: VX.series.deep, shape: 'bar' },
+          { key: 'light', label: 'Light', color: VX.series.light, shape: 'bar' },
+          { key: 'rem', label: 'REM', color: VX.series.rem, shape: 'bar' },
+          { key: 'awake', label: 'Awake', color: VX.series.awake, shape: 'bar' },
+          { key: 'sleepScore', label: 'Sleep Score', color: VX.series.sleepScore, strokeWidth: 2 },
+        ]}
+        highlighted={null}
+        onHighlight={() => {}}
+      />
+    </ChartCard>
+  )
+}
+
+// ── Activity — steps bars + 30d MA + intensity minutes ──────────────────
+
+type ActivityPoint = ReturnType<typeof buildActivityData>[number]
+
+const activityGetValue = (d: ActivityPoint, k: string): number | null => {
+  switch (k) {
+    case 'steps':
+      return d.steps
+    case 'stepsMA':
+      return d.stepsMA
+    case 'intensityMin':
+      return d.intensityMin
+  }
+  return null
+}
+
+export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
+  const chartData = useMemo(() => buildActivityData(data), [data])
+
+  return (
+    <ChartCard title="Daily Activity" tooltip={METRIC_TOOLTIPS.intensityMinutes}>
+      <div style={{ height: 220 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <Bars<ActivityPoint>
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={220}
+              chartId="activity"
+              getX={(d) => d.date}
+              getValue={activityGetValue}
+              positiveBars={[
+                {
+                  key: 'steps',
+                  label: 'Steps',
+                  color: VX.series.steps,
+                  formatValue: (v) => v.toLocaleString(),
+                },
+              ]}
+              lines={[
+                {
+                  key: 'stepsMA',
+                  label: '30d avg',
+                  color: VX.series.steps,
+                  axisSide: 'left',
+                  dashed: true,
+                  strokeWidth: 1.5,
+                  formatValue: (v) => v.toLocaleString(),
+                },
+                {
+                  key: 'intensityMin',
+                  label: 'Intensity Min',
+                  color: VX.series.intensityMin,
+                  axisSide: 'right',
+                  strokeWidth: 2,
+                  formatValue: (v) => `${Math.round(v)} min`,
+                },
+              ]}
+              zones={[{ from: 10000, to: Infinity, fill: VX.goodSoft, axisSide: 'left' }]}
+              refLines={[{ value: 10000, color: VX.goodRef, dashed: true, axisSide: 'left' }]}
+              leftAxis={{ domain: 'auto', autoMaxFloor: 12000, numTicks: 5 }}
+              rightAxis={{
+                domain: 'auto',
+                numTicks: 4,
+                formatTick: (v) => `${v}m`,
+              }}
+              barOpacity={(d) => 0.5 + 0.5 * Math.min(1, (d.intensityMin ?? 0) / 60)}
+            />
+          )}
+        </ParentSize>
+      </div>
+      <ChartLegend
+        items={[
+          { key: 'steps', label: 'Steps', color: VX.series.steps, shape: 'bar' },
+          {
+            key: 'stepsMA',
+            label: '30d avg',
+            color: VX.series.steps,
+            strokeWidth: 1.5,
+          },
+          {
+            key: 'intensityMin',
+            label: 'Intensity Min',
+            color: VX.series.intensityMin,
+            strokeWidth: 2,
+          },
+        ]}
+        highlighted={null}
+        onHighlight={() => {}}
       />
     </ChartCard>
   )

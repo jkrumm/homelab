@@ -156,18 +156,18 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
   }, [valid, yDomain, yMax, yAutoPad, yAutoMaxFloor, yAutoMinCeil])
 
   const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } = useHoverSync<
-    Valid
-  >({
-    data: valid,
-    chartId,
-    getX,
-    xScale,
-    marginLeft: MARGIN.left,
-  })
+  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
+    useHoverSync<Valid>({
+      data: valid,
+      chartId,
+      getX,
+      xScale,
+      marginLeft: MARGIN.left,
+    })
 
   const tickValues = useMemo(
-    () => (numTicksX ? smartTicksEvery(data.map(getX), numTicksX) : smartTicks(data.map(getX), xMax)),
+    () =>
+      numTicksX ? smartTicksEvery(data.map(getX), numTicksX) : smartTicks(data.map(getX), xMax),
     [data, xMax, getX, numTicksX],
   )
 
@@ -262,11 +262,7 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
           <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
       </svg>
-      <ChartTooltip
-        tip={isDirectHover ? tip : null}
-        tooltipRef={tooltipRef}
-        styles={tooltipStyles}
-      >
+      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
         {tip && isDirectHover && (
           <>
             <TooltipHeader

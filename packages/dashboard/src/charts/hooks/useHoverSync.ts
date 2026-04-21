@@ -75,7 +75,7 @@ export function useHoverSync<T>({
     ctx.setHover(null, null)
   }, [hide, ctx])
 
-  const syncedPoint = ctx.date ? data.find((d) => getX(d) === ctx.date) ?? null : null
+  const syncedPoint = ctx.date ? (data.find((d) => getX(d) === ctx.date) ?? null) : null
   const isDirectHover = ctx.source === chartId
 
   return {
@@ -87,4 +87,3 @@ export function useHoverSync<T>({
     handleLeave,
   }
 }
-

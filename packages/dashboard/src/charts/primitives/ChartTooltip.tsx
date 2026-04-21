@@ -85,7 +85,7 @@ export function TooltipRow({
   label: string
   value: string
   valueColor?: string
-  shape?: 'dot' | 'line'
+  shape?: 'dot' | 'line' | 'bar'
   strokeWidth?: number
 }) {
   return (

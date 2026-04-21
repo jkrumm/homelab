@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import {
   Area,
   AreaChart,
-  Bar,
   CartesianGrid,
   ComposedChart,
   Legend,
@@ -19,10 +18,8 @@ import type { DailyMetric } from './types'
 import { METRIC_TOOLTIPS } from './constants'
 import { VX } from '../../charts'
 import {
-  buildActivityData,
   buildBodyBatteryData,
   buildFitnessData,
-  buildSleepChartData,
   buildStressData,
   computeFitnessSummary,
   formatXDate,
@@ -192,73 +189,6 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
   )
 }
 
-// ── Sleep Stages — stacked bar + sleep score line ─────────────────────────
-
-export function SleepChart({ data }: { data: DailyMetric[] }) {
-  const chartData = useMemo(() => buildSleepChartData(data), [data])
-
-  return (
-    <Card
-      title={<ChartTitle title="Sleep Breakdown" tooltip={METRIC_TOOLTIPS.sleepStages} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-    >
-      <ResponsiveContainer width="100%" height={280}>
-        <ComposedChart data={chartData} margin={CHART_MARGIN} syncId={SYNC_ID}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
-          <YAxis yAxisId="hours" tick={{ fontSize: 11 }} unit="h" width={40} />
-          <YAxis
-            yAxisId="score"
-            orientation="right"
-            domain={[0, 100]}
-            tick={{ fontSize: 11 }}
-            width={36}
-          />
-          <Tooltip
-            {...TOOLTIP_STYLE}
-            formatter={(value: number, name: string) => {
-              if (name === 'sleepScore') return [`${value}`, 'Sleep Score']
-              return [`${value.toFixed(1)}h`, name.charAt(0).toUpperCase() + name.slice(1)]
-            }}
-          />
-          <Legend
-            formatter={(value: string) => {
-              const labels: Record<string, string> = {
-                deep: 'Deep',
-                rem: 'REM',
-                light: 'Light',
-                awake: 'Awake',
-                sleepScore: 'Sleep Score',
-              }
-              return labels[value] ?? value
-            }}
-          />
-          <Bar yAxisId="hours" dataKey="deep" stackId="sleep" fill={VX.series.deep} />
-          <Bar yAxisId="hours" dataKey="rem" stackId="sleep" fill={VX.series.rem} />
-          <Bar yAxisId="hours" dataKey="light" stackId="sleep" fill={VX.series.light} />
-          <Bar
-            yAxisId="hours"
-            dataKey="awake"
-            stackId="sleep"
-            fill={VX.series.awake}
-            radius={[2, 2, 0, 0]}
-          />
-          <Line
-            yAxisId="score"
-            type="monotone"
-            dataKey="sleepScore"
-            stroke={VX.series.sleepScore}
-            dot={false}
-            strokeWidth={2}
-            connectNulls
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </Card>
-  )
-}
-
 // ── Body Battery — range area band ────────────────────────────────────────
 
 export function BodyBatteryChart({ data }: { data: DailyMetric[] }) {
@@ -361,61 +291,6 @@ export function StressChart({ data }: { data: DailyMetric[] }) {
             connectNulls
           />
         </AreaChart>
-      </ResponsiveContainer>
-    </Card>
-  )
-}
-
-// ── Activity — steps bars + intensity minutes line ───────────────────────
-
-export function ActivityChart({ data }: { data: DailyMetric[] }) {
-  const chartData = useMemo(() => buildActivityData(data), [data])
-
-  return (
-    <Card
-      title={<ChartTitle title="Daily Activity" tooltip={METRIC_TOOLTIPS.intensityMinutes} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-    >
-      <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={chartData} margin={CHART_MARGIN} syncId={SYNC_ID}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
-          <YAxis yAxisId="steps" tick={{ fontSize: 11 }} width={52} />
-          <YAxis yAxisId="min" orientation="right" tick={{ fontSize: 11 }} unit=" min" width={52} />
-          <Tooltip
-            {...TOOLTIP_STYLE}
-            formatter={(value: number, name: string) => {
-              const labels: Record<string, [string, string]> = {
-                steps: [value.toLocaleString(), 'Steps'],
-                intensityMin: [`${Math.round(value)} min`, 'Intensity Minutes'],
-              }
-              return labels[name] ?? [`${value}`, name]
-            }}
-          />
-          <ReferenceLine
-            yAxisId="steps"
-            y={10000}
-            stroke="rgba(0,200,83,0.3)"
-            strokeDasharray="4 4"
-          />
-          <Bar
-            yAxisId="steps"
-            dataKey="steps"
-            fill={VX.series.steps}
-            fillOpacity={0.7}
-            radius={[2, 2, 0, 0]}
-          />
-          <Line
-            yAxisId="min"
-            type="monotone"
-            dataKey="intensityMin"
-            stroke={VX.series.intensityMin}
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
-        </ComposedChart>
       </ResponsiveContainer>
     </Card>
   )

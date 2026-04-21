@@ -1,4 +1,5 @@
 import type { DailyMetric } from './types'
+import { VX } from '../../charts'
 
 /** Extract non-null numeric values for a field */
 function validValues(data: DailyMetric[], field: keyof DailyMetric): number[] {
@@ -144,13 +145,17 @@ export function buildStressData(data: DailyMetric[]) {
     }))
 }
 
-/** Build activity chart data */
+/** Build activity chart data — includes 30d rolling average for trend context */
 export function buildActivityData(data: DailyMetric[]) {
+  const stepsMA = movingAverage(
+    data.map((d) => d.steps),
+    30,
+  )
   return data
-    .filter((d) => d.steps !== null)
-    .map((d) => ({
+    .map((d, i) => ({
       date: d.date,
       steps: d.steps,
+      stepsMA: stepsMA[i] ?? null,
       intensityMin:
         d.moderate_intensity_min !== null || d.vigorous_intensity_min !== null
           ? (d.moderate_intensity_min ?? 0) + (d.vigorous_intensity_min ?? 0)
@@ -158,6 +163,24 @@ export function buildActivityData(data: DailyMetric[]) {
       calories: d.total_kcal,
       activeCal: d.active_kcal,
     }))
+    .filter((d) => d.steps !== null)
+}
+
+/** Sleep score → tooltip badge (text + color) per Garmin's bands. */
+export function sleepScoreLabel(score: number | null): { text: string; color: string } | null {
+  if (score === null) return null
+  if (score >= 90) return { text: 'Excellent', color: VX.goodSolid }
+  if (score >= 80) return { text: 'Good', color: VX.goodSolid }
+  if (score >= 60) return { text: 'Fair', color: VX.warnSolid }
+  return { text: 'Poor', color: VX.badSolid }
+}
+
+/** Format hours as "Xh Ym" — for sleep stage tooltip rows. */
+export function formatHoursMin(hours: number | null): string {
+  if (hours === null) return '—'
+  const h = Math.floor(hours)
+  const m = Math.round((hours - h) * 60)
+  return `${h}h ${m}m`
 }
 
 // ── Moving Average ───────────────────────────────────────────────────────

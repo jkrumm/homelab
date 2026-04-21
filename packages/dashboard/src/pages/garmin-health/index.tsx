@@ -1,9 +1,15 @@
 import { useList } from '@refinedev/core'
 import { Col, Row, Select, Space, Typography } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityChart, BodyBatteryChart, FitnessChart, SleepChart, StressChart } from './charts'
+import { BodyBatteryChart, FitnessChart, StressChart } from './charts'
 import { HoverContext } from '../../charts'
-import { ACWRThresholdChart, DivergenceThresholdChart, RecoveryThresholdChart } from './visx-charts'
+import {
+  ACWRThresholdChart,
+  ActivityBarChart,
+  DivergenceThresholdChart,
+  RecoveryThresholdChart,
+  SleepBreakdownChart,
+} from './visx-charts'
 import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
 import { HeroStats } from './stats'
 import type { DailyMetric, DatePreset } from './types'
@@ -82,103 +88,103 @@ export default function GarminHealthPage() {
 
   return (
     <HoverContext.Provider value={hoverCtx}>
-    <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
-      {/* Filter bar */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
-        <Typography.Text strong style={{ fontSize: 16 }}>
-          Garmin Health
-        </Typography.Text>
-        <Space size={8}>
-          <Select
-            value={datePreset}
-            onChange={setDatePreset}
-            options={DATE_PRESET_OPTIONS}
-            style={{ minWidth: 80 }}
-          />
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {metrics.length} days
+      <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
+        {/* Filter bar */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 8,
+            marginBottom: 16,
+          }}
+        >
+          <Typography.Text strong style={{ fontSize: 16 }}>
+            Garmin Health
           </Typography.Text>
-        </Space>
+          <Space size={8}>
+            <Select
+              value={datePreset}
+              onChange={setDatePreset}
+              options={DATE_PRESET_OPTIONS}
+              style={{ minWidth: 80 }}
+            />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {metrics.length} days
+            </Typography.Text>
+          </Space>
+        </div>
+
+        {/* Hero: 3 composite cards */}
+        <HeroStats data={metrics} isLoading={isLoading} />
+
+        {/* Section 1: Fitness Progression */}
+        {hasHeartData && (
+          <>
+            <SectionTitle title="Fitness Progression" />
+            <FitnessChart data={metrics} />
+          </>
+        )}
+
+        {/* Section 2: Training Load */}
+        {hasLoadData && (
+          <>
+            <SectionTitle title="Training Load" />
+            <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+              <Col xs={24} lg={12}>
+                <ACWRThresholdChart data={metrics} />
+              </Col>
+              <Col xs={24} lg={12}>
+                <DivergenceThresholdChart data={metrics} />
+              </Col>
+            </Row>
+          </>
+        )}
+
+        {/* Section 3: Recovery & Sleep */}
+        {(hasRecoveryData || hasSleepData) && (
+          <>
+            <SectionTitle title="Recovery & Sleep" />
+            <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+              {hasRecoveryData && (
+                <Col xs={24} lg={12}>
+                  <RecoveryThresholdChart data={metrics} />
+                </Col>
+              )}
+              {hasSleepData && (
+                <Col xs={24} lg={12}>
+                  <SleepBreakdownChart data={metrics} />
+                </Col>
+              )}
+            </Row>
+          </>
+        )}
+
+        {/* Section 4: Supporting Metrics */}
+        {(hasBodyBattery || hasStressData || hasActivityData) && (
+          <>
+            <SectionTitle title="Supporting Metrics" />
+            <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+              {hasBodyBattery && (
+                <Col xs={24} lg={8}>
+                  <BodyBatteryChart data={metrics} />
+                </Col>
+              )}
+              {hasStressData && (
+                <Col xs={24} lg={8}>
+                  <StressChart data={metrics} />
+                </Col>
+              )}
+              {hasActivityData && (
+                <Col xs={24} lg={8}>
+                  <ActivityBarChart data={metrics} />
+                </Col>
+              )}
+            </Row>
+          </>
+        )}
       </div>
-
-      {/* Hero: 3 composite cards */}
-      <HeroStats data={metrics} isLoading={isLoading} />
-
-      {/* Section 1: Fitness Progression */}
-      {hasHeartData && (
-        <>
-          <SectionTitle title="Fitness Progression" />
-          <FitnessChart data={metrics} />
-        </>
-      )}
-
-      {/* Section 2: Training Load */}
-      {hasLoadData && (
-        <>
-          <SectionTitle title="Training Load" />
-          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
-            <Col xs={24} lg={12}>
-              <ACWRThresholdChart data={metrics} />
-            </Col>
-            <Col xs={24} lg={12}>
-              <DivergenceThresholdChart data={metrics} />
-            </Col>
-          </Row>
-        </>
-      )}
-
-      {/* Section 3: Recovery & Sleep */}
-      {(hasRecoveryData || hasSleepData) && (
-        <>
-          <SectionTitle title="Recovery & Sleep" />
-          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
-            {hasRecoveryData && (
-              <Col xs={24} lg={12}>
-                <RecoveryThresholdChart data={metrics} />
-              </Col>
-            )}
-            {hasSleepData && (
-              <Col xs={24} lg={12}>
-                <SleepChart data={metrics} />
-              </Col>
-            )}
-          </Row>
-        </>
-      )}
-
-      {/* Section 4: Supporting Metrics */}
-      {(hasBodyBattery || hasStressData || hasActivityData) && (
-        <>
-          <SectionTitle title="Supporting Metrics" />
-          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
-            {hasBodyBattery && (
-              <Col xs={24} lg={8}>
-                <BodyBatteryChart data={metrics} />
-              </Col>
-            )}
-            {hasStressData && (
-              <Col xs={24} lg={8}>
-                <StressChart data={metrics} />
-              </Col>
-            )}
-            {hasActivityData && (
-              <Col xs={24} lg={8}>
-                <ActivityChart data={metrics} />
-              </Col>
-            )}
-          </Row>
-        </>
-      )}
-    </div>
     </HoverContext.Provider>
   )
 }

@@ -19,6 +19,7 @@ export const VX = {
 
   // Semantic fills — consistent opacity across all charts
   good: 'rgba(63, 185, 80, 0.18)',
+  goodSoft: 'rgba(63, 185, 80, 0.08)',
   bad: 'rgba(248, 81, 73, 0.18)',
   warn: 'rgba(210, 153, 34, 0.08)',
   goodSolid: '#3fb950',

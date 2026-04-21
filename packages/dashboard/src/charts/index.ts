@@ -28,3 +28,13 @@ export {
   type ZonedLineRefLine,
   type ZonedLineTooltipLabel,
 } from './kinds/ZonedLine'
+
+export {
+  Bars,
+  type BarsProps,
+  type BarsBar,
+  type BarsLine,
+  type BarsZone,
+  type BarsRefLine,
+  type BarsAxisConfig,
+} from './kinds/Bars'
