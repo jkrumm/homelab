@@ -6,12 +6,9 @@ import {
   AreaChart,
   Bar,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Legend,
   Line,
-  LineChart,
-  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -21,34 +18,31 @@ import {
 import type { DailyMetric } from './types'
 import { COLORS, METRIC_TOOLTIPS } from './constants'
 import {
-  acwrZoneColor,
-  acwrZoneLabel,
   buildActivityData,
   buildBodyBatteryData,
   buildFitnessData,
-  buildRecoveryTrendData,
   buildSleepChartData,
   buildStressData,
   computeFitnessSummary,
-  computeTrainingLoad,
   formatXDate,
 } from './utils'
 
 const SYNC_ID = 'garmin'
 const GRID_STROKE = 'rgba(128,128,128,0.15)'
 const CHART_MARGIN = { top: 5, right: 16, bottom: 5, left: 0 }
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function formatTooltipDate(label: string | number): string {
-  if (typeof label !== 'string') return String(label)
-  const parts = label.split('-')
-  if (parts.length !== 3) return label
-  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
-  if (Number.isNaN(d.getTime())) return label
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yy = String(d.getFullYear()).slice(2)
-  return `${DAYS[d.getDay()]} ${dd}.${mm}.${yy}`
+function fmtDate(label: unknown): string {
+  if (label instanceof Date) {
+    return `${SHORT_DAYS[label.getDay()]} ${MONTHS[label.getMonth()]} ${label.getDate()} ${label.getFullYear()}`
+  }
+  const s = String(label ?? '')
+  const match = s.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return s
+  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  if (Number.isNaN(d.getTime())) return s
+  return `${SHORT_DAYS[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`
 }
 
 const TOOLTIP_STYLE = {
@@ -62,7 +56,7 @@ const TOOLTIP_STYLE = {
   },
   labelStyle: { color: 'rgba(255, 255, 255, 0.65)', fontSize: 11, marginBottom: 2 },
   itemStyle: { color: 'rgba(255, 255, 255, 0.85)', padding: 0, fontSize: 12 },
-  labelFormatter: formatTooltipDate,
+  labelFormatter: fmtDate,
 }
 
 function ChartTitle({ title, tooltip }: { title: string; tooltip: string }) {
@@ -132,7 +126,6 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
             unit=" bpm"
             width={56}
             domain={['auto', 'auto']}
-            reversed
           />
           <YAxis
             yAxisId="hrv"
@@ -146,9 +139,7 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
             {...TOOLTIP_STYLE}
             formatter={(value: number, name: string) => {
               const labels: Record<string, [string, string]> = {
-                rhr: [`${value} bpm`, 'RHR (daily)'],
                 rhrMA: [`${value} bpm`, 'RHR (7d avg)'],
-                hrv: [`${value} ms`, 'HRV (daily)'],
                 hrvMA: [`${value} ms`, 'HRV (7d avg)'],
                 vo2max: [`${value.toFixed(1)}`, 'VO2 Max'],
               }
@@ -164,27 +155,6 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
               }
               return labels[value] ?? value
             }}
-          />
-          {/* Daily values as faint dots */}
-          <Line
-            yAxisId="hr"
-            type="monotone"
-            dataKey="rhr"
-            stroke={COLORS.restingHr}
-            strokeWidth={0}
-            dot={{ r: 2, fill: COLORS.restingHr, opacity: 0.25 }}
-            connectNulls
-            legendType="none"
-          />
-          <Line
-            yAxisId="hrv"
-            type="monotone"
-            dataKey="hrv"
-            stroke={COLORS.hrv}
-            strokeWidth={0}
-            dot={{ r: 2, fill: COLORS.hrv, opacity: 0.25 }}
-            connectNulls
-            legendType="none"
           />
           {/* 7-day moving average trend lines */}
           <Line
@@ -221,210 +191,10 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
   )
 }
 
-// ── Training Load (ACWR) — ratio with optimal zone band ─────────────────
-
-export function TrainingLoadChart({ data }: { data: DailyMetric[] }) {
-  const loadData = useMemo(() => computeTrainingLoad(data), [data])
-  const latest = loadData[loadData.length - 1]
-  const showDots = loadData.length < 15
-
-  return (
-    <Card
-      title={<ChartTitle title="Training Load (ACWR)" tooltip={METRIC_TOOLTIPS.trainingLoad} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-      extra={
-        latest?.acwr !== null && latest?.acwr !== undefined ? (
-          <span style={{ fontSize: 16, fontWeight: 600 }}>
-            <span style={{ color: acwrZoneColor(latest.zone) }}>{latest.acwr.toFixed(2)}</span>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 400,
-                marginLeft: 6,
-                color: acwrZoneColor(latest.zone),
-              }}
-            >
-              {acwrZoneLabel(latest.zone)}
-            </span>
-          </span>
-        ) : null
-      }
-    >
-      <ResponsiveContainer width="100%" height={280}>
-        <ComposedChart data={loadData} margin={CHART_MARGIN} syncId={SYNC_ID}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
-          <YAxis domain={[0, 'auto']} tick={{ fontSize: 11 }} width={36} />
-          <ReferenceArea y1={0.8} y2={1.3} fill="#00c853" fillOpacity={0.08} />
-          <ReferenceArea y1={1.3} y2={1.5} fill="#ffd600" fillOpacity={0.06} />
-          <ReferenceLine y={0.8} stroke="rgba(41,121,255,0.3)" strokeDasharray="4 4" />
-          <ReferenceLine y={1.3} stroke="rgba(0,200,83,0.3)" strokeDasharray="4 4" />
-          <ReferenceLine y={1.5} stroke="rgba(255,61,0,0.3)" strokeDasharray="4 4" />
-          <Tooltip
-            {...TOOLTIP_STYLE}
-            formatter={(value: number, name: string) => {
-              if (name === 'acwr') return [value.toFixed(2), 'ACWR']
-              return [`${value}`, name]
-            }}
-          />
-          <Legend formatter={() => 'ACWR (acute / chronic)'} />
-          <Line
-            type="monotone"
-            dataKey="acwr"
-            stroke={COLORS.acwr}
-            strokeWidth={2.5}
-            dot={showDots ? { r: 4, fill: COLORS.acwr } : false}
-            connectNulls
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </Card>
-  )
-}
-
-// ── Load MACD — divergence histogram + signal lines ─────────────────────
-
-export function LoadMACDChart({ data }: { data: DailyMetric[] }) {
-  const loadData = useMemo(() => computeTrainingLoad(data), [data])
-  const showDots = loadData.length < 15
-
-  return (
-    <Card
-      title={<ChartTitle title="Load Divergence" tooltip={METRIC_TOOLTIPS.loadBalance} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-    >
-      {/* Top panel: Signal lines */}
-      <ResponsiveContainer width="100%" height={170}>
-        <LineChart data={loadData} margin={{ ...CHART_MARGIN, bottom: 0 }} syncId={SYNC_ID}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-          <XAxis dataKey="date" hide />
-          <YAxis tick={{ fontSize: 11 }} width={40} domain={[0, 'auto']} />
-          <Tooltip
-            {...TOOLTIP_STYLE}
-            formatter={(value: number, name: string) => {
-              const labels: Record<string, string> = {
-                acute: 'Short-term (7d)',
-                chronic: 'Long-term (28d)',
-              }
-              return [value.toFixed(1), labels[name] ?? name]
-            }}
-          />
-          <Legend
-            formatter={(value: string) => {
-              const labels: Record<string, string> = {
-                acute: 'Short-term (7d)',
-                chronic: 'Long-term (28d)',
-              }
-              return labels[value] ?? value
-            }}
-          />
-          <Line
-            type="monotone"
-            dataKey="acute"
-            stroke={COLORS.acute}
-            strokeWidth={2}
-            dot={showDots ? { r: 3, fill: COLORS.acute } : false}
-            connectNulls
-          />
-          <Line
-            type="monotone"
-            dataKey="chronic"
-            stroke={COLORS.chronic}
-            strokeWidth={2}
-            dot={showDots ? { r: 3, fill: COLORS.chronic } : false}
-            connectNulls
-          />
-        </LineChart>
-      </ResponsiveContainer>
-      {/* Bottom panel: Divergence histogram */}
-      <ResponsiveContainer width="100%" height={100}>
-        <ComposedChart data={loadData} margin={{ ...CHART_MARGIN, top: 0 }} syncId={SYNC_ID}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 10 }} width={40} />
-          <ReferenceLine y={0} stroke="rgba(128,128,128,0.3)" />
-          <Tooltip
-            {...TOOLTIP_STYLE}
-            formatter={(value: number) => [value.toFixed(1), 'Divergence']}
-          />
-          <Bar dataKey="divergence" radius={[2, 2, 0, 0]}>
-            {loadData.map((entry, i) => (
-              <Cell
-                key={`div-${i}`}
-                fill={entry.divergence >= 0 ? '#00c853' : '#ff3d00'}
-                fillOpacity={0.6}
-              />
-            ))}
-          </Bar>
-        </ComposedChart>
-      </ResponsiveContainer>
-    </Card>
-  )
-}
-
-// ── Recovery Trend — score with gradient zone fills ──────────────────────
-
-export function RecoveryTrendChart({ data }: { data: DailyMetric[] }) {
-  const chartData = useMemo(() => buildRecoveryTrendData(data), [data])
-  const showDots = chartData.length < 15
-
-  return (
-    <Card
-      title={<ChartTitle title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-    >
-      <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={chartData} margin={CHART_MARGIN} syncId={SYNC_ID}>
-          <defs>
-            <linearGradient id="recoveryGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00c853" stopOpacity={0.35} />
-              <stop offset="50%" stopColor="#ffd600" stopOpacity={0.15} />
-              <stop offset="100%" stopColor="#ff3d00" stopOpacity={0.08} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-          <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
-          <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={36} />
-          {/* Zone bands */}
-          <ReferenceArea y1={70} y2={100} fill="#00c853" fillOpacity={0.04} />
-          <ReferenceArea y1={40} y2={70} fill="#ffd600" fillOpacity={0.04} />
-          <ReferenceArea y1={0} y2={40} fill="#ff3d00" fillOpacity={0.04} />
-          <ReferenceLine y={70} stroke="rgba(0,200,83,0.25)" strokeDasharray="4 4" />
-          <ReferenceLine y={40} stroke="rgba(255,61,0,0.25)" strokeDasharray="4 4" />
-          <Tooltip
-            {...TOOLTIP_STYLE}
-            formatter={(value: number, name: string) => {
-              if (name === 'recovery') {
-                const zone = value >= 70 ? 'Push' : value >= 40 ? 'Normal' : 'Rest'
-                return [`${Math.round(value)} (${zone})`, 'Recovery Score']
-              }
-              return [`${value}`, name]
-            }}
-          />
-          <Legend formatter={() => 'Recovery Score'} />
-          <Area
-            type="monotone"
-            dataKey="recovery"
-            fill="url(#recoveryGrad)"
-            stroke="#7c4dff"
-            strokeWidth={2}
-            dot={showDots ? { r: 3, fill: '#7c4dff' } : false}
-            connectNulls
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </Card>
-  )
-}
-
 // ── Sleep Stages — stacked bar + sleep score line ─────────────────────────
 
 export function SleepChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildSleepChartData(data), [data])
-  const showDots = chartData.length < 15
 
   return (
     <Card
@@ -478,7 +248,7 @@ export function SleepChart({ data }: { data: DailyMetric[] }) {
             type="monotone"
             dataKey="sleepScore"
             stroke={COLORS.sleepScore}
-            dot={showDots ? { r: 3, fill: COLORS.sleepScore } : false}
+            dot={false}
             strokeWidth={2}
             connectNulls
           />
@@ -492,7 +262,6 @@ export function SleepChart({ data }: { data: DailyMetric[] }) {
 
 export function BodyBatteryChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildBodyBatteryData(data), [data])
-  const showDots = chartData.length < 15
 
   return (
     <Card
@@ -535,7 +304,7 @@ export function BodyBatteryChart({ data }: { data: DailyMetric[] }) {
             fillOpacity={0.25}
             stroke={COLORS.bodyBatteryHigh}
             strokeWidth={2}
-            dot={showDots ? { r: 3, fill: COLORS.bodyBatteryHigh } : false}
+            dot={false}
             connectNulls
           />
         </AreaChart>
@@ -548,7 +317,6 @@ export function BodyBatteryChart({ data }: { data: DailyMetric[] }) {
 
 export function StressChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildStressData(data), [data])
-  const showDots = chartData.length < 15
 
   return (
     <Card
@@ -580,14 +348,14 @@ export function StressChart({ data }: { data: DailyMetric[] }) {
             fill={COLORS.stress}
             fillOpacity={0.15}
             strokeWidth={2}
-            dot={showDots ? { r: 3, fill: COLORS.stress } : false}
+            dot={false}
             connectNulls
           />
           <Line
             type="monotone"
             dataKey="sleepStress"
             stroke={COLORS.sleepStress}
-            dot={showDots ? { r: 2, fill: COLORS.sleepStress } : false}
+            dot={false}
             strokeWidth={1.5}
             connectNulls
           />
@@ -608,7 +376,7 @@ export function ActivityChart({ data }: { data: DailyMetric[] }) {
       size="small"
       style={{ marginBottom: 16 }}
     >
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={220}>
         <ComposedChart data={chartData} margin={CHART_MARGIN} syncId={SYNC_ID}>
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
           <XAxis dataKey="date" tickFormatter={formatXDate} tick={{ fontSize: 11 }} />
@@ -643,7 +411,7 @@ export function ActivityChart({ data }: { data: DailyMetric[] }) {
             dataKey="intensityMin"
             stroke={COLORS.intensityMin}
             strokeWidth={2}
-            dot={chartData.length < 15 ? { r: 3, fill: COLORS.intensityMin } : false}
+            dot={false}
             connectNulls
           />
         </ComposedChart>

@@ -1,7 +1,8 @@
 import { useList } from '@refinedev/core'
 import { Col, Row, Select, Space, Typography } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityChart, BodyBatteryChart, FitnessChart, SleepChart, StressChart } from './charts'
+import { HoverContext } from './hover-context'
 import { ACWRThresholdChart, DivergenceThresholdChart, RecoveryThresholdChart } from './visx-charts'
 import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
 import { HeroStats } from './stats'
@@ -42,6 +43,15 @@ function useLocalState<T>(key: string, defaultValue: T): [T, (value: T) => void]
 export default function GarminHealthPage() {
   const isMobile = useIsMobile()
   const [datePreset, setDatePreset] = useLocalState<DatePreset>('gh-date-preset', '30d')
+  const [hover, setHoverState] = useState<{ date: string | null; source: string | null }>({
+    date: null,
+    source: null,
+  })
+  const setHover = useCallback(
+    (date: string | null, source: string | null) => setHoverState({ date, source }),
+    [],
+  )
+  const hoverCtx = useMemo(() => ({ ...hover, setHover }), [hover, setHover])
 
   const [dateFrom, dateTo] = useMemo(() => getDateRange(datePreset), [datePreset])
 
@@ -71,6 +81,7 @@ export default function GarminHealthPage() {
   const hasActivityData = metrics.some((m) => m.steps !== null)
 
   return (
+    <HoverContext.Provider value={hoverCtx}>
     <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
       {/* Filter bar */}
       <div
@@ -168,6 +179,7 @@ export default function GarminHealthPage() {
         </>
       )}
     </div>
+    </HoverContext.Provider>
   )
 }
 

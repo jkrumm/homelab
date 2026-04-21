@@ -319,15 +319,15 @@ export function computeTrainingLoad(data: DailyMetric[]): TrainingLoadPoint[] {
 export function acwrZoneColor(zone: TrainingLoadPoint['zone']): string {
   switch (zone) {
     case 'optimal':
-      return '#00c853'
+      return '#3fb950'
     case 'caution':
-      return '#ffd600'
+      return '#d29922'
     case 'danger':
-      return '#ff3d00'
+      return '#f85149'
     case 'undertrained':
-      return '#2979ff'
+      return '#d29922'
     default:
-      return '#999'
+      return '#8b949e'
   }
 }
 
