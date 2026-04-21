@@ -1,5 +1,6 @@
 export { VX } from './tokens'
 export { useVxTheme } from './theme'
+export { HoverContext, type HoverCtx } from './hover-context'
 
 export { ChartCard } from './primitives/ChartCard'
 export { ChartLegend, type LegendEntry } from './primitives/ChartLegend'
@@ -17,3 +18,12 @@ export { useChartTooltip, type TooltipState } from './hooks/useChartTooltip'
 
 export { fmtAxisDate, fmtTooltipDate } from './utils/format'
 export { smartTicks } from './utils/ticks'
+
+export {
+  ZonedLine,
+  type ZonedLineProps,
+  type ZonedLineZone,
+  type ZonedLineThreshold,
+  type ZonedLineRefLine,
+  type ZonedLineTooltipLabel,
+} from './kinds/ZonedLine'

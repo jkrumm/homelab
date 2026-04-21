@@ -38,11 +38,3 @@ export interface DailyMetric {
 }
 
 export type DatePreset = '7d' | '30d' | '3m' | '1y' | 'all'
-
-// ── Cross-chart hover sync ──────────────────────────────────────────────
-
-export type HoverCtx = {
-  date: string | null
-  source: string | null
-  setHover: (date: string | null, source: string | null) => void
-}

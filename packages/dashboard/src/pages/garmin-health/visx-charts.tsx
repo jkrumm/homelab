@@ -7,7 +7,6 @@ import { ParentSize } from '@visx/responsive'
 import { scaleLinear, scalePoint } from '@visx/scale'
 import { LinePath } from '@visx/shape'
 import { Threshold } from '@visx/threshold'
-import { HoverContext } from './hover-context'
 import type { DailyMetric } from './types'
 import { METRIC_TOOLTIPS } from './constants'
 import {
@@ -16,11 +15,13 @@ import {
   ChartCard,
   ChartLegend,
   ChartTooltip,
+  HoverContext,
   HoverOverlay,
   TooltipBody,
   TooltipHeader,
   TooltipRow,
   VX,
+  ZonedLine,
   smartTicks,
   useChartTooltip,
   useTooltipStyles,
@@ -37,163 +38,6 @@ import {
 const MARGIN = VX.margin
 
 // ── ACWR Threshold Chart ─────────────────────────────────────────────────
-
-function ACWRChartInner({
-  data,
-  width,
-  height,
-}: {
-  data: TrainingLoadPoint[]
-  width: number
-  height: number
-}) {
-  const { line } = useVxTheme()
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yMax = height - MARGIN.top - MARGIN.bottom
-
-  const xScale = useMemo(
-    () =>
-      scalePoint<string>({
-        domain: data.map((d) => d.date),
-        range: [0, xMax],
-        padding: 0.3,
-      }),
-    [data, xMax],
-  )
-
-  const acwrValues = data.map((d) => d.acwr).filter((v): v is number => v !== null)
-  const yScale = useMemo(
-    () =>
-      scaleLinear<number>({
-        domain: [0, Math.max(2, ...acwrValues) * 1.1],
-        range: [yMax, 0],
-        nice: true,
-      }),
-    [acwrValues, yMax],
-  )
-
-  const tooltipStyles = useTooltipStyles()
-  const CHART_ID = 'acwr'
-  const { date: hoveredDate, source: hoverSource, setHover } = useContext(HoverContext)
-  const { tip, show, hide, tooltipRef, lastDateRef } = useChartTooltip<TrainingLoadPoint>()
-
-  const handleMouse = useCallback(
-    (event: React.MouseEvent<SVGRectElement>) => {
-      const point = localPoint(event)
-      if (!point) return
-      const px = point.x - MARGIN.left
-      let closest = data[0]!
-      let minDist = Infinity
-      for (const d of data) {
-        const sx = xScale(d.date) ?? 0
-        const dist = Math.abs(sx - px)
-        if (dist < minDist) {
-          minDist = dist
-          closest = d
-        }
-      }
-      show(closest, event)
-      if (lastDateRef.current !== closest.date) {
-        lastDateRef.current = closest.date
-        setHover(closest.date, CHART_ID)
-      }
-    },
-    [data, xScale, show, setHover, lastDateRef],
-  )
-
-  const handleLeave = useCallback(() => {
-    hide()
-    setHover(null, null)
-  }, [hide, setHover])
-
-  const syncedPoint = hoveredDate ? data.find((d) => d.date === hoveredDate) : null
-  const isDirectHover = hoverSource === CHART_ID
-
-  const tickValues = useMemo(() => smartTicks(data.map((d) => d.date), xMax), [data, xMax])
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN.left} top={MARGIN.top}>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          {/* Threshold: red fill when ACWR > 1.3 */}
-          <Threshold<TrainingLoadPoint>
-            id="acwr-over"
-            data={data.filter((d) => d.acwr !== null)}
-            x={(d) => xScale(d.date) ?? 0}
-            y0={() => yScale(1.3)}
-            y1={(d) => yScale(d.acwr!)}
-            clipAboveTo={0}
-            clipBelowTo={yMax}
-            curve={curveMonotoneX}
-            belowAreaProps={{ fill: VX.bad }}
-            aboveAreaProps={{ fill: 'transparent' }}
-          />
-
-          {/* Threshold: warn fill when ACWR < 0.8 */}
-          <Threshold<TrainingLoadPoint>
-            id="acwr-under"
-            data={data.filter((d) => d.acwr !== null)}
-            x={(d) => xScale(d.date) ?? 0}
-            y0={() => yScale(0.8)}
-            y1={(d) => yScale(d.acwr!)}
-            clipAboveTo={0}
-            clipBelowTo={yMax}
-            curve={curveMonotoneX}
-            belowAreaProps={{ fill: 'transparent' }}
-            aboveAreaProps={{ fill: VX.warn }}
-          />
-
-          {/* Optimal zone background — clipped to data range */}
-          {data.length >= 2 && (() => {
-            const x0 = xScale(data[0]!.date) ?? 0
-            const x1 = xScale(data[data.length - 1]!.date) ?? 0
-            return <rect x={x0} y={yScale(1.3)} width={x1 - x0} height={yScale(0.8) - yScale(1.3)} fill={VX.good} />
-          })()}
-
-          {/* Reference lines */}
-          <line x1={0} x2={xMax} y1={yScale(0.8)} y2={yScale(0.8)} stroke={VX.warnRef} strokeDasharray="4 4" />
-          <line x1={0} x2={xMax} y1={yScale(1.3)} y2={yScale(1.3)} stroke={VX.goodRef} strokeDasharray="4 4" />
-          <line x1={0} x2={xMax} y1={yScale(1.5)} y2={yScale(1.5)} stroke={VX.badRef} strokeDasharray="4 4" />
-
-          {/* ACWR line */}
-          <LinePath<TrainingLoadPoint>
-            data={data.filter((d) => d.acwr !== null)}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.acwr!)}
-            stroke={line}
-            strokeWidth={VX.lineWidth}
-            curve={curveMonotoneX}
-          />
-
-          {/* Crosshair + hover dot */}
-          {syncedPoint && syncedPoint.acwr !== null && (
-            <>
-              <line x1={xScale(syncedPoint.date) ?? 0} x2={xScale(syncedPoint.date) ?? 0} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
-              <circle cx={xScale(syncedPoint.date) ?? 0} cy={yScale(syncedPoint.acwr)} r={VX.dotR} fill={line} stroke={VX.dotStroke} strokeWidth={2} />
-            </>
-          )}
-
-          <AxisLeftNumeric scale={yScale} numTicks={5} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader date={tip.data.date} label={acwrZoneLabel(tip.data.zone)} labelColor={acwrZoneColor(tip.data.zone)} />
-            <TooltipBody>
-              <TooltipRow color={line} label="ACWR" value={tip.data.acwr?.toFixed(2) ?? '–'} shape="line" />
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
-  )
-}
 
 export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
   const { line } = useVxTheme()
@@ -225,7 +69,32 @@ export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
       <div style={{ height: 260 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
-            <ACWRChartInner data={loadData} width={Math.max(width, 200)} height={260} />
+            <ZonedLine<TrainingLoadPoint>
+              data={loadData}
+              width={Math.max(width, 200)}
+              height={260}
+              chartId="acwr"
+              getX={(d) => d.date}
+              getY={(d) => d.acwr}
+              yDomain="auto"
+              yAutoMin={2}
+              zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
+              thresholds={[
+                { value: 1.3, side: 'above', fill: VX.bad },
+                { value: 0.8, side: 'below', fill: VX.warn },
+              ]}
+              refLines={[
+                { value: 0.8, color: VX.warnRef },
+                { value: 1.3, color: VX.goodRef },
+                { value: 1.5, color: VX.badRef },
+              ]}
+              seriesLabel="ACWR"
+              formatValue={(v) => v.toFixed(2)}
+              tooltipLabel={(d) => ({
+                text: acwrZoneLabel(d.zone),
+                color: acwrZoneColor(d.zone),
+              })}
+            />
           )}
         </ParentSize>
       </div>
@@ -501,158 +370,10 @@ type RecoveryPoint = {
   bbHigh: number | null
 }
 
-function RecoveryChartInner({
-  data,
-  width,
-  height,
-}: {
-  data: RecoveryPoint[]
-  width: number
-  height: number
-}) {
-  const { line } = useVxTheme()
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yMax = height - MARGIN.top - MARGIN.bottom
-  const valid = data.filter((d) => d.recovery !== null) as (RecoveryPoint & { recovery: number })[]
-
-
-  const xScale = useMemo(
-    () => scalePoint<string>({ domain: valid.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
-    [valid, xMax],
-  )
-
-  const yScale = useMemo(() => scaleLinear<number>({ domain: [0, 100], range: [yMax, 0] }), [yMax])
-
-  const tooltipStyles = useTooltipStyles()
-  const CHART_ID = 'recovery'
-  const { date: hoveredDate, source: hoverSource, setHover } = useContext(HoverContext)
-  const { tip, show, hide, tooltipRef, lastDateRef } = useChartTooltip<RecoveryPoint & { recovery: number }>()
-
-  const handleMouse = useCallback(
-    (event: React.MouseEvent<SVGRectElement>) => {
-      const point = localPoint(event)
-      if (!point) return
-      const px = point.x - MARGIN.left
-      let closest = valid[0]!
-      let minDist = Infinity
-      for (const d of valid) {
-        const dist = Math.abs((xScale(d.date) ?? 0) - px)
-        if (dist < minDist) {
-          minDist = dist
-          closest = d
-        }
-      }
-      show(closest, event)
-      if (lastDateRef.current !== closest.date) {
-        lastDateRef.current = closest.date
-        setHover(closest.date, CHART_ID)
-      }
-    },
-    [valid, xScale, show, setHover, lastDateRef],
-  )
-
-  const handleLeave = useCallback(() => {
-    hide()
-    setHover(null, null)
-  }, [hide, setHover])
-
-  const syncedPoint = hoveredDate ? valid.find((d) => d.date === hoveredDate) : null
-  const isDirectHover = hoverSource === CHART_ID
-
-  const tickValues = useMemo(() => smartTicks(valid.map((d) => d.date), xMax), [valid, xMax])
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN.left} top={MARGIN.top}>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          {/* Zone backgrounds — clipped to data range */}
-          {valid.length >= 2 && (() => {
-            const x0 = xScale(valid[0]!.date) ?? 0
-            const x1 = xScale(valid[valid.length - 1]!.date) ?? 0
-            const w = x1 - x0
-            return (
-              <>
-                <rect x={x0} y={yScale(100)} width={w} height={yScale(70) - yScale(100)} fill={VX.good} />
-                <rect x={x0} y={yScale(70)} width={w} height={yScale(40) - yScale(70)} fill={VX.warn} />
-                <rect x={x0} y={yScale(40)} width={w} height={yScale(0) - yScale(40)} fill={VX.bad} />
-              </>
-            )
-          })()}
-
-          {/* Threshold at 70: green when recovery > 70 */}
-          <Threshold<RecoveryPoint & { recovery: number }>
-            id="recovery-push"
-            data={valid}
-            x={(d) => xScale(d.date) ?? 0}
-            y0={() => yScale(70)}
-            y1={(d) => yScale(d.recovery)}
-            clipAboveTo={0}
-            clipBelowTo={yMax}
-            curve={curveMonotoneX}
-            belowAreaProps={{ fill: VX.good }}
-            aboveAreaProps={{ fill: 'transparent' }}
-          />
-
-          {/* Threshold at 40: red when recovery < 40 */}
-          <Threshold<RecoveryPoint & { recovery: number }>
-            id="recovery-rest"
-            data={valid}
-            x={(d) => xScale(d.date) ?? 0}
-            y0={() => yScale(40)}
-            y1={(d) => yScale(d.recovery)}
-            clipAboveTo={0}
-            clipBelowTo={yMax}
-            curve={curveMonotoneX}
-            belowAreaProps={{ fill: 'transparent' }}
-            aboveAreaProps={{ fill: VX.bad }}
-          />
-
-          {/* Reference lines */}
-          <line x1={0} x2={xMax} y1={yScale(70)} y2={yScale(70)} stroke={VX.goodRef} strokeDasharray="4 4" />
-          <line x1={0} x2={xMax} y1={yScale(40)} y2={yScale(40)} stroke={VX.badRef} strokeDasharray="4 4" />
-
-          {/* Recovery line */}
-          <LinePath<RecoveryPoint & { recovery: number }>
-            data={valid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.recovery)}
-            stroke={line}
-            strokeWidth={VX.lineWidth}
-            curve={curveMonotoneX}
-          />
-
-          {/* Crosshair + hover dot */}
-          {syncedPoint && (
-            <>
-              <line x1={xScale(syncedPoint.date) ?? 0} x2={xScale(syncedPoint.date) ?? 0} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
-              <circle cx={xScale(syncedPoint.date) ?? 0} cy={yScale(syncedPoint.recovery)} r={VX.dotR} fill={line} stroke={VX.dotStroke} strokeWidth={2} />
-            </>
-          )}
-
-          <AxisLeftNumeric scale={yScale} numTicks={5} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (() => {
-          const zoneColor = tip.data.recovery >= 70 ? VX.goodSolid : tip.data.recovery >= 40 ? VX.warnSolid : VX.badSolid
-          const zoneLabel = tip.data.recovery >= 70 ? 'Push' : tip.data.recovery >= 40 ? 'Normal' : 'Rest'
-          return (
-            <>
-              <TooltipHeader date={tip.data.date} label={zoneLabel} labelColor={zoneColor} />
-              <TooltipBody>
-                <TooltipRow color={line} label="Recovery" value={String(Math.round(tip.data.recovery))} shape="line" />
-              </TooltipBody>
-            </>
-          )
-        })()}
-      </ChartTooltip>
-    </div>
-  )
+function recoveryZoneLabel(v: number): { text: string; color: string } {
+  if (v >= 70) return { text: 'Push', color: VX.goodSolid }
+  if (v >= 40) return { text: 'Normal', color: VX.warnSolid }
+  return { text: 'Rest', color: VX.badSolid }
 }
 
 export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
@@ -664,7 +385,31 @@ export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
       <div style={{ height: 260 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
-            <RecoveryChartInner data={chartData} width={Math.max(width, 200)} height={260} />
+            <ZonedLine<RecoveryPoint>
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={260}
+              chartId="recovery"
+              getX={(d) => d.date}
+              getY={(d) => d.recovery}
+              yDomain={[0, 100]}
+              zones={[
+                { from: 70, to: 100, fill: VX.good },
+                { from: 40, to: 70, fill: VX.warn },
+                { from: 0, to: 40, fill: VX.bad },
+              ]}
+              thresholds={[
+                { value: 70, side: 'above', fill: VX.good },
+                { value: 40, side: 'below', fill: VX.bad },
+              ]}
+              refLines={[
+                { value: 70, color: VX.goodRef },
+                { value: 40, color: VX.badRef },
+              ]}
+              seriesLabel="Recovery"
+              formatValue={(v) => String(Math.round(v))}
+              tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
+            />
           )}
         </ParentSize>
       </div>
