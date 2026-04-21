@@ -15,6 +15,7 @@ export { AxisBottomDate, AxisLeftNumeric } from './primitives/Axes'
 export { HoverOverlay } from './primitives/HoverOverlay'
 
 export { useChartTooltip, type TooltipState } from './hooks/useChartTooltip'
+export { useHoverSync } from './hooks/useHoverSync'
 
 export { fmtAxisDate, fmtTooltipDate } from './utils/format'
 export { smartTicks } from './utils/ticks'

@@ -1,12 +1,10 @@
 import { curveMonotoneX } from '@visx/curve'
-import { localPoint } from '@visx/event'
 import { GridRows } from '@visx/grid'
 import { Group } from '@visx/group'
 import { scaleLinear, scalePoint } from '@visx/scale'
 import { LinePath } from '@visx/shape'
 import { Threshold } from '@visx/threshold'
-import { useCallback, useContext, useMemo, type ReactNode } from 'react'
-import { HoverContext } from '../hover-context'
+import { useMemo, type ReactNode } from 'react'
 import { AxisBottomDate, AxisLeftNumeric } from '../primitives/Axes'
 import {
   ChartTooltip,
@@ -16,7 +14,7 @@ import {
   useTooltipStyles,
 } from '../primitives/ChartTooltip'
 import { HoverOverlay } from '../primitives/HoverOverlay'
-import { useChartTooltip } from '../hooks/useChartTooltip'
+import { useHoverSync } from '../hooks/useHoverSync'
 import { useVxTheme } from '../theme'
 import { VX } from '../tokens'
 import { smartTicks } from '../utils/ticks'
@@ -57,14 +55,24 @@ export type ZonedLineProps<T> = {
   getY: (d: T) => number | null
   /** Fixed y-domain (e.g. [0, 100]) or 'auto' to compute from data. */
   yDomain: [number, number] | 'auto'
-  /** Padding multiplier applied when yDomain is 'auto'. Default 1.1. */
+  /**
+   * When yDomain is 'auto': the upper bound is at least this value (caps data max).
+   * e.g. yAutoMaxFloor=2 guarantees the y-axis always reaches 2 even if data is smaller.
+   */
+  yAutoMaxFloor?: number
+  /**
+   * When yDomain is 'auto': the lower bound is at most this value.
+   * Default 0 — always includes zero when data is all positive. Pass a negative
+   * number (or Infinity to disable) for metrics that can legitimately swing both ways.
+   */
+  yAutoMinCeil?: number
+  /** Padding multiplier applied to auto-computed bounds (away from zero). Default 1.1. */
   yAutoPad?: number
-  /** Minimum upper bound when yDomain is 'auto'. */
-  yAutoMin?: number
   zones?: ZonedLineZone[]
   thresholds?: ZonedLineThreshold[]
   refLines?: ZonedLineRefLine[]
   numTicksY?: number
+  numTicksX?: number
   /** Label shown at the right of the tooltip header (e.g. zone name with zone color). */
   tooltipLabel?: (d: T) => ZonedLineTooltipLabel | null
   /** Row label in the tooltip body (e.g. "ACWR", "Recovery"). */
@@ -79,6 +87,10 @@ export type ZonedLineProps<T> = {
  * Line chart with zone backgrounds, threshold fills, reference lines, and a
  * shared-cursor tooltip. Covers the ACWR / Recovery pattern. Does NOT handle
  * dual-panel charts (keep those bespoke).
+ *
+ * X-axis is built from the full `data` array so the calendar is preserved even
+ * when the series has nulls; the line itself skips null points (creating
+ * visual gaps).
  */
 export function ZonedLine<T>(props: ZonedLineProps<T>) {
   const {
@@ -90,11 +102,13 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
     getY,
     yDomain,
     yAutoPad = 1.1,
-    yAutoMin = 0,
+    yAutoMaxFloor,
+    yAutoMinCeil = 0,
     zones = [],
     thresholds = [],
     refLines = [],
     numTicksY = 5,
+    numTicksX,
     tooltipLabel,
     seriesLabel,
     formatValue,
@@ -121,64 +135,47 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
   const xScale = useMemo(
     () =>
       scalePoint<string>({
-        domain: valid.map(getX),
+        // Full calendar — axis does not compress across nulls.
+        domain: data.map(getX),
         range: [0, xMax],
         padding: 0.3,
       }),
-    [valid, xMax, getX],
+    [data, xMax, getX],
   )
 
   const yScale = useMemo(() => {
     if (yDomain === 'auto') {
-      const max = Math.max(yAutoMin, ...valid.map((d) => d.__y)) * yAutoPad
-      return scaleLinear<number>({ domain: [0, max], range: [yMax, 0], nice: true })
+      const ys = valid.map((d) => d.__y)
+      const dataMax = ys.length ? Math.max(...ys) : 0
+      const dataMin = ys.length ? Math.min(...ys) : 0
+      const upper = Math.max(dataMax, yAutoMaxFloor ?? dataMax) * yAutoPad
+      const lower = Math.min(dataMin, yAutoMinCeil) * yAutoPad
+      return scaleLinear<number>({ domain: [lower, upper], range: [yMax, 0], nice: true })
     }
     return scaleLinear<number>({ domain: yDomain, range: [yMax, 0] })
-  }, [valid, yDomain, yMax, yAutoPad, yAutoMin])
+  }, [valid, yDomain, yMax, yAutoPad, yAutoMaxFloor, yAutoMinCeil])
 
   const tooltipStyles = useTooltipStyles()
-  const { date: hoveredDate, source: hoverSource, setHover } = useContext(HoverContext)
-  const { tip, show, hide, tooltipRef, lastDateRef } = useChartTooltip<Valid>()
+  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } = useHoverSync<
+    Valid
+  >({
+    data: valid,
+    chartId,
+    getX,
+    xScale,
+    marginLeft: MARGIN.left,
+  })
 
-  const handleMouse = useCallback(
-    (event: React.MouseEvent<SVGRectElement>) => {
-      const point = localPoint(event)
-      if (!point || valid.length === 0) return
-      const px = point.x - MARGIN.left
-      let closest = valid[0]!
-      let minDist = Infinity
-      for (const d of valid) {
-        const sx = xScale(getX(d)) ?? 0
-        const dist = Math.abs(sx - px)
-        if (dist < minDist) {
-          minDist = dist
-          closest = d
-        }
-      }
-      show(closest, event)
-      const date = getX(closest)
-      if (lastDateRef.current !== date) {
-        lastDateRef.current = date
-        setHover(date, chartId)
-      }
-    },
-    [valid, xScale, show, setHover, lastDateRef, getX, chartId, MARGIN.left],
+  const tickValues = useMemo(
+    () => (numTicksX ? smartTicksEvery(data.map(getX), numTicksX) : smartTicks(data.map(getX), xMax)),
+    [data, xMax, getX, numTicksX],
   )
 
-  const handleLeave = useCallback(() => {
-    hide()
-    setHover(null, null)
-  }, [hide, setHover])
-
-  const syncedPoint = hoveredDate ? valid.find((d) => getX(d) === hoveredDate) : null
-  const isDirectHover = hoverSource === chartId
-  const tickValues = useMemo(() => smartTicks(valid.map(getX), xMax), [valid, xMax, getX])
-
   const zoneRect =
-    valid.length >= 2
+    data.length >= 2
       ? (() => {
-          const x0 = xScale(getX(valid[0]!)) ?? 0
-          const x1 = xScale(getX(valid[valid.length - 1]!)) ?? 0
+          const x0 = xScale(getX(data[0]!)) ?? 0
+          const x1 = xScale(getX(data[data.length - 1]!)) ?? 0
           return { x0, width: x1 - x0 }
         })()
       : null
@@ -291,4 +288,12 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
       </ChartTooltip>
     </div>
   )
+}
+
+/** Variant of smartTicks that targets an exact tick count rather than deriving from width. */
+function smartTicksEvery(dates: string[], count: number): string[] {
+  if (dates.length === 0) return []
+  if (dates.length <= count) return dates
+  const step = Math.ceil(dates.length / count)
+  return dates.filter((_, i) => i % step === 0 || i === dates.length - 1)
 }

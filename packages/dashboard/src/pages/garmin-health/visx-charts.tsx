@@ -1,6 +1,5 @@
-import { useCallback, useContext, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { curveMonotoneX } from '@visx/curve'
-import { localPoint } from '@visx/event'
 import { GridRows } from '@visx/grid'
 import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
@@ -15,7 +14,6 @@ import {
   ChartCard,
   ChartLegend,
   ChartTooltip,
-  HoverContext,
   HoverOverlay,
   TooltipBody,
   TooltipHeader,
@@ -23,7 +21,7 @@ import {
   VX,
   ZonedLine,
   smartTicks,
-  useChartTooltip,
+  useHoverSync,
   useTooltipStyles,
   useVxTheme,
 } from '../../charts'
@@ -77,7 +75,7 @@ export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
               getX={(d) => d.date}
               getY={(d) => d.acwr}
               yDomain="auto"
-              yAutoMin={2}
+              yAutoMaxFloor={2}
               zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
               thresholds={[
                 { value: 1.3, side: 'above', fill: VX.bad },
@@ -183,40 +181,15 @@ function DivergenceChartInner({
   }, [data, xScale, yScaleTop, yMaxTop])
 
   const tooltipStyles = useTooltipStyles()
-  const CHART_ID = 'divergence'
-  const { date: hoveredDate, source: hoverSource, setHover } = useContext(HoverContext)
-  const { tip, show, hide, tooltipRef, lastDateRef } = useChartTooltip<TrainingLoadPoint>()
-
-  const handleMouse = useCallback(
-    (event: React.MouseEvent<SVGRectElement>) => {
-      const point = localPoint(event)
-      if (!point) return
-      const px = point.x - MARGIN.left
-      let closest = data[0]!
-      let minDist = Infinity
-      for (const d of data) {
-        const dist = Math.abs((xScale(d.date) ?? 0) - px)
-        if (dist < minDist) {
-          minDist = dist
-          closest = d
-        }
-      }
-      show(closest, event)
-      if (lastDateRef.current !== closest.date) {
-        lastDateRef.current = closest.date
-        setHover(closest.date, CHART_ID)
-      }
-    },
-    [data, xScale, show, setHover, lastDateRef],
-  )
-
-  const handleLeave = useCallback(() => {
-    hide()
-    setHover(null, null)
-  }, [hide, setHover])
-
-  const syncedPoint = hoveredDate ? data.find((d) => d.date === hoveredDate) : null
-  const isDirectHover = hoverSource === CHART_ID
+  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } = useHoverSync<
+    TrainingLoadPoint
+  >({
+    data,
+    chartId: 'divergence',
+    getX: (d) => d.date,
+    xScale,
+    marginLeft: MARGIN.left,
+  })
 
   const tickValues = useMemo(() => smartTicks(data.map((d) => d.date), xMax), [data, xMax])
 
