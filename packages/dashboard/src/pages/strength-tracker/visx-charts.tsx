@@ -4,7 +4,7 @@ import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
 import { scaleLinear, scalePoint } from '@visx/scale'
 import { LinePath } from '@visx/shape'
-import { Select } from 'antd'
+import { Select, Tooltip } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import {
   AxisBottomDate,
@@ -19,6 +19,7 @@ import {
   TooltipHeader,
   TooltipRow,
   VX,
+  ZonedLine,
   ZoneRects,
   smartTicks,
   useHoverSync,
@@ -53,8 +54,13 @@ import {
   velocityPctPerDay,
   volumeLandmarks,
 } from './utils'
+import type { DailyMetric } from '../garmin-health/types'
 import {
+  type AlignmentCellData,
+  type ReadinessPoint,
   type RelProgressPoint,
+  buildAlignmentMatrix,
+  buildReadinessStrainData,
   buildRelativeProgressionData,
   computeBalanceComposite,
   computeStrengthRatios,
@@ -2125,6 +2131,261 @@ export function StrengthRatiosChart({
           }}
         >
           Need data for at least 2 lifts to compute ratios
+        </div>
+      )}
+    </ChartCard>
+  )
+}
+
+// ── Readiness × Strain ────────────────────────────────────────────────────
+
+function readinessZoneLabel(v: number): { text: string; color: string } {
+  if (v >= 70) return { text: 'Push', color: VX.goodSolid }
+  if (v >= 40) return { text: 'Normal', color: VX.warnSolid }
+  return { text: 'Rest', color: VX.badSolid }
+}
+
+export function ReadinessStrainChart({
+  dailyMetrics,
+  workouts,
+}: {
+  dailyMetrics: DailyMetric[]
+  workouts: Workout[]
+}) {
+  const { line } = useVxTheme()
+  const chartData = useMemo(
+    () => buildReadinessStrainData(dailyMetrics, workouts),
+    [dailyMetrics, workouts],
+  )
+  const latest = chartData[chartData.length - 1]
+
+  const headerExtra =
+    latest !== undefined && latest.readiness !== null ? (
+      <span style={{ fontSize: 12 }}>
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: readinessZoneLabel(latest.readiness).color,
+          }}
+        >
+          {latest.readiness}
+        </span>
+        <span style={{ marginLeft: 6, color: readinessZoneLabel(latest.readiness).color }}>
+          {readinessZoneLabel(latest.readiness).text}
+        </span>
+      </span>
+    ) : null
+
+  return (
+    <ChartCard
+      title="Readiness × Strain"
+      subtitle="Am I ready to push?"
+      tooltip={METRIC_TOOLTIPS.readinessStrain}
+      extra={headerExtra}
+    >
+      <div style={{ height: 280 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <ZonedLine<ReadinessPoint>
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={280}
+              chartId="readiness-strain"
+              getX={(d) => d.date}
+              getY={(d) => d.readiness}
+              yDomain={[0, 100]}
+              zones={[
+                { from: 70, to: 100, fill: VX.good },
+                { from: 40, to: 70, fill: VX.warn },
+                { from: 0, to: 40, fill: VX.bad },
+              ]}
+              thresholds={[
+                { value: 70, side: 'above', fill: VX.good },
+                { value: 40, side: 'below', fill: VX.bad },
+              ]}
+              refLines={[
+                { value: 70, color: VX.goodRef },
+                { value: 40, color: VX.badRef },
+              ]}
+              seriesLabel="Readiness"
+              formatValue={(v) => String(Math.round(v))}
+              tooltipLabel={(d) => (d.readiness === null ? null : readinessZoneLabel(d.readiness))}
+              renderExtraTooltipRows={(d) =>
+                d.garminRecovery !== null ? (
+                  <TooltipRow
+                    color="rgba(128,128,128,0.5)"
+                    label="Garmin Base"
+                    value={String(d.garminRecovery)}
+                    shape="line"
+                  />
+                ) : null
+              }
+            />
+          )}
+        </ParentSize>
+      </div>
+      <ChartLegend
+        items={[
+          { key: 'readiness', label: 'Readiness (adjusted)', color: line },
+          { key: 'push', label: 'Push (≥70)', color: VX.goodSolid, shape: 'bar' },
+          { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },
+        ]}
+        highlighted={null}
+        onHighlight={() => {}}
+      />
+    </ChartCard>
+  )
+}
+
+// ── Training–Recovery Alignment Matrix ────────────────────────────────────
+
+function verdictColor(type: AlignmentCellData['verdictType']): string {
+  if (type === 'good') return VX.goodSolid
+  if (type === 'warn') return VX.warnSolid
+  return VX.badSolid
+}
+
+function cellBg(type: AlignmentCellData['verdictType']): string {
+  if (type === 'good') return VX.goodSoft
+  if (type === 'warn') return VX.warn
+  return VX.bad
+}
+
+const COL_LABELS = ['ACWR Under', 'ACWR Optimal', 'ACWR Caution+']
+const ROW_LABELS = ['High (≥70)', 'Normal (40–69)', 'Low (<40)']
+
+export function TrainingRecoveryAlignmentChart({
+  dailyMetrics,
+  workouts,
+  activeExercises,
+  today,
+}: {
+  dailyMetrics: DailyMetric[]
+  workouts: Workout[]
+  activeExercises: ExerciseKey[]
+  today: string
+}) {
+  const readinessData = useMemo(
+    () => buildReadinessStrainData(dailyMetrics, workouts),
+    [dailyMetrics, workouts],
+  )
+
+  const matrix = useMemo(
+    () => buildAlignmentMatrix(readinessData, workouts, activeExercises, today),
+    [readinessData, workouts, activeExercises, today],
+  )
+
+  const todayCell = useMemo(() => matrix.flat().find((c) => c.isToday) ?? null, [matrix])
+
+  const headerExtra =
+    todayCell !== null ? (
+      <span style={{ fontSize: 12, fontWeight: 600, color: verdictColor(todayCell.verdictType) }}>
+        {todayCell.verdict}
+      </span>
+    ) : null
+
+  const hasData = readinessData.some((r) => r.readiness !== null)
+
+  return (
+    <ChartCard
+      title="Training–Recovery Alignment"
+      subtitle="Does today match my body?"
+      tooltip={METRIC_TOOLTIPS.trainingRecoveryAlignment}
+      extra={headerExtra}
+    >
+      {hasData ? (
+        <div style={{ padding: '4px 0' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '88px 1fr 1fr 1fr',
+              gap: 4,
+              marginBottom: 4,
+            }}
+          >
+            <div />
+            {COL_LABELS.map((col) => (
+              <div
+                key={col}
+                style={{ fontSize: 10, opacity: 0.5, textAlign: 'center', padding: '2px 0' }}
+              >
+                {col}
+              </div>
+            ))}
+          </div>
+          {matrix.map((row, ri) => (
+            <div
+              key={ri}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '88px 1fr 1fr 1fr',
+                gap: 4,
+                marginBottom: 4,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  opacity: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {ROW_LABELS[ri]}
+              </div>
+              {row.map((cell, ci) => (
+                <Tooltip
+                  key={ci}
+                  title={
+                    cell.count > 0
+                      ? cell.dates.slice().sort().reverse().slice(0, 8).join(', ')
+                      : undefined
+                  }
+                >
+                  <div
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: 6,
+                      background: cellBg(cell.verdictType),
+                      border: cell.isToday
+                        ? `2px solid ${verdictColor(cell.verdictType)}`
+                        : '2px solid transparent',
+                      textAlign: 'center',
+                      cursor: cell.count > 0 ? 'default' : 'default',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: verdictColor(cell.verdictType),
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {cell.verdict}
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
+                      {cell.isToday ? 'today' : cell.count > 0 ? `${cell.count}×` : ''}
+                    </div>
+                  </div>
+                </Tooltip>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div
+          style={{
+            height: 200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.4,
+            fontSize: 13,
+          }}
+        >
+          No wearable data in selected range
         </div>
       )}
     </ChartCard>

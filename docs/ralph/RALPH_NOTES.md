@@ -102,3 +102,81 @@ Updated `index.tsx` Section 2 (Load Quality) and Section 3 (Efficiency & Momentu
 - `volumeLandmarks` uses a rolling 90-day window from today, not from the last workout date. This means the landmarks shrink during training breaks. Intent is correct (reflect recent capacity), but worth noting.
 
 ---
+
+## Group 4: Balance & Composite Hero
+
+### What was implemented
+
+Added `analytics.ts` with:
+- IPF 2020 DOTS formula (`dotsCoefficient`, `dotsAdjusted`) — sex-specific constants for bodyweight-normalized strength comparison.
+- `computeStrengthRatios` — DL/Squat [1.0–1.25], Squat/Bench [1.2–1.5], DL/Bench [1.5–2.0], Pull-up/BW [0.4–0.7], status: balanced/imbalanced (>15% off) / critical (>30% off).
+- `computeBalanceComposite` — worst-pair composite from ratio set.
+- `computeLoadQuality` — 40% INOL zone score + 40% ACWR zone score + 20% volume landmark score → 0–100, verdict Quality/Adequate/Poor, dragComponent.
+- `computeStrengthDirectionHero` — best-velocity leader lift + momentumSign from last two `buildMomentumChartData` points.
+- `buildRelativeProgressionData` — normalizes each exercise's e1RM to first session = 100%, returns % change per date.
+
+Added to `visx-charts.tsx`:
+- `RelativeProgressionChart` — bespoke multi-line normalized % chart; header extra shows leader/laggard exercise + %; hover synced via `useHoverSync`.
+- `StrengthRatiosChart` — CSS/HTML horizontal bar display per lift pair with DOTS-adjusted ratios and colored status ticks; no hover sync (static, no time axis).
+
+Rewrote `stats.tsx` as `HeroStats` — 3-card layout (Strength, Load Quality, Balance); Garmin Health card pattern; each card has 32px primary value, 13px verdict, 11px subtext with info tooltip.
+
+Updated `index.tsx` to wire `HeroStats`, `RelativeProgressionChart`, `StrengthRatiosChart`, `useBodyWeight`, `useUserProfile`.
+
+Updated `body-weight.ts`: added `useUserProfile` hook (Eden direct fetch via `useEffect` + `useState`), removed `useOne` and the unused `UserProfileEntry`/`DailyMetricEntry` interfaces.
+
+### Deviations from prompt
+
+- DOTS ratio cancellation: mathematically DOTS(e1rm_A, bw) / DOTS(e1rm_B, bw) = e1rm_A/e1rm_B for same person (coefficient cancels). Implemented per spec anyway since normative ranges were derived from DOTS-adjusted comparisons and the formula matches the IPF spec exactly.
+- `StrengthRatiosChart` has no hover sync — static chart with no time axis cannot participate in cross-chart date sync. Implemented as pure CSS/HTML without `useHoverSync`.
+- Pull-up ratio returns `null` when added weight = 0 (bodyweight-only pull-ups) to avoid showing 0/BW = 0 as "critical" for beginners. Spec implied always showing a ratio but this would be misleading.
+
+### Gotchas & surprises
+
+- `useOne` for `user-profile` resource fails with "Unsupported resource for getOne" — `data-provider.ts` `getOne` only handles 'workouts'. Fixed by replacing `useOne` in `useBodyWeight` with the `useUserProfile` hook that uses direct Eden treaty call.
+- `oxlint eqeqeq` bans `!= null` (again) — `latest != null` for the `undefined` guard on `chartData[chartData.length - 1]` must be `latest !== undefined` since the array element type has no `null` variant.
+- DOTS male constants: `A=-307.75076, B=24.0900756, C=-0.1918759221, D=0.0007391293, E=-0.000001093`. Verified against IPF Technical Rules 2020 PDF.
+
+### Future improvements
+
+- `useUserProfile` is called twice on page load (once from `useBodyWeight`, once from `index.tsx`). Both use `useState` + `useEffect`, so two separate API calls fire. Could be lifted to a context once more hooks stabilize.
+- Gender defaults to 'male' when `user_profile.gender` is null — a console warning fires once. Adding a gender field to the user profile UI would resolve this.
+- `StrengthRatiosChart` normative ranges are fixed constants. A future group could expose user-adjustable target ratios.
+
+---
+
+## Group 5 — Readiness & Deload
+
+### What was built
+
+Added wearable data integration to the Strength Tracker. Four new pieces:
+
+1. **`buildReadinessStrainData`** in `analytics.ts` — per-day series that takes Garmin base recovery (HRV 40% + sleep 35% + RHR 25%) and applies a fatigue-debt shave from strength training INOL. Fatigue debt = last session INOL / p90 INOL ceiling; max 25% penalty. An additional 10% dampening applies when last session INOL > 1.2 within 48h.
+
+2. **`buildAlignmentMatrix`** in `analytics.ts` — maps every session date onto a 3×3 grid (Recovery High/Normal/Low × ACWR Under/Optimal/Caution+) by joining readiness and ACWR series. Today's cell gets `isToday = true` for a colored border. Verdict strings and `verdictType` come from a static `CELL_VERDICTS` lookup.
+
+3. **`deloadSignal`** in `analytics.ts` — four AND-pattern signals: stall (velocity ≤ 0 on ≥2 lifts), overload (ACWR > 1.3 on last 2 weekly points for ≥1 lift), fatigue (avg INOL > 1.1 last 10 sessions), physio (fitness direction declining OR HRV 7d MA < 85% of 28d baseline). ≥2 signals → deload; 1 signal → monitor.
+
+4. **`ReadinessStrainChart`** in `visx-charts.tsx` — reuses `ZonedLine` with Push/Normal/Rest zones; `renderExtraTooltipRows` shows raw Garmin recovery vs adjusted. Uses `chartId="readiness-strain"` for HoverContext cross-chart sync.
+
+5. **`TrainingRecoveryAlignmentChart`** in `visx-charts.tsx` — CSS Grid 3×3 matrix; AntD `Tooltip` on each cell shows session dates. Does not use `useHoverSync` (no time axis).
+
+6. **`index.tsx`** updated — `useList<DailyMetric>` with fixed 90-day rolling window (independent of user date-range filter); `dailyMetrics` memoized via `useMemo` to avoid referential-instability lint errors. Deload banner (AntD `Alert`, warning or info type) renders above hero when signals fire. Hero card 3 swaps to Readiness when `hasReadinessData` (≥7 days). Section 5 renders conditionally in DOM — not hidden — when `hasReadinessData`.
+
+### Deviations from prompt
+
+- `VX.warnSoft` and `VX.badSoft` do not exist in `tokens.ts` — used `VX.warn` and `VX.bad` as direct replacements (same base color at lower opacity via rgba). No new tokens were added.
+- `latestAcwrBefore` uses the weekly ACWR series (from `computeAcwrSeries`) and picks the most recent point ≤ the session date rather than aggregating per session — avoids double-computing ACWR per session.
+
+### Gotchas & surprises
+
+- `oxlint exhaustive-deps` flags `dailyMetrics = (result.data ?? [])` as "changes every render" because `?? []` creates a new array reference each time. Fix: wrap in `useMemo(() => ... ?? [], [result.data])`. The existing `workouts` variable has the same pattern but wasn't flagged because it wasn't used in a `useMemo` dep array until this group.
+- `computeRecoveryScore` is exported from `garmin-health/utils.ts` and imported cross-page. This is intentional — the spec explicitly says "don't duplicate the 0–100 recovery formula".
+- `p90ofArray` is private (not exported) in `analytics.ts` since it's only used by `buildReadinessStrainData` and `deloadSignal` within that file.
+
+### Future improvements
+
+- Deload banner evaluates even in demo data mode, which will always show "no signals" since demo workouts have no `dailyMetrics`. Consider seeding demo Garmin data in `demo-data.ts`.
+- `TrainingRecoveryAlignmentChart` shows up to 8 recent session dates per cell tooltip — could add a "view all" expansion for cells with many sessions.
+- `hasReadinessData` threshold is 7 days — could be increased to 14 to ensure enough HRV baseline for the deload physio signal.
+

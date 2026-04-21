@@ -1,12 +1,23 @@
+import dayjs from 'dayjs'
+import type { DailyMetric } from '../garmin-health/types'
+import {
+  activityComponents,
+  computeFitnessDirection,
+  computeRecoveryScore,
+  fieldAvg,
+  strainDebtCeiling,
+} from '../garmin-health/utils'
 import type { ExerciseKey, Workout } from './types'
 import {
   buildInolChartData,
   buildMomentumChartData,
   computeAcwrSeries,
+  sessionInol,
   strengthDirection,
   velocityPctPerDay,
   volumeLandmarks,
   weeklyTonnageSeries,
+  type AcwrResult,
 } from './utils'
 
 // ── DOTS IPF 2020 ─────────────────────────────────────────────────────────
@@ -365,4 +376,302 @@ export function buildRelativeProgressionData(
     }
     return { date, pct }
   })
+}
+
+// ── Readiness × Strain ────────────────────────────────────────────────────
+
+export interface ReadinessPoint {
+  date: string
+  readiness: number | null
+  garminRecovery: number | null
+  fatigueDept: number
+  driver: string | null
+}
+
+function p90ofArray(values: number[]): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(0.9 * sorted.length) - 1))
+  return sorted[idx] ?? null
+}
+
+/**
+ * Build per-day readiness scores with fatigue-debt adjustment for strength work.
+ *
+ * Stacking order:
+ *   1. Base: raw Garmin recovery (HRV×0.4 + sleep×0.35 + RHR×0.25, w/ Garmin strain debt)
+ *   2. Strength fatigue penalty: × (1 − fatigue_debt × 0.25)  — max 25% shave
+ *   3. Heavy-session dampening:  × 0.9 if last session had INOL > 1.2 within 48h
+ */
+export function buildReadinessStrainData(
+  dailyMetrics: DailyMetric[],
+  workouts: Workout[],
+): ReadinessPoint[] {
+  if (dailyMetrics.length === 0) return []
+
+  const avgHrv = fieldAvg(dailyMetrics, 'hrv_last_night_avg')
+  const avgRhr = fieldAvg(dailyMetrics, 'resting_hr')
+  const rhrValues = dailyMetrics.map((d) => d.resting_hr).filter((v): v is number => v !== null)
+  const minRhr = rhrValues.length > 0 ? Math.min(...rhrValues) : null
+  const maxRhr = rhrValues.length > 0 ? Math.max(...rhrValues) : null
+  const garminStrainCeiling = strainDebtCeiling(dailyMetrics)
+
+  const dailyActivityScores = dailyMetrics.map(
+    (d) =>
+      activityComponents(d.steps, d.moderate_intensity_min, d.vigorous_intensity_min)?.total ??
+      null,
+  )
+
+  const allInols = workouts.map((w) => sessionInol(w)).filter((v): v is number => v !== null)
+  const fatigueCeiling = Math.max(1.0, p90ofArray(allInols) ?? 0)
+
+  return dailyMetrics.map((d, i) => {
+    const garminRecovery = computeRecoveryScore(
+      d,
+      avgHrv,
+      avgRhr,
+      minRhr,
+      maxRhr,
+      dailyActivityScores[i - 1] ?? null,
+      garminStrainCeiling,
+    )
+
+    if (garminRecovery === null) {
+      return { date: d.date, readiness: null, garminRecovery: null, fatigueDept: 0, driver: null }
+    }
+
+    const cutoff48h = dayjs(d.date).subtract(2, 'day').format('YYYY-MM-DD')
+    const recentWorkout = workouts
+      .filter((w) => w.date >= cutoff48h && w.date < d.date)
+      .sort((a, b) => b.date.localeCompare(a.date))[0]
+
+    const yesterdayInol = recentWorkout !== undefined ? (sessionInol(recentWorkout) ?? null) : null
+    const fatigueDept =
+      yesterdayInol !== null ? Math.max(0, Math.min(1, yesterdayInol / fatigueCeiling)) : 0
+
+    let readiness = garminRecovery * (1 - fatigueDept * 0.25)
+
+    const isHeavySession = yesterdayInol !== null && yesterdayInol > 1.2
+    if (isHeavySession) readiness *= 0.9
+
+    const driver = isHeavySession
+      ? `Fatigue debt ${fatigueDept.toFixed(2)} · heavy session yesterday`
+      : fatigueDept > 0.25
+        ? `Fatigue debt ${fatigueDept.toFixed(2)} · recent session`
+        : null
+
+    return {
+      date: d.date,
+      readiness: Math.round(Math.max(0, Math.min(100, readiness))),
+      garminRecovery,
+      fatigueDept,
+      driver,
+    }
+  })
+}
+
+// ── Training–Recovery Alignment Matrix ────────────────────────────────────
+
+export type RecoveryRow = 'high' | 'normal' | 'low'
+export type AcwrCol = 'under' | 'optimal' | 'caution'
+
+export interface AlignmentCellData {
+  recoveryRow: RecoveryRow
+  acwrCol: AcwrCol
+  verdict: string
+  verdictType: 'good' | 'warn' | 'bad'
+  dates: string[]
+  count: number
+  isToday: boolean
+}
+
+const CELL_VERDICTS: Record<
+  RecoveryRow,
+  Record<AcwrCol, { verdict: string; verdictType: 'good' | 'warn' | 'bad' }>
+> = {
+  high: {
+    under: { verdict: 'Waste', verdictType: 'warn' },
+    optimal: { verdict: 'Aligned · Push', verdictType: 'good' },
+    caution: { verdict: 'Misaligned · Risk', verdictType: 'bad' },
+  },
+  normal: {
+    under: { verdict: 'Light', verdictType: 'warn' },
+    optimal: { verdict: 'Aligned', verdictType: 'good' },
+    caution: { verdict: 'Overload · Risk', verdictType: 'bad' },
+  },
+  low: {
+    under: { verdict: 'Aligned · Rest', verdictType: 'good' },
+    optimal: { verdict: 'Misaligned', verdictType: 'warn' },
+    caution: { verdict: 'Critical · Risk', verdictType: 'bad' },
+  },
+}
+
+function recoveryRowFor(score: number): RecoveryRow {
+  if (score >= 70) return 'high'
+  if (score >= 40) return 'normal'
+  return 'low'
+}
+
+function acwrColFor(acwr: number): AcwrCol {
+  if (acwr < 0.8) return 'under'
+  if (acwr <= 1.3) return 'optimal'
+  return 'caution'
+}
+
+function latestAcwrBefore(series: AcwrResult[], targetDate: string): number | null {
+  const candidates = series.filter((p) => p.date <= targetDate && p.acwr !== null)
+  return candidates.length > 0 ? (candidates[candidates.length - 1]!.acwr ?? null) : null
+}
+
+export function buildAlignmentMatrix(
+  readinessData: ReadinessPoint[],
+  workouts: Workout[],
+  activeExerciseIds: string[],
+  today: string,
+): AlignmentCellData[][] {
+  const ROWS: RecoveryRow[] = ['high', 'normal', 'low']
+  const COLS: AcwrCol[] = ['under', 'optimal', 'caution']
+
+  const allAcwrSeries: AcwrResult[][] = activeExerciseIds.map((ex) =>
+    computeAcwrSeries(workouts, ex),
+  )
+
+  const readinessByDate = new Map<string, number>()
+  for (const r of readinessData) {
+    if (r.readiness !== null) readinessByDate.set(r.date, r.readiness)
+  }
+
+  const grid: AlignmentCellData[][] = ROWS.map((row) =>
+    COLS.map((col) => ({
+      recoveryRow: row,
+      acwrCol: col,
+      verdict: CELL_VERDICTS[row][col].verdict,
+      verdictType: CELL_VERDICTS[row][col].verdictType,
+      dates: [],
+      count: 0,
+      isToday: false,
+    })),
+  )
+
+  const sessionDates = new Set<string>()
+  for (const w of workouts) {
+    if (activeExerciseIds.includes(w.exercise_id)) sessionDates.add(w.date)
+  }
+
+  for (const date of sessionDates) {
+    const recovery = readinessByDate.get(date)
+    if (recovery === undefined) continue
+
+    const acwrValues = allAcwrSeries
+      .map((series) => latestAcwrBefore(series, date))
+      .filter((v): v is number => v !== null)
+    if (acwrValues.length === 0) continue
+    const avgAcwr = acwrValues.reduce((a, b) => a + b, 0) / acwrValues.length
+
+    const rowIdx = ROWS.indexOf(recoveryRowFor(recovery))
+    const colIdx = COLS.indexOf(acwrColFor(avgAcwr))
+    if (rowIdx >= 0 && colIdx >= 0) {
+      grid[rowIdx]![colIdx]!.dates.push(date)
+      grid[rowIdx]![colIdx]!.count++
+    }
+  }
+
+  const todayRecovery = readinessByDate.get(today)
+  const todayAcwrValues = allAcwrSeries
+    .map((series) => latestAcwrBefore(series, today))
+    .filter((v): v is number => v !== null)
+  if (todayRecovery !== undefined && todayAcwrValues.length > 0) {
+    const todayAvgAcwr = todayAcwrValues.reduce((a, b) => a + b, 0) / todayAcwrValues.length
+    const rowIdx = ROWS.indexOf(recoveryRowFor(todayRecovery))
+    const colIdx = COLS.indexOf(acwrColFor(todayAvgAcwr))
+    if (rowIdx >= 0 && colIdx >= 0) {
+      grid[rowIdx]![colIdx]!.isToday = true
+    }
+  }
+
+  return grid
+}
+
+// ── Deload Signal ─────────────────────────────────────────────────────────
+
+export interface DeloadSignalResult {
+  verdict: 'deload' | 'monitor' | 'progress'
+  activeSignals: string[]
+  physioAvailable: boolean
+}
+
+export function deloadSignal(
+  workouts: Workout[],
+  dailyMetrics: DailyMetric[],
+  activeExerciseIds: string[],
+  today: string,
+): DeloadSignalResult {
+  const physioAvailable = dailyMetrics.length >= 7
+  const signals: string[] = []
+
+  // Signal 1: Stall — velocity ≤ 0 on ≥ 2 key lifts with recent sessions (last 21d)
+  const cutoff21 = dayjs(today).subtract(21, 'day').format('YYYY-MM-DD')
+  let stalledLifts = 0
+  for (const exId of activeExerciseIds) {
+    const vel = velocityPctPerDay(workouts, exId)
+    const hasRecent = workouts.some((w) => w.exercise_id === exId && w.date >= cutoff21)
+    if (vel !== null && vel <= 0 && hasRecent) stalledLifts++
+  }
+  if (stalledLifts >= 2) signals.push(`stall on ${stalledLifts} lifts`)
+
+  // Signal 2: Overload — last 2 ACWR weekly points > 1.3 on ≥ 1 key lift
+  let signaled = false
+  for (const exId of activeExerciseIds) {
+    if (signaled) break
+    const acwrData = computeAcwrSeries(workouts, exId)
+    if (acwrData.length >= 2) {
+      const last2 = acwrData.slice(-2)
+      if (last2.every((p) => p.acwr !== null && p.acwr > 1.3)) {
+        signals.push(`overload (${exId} ACWR ${last2[last2.length - 1]!.acwr!.toFixed(2)})`)
+        signaled = true
+      }
+    }
+  }
+
+  // Signal 3: Fatigue — avg INOL > 1.1 over last 10 sessions across active exercises
+  const recentSessions = workouts
+    .filter((w) => activeExerciseIds.includes(w.exercise_id))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 10)
+  if (recentSessions.length >= 5) {
+    const inols = recentSessions.map((w) => sessionInol(w)).filter((v): v is number => v !== null)
+    const avgInol = inols.length > 0 ? inols.reduce((a, b) => a + b, 0) / inols.length : 0
+    if (avgInol > 1.1) signals.push(`fatigue (INOL avg ${avgInol.toFixed(2)})`)
+  }
+
+  // Signal 4: Physio — declining fitness direction OR HRV 7d MA down > 15% vs 28d baseline
+  if (physioAvailable) {
+    const sorted = [...dailyMetrics].sort((a, b) => a.date.localeCompare(b.date))
+    const fitnessDir = computeFitnessDirection(sorted)
+    if (fitnessDir.label === 'Declining') {
+      signals.push('physio (fitness declining)')
+    } else {
+      const last7Hrv = sorted
+        .slice(-7)
+        .map((d) => d.hrv_last_night_avg)
+        .filter((v): v is number => v !== null)
+      const last28Hrv = sorted
+        .slice(-28)
+        .map((d) => d.hrv_last_night_avg)
+        .filter((v): v is number => v !== null)
+      if (last7Hrv.length >= 3 && last28Hrv.length >= 7) {
+        const hrv7avg = last7Hrv.reduce((a, b) => a + b, 0) / last7Hrv.length
+        const hrv28avg = last28Hrv.reduce((a, b) => a + b, 0) / last28Hrv.length
+        if (hrv28avg > 0 && hrv7avg < hrv28avg * 0.85) {
+          signals.push(`physio (HRV down ${Math.round((1 - hrv7avg / hrv28avg) * 100)}%)`)
+        }
+      }
+    }
+  }
+
+  const count = signals.length
+  const verdict: 'deload' | 'monitor' | 'progress' =
+    count >= 2 ? 'deload' : count === 1 ? 'monitor' : 'progress'
+
+  return { verdict, activeSignals: signals, physioAvailable }
 }

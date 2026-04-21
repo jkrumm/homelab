@@ -62,12 +62,19 @@ function balanceLabel(status: RatioStatus | null): string {
   return 'No data'
 }
 
+interface ReadinessInfo {
+  score: number
+  verdict: 'Push' | 'Normal' | 'Rest'
+  driver: string | null
+}
+
 interface HeroStatsProps {
   workouts: Workout[]
   activeExercises: ExerciseKey[]
   bodyWeightKg: number
   gender: 'male' | 'female'
   isLoading: boolean
+  readinessInfo?: ReadinessInfo | null
 }
 
 export function HeroStats({
@@ -76,6 +83,7 @@ export function HeroStats({
   bodyWeightKg,
   gender,
   isLoading,
+  readinessInfo,
 }: HeroStatsProps) {
   const strengthDir = useMemo(
     () => computeStrengthDirectionHero(workouts, activeExercises),
@@ -175,39 +183,84 @@ export function HeroStats({
           </Card>
         </Col>
 
-        {/* Balance */}
+        {/* Readiness (when wearable data present) or Balance */}
         <Col xs={24} sm={8}>
           <Card size="small" style={{ height: '100%' }}>
-            <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
-              Balance
-              <InfoIcon tooltip={METRIC_TOOLTIPS.heroBalance} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span
-                style={{
-                  fontSize: 32,
-                  fontWeight: 700,
-                  color: balanceColor(balance.status),
-                  lineHeight: 1,
-                }}
-              >
-                {balanceSymbol(balance.status)}
-              </span>
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: balanceColor(balance.status),
-                }}
-              >
-                {balanceLabel(balance.status)}
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
-              {balance.worstPair !== null && balance.worstPair.ratio !== null
-                ? `${balance.worstPair.label} · ${balance.worstPair.ratio.toFixed(2)} (range ${balance.worstPair.range[0]}–${balance.worstPair.range[1]})`
-                : 'Need data for multiple lifts'}
-            </div>
+            {readinessInfo !== null && readinessInfo !== undefined ? (
+              <>
+                <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+                  Readiness
+                  <InfoIcon tooltip={METRIC_TOOLTIPS.heroReadiness} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 32,
+                      fontWeight: 700,
+                      color:
+                        readinessInfo.score >= 70
+                          ? VX.goodSolid
+                          : readinessInfo.score >= 40
+                            ? VX.warnSolid
+                            : VX.badSolid,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {readinessInfo.score}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color:
+                        readinessInfo.score >= 70
+                          ? VX.goodSolid
+                          : readinessInfo.score >= 40
+                            ? VX.warnSolid
+                            : VX.badSolid,
+                    }}
+                  >
+                    {readinessInfo.verdict}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+                  {readinessInfo.driver ?? 'No recent strength fatigue'}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+                  Balance
+                  <InfoIcon tooltip={METRIC_TOOLTIPS.heroBalance} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 32,
+                      fontWeight: 700,
+                      color: balanceColor(balance.status),
+                      lineHeight: 1,
+                    }}
+                  >
+                    {balanceSymbol(balance.status)}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: balanceColor(balance.status),
+                    }}
+                  >
+                    {balanceLabel(balance.status)}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+                  {balance.worstPair !== null && balance.worstPair.ratio !== null
+                    ? `${balance.worstPair.label} · ${balance.worstPair.ratio.toFixed(2)} (range ${balance.worstPair.range[0]}–${balance.worstPair.range[1]})`
+                    : 'Need data for multiple lifts'}
+                </div>
+              </>
+            )}
           </Card>
         </Col>
       </Row>

@@ -1,6 +1,6 @@
 import { useList } from '@refinedev/core'
 import { UndoOutlined } from '@ant-design/icons'
-import { Button, Col, DatePicker, Row, Select, Space, Typography } from 'antd'
+import { Alert, Button, Col, DatePicker, Row, Select, Space, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HoverContext } from '../../charts'
@@ -18,17 +18,21 @@ import { HeroStats } from './stats'
 import type { ExerciseKey, Workout } from './types'
 import { useLocalState, resetConfig } from './use-local-state'
 import { useBodyWeight, useUserProfile } from './body-weight'
+import { buildReadinessStrainData, deloadSignal } from './analytics'
 import {
   InolChart,
   MomentumChart,
   OneRmTrendChart,
+  ReadinessStrainChart,
   RelativeProgressionChart,
   StrengthCompositeChart,
   StrengthRatiosChart,
   TrainingLoadChart,
+  TrainingRecoveryAlignmentChart,
   WeeklyVolumeChart,
 } from './visx-charts'
 import { WorkoutForm } from './workout-form'
+import type { DailyMetric } from '../garmin-health/types'
 
 // ── Responsive hook ────────────────────────────────────────────────────────
 
@@ -108,6 +112,49 @@ export default function StrengthTrackerPage() {
 
   const demoWorkouts = useMemo(() => (useDemoData ? generateDemoWorkouts() : []), [useDemoData])
   const displayWorkouts = useDemoData ? demoWorkouts : workouts
+
+  const today = dayjs().format('YYYY-MM-DD')
+  const metricsFrom = dayjs().subtract(90, 'day').format('YYYY-MM-DD')
+
+  const { result: metricsResult } = useList<DailyMetric>({
+    resource: 'daily-metrics',
+    pagination: { currentPage: 1, pageSize: 500 },
+    sorters: [{ field: 'date', order: 'asc' }],
+    filters: [
+      { field: 'date', operator: 'gte', value: metricsFrom },
+      { field: 'date', operator: 'lte', value: today },
+    ],
+  })
+  const dailyMetrics = useMemo(
+    () => (metricsResult.data as DailyMetric[] | undefined) ?? [],
+    [metricsResult.data],
+  )
+  const hasReadinessData = !useDemoData && dailyMetrics.length >= 7
+
+  const readinessData = useMemo(
+    () => (hasReadinessData ? buildReadinessStrainData(dailyMetrics, displayWorkouts) : []),
+    [hasReadinessData, dailyMetrics, displayWorkouts],
+  )
+
+  const readinessInfo = useMemo(() => {
+    if (!hasReadinessData || readinessData.length === 0) return null
+    const last = readinessData[readinessData.length - 1]!
+    if (last.readiness === null) return null
+    const score = Math.round(last.readiness)
+    return {
+      score,
+      verdict: (score >= 70 ? 'Push' : score >= 40 ? 'Normal' : 'Rest') as
+        | 'Push'
+        | 'Normal'
+        | 'Rest',
+      driver: last.driver,
+    }
+  }, [hasReadinessData, readinessData])
+
+  const deloadResult = useMemo(
+    () => deloadSignal(displayWorkouts, dailyMetrics, activeExercises, today),
+    [displayWorkouts, dailyMetrics, activeExercises, today],
+  )
 
   const filterBar = (
     <div
@@ -197,12 +244,25 @@ export default function StrengthTrackerPage() {
 
   const content = (
     <>
+      {deloadResult.verdict !== 'progress' && (
+        <Alert
+          type={deloadResult.verdict === 'deload' ? 'warning' : 'info'}
+          message={
+            deloadResult.verdict === 'deload'
+              ? `Deload recommended · ${deloadResult.activeSignals.join(' · ')}`
+              : `Monitor · ${deloadResult.activeSignals.join(' · ')}`
+          }
+          showIcon
+          style={{ marginBottom: 12 }}
+        />
+      )}
       <HeroStats
         workouts={displayWorkouts}
         activeExercises={activeExercises}
         bodyWeightKg={todayBw}
         gender={gender}
         isLoading={isLoading && !useDemoData}
+        readinessInfo={readinessInfo}
       />
       {view === 'charts' ? (
         <>
@@ -263,6 +323,27 @@ export default function StrengthTrackerPage() {
               />
             </Col>
           </Row>
+
+          {hasReadinessData && (
+            <>
+              <Typography.Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>
+                Readiness
+              </Typography.Title>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} lg={12}>
+                  <ReadinessStrainChart dailyMetrics={dailyMetrics} workouts={displayWorkouts} />
+                </Col>
+                <Col xs={24} lg={12}>
+                  <TrainingRecoveryAlignmentChart
+                    dailyMetrics={dailyMetrics}
+                    workouts={displayWorkouts}
+                    activeExercises={activeExercises}
+                    today={today}
+                  />
+                </Col>
+              </Row>
+            </>
+          )}
         </>
       ) : (
         <WorkoutHistory
