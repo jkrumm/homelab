@@ -180,3 +180,33 @@ Added wearable data integration to the Strength Tracker. Four new pieces:
 - `TrainingRecoveryAlignmentChart` shows up to 8 recent session dates per cell tooltip — could add a "view all" expansion for cells with many sessions.
 - `hasReadinessData` threshold is 7 days — could be increased to 14 to ensure enough HRV baseline for the deload physio signal.
 
+
+---
+
+## Group 6: Polish, Sparklines, Drop Recharts
+
+### What was implemented
+Shipped the `StrengthSparklineGrid` compact per-lift scan view (toggled as "Scan" in the filter bar), created `LineSparkline` and `BarSparkline` primitives under `src/charts/sparklines/`, completed the naming/subtitle/header-extra audit across all 10 charts, and removed recharts entirely from `packages/dashboard`.
+
+### Deviations from prompt
+- Sparklines placed under `src/charts/sparklines/` (flat, per spec) rather than `src/charts/sparklines/strength/` (nested) — the spec in STRENGTH-ANALYTICS.md says "strength/" subdirectory but the Group 6 prompt says the flat path. Went with flat since there's only one set of sparklines and nesting a single-purpose dir adds noise.
+- `Training Load (ACWR)` subtitle changed to "Is my load spiking?" per §4.3, not "Am I overloading?" as the group prompt table stated. §4.3 is the source of truth; the group prompt table was slightly off.
+- `Momentum` header extra changed to show f'(t) velocity %/day + direction arrow rather than the old 8-session MA kg reading. Current headerChip was changed from `e1rmMA` display to `velocityPctPerDay` + `directionArrow`.
+- INOL info (last session value + zone) was moved from an inline `div` inside the ChartCard body to the `extra` slot — per the "header extra on every chart" principle.
+- The `exColor` variable in `MomentumChart` outer function was re-added (needed by the legend items at the bottom), since it was accidentally removed alongside the old `headerChip`.
+- `.claude/rules/dashboard-patterns.md` and `.claude/rules/refine.md` still contain stale Recharts references (Dual-Axis Recharts section, Recharts Patterns section). These files are in the protected `.claude/rules/` directory and could not be edited without additional permissions — the user should clean those up manually or grant edit permissions.
+
+### Gotchas & surprises
+- `velocityPctPerDay` returns `number | null` — the `strengthDirection` helper already handles null, but rendering `vel.toFixed(2)` requires a non-null guard. Used `vel ?? 0` for display.
+- `@visx/group`'s `<Group>` import is redundant inside `LineSparkline` since there's no offset needed — but keeping it avoids an SVG coordinate concern with nested content and matches the project pattern.
+- The `bun remove recharts` command correctly cleaned up `bun.lock` as well as `package.json`.
+- oxlint and oxfmt both passed zero errors/warnings — no surprises there.
+
+### Commit notes
+Committed cleanly in two commits: code changes first, doc updates second.
+
+### Future improvements
+- `dashboard-patterns.md` and `refine.md` in `.claude/rules/` need Recharts section removal — requires permission to edit protected files.
+- The Sparkline Grid's status dot uses `strengthDirection(velocity)` as a proxy for Load Quality (INOL + ACWR + volume). True Load Quality composite per §3.2 would be more accurate but requires ACWR data which needs 28+ days.
+- Consider adding a 4th sparkline column for ACWR alongside the existing 1RM/Volume/INOL columns.
+- Sparklines don't participate in HoverContext (per spec), but a future enhancement could add a hover row-highlight on the table.

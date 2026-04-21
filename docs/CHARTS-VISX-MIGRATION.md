@@ -31,14 +31,10 @@
 | ✅ | Body Battery + Stress Levels → visx | `refactor(dashboard): migrate Body Battery and Stress Levels to visx` |
 | ✅ | Body Battery + Stress redesign (diverging bars + gradient area) | `refactor(dashboard): redesign Body Battery as energy balance; Stress with gradient area` |
 | ✅ | Naming + UX review pass | `refactor(dashboard): align chart/section/hero names; add subtitles + header extras` |
+| ✅ | Strength Tracker v2 — full visx rewrite | `feat(dashboard): sparkline grid view; drop recharts; naming audit` |
+| ✅ | Remove `recharts` dependency | `feat(dashboard): sparkline grid view; drop recharts; naming audit` |
 
-### ⏳ Pending
-
-| # | Phase | Blocker | Files touched |
-|-|-|-|-|
-| 1 | Remove `recharts` dependency | Strength Tracker charts still import it | `packages/dashboard/package.json`, `pages/strength-tracker/charts.tsx` |
-
-Garmin Health is fully on visx — `grep -r recharts packages/dashboard/src/pages/garmin-health` returns nothing. Dropping the package-level dep waits on the Strength Tracker migration (tracked under "Future Work" below).
+All phases complete. Both Garmin Health and Strength Tracker are fully on visx. `grep -r recharts packages/dashboard/src` returns nothing. The `recharts` package has been removed from `packages/dashboard/package.json`.
 
 ---
 

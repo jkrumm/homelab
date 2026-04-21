@@ -1,6 +1,6 @@
 # Dashboard — Refine v5 + Ant Design
 
-Personal homelab dashboard built with Refine v5, React 19, Ant Design v5, Recharts, and Eden Treaty
+Personal homelab dashboard built with Refine v5, React 19, Ant Design v5, visx, and Eden Treaty
 for type-safe API calls.
 
 **Refine docs:** https://context7.com/websites/refine_dev — use `/research` skill or WebFetch to query when unsure about Refine v5 APIs.
@@ -19,7 +19,7 @@ packages/dashboard/
 │   │   └── data-provider.ts         # Refine DataProvider backed by Eden Treaty
 │   └── pages/
 │       └── strength-tracker/
-│           └── index.tsx            # Workout log form + Recharts charts (1RM trend, volume)
+│           └── index.tsx            # Workout log form + visx charts (1RM trend, volume, load)
 ├── vite.config.ts                   # Vite 5, react plugin, strictPort 5173
 ├── tsconfig.json                    # Strict TS, bundler resolution, @homelab/api path alias
 ├── index.html
@@ -174,26 +174,13 @@ For chart grid lines that adapt to dark mode: `stroke="rgba(128,128,128,0.15)"` 
 
 ## Chart Patterns
 
-Recharts conventions used in this project:
+All charts use **visx** primitives — recharts has been removed. See:
 
-```tsx
-// Always wrap in ResponsiveContainer for responsive sizing
-<ResponsiveContainer width="100%" height={220}>
-  <LineChart data={data} margin={{ top: 5, right: 16, bottom: 5, left: 0 }}>
-    <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
-    <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11 }} />
-    <YAxis tick={{ fontSize: 11 }} unit="kg" width={48} />
-    <Tooltip formatter={(value, name) => [`${value} kg`, labelFor(name)]} />
-    <Legend formatter={legendFormatter} />
-    {series.map((key) => (
-      <Line key={key} type="monotone" dataKey={key} stroke={COLORS[key]} dot={false} connectNulls />
-    ))}
-  </LineChart>
-</ResponsiveContainer>
-```
+- **Primitive contract:** `.claude/rules/visx-charts.md` — mandatory wrappers, banned imports, hover sync
+- **Analytics reference:** `docs/STRENGTH-ANALYTICS.md` — what each chart answers, naming rules, subtitle rules
+- **Pattern reference:** `docs/GARMIN-HEALTH.md` + `src/pages/garmin-health/` — the canonical implementation to copy from
 
-Data shape: flat objects `[{ date, bench_press: 120, deadlift: 180 }]` — use `buildChartData` in
-strength-tracker as reference for transforming normalized records to Recharts format.
+Every chart wraps in `<ChartCard title subtitle tooltip extra>`, composes primitives inside `<ParentSize>`, and wires `useHoverSync` for cross-chart crosshair sync. Sparklines (`src/charts/sparklines/`) are exempt from the Legend/Tooltip contract but still use VX tokens.
 
 ---
 
