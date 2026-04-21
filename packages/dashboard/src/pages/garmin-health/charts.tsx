@@ -16,7 +16,8 @@ import {
   YAxis,
 } from 'recharts'
 import type { DailyMetric } from './types'
-import { COLORS, METRIC_TOOLTIPS } from './constants'
+import { METRIC_TOOLTIPS } from './constants'
+import { VX } from '../../charts'
 import {
   buildActivityData,
   buildBodyBatteryData,
@@ -82,7 +83,7 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
     <span style={{ fontSize: 12 }}>
       {summary.vo2max !== null && (
         <span style={{ marginRight: 12 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: COLORS.vo2max }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: VX.series.vo2max }}>
             {summary.vo2max.toFixed(1)}
           </span>
           <span style={{ opacity: 0.5 }}> VO2</span>
@@ -161,7 +162,7 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
             yAxisId="hr"
             type="monotone"
             dataKey="rhrMA"
-            stroke={COLORS.restingHr}
+            stroke={VX.series.restingHr}
             strokeWidth={2.5}
             dot={false}
             connectNulls
@@ -170,7 +171,7 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
             yAxisId="hrv"
             type="monotone"
             dataKey="hrvMA"
-            stroke={COLORS.hrv}
+            stroke={VX.series.hrv}
             strokeWidth={2.5}
             dot={false}
             connectNulls
@@ -180,9 +181,9 @@ export function FitnessChart({ data }: { data: DailyMetric[] }) {
             yAxisId="hrv"
             type="monotone"
             dataKey="vo2max"
-            stroke={COLORS.vo2max}
+            stroke={VX.series.vo2max}
             strokeWidth={0}
-            dot={{ r: 5, fill: COLORS.vo2max, strokeWidth: 2, stroke: '#fff' }}
+            dot={{ r: 5, fill: VX.series.vo2max, strokeWidth: 2, stroke: '#fff' }}
             connectNulls={false}
           />
         </ComposedChart>
@@ -233,21 +234,21 @@ export function SleepChart({ data }: { data: DailyMetric[] }) {
               return labels[value] ?? value
             }}
           />
-          <Bar yAxisId="hours" dataKey="deep" stackId="sleep" fill={COLORS.deep} />
-          <Bar yAxisId="hours" dataKey="rem" stackId="sleep" fill={COLORS.rem} />
-          <Bar yAxisId="hours" dataKey="light" stackId="sleep" fill={COLORS.light} />
+          <Bar yAxisId="hours" dataKey="deep" stackId="sleep" fill={VX.series.deep} />
+          <Bar yAxisId="hours" dataKey="rem" stackId="sleep" fill={VX.series.rem} />
+          <Bar yAxisId="hours" dataKey="light" stackId="sleep" fill={VX.series.light} />
           <Bar
             yAxisId="hours"
             dataKey="awake"
             stackId="sleep"
-            fill={COLORS.awake}
+            fill={VX.series.awake}
             radius={[2, 2, 0, 0]}
           />
           <Line
             yAxisId="score"
             type="monotone"
             dataKey="sleepScore"
-            stroke={COLORS.sleepScore}
+            stroke={VX.series.sleepScore}
             dot={false}
             strokeWidth={2}
             connectNulls
@@ -290,7 +291,7 @@ export function BodyBatteryChart({ data }: { data: DailyMetric[] }) {
             dataKey="low"
             stackId="bb"
             fill="transparent"
-            stroke={COLORS.bodyBatteryLow}
+            stroke={VX.series.bodyBatteryLow}
             strokeWidth={1.5}
             strokeDasharray="4 4"
             dot={false}
@@ -300,9 +301,9 @@ export function BodyBatteryChart({ data }: { data: DailyMetric[] }) {
             type="monotone"
             dataKey="range"
             stackId="bb"
-            fill={COLORS.bodyBatteryHigh}
+            fill={VX.series.bodyBatteryHigh}
             fillOpacity={0.25}
-            stroke={COLORS.bodyBatteryHigh}
+            stroke={VX.series.bodyBatteryHigh}
             strokeWidth={2}
             dot={false}
             connectNulls
@@ -344,8 +345,8 @@ export function StressChart({ data }: { data: DailyMetric[] }) {
           <Area
             type="monotone"
             dataKey="avgStress"
-            stroke={COLORS.stress}
-            fill={COLORS.stress}
+            stroke={VX.series.stress}
+            fill={VX.series.stress}
             fillOpacity={0.15}
             strokeWidth={2}
             dot={false}
@@ -354,7 +355,7 @@ export function StressChart({ data }: { data: DailyMetric[] }) {
           <Line
             type="monotone"
             dataKey="sleepStress"
-            stroke={COLORS.sleepStress}
+            stroke={VX.series.sleepStress}
             dot={false}
             strokeWidth={1.5}
             connectNulls
@@ -401,7 +402,7 @@ export function ActivityChart({ data }: { data: DailyMetric[] }) {
           <Bar
             yAxisId="steps"
             dataKey="steps"
-            fill={COLORS.steps}
+            fill={VX.series.steps}
             fillOpacity={0.7}
             radius={[2, 2, 0, 0]}
           />
@@ -409,7 +410,7 @@ export function ActivityChart({ data }: { data: DailyMetric[] }) {
             yAxisId="min"
             type="monotone"
             dataKey="intensityMin"
-            stroke={COLORS.intensityMin}
+            stroke={VX.series.intensityMin}
             strokeWidth={2}
             dot={false}
             connectNulls

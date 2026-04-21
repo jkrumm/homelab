@@ -1,7 +1,4 @@
-import { Card, Tooltip as AntTooltip } from 'antd'
-import { InfoCircleOutlined } from '@ant-design/icons'
-import { useCallback, useContext, useMemo, useRef, useState } from 'react'
-import { AxisBottom, AxisLeft } from '@visx/axis'
+import { useCallback, useContext, useMemo, useState } from 'react'
 import { curveMonotoneX } from '@visx/curve'
 import { localPoint } from '@visx/event'
 import { GridRows } from '@visx/grid'
@@ -12,7 +9,23 @@ import { LinePath } from '@visx/shape'
 import { Threshold } from '@visx/threshold'
 import { HoverContext } from './hover-context'
 import type { DailyMetric } from './types'
-import { METRIC_TOOLTIPS, VX, useVxTheme } from './constants'
+import { METRIC_TOOLTIPS } from './constants'
+import {
+  AxisBottomDate,
+  AxisLeftNumeric,
+  ChartCard,
+  ChartLegend,
+  ChartTooltip,
+  HoverOverlay,
+  TooltipBody,
+  TooltipHeader,
+  TooltipRow,
+  VX,
+  smartTicks,
+  useChartTooltip,
+  useTooltipStyles,
+  useVxTheme,
+} from '../../charts'
 import {
   acwrZoneColor,
   acwrZoneLabel,
@@ -21,195 +34,7 @@ import {
   type TrainingLoadPoint,
 } from './utils'
 
-const MARGIN = { top: 12, right: 16, bottom: 30, left: 44 }
-const MIN_PX_PER_TICK = 55
-
-/** Pick evenly-spaced tick values that fit the available width */
-function smartTicks(dates: string[], xMax: number): string[] {
-  if (dates.length === 0) return []
-  const maxTicks = Math.max(2, Math.floor(xMax / MIN_PX_PER_TICK))
-  if (dates.length <= maxTicks) return dates
-  const step = Math.ceil(dates.length / maxTicks)
-  return dates.filter((_, i) => i % step === 0 || i === dates.length - 1)
-}
-
-function fmtDate(value: unknown): string {
-  if (value instanceof Date) {
-    const dd = String(value.getDate()).padStart(2, '0')
-    const mm = String(value.getMonth() + 1).padStart(2, '0')
-    return `${dd}.${mm}`
-  }
-  const s = String(value ?? '')
-  const match = s.match(/(\d{4})-(\d{2})-(\d{2})/)
-  if (match) return `${match[3]}.${match[2]}`
-  return s
-}
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-function fmtTooltipDate(date: unknown): string {
-  if (date instanceof Date) {
-    return `${SHORT_DAYS[date.getDay()]} ${MONTHS[date.getMonth()]} ${date.getDate()} ${date.getFullYear()}`
-  }
-  const s = String(date ?? '')
-  const match = s.match(/(\d{4})-(\d{2})-(\d{2})/)
-  if (!match) return s
-  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-  return `${SHORT_DAYS[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`
-}
-
-function ChartTitle({ title, tooltip }: { title: string; tooltip: string }) {
-  return (
-    <span>
-      {title}
-      <AntTooltip title={tooltip} placement="right">
-        <InfoCircleOutlined
-          style={{ fontSize: 11, marginLeft: 6, color: 'rgba(128,128,128,0.45)', cursor: 'help' }}
-        />
-      </AntTooltip>
-    </span>
-  )
-}
-
-type LegendEntry = { key: string; label: string; color: string; secondColor?: string; strokeWidth?: number; shape?: 'line' | 'bar' | 'split' | 'splitLine' }
-
-function ChartLegend({
-  items,
-  highlighted,
-  onHighlight,
-}: {
-  items: LegendEntry[]
-  highlighted: string | null
-  onHighlight: (key: string | null) => void
-}) {
-  return (
-    <div style={{ display: 'flex', gap: 18, justifyContent: 'center', padding: '8px 0 2px', fontSize: 13 }}>
-      {items.map((item) => (
-        <div
-          key={item.key}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'default',
-            opacity: highlighted === null || highlighted === item.key ? 1 : 0.3,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={() => onHighlight(item.key)}
-          onMouseLeave={() => onHighlight(null)}
-        >
-          {item.shape === 'splitLine' ? (
-            <svg width={20} height={14} style={{ flexShrink: 0 }}>
-              <line x1={0} y1={7} x2={10} y2={7} stroke={item.color} strokeWidth={item.strokeWidth ?? 2.5} />
-              <line x1={10} y1={7} x2={20} y2={7} stroke={item.secondColor} strokeWidth={item.strokeWidth ?? 2.5} />
-            </svg>
-          ) : item.shape === 'split' ? (
-            <svg width={14} height={14} style={{ flexShrink: 0 }}>
-              <defs>
-                <clipPath id={`split-top-${item.key}`}><polygon points="0,0 14,0 0,14" /></clipPath>
-                <clipPath id={`split-bot-${item.key}`}><polygon points="14,0 14,14 0,14" /></clipPath>
-              </defs>
-              <rect width={14} height={14} rx={2} fill={item.color} clipPath={`url(#split-top-${item.key})`} />
-              <rect width={14} height={14} rx={2} fill={item.secondColor} clipPath={`url(#split-bot-${item.key})`} />
-            </svg>
-          ) : item.shape === 'bar' ? (
-            <span style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: item.color, opacity: 0.7, flexShrink: 0 }} />
-          ) : (
-            <svg width={20} height={14} style={{ flexShrink: 0 }}>
-              <line x1={0} y1={7} x2={20} y2={7} stroke={item.color} strokeWidth={item.strokeWidth ?? 2.5} />
-            </svg>
-          )}
-          <span>{item.label}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function useTooltipStyles(): React.CSSProperties {
-  const { tooltipBg, tooltipText, tooltipBorder, tooltipShadow } = useVxTheme()
-  return useMemo(
-    () => ({
-      position: 'fixed' as const,
-      pointerEvents: 'none' as const,
-      zIndex: 9999,
-      backgroundColor: tooltipBg,
-      borderRadius: 6,
-      padding: '0',
-      fontSize: 12,
-      lineHeight: '18px',
-      color: tooltipText,
-      border: tooltipBorder,
-      boxShadow: tooltipShadow,
-      minWidth: 140,
-    }),
-    [tooltipBg, tooltipText, tooltipBorder, tooltipShadow],
-  )
-}
-
-type TooltipState<T> = { data: T; x: number; y: number } | null
-
-function useChartTooltip<T>() {
-  const [tip, setTip] = useState<TooltipState<T>>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
-  const lastDateRef = useRef<string | null>(null)
-
-  const show = useCallback((data: T, event: React.MouseEvent) => {
-    setTip({ data, x: event.clientX + 12, y: event.clientY - 12 })
-    // Move tooltip via DOM directly to avoid re-renders on every pixel
-    if (tooltipRef.current) {
-      tooltipRef.current.style.left = `${event.clientX + 12}px`
-      tooltipRef.current.style.top = `${event.clientY - 12}px`
-    }
-  }, [])
-  const hide = useCallback(() => {
-    setTip(null)
-    lastDateRef.current = null
-  }, [])
-  return { tip, show, hide, tooltipRef, lastDateRef }
-}
-
-function ChartTooltip({ tip, tooltipRef, styles, children }: { tip: { x: number; y: number } | null; tooltipRef?: React.RefObject<HTMLDivElement | null>; styles: React.CSSProperties; children: React.ReactNode }) {
-  if (!tip) return null
-  return (
-    <div ref={tooltipRef} style={{ ...styles, left: tip.x, top: tip.y }}>
-      {children}
-    </div>
-  )
-}
-
-function TooltipHeader({ date, label, labelColor }: { date: string; label?: string; labelColor?: string }) {
-  const { tooltipMuted } = useVxTheme()
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, padding: '6px 10px', borderBottom: '1px solid rgba(128,128,128,0.2)' }}>
-      <span style={{ fontSize: 11, color: tooltipMuted }}>{fmtTooltipDate(date)}</span>
-      {label && <span style={{ fontSize: 11, fontWeight: 500, color: labelColor }}>{label}</span>}
-    </div>
-  )
-}
-
-function TooltipRow({ color, label, value, valueColor, shape, strokeWidth }: { color: string; label: string; value: string; valueColor?: string; shape?: 'dot' | 'line'; strokeWidth?: number }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, padding: '0 10px' }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {shape === 'line' ? (
-          <svg width={12} height={10} style={{ flexShrink: 0 }}>
-            <line x1={0} y1={5} x2={12} y2={5} stroke={color} strokeWidth={strokeWidth ?? 2} />
-          </svg>
-        ) : (
-          <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color, flexShrink: 0 }} />
-        )}
-        {label}
-      </span>
-      <span style={{ fontWeight: 400, color: valueColor }}>{value}</span>
-    </div>
-  )
-}
-
-function TooltipBody({ children }: { children: React.ReactNode }) {
-  return <div style={{ padding: '5px 0' }}>{children}</div>
-}
+const MARGIN = VX.margin
 
 // ── ACWR Threshold Chart ─────────────────────────────────────────────────
 
@@ -222,7 +47,7 @@ function ACWRChartInner({
   width: number
   height: number
 }) {
-  const { line, axis, axisStroke } = useVxTheme()
+  const { line } = useVxTheme()
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
 
@@ -350,17 +175,10 @@ function ACWRChartInner({
             </>
           )}
 
-          <AxisLeft scale={yScale} numTicks={5} tickLabelProps={{ fill: axis, fontSize: VX.axisFont, dx: -4 }} stroke={axisStroke} tickStroke={axisStroke} />
-          <AxisBottom top={yMax} scale={xScale} tickValues={tickValues} tickFormat={fmtDate} tickLabelProps={{ fill: axis, fontSize: VX.axisFont, textAnchor: 'middle' }} stroke={axisStroke} tickStroke={axisStroke} />
+          <AxisLeftNumeric scale={yScale} numTicks={5} />
+          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
 
-          {/* Hover area */}
-          <rect
-            width={xMax}
-            height={yMax}
-            fill="transparent"
-            onMouseMove={handleMouse}
-            onMouseLeave={handleLeave}
-          />
+          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
       </svg>
       <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
@@ -383,10 +201,9 @@ export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
   const latest = loadData[loadData.length - 1]
 
   return (
-    <Card
-      title={<ChartTitle title="Training Load (ACWR)" tooltip={METRIC_TOOLTIPS.trainingLoad} />}
-      size="small"
-      style={{ marginBottom: 16 }}
+    <ChartCard
+      title="Training Load (ACWR)"
+      tooltip={METRIC_TOOLTIPS.trainingLoad}
       extra={
         latest?.acwr !== null && latest?.acwr !== undefined ? (
           <span style={{ fontSize: 16, fontWeight: 600 }}>
@@ -421,7 +238,7 @@ export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
         highlighted={null}
         onHighlight={() => {}}
       />
-    </Card>
+    </ChartCard>
   )
 }
 
@@ -438,7 +255,6 @@ function DivergenceChartInner({
   height: number
   highlighted: string | null
 }) {
-  const { axis, axisStroke } = useVxTheme()
   const gap = 12
   const topH = Math.round((height - gap) * 0.6)
   const bottomH = height - topH - gap
@@ -589,14 +405,8 @@ function DivergenceChartInner({
               </>
             )
           })()}
-          <AxisLeft scale={yScaleTop} numTicks={4} tickLabelProps={{ fill: axis, fontSize: VX.axisFont, dx: -4 }} stroke={axisStroke} tickStroke={axisStroke} />
-          <rect
-            width={xMax}
-            height={yMaxTop}
-            fill="transparent"
-            onMouseMove={handleMouse}
-            onMouseLeave={handleLeave}
-          />
+          <AxisLeftNumeric scale={yScaleTop} numTicks={4} />
+          <HoverOverlay width={xMax} height={yMaxTop} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
 
         {/* Bottom panel: divergence bars (MACD histogram) */}
@@ -631,15 +441,9 @@ function DivergenceChartInner({
           {syncedPoint && (
             <line x1={xScale(syncedPoint.date) ?? 0} x2={xScale(syncedPoint.date) ?? 0} y1={0} y2={yMaxBottom} stroke={VX.crosshair} strokeWidth={1} />
           )}
-          <AxisLeft scale={yScaleBottom} numTicks={3} tickLabelProps={{ fill: axis, fontSize: VX.axisFont, dx: -4 }} stroke={axisStroke} tickStroke={axisStroke} />
-          <AxisBottom top={yMaxBottom} scale={xScale} tickValues={tickValues} tickFormat={fmtDate} tickLabelProps={{ fill: axis, fontSize: VX.axisFont, textAnchor: 'middle' }} stroke={axisStroke} tickStroke={axisStroke} />
-          <rect
-            width={xMax}
-            height={yMaxBottom}
-            fill="transparent"
-            onMouseMove={handleMouse}
-            onMouseLeave={handleLeave}
-          />
+          <AxisLeftNumeric scale={yScaleBottom} numTicks={3} />
+          <AxisBottomDate top={yMaxBottom} scale={xScale} tickValues={tickValues} />
+          <HoverOverlay width={xMax} height={yMaxBottom} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
       </svg>
       <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
@@ -667,11 +471,7 @@ export function DivergenceThresholdChart({ data }: { data: DailyMetric[] }) {
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   return (
-    <Card
-      title={<ChartTitle title="Load Divergence" tooltip={METRIC_TOOLTIPS.loadBalance} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-    >
+    <ChartCard title="Load Divergence" tooltip={METRIC_TOOLTIPS.loadBalance}>
       <div style={{ height: 260 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
@@ -688,7 +488,7 @@ export function DivergenceThresholdChart({ data }: { data: DailyMetric[] }) {
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />
-    </Card>
+    </ChartCard>
   )
 }
 
@@ -710,7 +510,7 @@ function RecoveryChartInner({
   width: number
   height: number
 }) {
-  const { line, axis, axisStroke } = useVxTheme()
+  const { line } = useVxTheme()
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
   const valid = data.filter((d) => d.recovery !== null) as (RecoveryPoint & { recovery: number })[]
@@ -831,16 +631,10 @@ function RecoveryChartInner({
             </>
           )}
 
-          <AxisLeft scale={yScale} numTicks={5} tickLabelProps={{ fill: axis, fontSize: VX.axisFont, dx: -4 }} stroke={axisStroke} tickStroke={axisStroke} />
-          <AxisBottom top={yMax} scale={xScale} tickValues={tickValues} tickFormat={fmtDate} tickLabelProps={{ fill: axis, fontSize: VX.axisFont, textAnchor: 'middle' }} stroke={axisStroke} tickStroke={axisStroke} />
+          <AxisLeftNumeric scale={yScale} numTicks={5} />
+          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
 
-          <rect
-            width={xMax}
-            height={yMax}
-            fill="transparent"
-            onMouseMove={handleMouse}
-            onMouseLeave={handleLeave}
-          />
+          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
       </svg>
       <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
@@ -866,11 +660,7 @@ export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildRecoveryTrendData(data), [data])
 
   return (
-    <Card
-      title={<ChartTitle title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore} />}
-      size="small"
-      style={{ marginBottom: 16 }}
-    >
+    <ChartCard title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore}>
       <div style={{ height: 260 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
@@ -887,6 +677,6 @@ export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
         highlighted={null}
         onHighlight={() => {}}
       />
-    </Card>
+    </ChartCard>
   )
 }

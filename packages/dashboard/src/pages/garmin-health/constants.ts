@@ -1,7 +1,5 @@
 import dayjs from 'dayjs'
-import { useMemo } from 'react'
 import type { DatePreset } from './types'
-import { useTheme } from '../../providers/theme'
 
 export const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
   { value: '7d', label: '7D' },
@@ -25,37 +23,6 @@ export function getDateRange(preset: DatePreset): [string, string] {
     case 'all':
       return ['2000-01-01', today]
   }
-}
-
-export const COLORS = {
-  // Sleep stages
-  deep: '#1e3a5f',
-  rem: '#7c4dff',
-  light: '#90caf9',
-  awake: '#757575',
-
-  // Metrics
-  sleepScore: '#7c4dff',
-  sleepDuration: '#5c6bc0',
-  bodyBatteryHigh: '#00bfa5',
-  bodyBatteryLow: '#80cbc4',
-  charged: '#00c853',
-  drained: '#ff6d00',
-  hrv: '#aa00ff',
-  hrvWeekly: '#ce93d8',
-  restingHr: '#ff5252',
-  stress: '#ff6d00',
-  sleepStress: '#5c6bc0',
-  steps: '#4caf50',
-  intensityMin: '#2e7d32',
-  calories: '#ffa726',
-  spo2: '#2979ff',
-  respiration: '#26a69a',
-  vo2max: '#ff6f00',
-  acwr: '#1677ff',
-  acute: '#ffa726',
-  chronic: '#ef5350',
-  optimalZone: 'rgba(0,200,83,0.1)',
 }
 
 export const METRIC_TOOLTIPS = {
@@ -87,79 +54,6 @@ export const METRIC_TOOLTIPS = {
     'Smoothed 7-day moving averages of Resting HR and HRV. Declining RHR = stronger cardiovascular system (better stroke volume). Rising HRV = improving autonomic recovery capacity. Daily noise is normal — focus on the trend direction over weeks and months.',
   loadBalance:
     'Short-term (7-day EWMA) vs long-term (28-day EWMA) training load. When the short-term line rises sharply above long-term, you are spiking load — injury risk increases. Gradual, steady increases keep both lines close together (optimal). A declining short-term below long-term signals detraining.',
-}
-
-// ── Visx chart theme — unified color system ────────────────────────────
-
-export const VX = {
-  // Primary line — per-theme variants
-  lineDark: '#c9d1d9',
-  lineLight: '#57606a',
-  lineWidth: 2.5,
-
-  // Secondary line
-  line2Dark: '#8b949e',
-  line2Light: '#6e7681',
-  line2Width: 2,
-
-  // Semantic fills — consistent opacity across all charts
-  good: 'rgba(63, 185, 80, 0.18)',       // green zone
-  bad: 'rgba(248, 81, 73, 0.18)',        // red zone
-  warn: 'rgba(210, 153, 34, 0.08)',      // yellow/neutral zone
-  goodSolid: '#3fb950',
-  badSolid: '#f85149',
-  warnSolid: '#d29922',
-
-  // Reference/dashed lines for thresholds
-  goodRef: 'rgba(63, 185, 80, 0.3)',
-  badRef: 'rgba(248, 81, 73, 0.3)',
-  warnRef: 'rgba(210, 153, 34, 0.2)',
-
-  // Grid and axes
-  grid: 'rgba(128, 128, 128, 0.12)',
-  axisDark: 'rgba(180, 180, 180, 0.8)',
-  axisLight: 'rgba(80, 80, 80, 0.75)',
-  axisStrokeDark: 'rgba(128, 128, 128, 0.18)',
-  axisStrokeLight: 'rgba(128, 128, 128, 0.18)',
-  axisFont: 11,
-
-  // Hover crosshair + dot
-  crosshair: 'rgba(180, 180, 180, 0.5)',
-  dotStroke: '#fff',
-  dotR: 5,
-
-  // Tooltip — per-theme variants
-  tooltipBgDark: 'rgba(0, 0, 0, 0.88)',
-  tooltipBgLight: '#ffffff',
-  tooltipMutedDark: 'rgba(255, 255, 255, 0.5)',
-  tooltipMutedLight: 'rgba(0, 0, 0, 0.45)',
-  tooltipTextDark: 'rgba(255, 255, 255, 0.85)',
-  tooltipTextLight: 'rgba(0, 0, 0, 0.85)',
-  tooltipBorderLight: 'rgba(0, 0, 0, 0.08)',
-  tooltipShadowDark: '0 2px 8px rgba(0,0,0,0.3)',
-  tooltipShadowLight: '0 2px 8px rgba(0,0,0,0.1)',
-
-  // Legend
-  legendText: 'rgba(220, 220, 220, 0.95)',
-} as const
-
-/** Resolve theme-dependent VX colors */
-export function useVxTheme() {
-  const { isDark } = useTheme()
-  return useMemo(
-    () => ({
-      line: isDark ? VX.lineDark : VX.lineLight,
-      line2: isDark ? VX.line2Dark : VX.line2Light,
-      axis: isDark ? VX.axisDark : VX.axisLight,
-      axisStroke: isDark ? VX.axisStrokeDark : VX.axisStrokeLight,
-      tooltipBg: isDark ? VX.tooltipBgDark : VX.tooltipBgLight,
-      tooltipText: isDark ? VX.tooltipTextDark : VX.tooltipTextLight,
-      tooltipMuted: isDark ? VX.tooltipMutedDark : VX.tooltipMutedLight,
-      tooltipBorder: isDark ? 'none' : `1px solid ${VX.tooltipBorderLight}`,
-      tooltipShadow: isDark ? VX.tooltipShadowDark : VX.tooltipShadowLight,
-    }),
-    [isDark],
-  )
 }
 
 export function scoreColor(score: number | null): string {
