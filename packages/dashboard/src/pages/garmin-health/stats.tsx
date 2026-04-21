@@ -6,6 +6,7 @@ import { METRIC_TOOLTIPS, scoreColor } from './constants'
 import {
   acwrZoneColor,
   acwrZoneLabel,
+  activityComponents,
   computeFitnessDirection,
   computeRecoveryScore,
   computeTrainingLoad,
@@ -37,7 +38,15 @@ export function HeroStats({ data, isLoading }: HeroStatsProps) {
     const minRhr = rhrVals.length > 0 ? Math.min(...rhrVals) : null
     const maxRhr = rhrVals.length > 0 ? Math.max(...rhrVals) : null
     const latest = data[data.length - 1]!
-    const score = computeRecoveryScore(latest, avgHrv, avgRhr, minRhr, maxRhr)
+    const yesterday = data.length >= 2 ? data[data.length - 2]! : null
+    const yesterdayScore = yesterday
+      ? (activityComponents(
+          yesterday.steps,
+          yesterday.moderate_intensity_min,
+          yesterday.vigorous_intensity_min,
+        )?.total ?? null)
+      : null
+    const score = computeRecoveryScore(latest, avgHrv, avgRhr, minRhr, maxRhr, yesterdayScore)
     const label =
       score === null
         ? '\u2014'

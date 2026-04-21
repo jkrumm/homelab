@@ -60,13 +60,23 @@ export function secToHours(seconds: number | null): number | null {
   return Math.round((seconds / 3600) * 10) / 10
 }
 
-/** Compute recovery score (0-100) from HRV, sleep score, and RHR */
+/**
+ * Compute recovery score (0–100) from HRV, sleep score, and RHR, with an
+ * optional strain-debt penalty based on yesterday's Activity Score.
+ *
+ * strain_debt = clamp(0, 1, yesterday_score / 1000)
+ * recovery    = recovery_raw × (1 − strain_debt × 0.20)
+ *
+ * A maximum-effort day (1000 MET-min) drags today's recovery by 20%. Rest
+ * days or missing yesterday-score → no penalty.
+ */
 export function computeRecoveryScore(
   metric: DailyMetric,
   avgHrv: number | null,
   avgRhr: number | null,
   minRhr: number | null,
   maxRhr: number | null,
+  yesterdayScore: number | null = null,
 ): number | null {
   const { hrv_last_night_avg: hrv, sleep_score: sleep, resting_hr: rhr } = metric
   if (hrv === null && sleep === null && rhr === null) return null
@@ -90,7 +100,10 @@ export function computeRecoveryScore(
     weight += 0.25
   }
 
-  return weight === 0 ? null : Math.round(score / weight)
+  if (weight === 0) return null
+  const raw = score / weight
+  const strainDebt = yesterdayScore === null ? 0 : Math.max(0, Math.min(1, yesterdayScore / 1000))
+  return Math.round(raw * (1 - strainDebt * 0.2))
 }
 
 /** Build sleep stage chart data (seconds -> hours) */
@@ -441,10 +454,16 @@ export function buildRecoveryTrendData(data: DailyMetric[]) {
   const maxRhr = rhrValues.length > 0 ? Math.max(...rhrValues) : null
   const avgRhr = fieldAvg(data, 'resting_hr')
 
+  const dailyScores = data.map(
+    (d) =>
+      activityComponents(d.steps, d.moderate_intensity_min, d.vigorous_intensity_min)?.total ??
+      null,
+  )
+
   return data
-    .map((d) => ({
+    .map((d, i) => ({
       date: d.date,
-      recovery: computeRecoveryScore(d, avgHrv, avgRhr, minRhr, maxRhr),
+      recovery: computeRecoveryScore(d, avgHrv, avgRhr, minRhr, maxRhr, dailyScores[i - 1] ?? null),
       sleepScore: d.sleep_score,
       bbHigh: d.bb_highest,
     }))
