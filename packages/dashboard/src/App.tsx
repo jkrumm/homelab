@@ -15,16 +15,10 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
-import { useCallback, useState } from 'react'
 
 import GarminHealthPage from './pages/garmin-health'
 import StrengthTrackerPage from './pages/strength-tracker'
-
-function getInitialDark(): boolean {
-  const stored = localStorage.getItem('theme')
-  if (stored) return stored === 'dark'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-}
+import { ThemeProvider, useTheme } from './providers/theme'
 
 const COMING_SOON = [
   { key: 'docker', label: 'Docker', icon: <ContainerOutlined /> },
@@ -33,15 +27,15 @@ const COMING_SOON = [
 ]
 
 export default function App() {
-  const [isDark, setIsDark] = useState(getInitialDark)
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  )
+}
 
-  const toggleTheme = useCallback(() => {
-    setIsDark((prev) => {
-      const next = !prev
-      localStorage.setItem('theme', next ? 'dark' : 'light')
-      return next
-    })
-  }, [])
+function AppInner() {
+  const { isDark, toggle: toggleTheme } = useTheme()
 
   return (
     <BrowserRouter>

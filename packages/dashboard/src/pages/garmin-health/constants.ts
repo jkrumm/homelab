@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import { useMemo } from 'react'
 import type { DatePreset } from './types'
+import { useTheme } from '../../providers/theme'
 
 export const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
   { value: '7d', label: '7D' },
@@ -144,7 +145,7 @@ export const VX = {
 
 /** Resolve theme-dependent VX colors */
 export function useVxTheme() {
-  const isDark = localStorage.getItem('theme') !== 'light'
+  const { isDark } = useTheme()
   return useMemo(
     () => ({
       line: isDark ? VX.lineDark : VX.lineLight,
