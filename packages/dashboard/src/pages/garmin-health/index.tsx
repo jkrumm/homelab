@@ -1,15 +1,16 @@
 import { useList } from '@refinedev/core'
 import { Col, Row, Select, Space, Typography } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BodyBatteryChart, StressChart } from './charts'
 import { HoverContext } from '../../charts'
 import {
   ACWRThresholdChart,
   ActivityBarChart,
+  BodyBatteryRangeChart,
   DivergenceThresholdChart,
   FitnessTrendChart,
   RecoveryThresholdChart,
   SleepBreakdownChart,
+  StressLevelsChart,
 } from './visx-charts'
 import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
 import { HeroStats } from './stats'
@@ -180,12 +181,12 @@ export default function GarminHealthPage() {
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               {hasBodyBattery && (
                 <Col xs={24} lg={12}>
-                  <BodyBatteryChart data={metrics} />
+                  <BodyBatteryRangeChart data={metrics} />
                 </Col>
               )}
               {hasStressData && (
                 <Col xs={24} lg={12}>
-                  <StressChart data={metrics} />
+                  <StressLevelsChart data={metrics} />
                 </Col>
               )}
             </Row>
