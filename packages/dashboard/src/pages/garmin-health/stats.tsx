@@ -12,6 +12,7 @@ import {
   computeTrainingLoad,
   fieldAvg,
   latestValue,
+  strainDebtCeiling,
 } from './utils'
 
 function InfoIcon({ tooltip }: { tooltip: string }) {
@@ -46,7 +47,16 @@ export function HeroStats({ data, isLoading }: HeroStatsProps) {
           yesterday.vigorous_intensity_min,
         )?.total ?? null)
       : null
-    const score = computeRecoveryScore(latest, avgHrv, avgRhr, minRhr, maxRhr, yesterdayScore)
+    const ceiling = strainDebtCeiling(data)
+    const score = computeRecoveryScore(
+      latest,
+      avgHrv,
+      avgRhr,
+      minRhr,
+      maxRhr,
+      yesterdayScore,
+      ceiling,
+    )
     const label =
       score === null
         ? '\u2014'

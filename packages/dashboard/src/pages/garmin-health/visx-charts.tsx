@@ -11,7 +11,6 @@ import { METRIC_TOOLTIPS } from './constants'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
-  AxisRightNumeric,
   Bars,
   ChartCard,
   ChartLegend,
@@ -772,9 +771,13 @@ export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
   )
 }
 
-// ── Fitness Trends — dual-axis RHR + HRV + VO2 Max dots ─────────────────
+// ── Fitness Trends — unified z-score axis (RHR flipped) + VO2 dots ─────
 
 type FitnessPoint = ReturnType<typeof buildFitnessData>[number]
+
+function fmtSigma(v: number): string {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(1)}σ`
+}
 
 function FitnessTrendChartInner({
   data,
@@ -785,11 +788,11 @@ function FitnessTrendChartInner({
   width: number
   height: number
 }) {
+  const { axis } = useVxTheme()
   const MARGIN_LOCAL = useMemo(
     () => ({
       ...VX.margin,
-      left: Math.max(VX.margin.left, 56),
-      right: Math.max(VX.margin.right, 48),
+      left: Math.max(VX.margin.left, 48),
     }),
     [],
   )
@@ -801,28 +804,17 @@ function FitnessTrendChartInner({
     [data, xMax],
   )
 
-  // RHR left axis — padded auto domain
-  const leftScale = useMemo(() => {
-    const vals = data.map((d) => d.rhrMA).filter((v): v is number => v !== null)
-    if (vals.length === 0) return scaleLinear<number>({ domain: [40, 60], range: [yMax, 0] })
-    const lo = Math.min(...vals)
-    const hi = Math.max(...vals)
-    const pad = Math.max((hi - lo) * 0.15, 1)
-    return scaleLinear<number>({ domain: [lo - pad, hi + pad], range: [yMax, 0], nice: true })
-  }, [data, yMax])
-
-  // HRV + VO2 right axis — shared; VO2 typically 30–70, HRV 20–150
-  const rightScale = useMemo(() => {
+  // Single z-score axis — capped at ±2.5σ so spikes don't dominate the shape.
+  const yScale = useMemo(() => {
     const vals: number[] = []
     for (const d of data) {
-      if (d.hrvMA !== null) vals.push(d.hrvMA)
-      if (d.vo2max !== null) vals.push(d.vo2max)
+      if (d.rhrZ !== null) vals.push(d.rhrZ)
+      if (d.hrvZ !== null) vals.push(d.hrvZ)
+      if (d.vo2Z !== null) vals.push(d.vo2Z)
     }
-    if (vals.length === 0) return scaleLinear<number>({ domain: [30, 120], range: [yMax, 0] })
-    const lo = Math.min(...vals)
-    const hi = Math.max(...vals)
-    const pad = Math.max((hi - lo) * 0.15, 2)
-    return scaleLinear<number>({ domain: [lo - pad, hi + pad], range: [yMax, 0], nice: true })
+    if (vals.length === 0) return scaleLinear<number>({ domain: [-2, 2], range: [yMax, 0] })
+    const maxAbs = Math.min(2.5, Math.max(1.5, Math.max(...vals.map((v) => Math.abs(v))) * 1.1))
+    return scaleLinear<number>({ domain: [-maxAbs, maxAbs], range: [yMax, 0], nice: true })
   }, [data, yMax])
 
   const tooltipStyles = useTooltipStyles()
@@ -845,15 +837,19 @@ function FitnessTrendChartInner({
   )
 
   const rhrValid = useMemo(
-    () => data.filter((d): d is FitnessPoint & { rhrMA: number } => d.rhrMA !== null),
+    () => data.filter((d): d is FitnessPoint & { rhrZ: number } => d.rhrZ !== null),
     [data],
   )
   const hrvValid = useMemo(
-    () => data.filter((d): d is FitnessPoint & { hrvMA: number } => d.hrvMA !== null),
+    () => data.filter((d): d is FitnessPoint & { hrvZ: number } => d.hrvZ !== null),
     [data],
   )
   const vo2Valid = useMemo(
-    () => data.filter((d): d is FitnessPoint & { vo2max: number } => d.vo2max !== null),
+    () =>
+      data.filter(
+        (d): d is FitnessPoint & { vo2Z: number; vo2max: number } =>
+          d.vo2Z !== null && d.vo2max !== null,
+      ),
     [data],
   )
 
@@ -861,20 +857,32 @@ function FitnessTrendChartInner({
     <div style={{ position: 'relative' }}>
       <svg width={width} height={height}>
         <Group left={MARGIN_LOCAL.left} top={MARGIN_LOCAL.top}>
-          <GridRows scale={leftScale} width={xMax} stroke={VX.grid} numTicks={5} />
+          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
 
-          <LinePath<FitnessPoint & { rhrMA: number }>
+          {/* Zero line — "your baseline" */}
+          <line
+            x1={0}
+            x2={xMax}
+            y1={yScale(0)}
+            y2={yScale(0)}
+            stroke={axis}
+            strokeWidth={1}
+            strokeDasharray="2 4"
+            strokeOpacity={0.6}
+          />
+
+          <LinePath<FitnessPoint & { rhrZ: number }>
             data={rhrValid}
             x={(d) => xScale(d.date) ?? 0}
-            y={(d) => leftScale(d.rhrMA)}
+            y={(d) => yScale(d.rhrZ)}
             stroke={VX.series.restingHr}
             strokeWidth={2.5}
             curve={curveMonotoneX}
           />
-          <LinePath<FitnessPoint & { hrvMA: number }>
+          <LinePath<FitnessPoint & { hrvZ: number }>
             data={hrvValid}
             x={(d) => xScale(d.date) ?? 0}
-            y={(d) => rightScale(d.hrvMA)}
+            y={(d) => yScale(d.hrvZ)}
             stroke={VX.series.hrv}
             strokeWidth={2.5}
             curve={curveMonotoneX}
@@ -884,7 +892,7 @@ function FitnessTrendChartInner({
             <circle
               key={`vo2-${d.date}`}
               cx={xScale(d.date) ?? 0}
-              cy={rightScale(d.vo2max)}
+              cy={yScale(d.vo2Z)}
               r={5}
               fill={VX.series.vo2max}
               stroke={VX.dotStroke}
@@ -898,20 +906,20 @@ function FitnessTrendChartInner({
               return (
                 <>
                   <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
-                  {syncedPoint.rhrMA !== null && (
+                  {syncedPoint.rhrZ !== null && (
                     <circle
                       cx={sx}
-                      cy={leftScale(syncedPoint.rhrMA)}
+                      cy={yScale(syncedPoint.rhrZ)}
                       r={4}
                       fill={VX.series.restingHr}
                       stroke={VX.dotStroke}
                       strokeWidth={2}
                     />
                   )}
-                  {syncedPoint.hrvMA !== null && (
+                  {syncedPoint.hrvZ !== null && (
                     <circle
                       cx={sx}
-                      cy={rightScale(syncedPoint.hrvMA)}
+                      cy={yScale(syncedPoint.hrvZ)}
                       r={4}
                       fill={VX.series.hrv}
                       stroke={VX.dotStroke}
@@ -922,17 +930,7 @@ function FitnessTrendChartInner({
               )
             })()}
 
-          <AxisLeftNumeric
-            scale={leftScale}
-            numTicks={5}
-            tickFormat={(v) => `${Math.round(Number(v))} bpm`}
-          />
-          <AxisRightNumeric
-            scale={rightScale}
-            left={xMax}
-            numTicks={5}
-            tickFormat={(v) => `${Math.round(Number(v))} ms`}
-          />
+          <AxisLeftNumeric scale={yScale} numTicks={5} tickFormat={(v) => fmtSigma(Number(v))} />
           <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
 
           <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
@@ -943,29 +941,29 @@ function FitnessTrendChartInner({
           <>
             <TooltipHeader date={tip.data.date} />
             <TooltipBody>
-              {tip.data.rhrMA !== null && (
+              {tip.data.rhrZ !== null && tip.data.rhrMA !== null && (
                 <TooltipRow
                   color={VX.series.restingHr}
                   label="RHR (7d)"
-                  value={`${Math.round(tip.data.rhrMA)} bpm`}
+                  value={`${Math.round(tip.data.rhrMA)} bpm · ${fmtSigma(tip.data.rhrZ)}`}
                   shape="line"
                   strokeWidth={2.5}
                 />
               )}
-              {tip.data.hrvMA !== null && (
+              {tip.data.hrvZ !== null && tip.data.hrvMA !== null && (
                 <TooltipRow
                   color={VX.series.hrv}
                   label="HRV (7d)"
-                  value={`${Math.round(tip.data.hrvMA)} ms`}
+                  value={`${Math.round(tip.data.hrvMA)} ms · ${fmtSigma(tip.data.hrvZ)}`}
                   shape="line"
                   strokeWidth={2.5}
                 />
               )}
-              {tip.data.vo2max !== null && (
+              {tip.data.vo2Z !== null && tip.data.vo2max !== null && (
                 <TooltipRow
                   color={VX.series.vo2max}
                   label="VO2 Max"
-                  value={tip.data.vo2max.toFixed(1)}
+                  value={`${tip.data.vo2max.toFixed(1)} · ${fmtSigma(tip.data.vo2Z)}`}
                   shape="dot"
                 />
               )}
@@ -1035,13 +1033,13 @@ export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
         items={[
           {
             key: 'rhr',
-            label: 'RHR (7d avg) ↓ better',
+            label: 'RHR (7d avg, flipped)',
             color: VX.series.restingHr,
             strokeWidth: 2.5,
           },
           {
             key: 'hrv',
-            label: 'HRV (7d avg) ↑ better',
+            label: 'HRV (7d avg)',
             color: VX.series.hrv,
             strokeWidth: 2.5,
           },

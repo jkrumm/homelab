@@ -13,6 +13,22 @@ export function fieldAvg(data: DailyMetric[], field: keyof DailyMetric): number 
   return vals.reduce((a, b) => a + b, 0) / vals.length
 }
 
+/** Nearest-rank percentile of a numeric array (0–1). Returns null if empty. */
+export function percentile(values: number[], p: number): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1))
+  return sorted[idx]!
+}
+
+/** Sample standard deviation. Returns null if < 2 values. */
+function sampleStdDev(values: number[]): number | null {
+  if (values.length < 2) return null
+  const mean = values.reduce((a, b) => a + b, 0) / values.length
+  const sq = values.reduce((a, v) => a + (v - mean) * (v - mean), 0)
+  return Math.sqrt(sq / (values.length - 1))
+}
+
 /** Most recent non-null numeric value */
 export function latestValue(data: DailyMetric[], field: keyof DailyMetric): number | null {
   for (let i = data.length - 1; i >= 0; i--) {
@@ -61,14 +77,42 @@ export function secToHours(seconds: number | null): number | null {
 }
 
 /**
+ * Minimum ceiling for the strain-debt anchor — keeps the penalty meaningful
+ * on users who don't yet have a "hard day" in their history. 500 MET-min is
+ * ~80% of the daily target (600), i.e. a genuinely active day.
+ */
+export const STRAIN_DEBT_MIN_CEILING = 500
+
+/** Max proportional penalty applied to recovery at the ceiling (30% shave). */
+export const STRAIN_DEBT_MAX_PENALTY = 0.3
+
+/**
+ * Dynamic strain-debt ceiling — 90th percentile of the user's Activity Scores
+ * over the current window, floored at STRAIN_DEBT_MIN_CEILING. A "hard day
+ * for YOU" becomes the anchor instead of a hardcoded 1000 MET-min.
+ */
+export function strainDebtCeiling(data: DailyMetric[]): number {
+  const scores = data
+    .map(
+      (d) =>
+        activityComponents(d.steps, d.moderate_intensity_min, d.vigorous_intensity_min)?.total ??
+        null,
+    )
+    .filter((v): v is number => v !== null && v > 0)
+  const p90 = percentile(scores, 0.9)
+  return Math.max(STRAIN_DEBT_MIN_CEILING, p90 ?? STRAIN_DEBT_MIN_CEILING)
+}
+
+/**
  * Compute recovery score (0–100) from HRV, sleep score, and RHR, with an
  * optional strain-debt penalty based on yesterday's Activity Score.
  *
- * strain_debt = clamp(0, 1, yesterday_score / 1000)
- * recovery    = recovery_raw × (1 − strain_debt × 0.20)
+ * strain_debt = clamp(0, 1, yesterday_score / ceiling)
+ * recovery    = recovery_raw × (1 − strain_debt × STRAIN_DEBT_MAX_PENALTY)
  *
- * A maximum-effort day (1000 MET-min) drags today's recovery by 20%. Rest
- * days or missing yesterday-score → no penalty.
+ * `ceiling` defaults to 1000 for back-compat but is typically supplied via
+ * `strainDebtCeiling(data)` so the penalty reflects the user's own "hard day".
+ * Rest days or missing yesterday-score → no penalty.
  */
 export function computeRecoveryScore(
   metric: DailyMetric,
@@ -77,6 +121,7 @@ export function computeRecoveryScore(
   minRhr: number | null,
   maxRhr: number | null,
   yesterdayScore: number | null = null,
+  ceiling: number = 1000,
 ): number | null {
   const { hrv_last_night_avg: hrv, sleep_score: sleep, resting_hr: rhr } = metric
   if (hrv === null && sleep === null && rhr === null) return null
@@ -102,8 +147,10 @@ export function computeRecoveryScore(
 
   if (weight === 0) return null
   const raw = score / weight
-  const strainDebt = yesterdayScore === null ? 0 : Math.max(0, Math.min(1, yesterdayScore / 1000))
-  return Math.round(raw * (1 - strainDebt * 0.2))
+  const safeCeiling = Math.max(1, ceiling)
+  const strainDebt =
+    yesterdayScore === null ? 0 : Math.max(0, Math.min(1, yesterdayScore / safeCeiling))
+  return Math.round(raw * (1 - strainDebt * STRAIN_DEBT_MAX_PENALTY))
 }
 
 /** Build sleep stage chart data (seconds -> hours) */
@@ -268,7 +315,13 @@ function movingAverage(values: (number | null)[], window: number): (number | nul
   })
 }
 
-/** Build fitness progression data — 7-day moving averages for trend visibility */
+/**
+ * Build fitness progression data — 7-day moving averages plus personal
+ * z-scores (how far each day is from the user's own baseline, in σ units).
+ *
+ * RHR z-score is FLIPPED so "better" always means "higher". Result: all three
+ * series (rhrZ, hrvZ, vo2Z) share a single y-axis where up = improving.
+ */
 export function buildFitnessData(data: DailyMetric[]) {
   const rhrMA = movingAverage(
     data.map((d) => d.resting_hr),
@@ -279,6 +332,25 @@ export function buildFitnessData(data: DailyMetric[]) {
     7,
   )
 
+  const rhrMAVals = rhrMA.filter((v): v is number => v !== null)
+  const hrvMAVals = hrvMA.filter((v): v is number => v !== null)
+  const vo2Vals = data.map((d) => d.vo2_max).filter((v): v is number => v !== null)
+
+  const rhrMean = rhrMAVals.length ? rhrMAVals.reduce((a, b) => a + b, 0) / rhrMAVals.length : null
+  const hrvMean = hrvMAVals.length ? hrvMAVals.reduce((a, b) => a + b, 0) / hrvMAVals.length : null
+  const vo2Mean = vo2Vals.length ? vo2Vals.reduce((a, b) => a + b, 0) / vo2Vals.length : null
+
+  // Floor SD at a small value so near-constant series don't produce Infinity z-scores.
+  const rhrSd = Math.max(sampleStdDev(rhrMAVals) ?? 0, 0.5)
+  const hrvSd = Math.max(sampleStdDev(hrvMAVals) ?? 0, 1)
+  const vo2Sd = Math.max(sampleStdDev(vo2Vals) ?? 0, 0.2)
+
+  const z = (v: number | null, mean: number | null, sd: number, flip = false): number | null => {
+    if (v === null || mean === null) return null
+    const raw = (v - mean) / sd
+    return flip ? -raw : raw
+  }
+
   return data
     .map((d, i) => ({
       date: d.date,
@@ -287,6 +359,9 @@ export function buildFitnessData(data: DailyMetric[]) {
       rhr: d.resting_hr,
       hrv: d.hrv_last_night_avg,
       vo2max: d.vo2_max,
+      rhrZ: z(rhrMA[i] ?? null, rhrMean, rhrSd, true),
+      hrvZ: z(hrvMA[i] ?? null, hrvMean, hrvSd),
+      vo2Z: z(d.vo2_max, vo2Mean, vo2Sd),
     }))
     .filter((d) => d.rhrMA !== null || d.hrvMA !== null)
 }
@@ -459,11 +534,20 @@ export function buildRecoveryTrendData(data: DailyMetric[]) {
       activityComponents(d.steps, d.moderate_intensity_min, d.vigorous_intensity_min)?.total ??
       null,
   )
+  const ceiling = strainDebtCeiling(data)
 
   return data
     .map((d, i) => ({
       date: d.date,
-      recovery: computeRecoveryScore(d, avgHrv, avgRhr, minRhr, maxRhr, dailyScores[i - 1] ?? null),
+      recovery: computeRecoveryScore(
+        d,
+        avgHrv,
+        avgRhr,
+        minRhr,
+        maxRhr,
+        dailyScores[i - 1] ?? null,
+        ceiling,
+      ),
       sleepScore: d.sleep_score,
       bbHigh: d.bb_highest,
     }))

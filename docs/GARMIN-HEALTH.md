@@ -185,14 +185,17 @@ recovery_raw =
   Null components → redistribute weight proportionally.
 ```
 
-**Strain-debt adjustment** (proposed; not yet implemented — see CHARTS-VISX-MIGRATION.md Phase A4):
+**Strain-debt adjustment** (implemented, dynamically calibrated):
 
 ```
-strain_debt = clamp(0, 1, yesterday_score / 1000)
-recovery    = recovery_raw × (1 − strain_debt × 0.20)
+ceiling      = max(500, p90(activity_scores))   # 90th-percentile of YOUR history, floored at 500
+strain_debt  = clamp(0, 1, yesterday_score / ceiling)
+recovery     = recovery_raw × (1 − strain_debt × 0.30)
 ```
 
-A maximum-effort yesterday (1 000 MET-min) drags today's recovery by 20%. A typical hard day (700) shaves ~14%. Rest days don't penalise.
+The ceiling is dynamic so "a hard day for you" becomes the anchor — no hardcoded 1000 MET-min. If your p90 day is ~800, yesterday's 700 shaves ~26%; if p90 is ~1000, 700 shaves ~21%. Max penalty is 30% at the ceiling. Rest days and missing yesterday-score don't penalise. The 500 MET-min floor prevents degenerate penalties on brand-new users with sparse history.
+
+Alcohol isn't modelled explicitly — it already surfaces through the HRV / sleep / RHR components of `recovery_raw`, all three of which degrade the morning after.
 
 **Zones:**
 
@@ -229,6 +232,20 @@ VO2 Max trend (when ≥2 measurements present) overrides: rising VO2 with flat R
 60–79  Fair
 <60   Poor
 ```
+
+### 2.10 Personal z-score Normalization (Fitness Trends)
+
+The three cardiovascular fitness markers (RHR 7d MA, HRV 7d MA, VO2 Max) live on wildly different scales (bpm / ms / raw ml/kg/min). Plotting them together on shared axes always distorts one in favour of another. Solution: normalise to **personal z-scores** against each metric's own baseline.
+
+```
+μ_field  = mean(field_ma)                          # personal baseline over the window
+σ_field  = sampleStdDev(field_ma)                  # personal variance
+z(x)     = (x − μ_field) / max(σ_field, floor)     # SD-floor prevents blow-up on constant series
+```
+
+**RHR is flipped** (`z_rhr = −(rhr_ma − μ) / σ`) so "up = improving" applies uniformly to all three series. The chart axis shows σ units (−2σ … +2σ) and every point reads as "how far from your own baseline, in standard deviations". Tooltip keeps the raw value (47 bpm, 82 ms, 53.3 VO2) alongside the σ reading for readability. The dashed zero line is your personal baseline.
+
+SD floors: 0.5 (RHR), 1.0 (HRV), 0.2 (VO2). These prevent a near-constant series from producing runaway z-scores.
 
 ---
 
@@ -300,7 +317,7 @@ Activity sits next to Fitness Trends — pairs "what I did today" with "what my 
 | Chart | Visx kind / shape | Notes |
 |-|-|-|
 | Daily Activity | `Bars` (stacked) | 3 segments: walking (light) → moderate (dark green) → vigorous (orange). Header shows today's Score. 30d trend dashed grey on left axis. Target band ≥600. |
-| Fitness Trends | bespoke dual-axis | RHR (left, inverted) + HRV (right) as 7-day MA lines, VO2 Max as orange dots. |
+| Fitness Trends | bespoke single-axis (z-score) | RHR (flipped), HRV, and VO2 Max all plotted in personal σ-units on a shared axis — up = improving for all three. 7-day MA lines for RHR/HRV; VO2 Max as sporadic dots (Garmin updates it ~weekly). Tooltip keeps raw bpm / ms / VO2 values alongside the σ reading. |
 | ACWR | `ZonedLine` | 0.8/1.3/1.5 ref lines, optimal-zone band, threshold fills (green above 0.8 threshold, red above 1.3). |
 | Load Divergence | bespoke dual-panel | Top: acute + chronic lines colour-flipping at crossover. Bottom: divergence histogram, green when positive. |
 | Recovery Trend | `ZonedLine` | Push/Normal/Rest zone bands, threshold-fill above/below. |
