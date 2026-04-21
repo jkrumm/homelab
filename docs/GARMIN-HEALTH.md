@@ -332,13 +332,13 @@ The dashboard reads top-to-bottom: answer → evidence → date-level detail.
 | Visx migration — primitives + ZonedLine + Bars | ✅ done | `AxisRightNumeric`, `Bars` kind (stacked/grouped, weights, dual axis), tokens, `VX.goodSoft`/`vigorousMin` |
 | Sleep diverging redesign | ✅ done | Bars kind with negativeBars, target band, score line on right axis |
 | Daily Activity → MET-min Score | ✅ done | Stacked walking/moderate/vigorous, 30d trend, header chip, target zone |
-| **Activity tooltip cleanup + layout reorg** | ⏳ pending | Score → header only, drop duplicate rows. Activity moves 50/50 next to Fitness Trends. |
-| **Unify computeTrainingLoad on MET-min** | ⏳ pending | Replaces `mod×1 + vig×1.8`; ACWR/Divergence use the same effort metric as Activity |
-| **Recovery + strain-debt adjustment** | ⏳ pending | Optional; subtracts up to 20% based on yesterday's score |
-| Migrate Fitness Trends to visx | ⏳ pending | Bespoke (single-instance dual-axis line + dot scatter) |
-| Migrate Body Battery to visx | ⏳ pending | Bespoke (range band via `<Threshold>`) |
-| Migrate Stress Levels to visx | ⏳ pending | Bespoke (area + line + ref lines) |
-| Drop recharts entirely | ⏳ pending | After three remaining migrations land |
+| Activity tooltip cleanup + layout reorg | ✅ done | Score → header only, dropped duplicate rows. Activity 50/50 next to Fitness Trends. |
+| Unify computeTrainingLoad on MET-min | ✅ done | Replaced `mod×1 + vig×1.8`; ACWR/Divergence share the Activity effort metric |
+| Recovery + strain-debt adjustment | ✅ done | Subtracts up to 20% based on yesterday's Activity Score |
+| Migrate Fitness Trends to visx | ✅ done | Bespoke dual-axis (RHR bpm left, HRV ms + VO2 dots right) |
+| Migrate Body Battery to visx | ✅ done | Bespoke range band via `<Threshold>`, ref line at 50 |
+| Migrate Stress Levels to visx | ✅ done | Bespoke area + line with ref lines at 25 / 50 |
+| Drop recharts from dashboard | ⏳ pending | Blocked on strength-tracker migration (out of scope here) |
 
 See `docs/CHARTS-VISX-MIGRATION.md` for phase-by-phase implementation prompts.
 
