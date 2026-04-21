@@ -14,16 +14,14 @@ import {
   useTooltipStyles,
 } from '../primitives/ChartTooltip'
 import { HoverOverlay } from '../primitives/HoverOverlay'
+import { ZoneRects, type ZoneSpec } from '../primitives/ZoneRects'
 import { useHoverSync } from '../hooks/useHoverSync'
 import { useVxTheme } from '../theme'
 import { VX } from '../tokens'
 import { smartTicks } from '../utils/ticks'
 
-export type ZonedLineZone = {
-  from: number
-  to: number
-  fill: string
-}
+/** @deprecated Use ZoneSpec from charts/primitives/ZoneRects. Kept as an alias for back-compat. */
+export type ZonedLineZone = ZoneSpec
 
 /** Semi-transparent fill above (or below) a threshold value, tracking the line. */
 export type ZonedLineThreshold = {
@@ -171,32 +169,13 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
     [data, xMax, getX, numTicksX],
   )
 
-  const zoneRect =
-    data.length >= 2
-      ? (() => {
-          const x0 = xScale(getX(data[0]!)) ?? 0
-          const x1 = xScale(getX(data[data.length - 1]!)) ?? 0
-          return { x0, width: x1 - x0 }
-        })()
-      : null
-
   return (
     <div style={{ position: 'relative' }}>
       <svg width={width} height={height}>
         <Group left={MARGIN.left} top={MARGIN.top}>
           <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={numTicksY} />
 
-          {zoneRect &&
-            zones.map((z, i) => (
-              <rect
-                key={`zone-${i}`}
-                x={zoneRect.x0}
-                y={yScale(z.to)}
-                width={zoneRect.width}
-                height={yScale(z.from) - yScale(z.to)}
-                fill={z.fill}
-              />
-            ))}
+          <ZoneRects zones={zones} width={xMax} leftScale={yScale} />
 
           {thresholds.map((t, i) => (
             <Threshold<Valid>

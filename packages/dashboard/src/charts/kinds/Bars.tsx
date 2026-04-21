@@ -13,6 +13,7 @@ import {
   useTooltipStyles,
 } from '../primitives/ChartTooltip'
 import { HoverOverlay } from '../primitives/HoverOverlay'
+import { ZoneRects, type ZoneSpec } from '../primitives/ZoneRects'
 import { useHoverSync } from '../hooks/useHoverSync'
 import { VX } from '../tokens'
 import { smartTicks } from '../utils/ticks'
@@ -42,15 +43,8 @@ export type BarsLine = {
   formatValue?: (v: number) => string
 }
 
-/** Horizontal value-range overlay (target band, optimal zone). */
-export type BarsZone = {
-  /** Lower bound on the anchored axis. Use -Infinity for "bottom of axis". */
-  from: number
-  /** Upper bound. Use Infinity for "top of axis". */
-  to: number
-  fill: string
-  axisSide?: 'left' | 'right'
-}
+/** @deprecated Use ZoneSpec from charts/primitives/ZoneRects. Kept as an alias. */
+export type BarsZone = ZoneSpec
 
 export type BarsRefLine = {
   value: number
@@ -318,15 +312,6 @@ export function Bars<T>(props: BarsProps<T>) {
   const scaleFor = (side: 'left' | 'right' | undefined) =>
     side === 'right' && rightYScale ? rightYScale : leftYScale
 
-  const zoneRect =
-    data.length >= 2
-      ? (() => {
-          const x0 = xScale(getX(data[0]!)) ?? 0
-          const x1 = xScale(getX(data[data.length - 1]!)) ?? 0
-          return { x0, width: x1 - x0 }
-        })()
-      : null
-
   const formatBar = (b: BarsBar, v: number) => (b.formatValue ?? formatValue)(v)
   const formatLine = (ln: BarsLine, v: number) => (ln.formatValue ?? formatValue)(v)
 
@@ -341,25 +326,7 @@ export function Bars<T>(props: BarsProps<T>) {
             numTicks={leftAxis.numTicks ?? 5}
           />
 
-          {zoneRect &&
-            zones.map((z, i) => {
-              const scale = scaleFor(z.axisSide)
-              const [domainMin, domainMax] = scale.domain() as [number, number]
-              const zTo = z.to === Infinity ? domainMax : z.to
-              const zFrom = z.from === -Infinity ? domainMin : z.from
-              const yTop = scale(zTo)
-              const yBottom = scale(zFrom)
-              return (
-                <rect
-                  key={`zone-${i}`}
-                  x={zoneRect.x0}
-                  y={yTop}
-                  width={zoneRect.width}
-                  height={yBottom - yTop}
-                  fill={z.fill}
-                />
-              )
-            })}
+          <ZoneRects zones={zones} width={xMax} leftScale={leftYScale} rightScale={rightYScale} />
 
           {refLines.map((r, i) => {
             const scale = scaleFor(r.axisSide)

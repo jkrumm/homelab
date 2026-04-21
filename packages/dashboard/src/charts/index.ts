@@ -13,6 +13,7 @@ export {
 } from './primitives/ChartTooltip'
 export { AxisBottomDate, AxisLeftNumeric, AxisRightNumeric } from './primitives/Axes'
 export { HoverOverlay } from './primitives/HoverOverlay'
+export { ZoneRects, type ZoneSpec } from './primitives/ZoneRects'
 
 export { useChartTooltip, type TooltipState } from './hooks/useChartTooltip'
 export { useHoverSync } from './hooks/useHoverSync'
