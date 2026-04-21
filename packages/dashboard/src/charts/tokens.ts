@@ -82,6 +82,12 @@ export const VX = {
     acute: '#ffa726',
     chronic: '#ef5350',
     optimalZone: 'rgba(0,200,83,0.1)',
+
+    // Strength tracker — per-lift stable identity
+    benchPress: '#1677ff',
+    squat: '#52c41a',
+    deadlift: '#ff4d4f',
+    pullUps: '#fa8c16',
   },
 
   // Shared sizing

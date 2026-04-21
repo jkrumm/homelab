@@ -1,63 +1,87 @@
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
-import { EXERCISES, PULL_UPS_BODYWEIGHT } from './constants'
+import { EXERCISES } from './constants'
 import type { ChartDataPoint, ExerciseKey, MetricKey, Workout } from './types'
+
+// Default bodyweight for pull-ups when no user context is available
+const PULL_UPS_BW_DEFAULT = 80
 
 export function exerciseLabel(key: string): string {
   return EXERCISES.find((e) => e.value === key)?.label ?? key
 }
 
 function epley(weight: number, reps: number): number {
-  if (reps === 1) return weight
   return weight * (1 + reps / 30)
 }
 
 function brzycki(weight: number, reps: number): number {
-  if (reps === 1) return weight
   return (weight * 36) / (37 - reps)
 }
 
-function mayhew(weight: number, reps: number): number {
-  if (reps === 1) return weight
-  return weight / (0.522 + 0.419 * Math.exp(-0.055 * reps))
+// Returns null if reps > 12 (outside validity range).
+// Brzycki valid for reps ∈ [1,10], Epley valid for reps ∈ [1,12].
+// Both valid → average; only Epley valid (reps 11-12) → Epley only.
+export function estimate1RM(weight: number, reps: number): number | null {
+  if (reps < 1 || reps > 12) return null
+  if (reps <= 10) {
+    return (epley(weight, reps) + brzycki(weight, reps)) / 2
+  }
+  return epley(weight, reps)
 }
 
-export function estimate1RM(weight: number, reps: number): number {
-  if (reps === 1) return weight
-  const formulas = [epley(weight, reps), mayhew(weight, reps)]
-  if (reps < 37) formulas.push(brzycki(weight, reps))
-  return formulas.reduce((sum, v) => sum + v, 0) / formulas.length
+export function eligibleForE1RM(
+  set: { set_type: string; reps: number },
+  workoutRir: number | null | undefined,
+): boolean {
+  return (
+    (set.set_type === 'work' || set.set_type === 'amrap') &&
+    set.reps >= 1 &&
+    set.reps <= 12 &&
+    (workoutRir === null || workoutRir === undefined || workoutRir <= 3)
+  )
 }
 
 export function computeWorkoutMetrics(
   sets: { set_type: string; weight_kg: number; reps: number }[],
-  exercise: ExerciseKey,
-): { maxWeight: number; estimated1rm: number; totalVolume: number } {
-  const isPullUps = exercise === 'pull_ups'
-  const workSets = sets.filter((s) => s.set_type === 'work')
+  exercise_id: string,
+  workoutRir?: number | null,
+  bodyweightKg?: number,
+): {
+  maxWeight: number
+  estimated1rm: number | null
+  best1rmSet: { set_type: string; weight_kg: number; reps: number } | null
+  totalVolume: number
+} {
+  const bw = bodyweightKg ?? PULL_UPS_BW_DEFAULT
+  const isPullUps = exercise_id === 'pull_ups'
+  const eligibleSets = sets.filter((s) => eligibleForE1RM(s, workoutRir))
 
   const maxWeight =
-    workSets.length > 0
-      ? Math.max(
-          ...workSets.map((s) => (isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg)),
-        )
+    eligibleSets.length > 0
+      ? Math.max(...eligibleSets.map((s) => (isPullUps ? s.weight_kg + bw : s.weight_kg)))
       : 0
 
-  let best1rm = 0
-  for (const s of workSets) {
-    const ew = isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
-    const val = estimate1RM(ew, s.reps)
-    if (val > best1rm) best1rm = val
+  let best1rm: number | null = null
+  let best1rmSet: (typeof sets)[0] | null = null
+
+  for (const s of eligibleSets) {
+    const ew = isPullUps ? s.weight_kg + bw : s.weight_kg
+    const e1rm = estimate1RM(ew, s.reps)
+    if (e1rm !== null && (best1rm === null || e1rm > best1rm)) {
+      best1rm = e1rm
+      best1rmSet = s
+    }
   }
-  const estimated1rm = workSets.length > 0 ? Math.round(best1rm * 10) / 10 : 0
+
+  const estimated1rm = best1rm !== null ? Math.round(best1rm * 10) / 10 : null
 
   let totalVolume = 0
   for (const s of sets) {
-    const ew = isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
+    const ew = isPullUps ? s.weight_kg + bw : s.weight_kg
     totalVolume += ew * s.reps
   }
 
-  return { maxWeight, estimated1rm, totalVolume }
+  return { maxWeight, estimated1rm, best1rmSet, totalVolume }
 }
 
 dayjs.extend(isoWeek)
@@ -70,7 +94,7 @@ export function formatXDate(dateStr: string): string {
 }
 
 export function extractMetric(workout: Workout, metric: MetricKey): number | null {
-  const ex = workout.exercise
+  const ex = workout.exercise_id
   const isPullUps = ex === 'pull_ups'
 
   switch (metric) {
@@ -78,7 +102,7 @@ export function extractMetric(workout: Workout, metric: MetricKey): number | nul
       const workSets = workout.sets.filter((s) => s.set_type === 'work')
       if (workSets.length === 0) return null
       const heaviest = Math.max(...workSets.map((s) => s.weight_kg))
-      return isPullUps ? heaviest + PULL_UPS_BODYWEIGHT : heaviest
+      return isPullUps ? heaviest + PULL_UPS_BW_DEFAULT : heaviest
     }
     case 'estimated_1rm':
       return workout.estimated_1rm
@@ -93,7 +117,7 @@ export function extractMetric(workout: Workout, metric: MetricKey): number | nul
       const workSets = workout.sets.filter((s) => s.set_type === 'work')
       if (workSets.length === 0) return null
       const maxWeight = Math.max(...workSets.map((s) => s.weight_kg))
-      const effectiveWeight = isPullUps ? maxWeight + PULL_UPS_BODYWEIGHT : maxWeight
+      const effectiveWeight = isPullUps ? maxWeight + PULL_UPS_BW_DEFAULT : maxWeight
       return (effectiveWeight / workout.estimated_1rm) * 100
     }
     default:
@@ -109,7 +133,7 @@ export function buildChartData(
   const byDate = new Map<string, Partial<Record<ExerciseKey, number>>>()
 
   for (const w of workouts) {
-    const ex = w.exercise
+    const ex = w.exercise_id as ExerciseKey
     if (!exercises.includes(ex) || typeof w.date !== 'string') continue
     const entry = byDate.get(w.date) ?? {}
     const value = extractMetric(w, metric)
@@ -128,7 +152,7 @@ export function computeMovingAverage(
   data: { date: string; value: number }[],
   windowDays: number,
 ): { date: string; value: number }[] {
-  return data.map((point, _i) => {
+  return data.map((point) => {
     const pointDate = dayjs(point.date)
     const windowStart = pointDate.subtract(windowDays, 'day')
     const inWindow = data.filter((d) => {
@@ -200,14 +224,12 @@ export function computeSummaryStats(
   const d30 = now.subtract(30, 'day').format('YYYY-MM-DD')
   const d60 = now.subtract(60, 'day').format('YYYY-MM-DD')
 
-  const filtered = workouts.filter((w) => exercises.includes(w.exercise))
+  const filtered = workouts.filter((w) => exercises.includes(w.exercise_id as ExerciseKey))
 
-  // Best 1RM — all-time peak
   const best1rm = filtered
     .filter((w) => w.estimated_1rm !== null)
     .reduce((max, w) => Math.max(max, w.estimated_1rm!), 0)
 
-  // Current 1RM — average of last 30d vs previous 30d
   const last30with1rm = filtered.filter((w) => w.date >= d30 && w.estimated_1rm !== null)
   const prev30with1rm = filtered.filter(
     (w) => w.date >= d60 && w.date < d30 && w.estimated_1rm !== null,
@@ -226,7 +248,6 @@ export function computeSummaryStats(
   const current1rmDelta =
     current1rmAvg > 0 && prev1rmAvg > 0 ? pctChange(current1rmAvg, prev1rmAvg) : null
 
-  // Weekly volume — last 7d vs previous 7d
   const weeklyVolume = filtered
     .filter((w) => w.date >= d7)
     .reduce((sum, w) => sum + w.total_volume, 0)
@@ -237,7 +258,6 @@ export function computeSummaryStats(
 
   const weeklyVolumeDelta = pctChange(weeklyVolume, prevWeekVolume)
 
-  // Avg intensity — work set weight / 1RM, last 30d vs previous 30d
   const last30Intensity: number[] = []
   const prev30Intensity: number[] = []
   for (const w of filtered) {
@@ -257,12 +277,10 @@ export function computeSummaryStats(
   const intensityDelta =
     avgIntensity !== null && prevIntensity !== null ? pctChange(avgIntensity, prevIntensity) : null
 
-  // Sessions last 30d + delta vs previous 30d
   const sessionsLast30 = filtered.filter((w) => w.date >= d30).length
   const sessionsPrev30 = filtered.filter((w) => w.date >= d60 && w.date < d30).length
   const sessionsDelta = pctChange(sessionsLast30, sessionsPrev30)
 
-  // Frequency — sessions per week in last 30d vs previous 30d
   const weeksInPeriod = 30 / 7
   const freqPerWeek = Math.round((sessionsLast30 / weeksInPeriod) * 10) / 10
   const prevFreqPerWeek = Math.round((sessionsPrev30 / weeksInPeriod) * 10) / 10
@@ -291,7 +309,7 @@ export function buildFrequencyData(
   const byWeek = new Map<string, Partial<Record<ExerciseKey, number>>>()
 
   for (const w of workouts) {
-    const ex = w.exercise
+    const ex = w.exercise_id as ExerciseKey
     if (!exercises.includes(ex)) continue
     const d = dayjs(w.date)
     const year = d.isoWeekYear()
@@ -323,7 +341,7 @@ export function findPRPoints(
   for (const ex of exercises) {
     let runningMax = -Infinity
     const exWorkouts = workouts
-      .filter((w) => w.exercise === ex)
+      .filter((w) => w.exercise_id === ex)
       .sort((a, b) => a.date.localeCompare(b.date))
 
     for (let i = 0; i < exWorkouts.length; i++) {

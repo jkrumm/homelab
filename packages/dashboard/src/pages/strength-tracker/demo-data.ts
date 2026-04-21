@@ -1,14 +1,15 @@
 import dayjs from 'dayjs'
-import { PULL_UPS_BODYWEIGHT } from './constants'
 import type { ExerciseKey, Workout, WorkoutSet } from './types'
 import { estimate1RM } from './utils'
+
+const PULL_UPS_BW = 80
 
 function calcTotalVolume(
   sets: { set_type: string; weight_kg: number; reps: number }[],
   exercise: ExerciseKey,
 ): number {
   return sets.reduce((sum, s) => {
-    const w = exercise === 'pull_ups' ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
+    const w = exercise === 'pull_ups' ? s.weight_kg + PULL_UPS_BW : s.weight_kg
     return sum + w * s.reps
   }, 0)
 }
@@ -111,18 +112,20 @@ export function generateDemoWorkouts(): Workout[] {
 
     const isPullUps = ex === 'pull_ups'
     const workSets = sets.filter((s) => s.set_type === 'work')
-    let best1rm = 0
+    let best1rm: number | null = null
     for (const s of workSets) {
-      const ew = isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg
+      const ew = isPullUps ? s.weight_kg + PULL_UPS_BW : s.weight_kg
       const val = estimate1RM(ew, s.reps)
-      if (val > best1rm) best1rm = val
+      if (val !== null && (best1rm === null || val > best1rm)) best1rm = val
     }
-    const estimated_1rm_val = workSets.length > 0 ? Math.round(best1rm * 10) / 10 : null
+    const estimated_1rm_val =
+      workSets.length > 0 && best1rm !== null ? Math.round(best1rm * 10) / 10 : null
 
     const workout: Workout = {
       id: idCounter++,
       date,
-      exercise: ex,
+      exercise_id: ex,
+      rir: null,
       notes: null,
       created_at: null,
       sets: fullSets,

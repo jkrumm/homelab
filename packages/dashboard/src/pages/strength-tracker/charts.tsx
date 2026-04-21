@@ -44,7 +44,8 @@ function useChartColor(activeExercises: ExerciseKey[]) {
   const { token } = theme.useToken()
   const neutral = token.colorText
   return useCallback(
-    (ex: ExerciseKey) => (activeExercises.length === 1 ? neutral : EXERCISE_COLORS[ex]),
+    (ex: ExerciseKey) =>
+      activeExercises.length === 1 ? neutral : (EXERCISE_COLORS[ex] ?? neutral),
     [activeExercises.length, neutral],
   )
 }

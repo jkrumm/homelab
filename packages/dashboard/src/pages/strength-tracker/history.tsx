@@ -24,7 +24,7 @@ import { exerciseLabel } from './utils'
 
 interface EditState {
   id: number
-  exercise: ExerciseKey
+  exercise_id: string
   date: Dayjs
   sets: SetEntry[]
 }
@@ -50,7 +50,7 @@ export function WorkoutHistory({
   const filtered = useMemo(
     () =>
       workouts
-        .filter((w) => activeExercises.includes(w.exercise))
+        .filter((w) => activeExercises.includes(w.exercise_id as ExerciseKey))
         .sort((a, b) => b.date.localeCompare(a.date)),
     [workouts, activeExercises],
   )
@@ -58,7 +58,7 @@ export function WorkoutHistory({
   const openEdit = useCallback((w: Workout) => {
     setEditing({
       id: w.id,
-      exercise: w.exercise,
+      exercise_id: w.exercise_id,
       date: dayjs(w.date),
       sets: [...w.sets]
         .sort((a, b) => a.set_number - b.set_number)
@@ -78,7 +78,7 @@ export function WorkoutHistory({
         id: editing.id,
         values: {
           date: editing.date.format('YYYY-MM-DD'),
-          exercise: editing.exercise,
+          exercise_id: editing.exercise_id,
           sets: editing.sets.map((s, i) => ({
             set_number: i + 1,
             set_type: s.set_type,
@@ -125,7 +125,7 @@ export function WorkoutHistory({
     },
     {
       title: 'Exercise',
-      dataIndex: 'exercise',
+      dataIndex: 'exercise_id',
       render: (ex: string) => (
         <Tag color={EXERCISE_COLORS[ex as ExerciseKey]}>{exerciseLabel(ex)}</Tag>
       ),
@@ -264,8 +264,8 @@ export function WorkoutHistory({
                 Exercise
               </Typography.Text>
               <Select
-                value={editing.exercise}
-                onChange={(v) => setEditing({ ...editing, exercise: v })}
+                value={editing.exercise_id}
+                onChange={(v) => setEditing({ ...editing, exercise_id: v })}
                 options={EXERCISES}
                 style={{ width: '100%', marginTop: 4 }}
               />

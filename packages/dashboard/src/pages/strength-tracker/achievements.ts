@@ -1,5 +1,5 @@
 import confetti from 'canvas-confetti'
-import { EXERCISES, PULL_UPS_BODYWEIGHT } from './constants'
+import { EXERCISES } from './constants'
 import type { ExerciseKey, Workout } from './types'
 import { computeWorkoutMetrics } from './utils'
 
@@ -17,7 +17,7 @@ export function detectAchievements(
 ): Achievement[] {
   const achievements: Achievement[] = []
   const exLabel = EXERCISES.find((e) => e.value === exercise)?.label ?? exercise
-  const history = historicalWorkouts.filter((w) => w.exercise === exercise)
+  const history = historicalWorkouts.filter((w) => w.exercise_id === exercise)
   const { maxWeight, estimated1rm, totalVolume } = computeWorkoutMetrics(sets, exercise)
 
   if (maxWeight === 0) return achievements
@@ -25,7 +25,8 @@ export function detectAchievements(
   // First workout for this exercise — single combined celebration
   if (history.length === 0) {
     const parts = [`${maxWeight}kg top set`]
-    if (estimated1rm > 0) parts.push(`${estimated1rm.toFixed(1)}kg est. 1RM`)
+    if (estimated1rm !== null && estimated1rm > 0)
+      parts.push(`${estimated1rm.toFixed(1)}kg est. 1RM`)
     parts.push(`${Math.round(totalVolume).toLocaleString()}kg volume`)
     achievements.push({
       type: 'first_workout',
@@ -37,6 +38,7 @@ export function detectAchievements(
   }
 
   const isPullUps = exercise === 'pull_ups'
+  const PULL_UPS_BW = 80
 
   // Historical bests
   const prevMaxWeight =
@@ -46,9 +48,7 @@ export function detectAchievements(
           ...history.map((w) => {
             const ws = w.sets.filter((s) => s.set_type === 'work')
             if (ws.length === 0) return 0
-            return Math.max(
-              ...ws.map((s) => (isPullUps ? s.weight_kg + PULL_UPS_BODYWEIGHT : s.weight_kg)),
-            )
+            return Math.max(...ws.map((s) => (isPullUps ? s.weight_kg + PULL_UPS_BW : s.weight_kg)))
           }),
         )
       : 0
@@ -84,7 +84,7 @@ export function detectAchievements(
   }
 
   // New estimated 1RM PR
-  if (estimated1rm > prevMax1rm && prevMax1rm > 0) {
+  if (estimated1rm !== null && estimated1rm > prevMax1rm && prevMax1rm > 0) {
     achievements.push({
       type: 'estimated_1rm_pr',
       title: 'New Estimated 1RM!',

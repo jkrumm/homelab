@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import { VX } from '../../charts/tokens'
 import type { ExerciseKey, MetricKey, SetType } from './types'
 
 export const EXERCISES: { value: ExerciseKey; label: string }[] = [
@@ -9,16 +10,21 @@ export const EXERCISES: { value: ExerciseKey; label: string }[] = [
 ]
 
 export const EXERCISE_COLORS: Record<ExerciseKey, string> = {
-  bench_press: '#1677ff',
-  deadlift: '#ff4d4f',
-  squat: '#52c41a',
-  pull_ups: '#fa8c16',
+  bench_press: VX.series.benchPress,
+  deadlift: VX.series.deadlift,
+  squat: VX.series.squat,
+  pull_ups: VX.series.pullUps,
+}
+
+export function colorForExercise(id: string): string {
+  return (EXERCISE_COLORS as Record<string, string>)[id] ?? VX.series.acwr
 }
 
 export const SET_TYPE_OPTIONS: { value: SetType; label: string }[] = [
   { value: 'warmup', label: 'Warm-up' },
   { value: 'work', label: 'Work' },
   { value: 'drop', label: 'Drop' },
+  { value: 'amrap', label: 'AMRAP' },
 ]
 
 export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
@@ -58,5 +64,3 @@ export function getDateRange(preset: DatePreset, customRange: [string, string]):
       return customRange
   }
 }
-
-export const PULL_UPS_BODYWEIGHT = 70

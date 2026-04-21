@@ -73,6 +73,12 @@ export const dataProvider: DataProvider = {
       return { data: (data ?? []) as never[], total }
     }
 
+    if (resource === 'exercises') {
+      const { data, error } = await api.exercises.get()
+      if (error) throw new Error(String(error.value))
+      return { data: (data ?? []) as never[], total: (data ?? []).length }
+    }
+
     throw new Error(`Unsupported resource for getList: ${resource}`)
   },
 

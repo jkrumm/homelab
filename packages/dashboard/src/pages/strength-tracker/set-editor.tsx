@@ -3,13 +3,19 @@ import { App, Button } from 'antd'
 import { useCallback, useRef, useState } from 'react'
 import type { SetEntry, SetType } from './types'
 
-const TYPE_CYCLE: SetType[] = ['work', 'warmup', 'drop']
-const TYPE_LABEL: Record<SetType, string> = { warmup: 'Warm-up', work: 'Work', drop: 'Drop' }
-const TYPE_ABBREV: Record<SetType, string> = { warmup: 'W', work: '', drop: 'D' }
+const TYPE_CYCLE: SetType[] = ['work', 'warmup', 'drop', 'amrap']
+const TYPE_LABEL: Record<SetType, string> = {
+  warmup: 'Warm-up',
+  work: 'Work',
+  drop: 'Drop',
+  amrap: 'AMRAP',
+}
+const TYPE_ABBREV: Record<SetType, string> = { warmup: 'W', work: '', drop: 'D', amrap: 'A' }
 const TYPE_COLOR: Record<SetType, string> = {
   warmup: 'rgba(128,128,128,0.5)',
   work: 'inherit',
   drop: 'rgba(128,128,128,0.5)',
+  amrap: 'inherit',
 }
 
 interface SetEditorProps {

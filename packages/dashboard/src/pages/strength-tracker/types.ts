@@ -1,3 +1,12 @@
+export interface Exercise {
+  id: string
+  name: string
+  category: string
+  muscle_group: string
+  is_bodyweight: number | null
+  display_order: number | null
+}
+
 export interface WorkoutSet {
   id: number
   workout_id: number
@@ -11,7 +20,10 @@ export interface WorkoutSet {
 export interface Workout {
   id: number
   date: string
-  exercise: ExerciseKey
+  exercise_id: string
+  exercise_name?: string | null
+  is_bodyweight?: number | null
+  rir: number | null
   notes: string | null
   created_at: string | null
   sets: WorkoutSet[]
@@ -22,7 +34,7 @@ export interface Workout {
 }
 
 export type ExerciseKey = 'bench_press' | 'deadlift' | 'squat' | 'pull_ups'
-export type SetType = 'warmup' | 'work' | 'drop'
+export type SetType = 'warmup' | 'work' | 'drop' | 'amrap'
 export type MetricKey =
   | 'max_weight'
   | 'estimated_1rm'
