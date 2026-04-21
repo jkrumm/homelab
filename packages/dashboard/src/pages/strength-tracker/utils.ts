@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
 import { EXERCISES } from './constants'
-import type { ChartDataPoint, ExerciseKey, MetricKey, Workout } from './types'
+import type { AcwrZone, ChartDataPoint, ExerciseKey, MetricKey, Workout } from './types'
 
 // ── Analytics helpers ─────────────────────────────────────────────────────
 
@@ -673,4 +673,255 @@ export function findPRPoints(
   }
 
   return points
+}
+
+// ── Group 3: Load Quality & Efficiency analytics ──────────────────────────
+
+function ewmaSeries(values: number[], N: number): number[] {
+  if (values.length === 0) return []
+  const alpha = 2 / (N + 1)
+  const seedCount = Math.min(N, values.length)
+  const seed = values.slice(0, seedCount).reduce((a, b) => a + b, 0) / seedCount
+  const result: number[] = []
+  let prev = seed
+  for (const v of values) {
+    const next = alpha * v + (1 - alpha) * prev
+    result.push(next)
+    prev = next
+  }
+  return result
+}
+
+export function weeklyTonnageSeries(
+  workouts: Workout[],
+  exerciseId: string,
+): { date: string; tonnage: number }[] {
+  const ex = workouts
+    .filter((w) => w.exercise_id === exerciseId)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (ex.length === 0) return []
+
+  const byWeek = new Map<string, number>()
+  for (const w of ex) {
+    const weekEnd = dayjs(w.date).endOf('isoWeek').format('YYYY-MM-DD')
+    byWeek.set(weekEnd, (byWeek.get(weekEnd) ?? 0) + w.total_volume)
+  }
+
+  const sortedKeys = Array.from(byWeek.keys()).sort()
+  const first = dayjs(sortedKeys[0])
+  const last = dayjs(sortedKeys[sortedKeys.length - 1])
+
+  const result: { date: string; tonnage: number }[] = []
+  let cur = first
+  while (!cur.isAfter(last)) {
+    const key = cur.format('YYYY-MM-DD')
+    result.push({ date: key, tonnage: byWeek.get(key) ?? 0 })
+    cur = cur.add(1, 'week')
+  }
+  return result
+}
+
+export interface AcwrResult {
+  date: string
+  acute: number
+  chronic: number
+  acwr: number | null
+  zone: AcwrZone | null
+}
+
+export function computeAcwrSeries(workouts: Workout[], exerciseId: string): AcwrResult[] {
+  const series = weeklyTonnageSeries(workouts, exerciseId)
+  if (series.length < 2) return []
+  const tonnages = series.map((p) => p.tonnage)
+  const acuteEwma = ewmaSeries(tonnages, 4)
+  const chronicEwma = ewmaSeries(tonnages, 16)
+  return series.map((p, i) => {
+    const acute = acuteEwma[i]!
+    const chronic = chronicEwma[i]!
+    const acwr = chronic > 0 ? acute / chronic : null
+    let zone: AcwrZone | null = null
+    if (acwr !== null) {
+      if (acwr < 0.8) zone = 'undertrained'
+      else if (acwr <= 1.3) zone = 'optimal'
+      else if (acwr <= 1.5) zone = 'caution'
+      else zone = 'danger'
+    }
+    return { date: p.date, acute, chronic, acwr, zone }
+  })
+}
+
+function sortedPercentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0
+  const idx = (p / 100) * (sorted.length - 1)
+  const lo = Math.floor(idx)
+  const hi = Math.ceil(idx)
+  if (lo === hi) return sorted[lo]!
+  return sorted[lo]! + (idx - lo) * (sorted[hi]! - sorted[lo]!)
+}
+
+export interface VolumeLandmarks {
+  mev: number
+  mav: number
+  mrv: number
+}
+
+export function volumeLandmarks(
+  workouts: Workout[],
+  exerciseId: string,
+  windowDays = 90,
+): VolumeLandmarks {
+  const series = weeklyTonnageSeries(workouts, exerciseId)
+  const cutoff = dayjs().subtract(windowDays, 'day').format('YYYY-MM-DD')
+  const inWindow = series.filter((p) => p.date >= cutoff && p.tonnage > 0)
+  const sorted = inWindow.map((p) => p.tonnage).sort((a, b) => a - b)
+  return {
+    mev: sortedPercentile(sorted, 25),
+    mav: sortedPercentile(sorted, 50),
+    mrv: sortedPercentile(sorted, 90),
+  }
+}
+
+export type WeeklyVolumePoint = {
+  date: string
+  warmup: number
+  work: number
+  drop: number
+  amrap: number
+  total: number
+  ma: number | null
+}
+
+export function buildWeeklyVolumeData(
+  workouts: Workout[],
+  exerciseId: string,
+): WeeklyVolumePoint[] {
+  const ex = workouts
+    .filter((w) => w.exercise_id === exerciseId)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (ex.length === 0) return []
+
+  const isPullUps = exerciseId === 'pull_ups'
+  const byWeek = new Map<string, { warmup: number; work: number; drop: number; amrap: number }>()
+
+  for (const w of ex) {
+    const weekEnd = dayjs(w.date).endOf('isoWeek').format('YYYY-MM-DD')
+    const entry = byWeek.get(weekEnd) ?? { warmup: 0, work: 0, drop: 0, amrap: 0 }
+    for (const s of w.sets) {
+      const ew = isPullUps ? s.weight_kg + PULL_UPS_BW_DEFAULT : s.weight_kg
+      const t = ew * s.reps
+      if (s.set_type === 'warmup') entry.warmup += t
+      else if (s.set_type === 'work') entry.work += t
+      else if (s.set_type === 'drop') entry.drop += t
+      else if (s.set_type === 'amrap') entry.amrap += t
+    }
+    byWeek.set(weekEnd, entry)
+  }
+
+  const sortedKeys = Array.from(byWeek.keys()).sort()
+  const first = dayjs(sortedKeys[0])
+  const last = dayjs(sortedKeys[sortedKeys.length - 1])
+
+  const rawPoints: Omit<WeeklyVolumePoint, 'ma'>[] = []
+  let cur = first
+  while (!cur.isAfter(last)) {
+    const key = cur.format('YYYY-MM-DD')
+    const entry = byWeek.get(key) ?? { warmup: 0, work: 0, drop: 0, amrap: 0 }
+    rawPoints.push({
+      date: key,
+      ...entry,
+      total: entry.warmup + entry.work + entry.drop + entry.amrap,
+    })
+    cur = cur.add(1, 'week')
+  }
+
+  return rawPoints.map((p, i) => {
+    const start = Math.max(0, i - 3)
+    const slice = rawPoints.slice(start, i + 1).filter((r) => r.total > 0)
+    const ma = slice.length >= 2 ? slice.reduce((sum, r) => sum + r.total, 0) / slice.length : null
+    return { ...p, ma }
+  })
+}
+
+export type AcwrChartPoint = {
+  date: string
+  acwr: Record<string, number | null>
+  zone: Record<string, AcwrZone | null>
+}
+
+export function buildAcwrChartData(
+  workouts: Workout[],
+  exercises: ExerciseKey[],
+): AcwrChartPoint[] {
+  const perExercise = exercises.map((ex) => ({ ex, data: computeAcwrSeries(workouts, ex) }))
+
+  const allDates = new Set<string>()
+  for (const { data } of perExercise) {
+    for (const p of data) allDates.add(p.date)
+  }
+  const sorted = Array.from(allDates).sort()
+
+  return sorted.map((date) => {
+    const acwr: Record<string, number | null> = {}
+    const zone: Record<string, AcwrZone | null> = {}
+    for (const { ex, data } of perExercise) {
+      const pt = data.find((p) => p.date === date)
+      acwr[ex] = pt?.acwr ?? null
+      zone[ex] = pt?.zone ?? null
+    }
+    return { date, acwr, zone }
+  })
+}
+
+export type InolChartPoint = {
+  date: string
+  inol: number | null
+  ma10: number | null
+}
+
+export function buildInolChartData(workouts: Workout[], exerciseId: string): InolChartPoint[] {
+  const ex = workouts
+    .filter((w) => w.exercise_id === exerciseId)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (ex.length === 0) return []
+
+  const points = ex.map((w) => ({ date: w.date, inol: sessionInol(w) }))
+
+  return points.map((p, i) => {
+    const start = Math.max(0, i - 9)
+    const slice = points.slice(start, i + 1).filter((r) => r.inol !== null)
+    const ma10 =
+      slice.length >= 3 ? slice.reduce((sum, r) => sum + (r.inol ?? 0), 0) / slice.length : null
+    return { ...p, ma10 }
+  })
+}
+
+export type MomentumPoint = {
+  date: string
+  e1rm: number | null
+  e1rmMA: number | null
+  velocity: number | null
+}
+
+export function buildMomentumChartData(workouts: Workout[], exerciseId: string): MomentumPoint[] {
+  const ex = workouts
+    .filter((w) => w.exercise_id === exerciseId && w.estimated_1rm !== null)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (ex.length === 0) return []
+
+  const withMA = ex.map((w, i) => {
+    const start = Math.max(0, i - 7)
+    const slice = ex.slice(start, i + 1)
+    const ma =
+      slice.length >= 3
+        ? Math.round(
+            (slice.reduce((sum, s) => sum + (s.estimated_1rm ?? 0), 0) / slice.length) * 10,
+          ) / 10
+        : null
+    return { date: w.date, e1rm: w.estimated_1rm, e1rmMA: ma }
+  })
+
+  return withMA.map((p) => ({
+    ...p,
+    velocity: velocityAtDate(workouts, exerciseId, p.date),
+  }))
 }

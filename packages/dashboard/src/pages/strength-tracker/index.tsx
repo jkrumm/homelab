@@ -17,7 +17,14 @@ import { RecentRecords } from './records'
 import { SummaryStats } from './stats'
 import type { ExerciseKey, Workout } from './types'
 import { useLocalState, resetConfig } from './use-local-state'
-import { OneRmTrendChart, StrengthCompositeChart } from './visx-charts'
+import {
+  InolChart,
+  MomentumChart,
+  OneRmTrendChart,
+  StrengthCompositeChart,
+  TrainingLoadChart,
+  WeeklyVolumeChart,
+} from './visx-charts'
 import { WorkoutForm } from './workout-form'
 
 // ── Responsive hook ────────────────────────────────────────────────────────
@@ -209,14 +216,10 @@ export default function StrengthTrackerPage() {
           </Typography.Title>
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
-              <Card size="small">
-                <Typography.Text type="secondary">Coming in Group 3</Typography.Text>
-              </Card>
+              <WeeklyVolumeChart workouts={displayWorkouts} activeExercises={activeExercises} />
             </Col>
             <Col xs={24} lg={12}>
-              <Card size="small">
-                <Typography.Text type="secondary">Coming in Group 3</Typography.Text>
-              </Card>
+              <TrainingLoadChart workouts={displayWorkouts} activeExercises={activeExercises} />
             </Col>
           </Row>
 
@@ -225,14 +228,10 @@ export default function StrengthTrackerPage() {
           </Typography.Title>
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
-              <Card size="small">
-                <Typography.Text type="secondary">Coming in Group 4</Typography.Text>
-              </Card>
+              <InolChart workouts={displayWorkouts} activeExercises={activeExercises} />
             </Col>
             <Col xs={24} lg={12}>
-              <Card size="small">
-                <Typography.Text type="secondary">Coming in Group 4</Typography.Text>
-              </Card>
+              <MomentumChart workouts={displayWorkouts} activeExercises={activeExercises} />
             </Col>
           </Row>
 

@@ -43,6 +43,8 @@ export type MetricKey =
   | 'work_sets'
   | 'avg_intensity'
 
+export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
+
 export interface SetEntry {
   set_type: SetType
   weight_kg: number
