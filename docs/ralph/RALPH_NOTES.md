@@ -60,3 +60,45 @@ Added `METRIC_TOOLTIPS` to `constants.ts`. Rewired `index.tsx` with `HoverContex
 - Best-ever reference lines use all-time workouts (not date-filtered) by design; this is correct for "have you beaten your record" context.
 
 ---
+
+## Group 3: Load Quality & Efficiency
+
+### What was implemented
+
+Added to `utils.ts`: `ewmaSeries` (internal EWMA helper), `weeklyTonnageSeries`, `computeAcwrSeries` + `AcwrResult`, `volumeLandmarks` + `VolumeLandmarks`, `buildWeeklyVolumeData` + `WeeklyVolumePoint`, `buildAcwrChartData` + `AcwrChartPoint`, `buildInolChartData` + `InolChartPoint`, `buildMomentumChartData` + `MomentumPoint`.
+
+Added to `types.ts`: `AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'`.
+
+Added to `constants.ts`: `acwrZoneColor`, `acwrZoneLabel`, `inolDotColor`, and four new `METRIC_TOOLTIPS` entries (`weeklyVolume`, `trainingLoad`, `inol`, `momentum`).
+
+Added to `visx-charts.tsx`:
+- `WeeklyVolumeChart`: uses `Bars` kind, stacked set-type breakdown (warmup/work/drop/amrap), 4-week MA line overlay, MEV/MAV/MRV ref lines from `volumeLandmarks`.
+- `TrainingLoadChart` + `TrainingLoadChartInner`: bespoke multi-series ACWR lines with `ZoneRects` zone backgrounds (undertrained/optimal/caution/danger), per-exercise lines via `LinePath`, dashed threshold lines.
+- `InolChart` + `InolChartInner`: scatter dots colored by INOL zone (`inolDotColor`), 10-session MA line, `ZoneRects` zone backgrounds.
+- `MomentumChart` + `MomentumChartInner`: bespoke dual-panel (65/35 split); top panel = e1RM scatter dots + 8-session MA line; bottom panel = velocity bars (green/red by sign).
+
+Updated `index.tsx` Section 2 (Load Quality) and Section 3 (Efficiency & Momentum) — removed placeholder `Card` elements.
+
+### Deviations from prompt
+
+- MEV/MAV/MRV computed as tonnage percentiles (p25/p50/p90) rather than set-count percentiles. The chart Y-axis is in tonnage units, making set-count reference lines dimensionally inconsistent. Tonnage percentiles are more directly comparable to the bar heights.
+- ACWR uses 4-week acute / 16-week chronic EWMA windows (weekly tonnage units) rather than the original 7-day/28-day daily windows. Strength training is typically weekly-granular; the ratio is preserved (≈1:4) while avoiding the need to impute missing days.
+- `TrainingLoadChart` does not use `ZonedLine` kind (prompt said "reuse existing kinds"). ZonedLine is single-series; the Training Load chart needs per-exercise multi-series lines, so it composes primitives directly like `StrengthCompositeChart`. Same pattern, just ACWR values instead of σ.
+- `MomentumChart` dual-panel does not include an acceleration line (was in spec). Velocity-of-velocity is too noisy on sparse strength training data (sessions 1-2x/week). Showing velocity bars alone is more actionable.
+- The prompt mentioned "load quality composite score for Group 4's hero row" — this was not implemented. The composite score (§3.2) depends on ACWR + INOL + tonnage trend signals that require normalization against a baseline, which has its own z-scoring pass. Deferred to Group 4 when the hero row is built.
+
+### Gotchas & surprises
+
+- `ZoneRects` requires a `leftScale` (not `yScale`) parameter name — the prop surface uses `leftScale` / `rightScale`, not generic `yScale`. Check the primitive signature when using it in new charts.
+- `ZonedLine` kind does not support multi-series or point-only scatter mode — both require composing primitives directly. The kind is strictly single-line + zones + threshold fill.
+- `dayjs().endOf('isoWeek')` returns Sunday when the `isoWeek` plugin is active, consistent with `dayjs().isoWeek()` numbering. This is the correct behavior; no workaround needed.
+- Circular dependency would occur if `utils.ts` (imports from `constants.ts`) also defined types that `constants.ts` needs. Resolved by placing `AcwrZone` in `types.ts` (neutral, no imports), keeping zone color helpers in `constants.ts`.
+- `oxlint` requires `v === null || v === undefined` rather than `== null` — caught all uses of `acwr[ex]` where the value might be `null` or `undefined` from a `Record<string, number | null>` lookup. Fixed with explicit guards in tooltip rendering.
+
+### Future improvements
+
+- `weeklyTonnageSeries` fills zero-tonnage weeks, which seeds the EWMA with training gaps. A more sophisticated approach would use an absence-adjusted EWMA (exponential decay during gaps), but this complicates the implementation significantly for marginal gain.
+- `buildMomentumChartData` calls `velocityAtDate` per session — O(n²) over the workout list. Fine for datasets < 500 sessions; could be vectorized if needed.
+- `volumeLandmarks` uses a rolling 90-day window from today, not from the last workout date. This means the landmarks shrink during training breaks. Intent is correct (reflect recent capacity), but worth noting.
+
+---
