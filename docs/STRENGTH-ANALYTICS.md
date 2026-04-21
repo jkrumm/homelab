@@ -222,15 +222,15 @@ for a given exercise. Min 3 valid points in window; otherwise null.
 **EWMA** — same formula used in Garmin Health (Hulin 2017):
 
 ```
-λ_acute   = 2 / (7 + 1)   = 0.250
-λ_chronic = 2 / (28 + 1)  ≈ 0.069
+λ_acute   = 2 / (N_acute + 1)       N_acute   = 4  weekly points (≈ 4-week horizon)
+λ_chronic = 2 / (N_chronic + 1)     N_chronic = 16 weekly points (≈ 4-month horizon)
 ewma(t)   = load(t) × λ + ewma(t−1) × (1 − λ)
-seed      = mean of first min(7, available) values
+seed      = mean of first min(N, available) values
 ```
 
-Load input is **weekly work_volume** for a given exercise (aggregated from sessions in the rolling
-7/28-day window), not per-session. This avoids variance from the session cadence itself (2x vs 4x
-per week).
+Load input is **weekly work_volume** for a given exercise (aggregated by ISO week, missing weeks
+fill with 0). Smoothing N counts *weeks*, not days — the input is already a weekly series. This
+avoids variance from the session cadence itself (2x vs 4x per week).
 
 ### 2.6 Velocity & Momentum (Kurvendiskussion)
 
@@ -266,9 +266,9 @@ users read "Improving ▲" and either trust it or not — degree belongs in the 
 ### 2.7 Tonnage ACWR — "training load" for strength
 
 ```
-tonnage_week(ex)    = Σ work_volume(session)   over sessions in the last 7 days (per exercise)
-ewma_acute(ex, t)   = EWMA 7-day on tonnage_week
-ewma_chronic(ex, t) = EWMA 28-day on tonnage_week
+tonnage_week(ex)    = Σ total_volume(session)  over sessions in that ISO week (per exercise)
+ewma_acute(ex, t)   = EWMA(N=4)  on tonnage_week   — 4-week horizon
+ewma_chronic(ex, t) = EWMA(N=16) on tonnage_week   — 16-week horizon
 ACWR(ex, t)         = ewma_acute / ewma_chronic
 ```
 
@@ -323,22 +323,23 @@ Critical    ratio outside range by > 30%
 ### 2.9 Personal volume landmarks (MEV / MAV / MRV)
 
 Instead of hardcoded "10 sets per muscle group per week" (which doesn't match your training age or
-responder phenotype), compute per-exercise landmarks from **your own** weekly work-set count
-history — same pattern as the p90 strain-debt ceiling in Garmin Health.
+responder phenotype), compute per-exercise landmarks from **your own** weekly tonnage history —
+same pattern as the p90 strain-debt ceiling in Garmin Health.
 
 ```
-sets_week(ex)  = rolling weekly count of eligible work sets per exercise (90-day window)
+tonnage_week(ex)  = Σ total_volume(session)  over sessions in that ISO week (90-day window)
 
-MEV(ex) = p25(sets_week(ex))    minimum effective volume
-MAV(ex) = p50(sets_week(ex))    maximum adaptive volume
-MRV(ex) = p90(sets_week(ex))    maximum recoverable volume
+MEV(ex) = p25(tonnage_week(ex))    minimum effective volume
+MAV(ex) = p50(tonnage_week(ex))    maximum adaptive volume
+MRV(ex) = p90(tonnage_week(ex))    maximum recoverable volume
 ```
 
-Zone bands draw these three lines onto the weekly volume chart. Sitting in MEV–MAV for a mesocycle
-= accumulation phase. Spiking to MRV = peaking. Falling below MEV for > 2 weeks with no e1RM gain
-= detraining risk.
+Zone bands draw these three lines onto the weekly volume chart (in kg). Sitting in MEV–MAV for a
+mesocycle = accumulation phase. Spiking to MRV = peaking. Falling below MEV for > 2 weeks with no
+e1RM gain = detraining risk.
 
-Floor: MRV must be ≥ 3 sets/week per exercise to prevent degenerate values on cold-start data.
+Fallback: weeks with zero tonnage are excluded from the window before percentiles are taken, so
+cold-start data doesn't collapse the landmarks to zero.
 
 ### 2.10 Personal z-score composite (Strength Composite)
 
@@ -416,15 +417,19 @@ with an additional **fatigue-debt adjustment** specific to strength work:
 
 ```
 fatigue_ceiling  = max(1.0, p90(inol_per_session))    personal strain-per-session ceiling
-yesterday_inol   = INOL of most recent session (null if > 2 days ago)
+yesterday_inol   = INOL of most recent session within the last 48 h (null otherwise)
 fatigue_debt     = clamp(0, 1, yesterday_inol / fatigue_ceiling)
 
-readiness_strength = readiness_garmin × (1 − fatigue_debt × 0.25)
+readiness_strength = readiness_garmin × (1 − fatigue_debt × 0.25)      -- up to 25% shave
+if yesterday_inol > 1.2:
+  readiness_strength *= 0.9                                            -- extra 10% for heavy sessions
+readiness_strength = clamp(0, 100, readiness_strength)
 ```
 
-Same pattern as Garmin's strain-debt — the ceiling is personal, the max penalty is capped, rest
-days don't penalize. Difference: strength fatigue can persist 48–72 h for heavy sessions, so we
-also penalize if the last session was ≥ 1.2 INOL within the last 48 h.
+Same pattern as Garmin's strain-debt — the ceiling is personal, the max penalty is capped (25%
+from fatigue debt, plus 10% extra when the last session was genuinely heavy), rest days don't
+penalize. Strength fatigue can persist 48–72 h for heavy sessions, which is why the 48-h lookback
+applies and heavy sessions get the additional dampening.
 
 Without wearable data, the signal falls back to training-state detection:
 
@@ -553,7 +558,7 @@ No exceptions. No reimplementing closest-point loops inline.
 | Relative Progression | bespoke multi-line (possibly `ZonedLine` per series) | All active lifts normalized to 100% at filter-start date. Line chart showing % change over time. Legend-hover dims the others (shipped pattern). | Reveals which lift advanced, which is stuck, independent of absolute numbers. |
 | Strength Ratios | bespoke horizontal Bars | One bar per pair (DL/Squat, Squat/Bench, DL/Bench). Normative range as green band. Current value as colored tick. Status label as header-extra (e.g. "DL/Bench critical · 2.3"). | Updates when body weight or e1RMs change. DOTS-adjusted. |
 | Readiness × Strain | `ZonedLine<T>` (reuse Garmin's recovery chart) | Push/Normal/Rest zone bands, threshold fill, strain-debt annotation dot when > 0.25. | Wearable-only. Hidden when no Garmin data present (same pattern as Garmin Health's hasHeartData guard). |
-| Training–Recovery Alignment | bespoke matrix / calendar heatmap | 5×5 grid: recovery zone (rows) × ACWR zone (cols). Cells colored by alignment verdict (Aligned / Misaligned). Today's cell highlighted. Tooltip lists the last N sessions that fell in each cell. | Teaches the user which combinations they tend to end up in — surfaces "Heavy on low-recovery day" as a visible pattern. |
+| Training–Recovery Alignment | bespoke 3×3 matrix | Recovery row × ACWR col: rows = High (≥70) / Normal (40–69) / Low (<40); cols = ACWR Under (<0.8) / Optimal (0.8–1.3) / Caution+ (>1.3). Each cell shows the verdict copy (Aligned / Misaligned / Risk) with session count; today's cell gets a colored border. Cell tooltip lists the last 8 session dates. | Teaches the user which combinations they tend to end up in — surfaces "Heavy on low-recovery day" as a visible pattern. |
 
 ### 4.6 Sparkline grid (alternate view)
 
@@ -570,8 +575,11 @@ Compact per-lift summary — toggled from the filter bar, replaces Sections 1–
 └──────────┴──────────┴──────────┴──────────┴──────────┴────────┘
 ```
 
-Sparklines live under `src/charts/sparklines/` — they're exempt from the Legend/Tooltip contract
-(see visx rules), but still must use VX tokens and `useVxTheme`. Each sparkline is < 60px tall.
+Generic sparkline primitives live under `src/charts/sparklines/` (currently `LineSparkline`,
+`BarSparkline`). The strength-tracker grid that consumes them is at
+`src/pages/strength-tracker/sparkline-grid.tsx` — an AntD `Table` composing the primitives per row.
+Sparklines are exempt from the Legend/Tooltip contract (see visx rules) but still must use VX
+tokens and `useVxTheme`. Each sparkline is < 60 px tall.
 
 ---
 
@@ -727,8 +735,9 @@ landmarks, momentum.
 
 - Ship the **Sparkline Grid** view as a filter-bar toggle alternative to the full dashboard.
   Compact per-lift row: 1RM sparkline + volume sparkline + INOL sparkline + momentum arrow +
-  status dot. File under `src/charts/sparklines/strength/` — exempt from Legend/Tooltip contract
-  but still uses VX tokens.
+  status dot. Generic sparkline primitives at `src/charts/sparklines/`; the strength-tracker grid
+  at `src/pages/strength-tracker/sparkline-grid.tsx` — exempt from Legend/Tooltip contract but
+  still uses VX tokens.
 - Full **naming + subtitle + header-extra audit** across every chart per 4.2 / 4.3. One concept,
   one name. Every chart has a 6-word subtitle. Every chart shows today's reading.
 - Remove `recharts` from `packages/dashboard/package.json`. Confirm
