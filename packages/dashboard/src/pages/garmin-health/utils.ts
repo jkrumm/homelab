@@ -341,14 +341,17 @@ export interface TrainingLoadPoint {
 /**
  * Compute ACWR (Acute:Chronic Workload Ratio) using EWMA.
  *
- * Daily load approximated from Garmin intensity minutes:
- *   load = moderate_min × 1.0 + vigorous_min × 1.8
+ * Daily load is the Daily Activity Score (MET-min, see `activityComponents`):
+ *   load = walking_score + moderate_score + vigorous_score
+ * This matches the effort metric shown on the Activity card, so the entire page
+ * shares one definition of "effort".
  *
  * EWMA decay rates (Hulin et al. 2017, BJSM):
  *   λ_acute  = 2/(7+1)  = 0.25   (~7-day half-life)
  *   λ_chronic = 2/(28+1) ≈ 0.069  (~28-day half-life)
  *
- * Zones (Gabbett 2016, BJSM):
+ * Zones (Gabbett 2016, BJSM) — ratio is scale-invariant, so zone thresholds
+ * survive the change from TRIMP-style to MET-min:
  *   <0.8 undertrained | 0.8-1.3 optimal | 1.3-1.5 caution | >1.5 danger
  */
 export function computeTrainingLoad(data: DailyMetric[]): TrainingLoadPoint[] {
@@ -357,11 +360,10 @@ export function computeTrainingLoad(data: DailyMetric[]): TrainingLoadPoint[] {
   const λA = 2 / (7 + 1)
   const λC = 2 / (28 + 1)
 
-  const dailyLoads = data.map((d) => {
-    const mod = d.moderate_intensity_min ?? 0
-    const vig = d.vigorous_intensity_min ?? 0
-    return mod * 1.0 + vig * 1.8
-  })
+  const dailyLoads = data.map(
+    (d) =>
+      activityComponents(d.steps, d.moderate_intensity_min, d.vigorous_intensity_min)?.total ?? 0,
+  )
 
   // Seed EWMA with average of available days (max 7)
   const seedN = Math.min(dailyLoads.length, 7)
