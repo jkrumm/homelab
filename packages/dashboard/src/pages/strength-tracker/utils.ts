@@ -77,9 +77,7 @@ export function velocityPctPerDay(
   return refE1rm > 0 ? (reg.slope / refE1rm) * 100 : null
 }
 
-export function strengthDirection(
-  velocity: number | null,
-): 'improving' | 'stable' | 'declining' {
+export function strengthDirection(velocity: number | null): 'improving' | 'stable' | 'declining' {
   if (velocity === null) return 'stable'
   if (velocity > 0.1) return 'improving'
   if (velocity < -0.05) return 'declining'

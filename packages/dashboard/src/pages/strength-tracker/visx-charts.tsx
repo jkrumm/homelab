@@ -87,8 +87,7 @@ function OneRmTrendChartInner({
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
 
-  const lineColor = (ex: string) =>
-    activeExercises.length === 1 ? line : colorForExercise(ex)
+  const lineColor = (ex: string) => (activeExercises.length === 1 ? line : colorForExercise(ex))
 
   const dim = (ex: string): number => {
     if (highlighted === null || highlighted === ex) return 1
@@ -98,8 +97,7 @@ function OneRmTrendChartInner({
   }
 
   const xScale = useMemo(
-    () =>
-      scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
+    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
     [data, xMax],
   )
 
@@ -133,7 +131,14 @@ function OneRmTrendChartInner({
       marginLeft: MARGIN.left,
     })
 
-  const tickValues = useMemo(() => smartTicks(data.map((d) => d.date), xMax), [data, xMax])
+  const tickValues = useMemo(
+    () =>
+      smartTicks(
+        data.map((d) => d.date),
+        xMax,
+      ),
+    [data, xMax],
+  )
 
   return (
     <div style={{ position: 'relative' }}>
@@ -222,14 +227,7 @@ function OneRmTrendChartInner({
               const sx = xScale(syncedPoint.date) ?? 0
               return (
                 <>
-                  <line
-                    x1={sx}
-                    x2={sx}
-                    y1={0}
-                    y2={yMax}
-                    stroke={VX.crosshair}
-                    strokeWidth={1}
-                  />
+                  <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
                   {activeExercises.map((ex) => {
                     const v = syncedPoint.e1rm[ex]
                     if (v === null) return null
@@ -343,8 +341,7 @@ export function OneRmTrendChart({
     )
   }, [chartData, activeExercises, workouts])
 
-  const lineColor = (ex: string) =>
-    activeExercises.length === 1 ? line : colorForExercise(ex)
+  const lineColor = (ex: string) => (activeExercises.length === 1 ? line : colorForExercise(ex))
 
   if (!chartData.length) {
     return (
@@ -447,16 +444,14 @@ function StrengthCompositeChartInner({
   highlighted,
 }: CompositeInnerProps) {
   const { axis } = useVxTheme()
-  const dim = (key: string): number =>
-    highlighted === null || highlighted === key ? 1 : 0.15
+  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
 
   const MARGIN_LOCAL = useMemo(() => ({ ...VX.margin, left: Math.max(VX.margin.left, 48) }), [])
   const xMax = width - MARGIN_LOCAL.left - MARGIN_LOCAL.right
   const yMax = height - MARGIN_LOCAL.top - MARGIN_LOCAL.bottom
 
   const xScale = useMemo(
-    () =>
-      scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
+    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
     [data, xMax],
   )
 
@@ -482,7 +477,14 @@ function StrengthCompositeChartInner({
       marginLeft: MARGIN_LOCAL.left,
     })
 
-  const tickValues = useMemo(() => smartTicks(data.map((d) => d.date), xMax), [data, xMax])
+  const tickValues = useMemo(
+    () =>
+      smartTicks(
+        data.map((d) => d.date),
+        xMax,
+      ),
+    [data, xMax],
+  )
 
   const velValid = useMemo(
     () => data.filter((d): d is CompositePoint & { velocityZma: number } => d.velocityZma !== null),
@@ -551,14 +553,7 @@ function StrengthCompositeChartInner({
               const sx = xScale(syncedPoint.date) ?? 0
               return (
                 <>
-                  <line
-                    x1={sx}
-                    x2={sx}
-                    y1={0}
-                    y2={yMax}
-                    stroke={VX.crosshair}
-                    strokeWidth={1}
-                  />
+                  <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
                   {syncedPoint.velocityZma !== null && (
                     <circle
                       cx={sx}
@@ -593,11 +588,7 @@ function StrengthCompositeChartInner({
               )
             })()}
 
-          <AxisLeftNumeric
-            scale={yScale}
-            numTicks={5}
-            tickFormat={(v) => fmtSigma(Number(v))}
-          />
+          <AxisLeftNumeric scale={yScale} numTicks={5} tickFormat={(v) => fmtSigma(Number(v))} />
           <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
           <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
@@ -764,8 +755,18 @@ export function StrengthCompositeChart({
       </div>
       <ChartLegend
         items={[
-          { key: 'velocity', label: "Velocity (f′)", color: COMPOSITE_COLORS.velocity, strokeWidth: 2.5 },
-          { key: 'tonnage', label: 'Tonnage growth', color: COMPOSITE_COLORS.tonnage, strokeWidth: 2.5 },
+          {
+            key: 'velocity',
+            label: 'Velocity (f′)',
+            color: COMPOSITE_COLORS.velocity,
+            strokeWidth: 2.5,
+          },
+          {
+            key: 'tonnage',
+            label: 'Tonnage growth',
+            color: COMPOSITE_COLORS.tonnage,
+            strokeWidth: 2.5,
+          },
           { key: 'inol', label: 'INOL quality', color: COMPOSITE_COLORS.inol, strokeWidth: 2.5 },
         ]}
         highlighted={highlighted}

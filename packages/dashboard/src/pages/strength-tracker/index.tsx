@@ -197,7 +197,10 @@ export default function StrengthTrackerPage() {
               <OneRmTrendChart workouts={displayWorkouts} activeExercises={activeExercises} />
             </Col>
             <Col xs={24} lg={12}>
-              <StrengthCompositeChart workouts={displayWorkouts} activeExercises={activeExercises} />
+              <StrengthCompositeChart
+                workouts={displayWorkouts}
+                activeExercises={activeExercises}
+              />
             </Col>
           </Row>
 
