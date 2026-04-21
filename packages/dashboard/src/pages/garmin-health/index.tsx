@@ -119,11 +119,22 @@ export default function GarminHealthPage() {
         {/* Hero: 3 composite cards */}
         <HeroStats data={metrics} isLoading={isLoading} />
 
-        {/* Section 1: Fitness Progression */}
-        {hasHeartData && (
+        {/* Section 1: Effort & Adaptation */}
+        {(hasActivityData || hasHeartData) && (
           <>
-            <SectionTitle title="Fitness Progression" />
-            <FitnessChart data={metrics} />
+            <SectionTitle title="Effort & Adaptation" />
+            <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+              {hasActivityData && (
+                <Col xs={24} lg={12}>
+                  <ActivityBarChart data={metrics} />
+                </Col>
+              )}
+              {hasHeartData && (
+                <Col xs={24} lg={12}>
+                  <FitnessChart data={metrics} />
+                </Col>
+              )}
+            </Row>
           </>
         )}
 
@@ -161,24 +172,19 @@ export default function GarminHealthPage() {
           </>
         )}
 
-        {/* Section 4: Supporting Metrics */}
-        {(hasBodyBattery || hasStressData || hasActivityData) && (
+        {/* Section 4: Body State */}
+        {(hasBodyBattery || hasStressData) && (
           <>
-            <SectionTitle title="Supporting Metrics" />
+            <SectionTitle title="Body State" />
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               {hasBodyBattery && (
-                <Col xs={24} lg={8}>
+                <Col xs={24} lg={12}>
                   <BodyBatteryChart data={metrics} />
                 </Col>
               )}
               {hasStressData && (
-                <Col xs={24} lg={8}>
+                <Col xs={24} lg={12}>
                   <StressChart data={metrics} />
-                </Col>
-              )}
-              {hasActivityData && (
-                <Col xs={24} lg={8}>
-                  <ActivityBarChart data={metrics} />
                 </Col>
               )}
             </Row>
