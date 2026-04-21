@@ -571,6 +571,8 @@ const activityGetValue = (d: ActivityPoint, k: string): number | null => {
       return d.stepsMA
     case 'intensityMin':
       return d.intensityMin
+    case 'intensityMA':
+      return d.intensityMA
   }
   return null
 }
@@ -593,24 +595,35 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
               getValue={activityGetValue}
               positiveBars={[
                 {
-                  key: 'steps',
-                  label: 'Steps',
-                  color: VX.series.steps,
-                  axisSide: 'left',
-                  formatValue: (v) => v.toLocaleString(),
-                },
-                {
                   key: 'intensityMin',
                   label: 'Intensity Min',
                   color: VX.series.intensityMin,
                   axisSide: 'right',
+                  weight: 0.7,
                   formatValue: (v) => `${Math.round(v)} min`,
+                },
+                {
+                  key: 'steps',
+                  label: 'Steps',
+                  color: VX.series.steps,
+                  axisSide: 'left',
+                  weight: 0.3,
+                  formatValue: (v) => v.toLocaleString(),
                 },
               ]}
               lines={[
                 {
+                  key: 'intensityMA',
+                  label: 'Intensity avg',
+                  color: line2,
+                  axisSide: 'right',
+                  dashed: true,
+                  strokeWidth: 1.5,
+                  formatValue: (v) => `${Math.round(v)} min`,
+                },
+                {
                   key: 'stepsMA',
-                  label: '30d avg',
+                  label: 'Steps avg',
                   color: line2,
                   axisSide: 'left',
                   dashed: true,
@@ -619,11 +632,18 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
                 },
               ]}
               barLayout="grouped"
-              zones={[{ from: 10000, to: Infinity, fill: VX.goodSoft, axisSide: 'left' }]}
-              refLines={[{ value: 10000, color: VX.goodRef, dashed: true, axisSide: 'left' }]}
+              zones={[
+                { from: 45, to: Infinity, fill: VX.goodSoft, axisSide: 'right' },
+                { from: 10000, to: Infinity, fill: VX.goodSoft, axisSide: 'left' },
+              ]}
+              refLines={[
+                { value: 45, color: VX.goodRef, dashed: true, axisSide: 'right' },
+                { value: 10000, color: VX.goodRef, dashed: true, axisSide: 'left' },
+              ]}
               leftAxis={{ domain: 'auto', autoMaxFloor: 12000, numTicks: 5 }}
               rightAxis={{
                 domain: 'auto',
+                autoMaxFloor: 60,
                 numTicks: 4,
                 formatTick: (v) => `${v}m`,
               }}
@@ -633,15 +653,15 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
       </div>
       <ChartLegend
         items={[
-          { key: 'steps', label: 'Steps', color: VX.series.steps, shape: 'bar' },
           {
             key: 'intensityMin',
             label: 'Intensity Min',
             color: VX.series.intensityMin,
             shape: 'bar',
           },
+          { key: 'steps', label: 'Steps', color: VX.series.steps, shape: 'bar' },
           {
-            key: 'stepsMA',
+            key: 'trend',
             label: '30d avg',
             color: line2,
             strokeWidth: 1.5,

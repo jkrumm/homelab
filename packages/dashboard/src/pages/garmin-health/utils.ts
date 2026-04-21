@@ -145,21 +145,25 @@ export function buildStressData(data: DailyMetric[]) {
     }))
 }
 
-/** Build activity chart data — includes 30d rolling average for trend context */
+/** Build activity chart data — includes 30d rolling averages for trend context */
 export function buildActivityData(data: DailyMetric[]) {
   const stepsMA = movingAverage(
     data.map((d) => d.steps),
     30,
   )
+  const intensityArr = data.map((d) =>
+    d.moderate_intensity_min !== null || d.vigorous_intensity_min !== null
+      ? (d.moderate_intensity_min ?? 0) + (d.vigorous_intensity_min ?? 0)
+      : null,
+  )
+  const intensityMA = movingAverage(intensityArr, 30)
   return data
     .map((d, i) => ({
       date: d.date,
       steps: d.steps,
       stepsMA: stepsMA[i] ?? null,
-      intensityMin:
-        d.moderate_intensity_min !== null || d.vigorous_intensity_min !== null
-          ? (d.moderate_intensity_min ?? 0) + (d.vigorous_intensity_min ?? 0)
-          : null,
+      intensityMin: intensityArr[i] ?? null,
+      intensityMA: intensityMA[i] ?? null,
       calories: d.total_kcal,
       activeCal: d.active_kcal,
     }))

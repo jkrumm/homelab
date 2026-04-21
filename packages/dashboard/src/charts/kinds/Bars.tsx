@@ -28,6 +28,8 @@ export type BarsBar = {
   formatValue?: (v: number) => string
   /** Y axis to plot against. Honored only in grouped layout. Default 'left'. */
   axisSide?: 'left' | 'right'
+  /** Relative width within the group (only honored in grouped layout). Default 1 — all bars equal. */
+  weight?: number
 }
 
 export type BarsLine = {
@@ -285,10 +287,21 @@ export function Bars<T>(props: BarsProps<T>) {
   )
 
   const groupWidth = Math.max((xMax / Math.max(data.length, 1)) * barWidthRatio, 2)
-  const barWidth =
-    barLayout === 'grouped'
-      ? Math.max(groupWidth / Math.max(positiveBars.length, 1), 2)
-      : groupWidth
+  // Per-bar widths + offsets for grouped layout (weighted distribution).
+  const groupedBarWidths = useMemo(() => {
+    if (barLayout !== 'grouped') return [] as number[]
+    const totalWeight = positiveBars.reduce((s, b) => s + (b.weight ?? 1), 0) || 1
+    return positiveBars.map((b) => Math.max(groupWidth * ((b.weight ?? 1) / totalWeight), 1))
+  }, [positiveBars, groupWidth, barLayout])
+  const groupedBarOffsets = useMemo(() => {
+    const out: number[] = []
+    let cursor = 0
+    for (const w of groupedBarWidths) {
+      out.push(cursor)
+      cursor += w
+    }
+    return out
+  }, [groupedBarWidths])
 
   const scaleFor = (side: 'left' | 'right' | undefined) =>
     side === 'right' && rightYScale ? rightYScale : leftYScale
@@ -370,7 +383,7 @@ export function Bars<T>(props: BarsProps<T>) {
                     key={`${getX(d)}-${b.key}`}
                     x={groupLeft}
                     y={yTop}
-                    width={barWidth}
+                    width={groupWidth}
                     height={yBottom - yTop}
                     fill={b.color}
                     fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
@@ -390,7 +403,7 @@ export function Bars<T>(props: BarsProps<T>) {
                     key={`${getX(d)}-${b.key}-neg`}
                     x={groupLeft}
                     y={yTop}
-                    width={barWidth}
+                    width={groupWidth}
                     height={yBottom - yTop}
                     fill={b.color}
                     fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
@@ -408,9 +421,9 @@ export function Bars<T>(props: BarsProps<T>) {
                 els.push(
                   <rect
                     key={`${getX(d)}-${b.key}`}
-                    x={groupLeft + i * barWidth}
+                    x={groupLeft + (groupedBarOffsets[i] ?? 0)}
                     y={yTop}
-                    width={barWidth}
+                    width={groupedBarWidths[i] ?? 0}
                     height={yBottom - yTop}
                     fill={b.color}
                     fillOpacity={barOpacity?.(d, b.key) ?? 0.85}
