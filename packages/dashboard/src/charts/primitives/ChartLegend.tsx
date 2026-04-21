@@ -5,6 +5,8 @@ export type LegendEntry = {
   secondColor?: string
   strokeWidth?: number
   shape?: 'line' | 'bar' | 'split' | 'splitLine'
+  /** Render line-style swatches as dashed (only applies to 'line' / 'splitLine'). */
+  dashed?: boolean
 }
 
 /**
@@ -53,6 +55,7 @@ export function ChartLegend({
                 y2={7}
                 stroke={item.color}
                 strokeWidth={item.strokeWidth ?? 2.5}
+                strokeDasharray={item.dashed ? '3 2' : undefined}
               />
               <line
                 x1={10}
@@ -61,6 +64,7 @@ export function ChartLegend({
                 y2={7}
                 stroke={item.secondColor}
                 strokeWidth={item.strokeWidth ?? 2.5}
+                strokeDasharray={item.dashed ? '3 2' : undefined}
               />
             </svg>
           ) : item.shape === 'split' ? (
@@ -108,6 +112,7 @@ export function ChartLegend({
                 y2={7}
                 stroke={item.color}
                 strokeWidth={item.strokeWidth ?? 2.5}
+                strokeDasharray={item.dashed ? '3 2' : undefined}
               />
             </svg>
           )}

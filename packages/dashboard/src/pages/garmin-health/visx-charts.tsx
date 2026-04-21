@@ -638,6 +638,7 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
             label: '30d avg',
             color: VX.series.steps,
             strokeWidth: 1.5,
+            dashed: true,
           },
           {
             key: 'intensityMin',

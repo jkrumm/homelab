@@ -80,6 +80,7 @@ export function TooltipRow({
   valueColor,
   shape,
   strokeWidth,
+  dashed,
 }: {
   color: string
   label: string
@@ -87,6 +88,8 @@ export function TooltipRow({
   valueColor?: string
   shape?: 'dot' | 'line' | 'bar'
   strokeWidth?: number
+  /** Render the line swatch as dashed (only applies to shape='line'). */
+  dashed?: boolean
 }) {
   return (
     <div
@@ -101,7 +104,15 @@ export function TooltipRow({
       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {shape === 'line' ? (
           <svg width={12} height={10} style={{ flexShrink: 0 }}>
-            <line x1={0} y1={5} x2={12} y2={5} stroke={color} strokeWidth={strokeWidth ?? 2} />
+            <line
+              x1={0}
+              y1={5}
+              x2={12}
+              y2={5}
+              stroke={color}
+              strokeWidth={strokeWidth ?? 2}
+              strokeDasharray={dashed ? '3 2' : undefined}
+            />
           </svg>
         ) : (
           <span

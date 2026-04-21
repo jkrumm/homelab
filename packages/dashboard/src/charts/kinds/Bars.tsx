@@ -147,7 +147,14 @@ export function Bars<T>(props: BarsProps<T>) {
     numTicksX,
   } = props
 
-  const MARGIN = VX.margin
+  // Widen right margin when a right axis is rendered — labels need ~36px to fit "100"/"60m" etc.
+  const MARGIN = useMemo(
+    () => ({
+      ...VX.margin,
+      right: rightAxis ? Math.max(VX.margin.right, 40) : VX.margin.right,
+    }),
+    [rightAxis],
+  )
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
 
@@ -488,6 +495,7 @@ export function Bars<T>(props: BarsProps<T>) {
                     value={formatLine(ln, v)}
                     shape="line"
                     strokeWidth={ln.strokeWidth}
+                    dashed={ln.dashed}
                   />
                 )
               })}
