@@ -167,17 +167,15 @@ export function buildSleepChartData(data: DailyMetric[]) {
     }))
 }
 
-/** Build body battery chart data with range for area band */
+/** Build body battery chart data — energy balance (charged vs drained) */
 export function buildBodyBatteryData(data: DailyMetric[]) {
   return data
-    .filter((d) => d.bb_highest !== null || d.bb_lowest !== null)
+    .filter((d) => d.bb_charged !== null || d.bb_drained !== null)
     .map((d) => ({
       date: d.date,
-      high: d.bb_highest,
-      low: d.bb_lowest,
-      range: d.bb_highest !== null && d.bb_lowest !== null ? d.bb_highest - d.bb_lowest : null,
       charged: d.bb_charged,
       drained: d.bb_drained,
+      net: d.bb_charged !== null && d.bb_drained !== null ? d.bb_charged - d.bb_drained : null,
     }))
 }
 
@@ -200,7 +198,6 @@ export function buildStressData(data: DailyMetric[]) {
     .map((d) => ({
       date: d.date,
       avgStress: d.avg_stress,
-      maxStress: d.max_stress,
       sleepStress: d.avg_sleep_stress,
     }))
 }
@@ -589,27 +586,29 @@ export interface FitnessDirection {
   vo2max: number | null
 }
 
-/** Compute 5-level fitness direction from RHR + HRV slopes */
+/**
+ * Compute 3-level fitness direction from RHR + HRV slopes over the last 14 days.
+ * Thresholds: RHR slope < -0.05 bpm/day or HRV slope > 0.1 ms/day = positive;
+ * opposite = negative. Conflicting or flat signals = Stable.
+ */
 export function computeFitnessDirection(data: DailyMetric[]): FitnessDirection {
   const recent = data.slice(-14)
   const rhrSlope = linearSlope(recent.map((d) => d.resting_hr))
   const hrvSlope = linearSlope(recent.map((d) => d.hrv_last_night_avg))
 
-  const rhrImproving = rhrSlope !== null && rhrSlope < -0.05
-  const hrvImproving = hrvSlope !== null && hrvSlope > 0.1
-  const rhrDeclining = rhrSlope !== null && rhrSlope > 0.05
-  const hrvDeclining = hrvSlope !== null && hrvSlope < -0.1
+  const rhrPositive = rhrSlope !== null && rhrSlope < -0.05
+  const hrvPositive = hrvSlope !== null && hrvSlope > 0.1
+  const rhrNegative = rhrSlope !== null && rhrSlope > 0.05
+  const hrvNegative = hrvSlope !== null && hrvSlope < -0.1
 
-  // Summary deltas for display
+  const hasPositive = rhrPositive || hrvPositive
+  const hasNegative = rhrNegative || hrvNegative
+
   const summary = computeFitnessSummary(data)
 
-  if (rhrImproving && hrvImproving)
-    return { signal: '\u25b2\u25b2', label: 'Accelerating', color: '#00c853', ...summary }
-  if ((rhrImproving || hrvImproving) && !rhrDeclining && !hrvDeclining)
-    return { signal: '\u25b2', label: 'Improving', color: '#64dd17', ...summary }
-  if (rhrDeclining && hrvDeclining)
-    return { signal: '\u25bc\u25bc', label: 'Regressing', color: '#ff3d00', ...summary }
-  if ((rhrDeclining || hrvDeclining) && !rhrImproving && !hrvImproving)
-    return { signal: '\u25bc', label: 'Declining', color: '#ffd600', ...summary }
-  return { signal: '\u25ba', label: 'Maintaining', color: '#78909c', ...summary }
+  if (hasPositive && !hasNegative)
+    return { signal: '\u25b2', label: 'Improving', color: '#00c853', ...summary }
+  if (hasNegative && !hasPositive)
+    return { signal: '\u25bc', label: 'Declining', color: '#ff3d00', ...summary }
+  return { signal: '\u25ba', label: 'Stable', color: '#78909c', ...summary }
 }

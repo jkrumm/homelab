@@ -29,12 +29,12 @@ export const METRIC_TOOLTIPS = {
   sleepScore:
     'Overall sleep quality (0-100). Combines duration, stage balance, and overnight recovery. 90+ excellent, 80-89 good, 60-79 fair, <60 poor. Garmin user average is 72.',
   bodyBattery:
-    "Garmin's energy reserve (5-100). Charged by rest and sleep, drained by activity and stress. Consistently waking below 50 despite 7+ hours sleep may indicate chronic fatigue or overtraining.",
+    'Energy balance by day. Charged (gained from rest/sleep) above baseline, Drained (spent on activity/stress) below. Net positive = recovery day, net negative = deficit. Persistent deficits (drained > charged for consecutive days) may indicate chronic fatigue or overtraining.',
   hrv: 'Heart Rate Variability (RMSSD in ms). Higher generally indicates better recovery. A sustained 20%+ drop below your baseline for 3+ days may signal overtraining, illness, or chronic stress. Personal trend matters more than absolute values.',
   restingHr:
     'Resting heart rate (bpm). Lower indicates better cardiovascular fitness. Fit adults: 50-65 bpm, endurance athletes: 35-55. A spike of 5-10+ bpm above baseline may signal illness, overtraining, or dehydration.',
   stress:
-    'HRV-based autonomic stress (0-100). 0-24 rest, 25-49 low, 50-74 moderate, 75-100 high. Elevated stress during sleep (should be near zero) may indicate sleep apnea or overtraining.',
+    'HRV-based autonomic stress (0-100). Gradient shows zone — 0-24 rest, 25-49 low, 50-74 moderate, 75+ high. Overnight stress should hug zero; elevated overnight may indicate sleep apnea or overtraining.',
   steps:
     'Daily step count. 7,000-10,000 steps/day significantly reduces all-cause mortality. Benefit plateaus around 10,000 for adults under 60.',
   sleepStages:
@@ -44,8 +44,8 @@ export const METRIC_TOOLTIPS = {
     'Breathing rate. Awake: 12-20 breaths/min, sleeping: 12-16. Consistently >18 during sleep may indicate sleep-disordered breathing. Often rises 2-4 days before other illness symptoms.',
   vo2max:
     'Maximum oxygen uptake (ml/kg/min). Gold standard for cardiorespiratory fitness. Measured from outdoor GPS runs. Trend matters more than absolute number.',
-  intensityMinutes:
-    'WHO: 150-300 min/week moderate OR 75-150 vigorous. Vigorous counts double. The single strongest modifiable factor for longevity.',
+  activityScore:
+    'Daily effort in MET-minutes. Walking (baseline steps ×1), Moderate (×1), Vigorous (×1.8). Weekly target 600 MET-min (≈86/day) covers the WHO floor. Sustained days above target = durable cardiorespiratory benefit; consistently below = detraining risk.',
   recoveryScore:
     'Composite: HRV vs baseline (40%), Sleep Score (35%), Resting HR vs baseline (25%). Green >= 70: push hard. Yellow 40-69: normal. Red <40: prioritize recovery.',
   trainingLoad:

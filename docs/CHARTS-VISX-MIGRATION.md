@@ -29,6 +29,8 @@
 | ✅ | Recovery strain-debt factor | `feat(dashboard): Recovery Score factors in yesterday's strain` |
 | ✅ | FitnessChart → visx (bespoke dual-axis) | `refactor(dashboard): migrate FitnessChart to visx` |
 | ✅ | Body Battery + Stress Levels → visx | `refactor(dashboard): migrate Body Battery and Stress Levels to visx` |
+| ✅ | Body Battery + Stress redesign (diverging bars + gradient area) | `refactor(dashboard): redesign Body Battery as energy balance; Stress with gradient area` |
+| ✅ | Naming + UX review pass | `refactor(dashboard): align chart/section/hero names; add subtitles + header extras` |
 
 ### ⏳ Pending
 

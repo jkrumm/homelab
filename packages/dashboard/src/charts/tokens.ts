@@ -67,17 +67,10 @@ export const VX = {
     awake: '#757575',
 
     // Metrics
-    sleepScore: '#7c4dff',
     sleepDuration: '#5c6bc0',
-    bodyBatteryHigh: '#00bfa5',
-    bodyBatteryLow: '#80cbc4',
-    charged: '#00c853',
-    drained: '#ff6d00',
     hrv: '#aa00ff',
     hrvWeekly: '#ce93d8',
     restingHr: '#ff5252',
-    stress: '#ff6d00',
-    sleepStress: '#5c6bc0',
     steps: '#4caf50',
     intensityMin: '#2e7d32',
     vigorousMin: '#e65100',

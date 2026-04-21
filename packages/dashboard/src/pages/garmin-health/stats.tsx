@@ -123,7 +123,7 @@ export function HeroStats({ data, isLoading }: HeroStatsProps) {
                 {recovery.hrv !== null && <span>HRV {recovery.hrv}ms</span>}
                 {recovery.sleep !== null && <span> | Sleep {recovery.sleep}</span>}
                 {recovery.rhr !== null && <span> | RHR {recovery.rhr}</span>}
-                {recovery.bb !== null && <span> | BB {recovery.bb}</span>}
+                {recovery.bb !== null && <span> | Morning BB {recovery.bb}</span>}
               </div>
             )}
           </Card>
@@ -182,7 +182,7 @@ export function HeroStats({ data, isLoading }: HeroStatsProps) {
         <Col xs={24} sm={8}>
           <Card size="small" style={{ height: '100%' }}>
             <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
-              Training
+              Training Load
               <InfoIcon tooltip={METRIC_TOOLTIPS.trainingLoad} />
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>

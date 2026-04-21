@@ -13,7 +13,7 @@
 | # | Question | Composite signal | Min data |
 |-|-|-|-|
 | 1 | Am I recovered enough today? | Recovery Score (0–100) | 7 days |
-| 2 | Am I getting fitter over time? | Fitness Direction (5-level) | 14 days |
+| 2 | Am I getting fitter over time? | Fitness Direction (3-level) | 14 days |
 | 3 | Am I training the right amount? | Daily Activity Score + ACWR | 14 days |
 | 4 | How well am I sleeping? | Sleep Score + diverging stage stack | Immediate |
 
@@ -205,21 +205,19 @@ Alcohol isn't modelled explicitly — it already surfaces through the HRV / slee
 | 40–69 | **Normal** — standard session |
 | < 40 | **Rest** — prioritise recovery |
 
-### 2.8 Fitness Direction (5-level signal)
+### 2.8 Fitness Direction (3-level signal)
 
-Linear-regression slope over the available window for RHR + HRV.
+Linear-regression slope over the last 14 days for RHR + HRV. Collapsed from the previous 5-level "Accelerating/Improving/Maintaining/Declining/Regressing" because the finer gradations weren't actionable — a user reads "Improving ▲" and either trusts it or not; the degree doesn't change what they do next. Underlying RHR/HRV/VO2 deltas are shown inline under the hero value, so the *reason* for the verdict is always visible.
 
 ```
-rhr_improving  = rhr_slope < −0.05 bpm/day
-hrv_improving  = hrv_slope > +0.10 ms/day
-rhr_declining  = rhr_slope > +0.05 bpm/day
-hrv_declining  = hrv_slope < −0.10 ms/day
+rhr_positive   = rhr_slope < −0.05 bpm/day
+hrv_positive   = hrv_slope > +0.10 ms/day
+rhr_negative   = rhr_slope > +0.05 bpm/day
+hrv_negative   = hrv_slope < −0.10 ms/day
 
-Accelerating   both improving
-Improving      one improving, none declining
-Maintaining    neither improving nor declining
-Declining      one declining, none improving
-Regressing     both declining
+Improving (▲)  at least one positive and no negative
+Declining (▼)  at least one negative and no positive
+Stable (►)     conflicting signals, or neither moves enough
 ```
 
 VO2 Max trend (when ≥2 measurements present) overrides: rising VO2 with flat RHR/HRV → still improving.
@@ -288,25 +286,46 @@ The most actionable insight — is today's training appropriate for today's reco
 ### 4.1 Layout
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│ HERO ROW (3 composite cards — the three-second read)           │
-│ [Recovery 74 Normal] [Fitness Improving] [ACWR 1.04 Optimal]   │
-├────────────────────────────────────────────────────────────────┤
-│ SECTION 1 · EFFORT & ADAPTATION (50/50)                        │
-│ [Daily Activity (MET-min Score)]   [Fitness Trends]            │
-├────────────────────────────────────────────────────────────────┤
-│ SECTION 2 · TRAINING LOAD (50/50)                              │
-│ [ACWR + zones]                     [Load Divergence (MACD)]    │
-├────────────────────────────────────────────────────────────────┤
-│ SECTION 3 · RECOVERY & SLEEP (50/50)                           │
-│ [Recovery Trend + zones]           [Sleep Breakdown diverging] │
-├────────────────────────────────────────────────────────────────┤
-│ SECTION 4 · BODY STATE (50/50)                                 │
-│ [Body Battery range]               [Stress Levels]             │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│ HERO ROW (3 composite cards — the three-second read)                │
+│ [Recovery 74 Normal] [Fitness ▲ Improving] [Training Load 1.04 Opt] │
+├─────────────────────────────────────────────────────────────────────┤
+│ SECTION 1 · ACTIVITY & FITNESS (50/50)                              │
+│ [Daily Activity]                   [Fitness Trends]                 │
+├─────────────────────────────────────────────────────────────────────┤
+│ SECTION 2 · TRAINING LOAD (50/50)                                   │
+│ [Training Load (ACWR)]             [Short vs Long Load]             │
+├─────────────────────────────────────────────────────────────────────┤
+│ SECTION 3 · RECOVERY & SLEEP (50/50)                                │
+│ [Recovery Trend]                   [Sleep Quality]                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ SECTION 4 · ENERGY & STRESS (50/50)                                 │
+│ [Energy Balance]                   [Stress Levels]                  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-Activity sits next to Fitness Trends — pairs "what I did today" with "what my body is becoming". Training-load pair (ACWR + Divergence) reads as one story. The 33/33/33 supporting row is gone; everything is paired or hero.
+Activity sits next to Fitness Trends — pairs "what I did today" (cause) with "what my body is becoming" (consequence). Training-load pair (ACWR + Short vs Long Load) reads as one story. Each chart carries a one-line subtitle stating the question it answers, so a cold reader can orient in a second.
+
+### 4.1.1 Naming Rule (source of truth)
+
+**One concept, one name.** Hero label, section title, and chart title must agree — otherwise a user sees "Training" at the top and "Training Load (ACWR)" below and wonders if they're the same thing.
+
+| Hero card | Section | Chart card title |
+|-|-|-|
+| Recovery | Recovery & Sleep | Recovery Trend |
+| Fitness | Activity & Fitness | Fitness Trends |
+| Training Load | Training Load | Training Load (ACWR) |
+| — | Activity & Fitness | Daily Activity |
+| — | Training Load | Short vs Long Load |
+| — | Recovery & Sleep | Sleep Quality |
+| — | Energy & Stress | Energy Balance |
+| — | Energy & Stress | Stress Levels |
+
+**Column ordering rule:** within each 50/50 row, left = cause/input, right = consequence/response. *Daily Activity → Fitness Trends* (effort → adaptation). *Training Load (ACWR) → Short vs Long Load* (current ratio → evolution). *Recovery Trend → Sleep Quality* (composite → main input). *Energy Balance → Stress Levels* (recovery ledger → autonomic load).
+
+**Subtitle rule:** every chart has a 6-word question underneath its title, so the user can read the page like a FAQ. The subtitles are authored in `visx-charts.tsx` on each `<ChartCard subtitle="…">`.
+
+**Header-extra rule:** every chart shows today's reading (+ zone/verdict when applicable) in the card's top-right slot. This way the hero isn't the only place you see "where you are right now". If a chart can't show one, it's missing a feature — not a stylistic choice.
 
 ### 4.2 Cross-Chart Hover Sync
 
@@ -314,16 +333,16 @@ Activity sits next to Fitness Trends — pairs "what I did today" with "what my 
 
 ### 4.3 Chart-Specific Treatments
 
-| Chart | Visx kind / shape | Notes |
-|-|-|-|
-| Daily Activity | `Bars` (stacked) | 3 segments: walking (light) → moderate (dark green) → vigorous (orange). Header shows today's Score. 30d trend dashed grey on left axis. Target band ≥600. |
-| Fitness Trends | bespoke single-axis (z-score) | RHR (flipped), HRV, and VO2 Max all plotted in personal σ-units on a shared axis — up = improving for all three. 7-day MA lines for RHR/HRV; VO2 Max as sporadic dots (Garmin updates it ~weekly). Tooltip keeps raw bpm / ms / VO2 values alongside the σ reading. |
-| ACWR | `ZonedLine` | 0.8/1.3/1.5 ref lines, optimal-zone band, threshold fills (green above 0.8 threshold, red above 1.3). |
-| Load Divergence | bespoke dual-panel | Top: acute + chronic lines colour-flipping at crossover. Bottom: divergence histogram, green when positive. |
-| Recovery Trend | `ZonedLine` | Push/Normal/Rest zone bands, threshold-fill above/below. |
-| Sleep Breakdown | `Bars` (diverging) | Deep/Light/REM stack above baseline, Awake stack below. Sleep score line on right axis. Target band 7–9h. |
-| Body Battery | bespoke (planned) | Filled high-low band via visx `<Threshold>`, ref line at 50. |
-| Stress Levels | bespoke (planned) | Avg + sleep stress lines, ref lines at 25 and 50. |
+| Chart (title → subtitle) | Visx kind / shape | Header extra | Notes |
+|-|-|-|-|
+| Daily Activity · "Am I moving enough?" | `Bars` (stacked) | Today's score (green if ≥600) | 3 segments: walking (light) → moderate (dark green) → vigorous (orange). 30d trend dashed grey on left axis. Target band ≥600. Tooltip key `activityScore` explains MET-min formula. |
+| Fitness Trends · "Is my body adapting?" | bespoke single-axis (z-score) | VO2 · RHR δ · HRV δ | RHR (lower = fitter), HRV, and VO2 Max all plotted in personal σ-units on a shared axis — up = improving for all three. 7-day MA lines for RHR/HRV; VO2 Max as sporadic dots (Garmin updates ~weekly). Tooltip keeps raw bpm / ms / VO2 alongside σ. |
+| Training Load (ACWR) · "Am I overloading?" | `ZonedLine` | Today's ratio + zone | 0.8/1.3/1.5 ref lines, optimal-zone band, threshold fills (green above 0.8, red above 1.3). |
+| Short vs Long Load · "Is load spiking or tapering?" | bespoke dual-panel | Today's gap (signed) | Top: acute + chronic lines colour-flipping at crossover. Bottom: divergence histogram, green when positive. Formerly "Load Divergence" — renamed so the card title reads as the question a user asks. |
+| Recovery Trend · "Am I ready to push?" | `ZonedLine` | Today's score + verdict | Push/Normal/Rest zone bands, threshold-fill above/below. |
+| Sleep Quality · "How well did I sleep?" | `Bars` (diverging) | Last night's score + total hours | Deep/Light/REM stack above baseline, Awake stack below. Sleep Score line on right axis in theme-neutral grey. Target band 7–9h. Formerly "Sleep Breakdown" — renamed because the primary number is the score, stages are supporting detail. |
+| Energy Balance · "Net recovery or deficit?" | `Bars` (diverging) | Net (charged − drained) | `bb_charged` above baseline, `bb_drained` below (VX.goodSolid / VX.badSolid). Grey Net line overlay on left axis. No right axis — single story: was today a recovery day or deficit. Formerly "Body Battery" — renamed because the chart shows the *balance*, not the BB level (that number lives under the Recovery hero as "Morning BB"). |
+| Stress Levels · "How calm was my day?" | bespoke (gradient area + lines) | Today's level + zone | Vertical SVG `<linearGradient>` under avg_stress mapped to zone thresholds (0/25/50/75 → green→yellow→red); the color IS the stress level. Avg line in theme-neutral grey, Overnight (`avg_sleep_stress`) as dashed grey line (should hug zero). Ref lines at 25/50/75. `max_stress` omitted — near-constant 80–90 on active days. |
 
 ---
 
@@ -353,8 +372,10 @@ The dashboard reads top-to-bottom: answer → evidence → date-level detail.
 | Unify computeTrainingLoad on MET-min | ✅ done | Replaced `mod×1 + vig×1.8`; ACWR/Divergence share the Activity effort metric |
 | Recovery + strain-debt adjustment | ✅ done | Subtracts up to 20% based on yesterday's Activity Score |
 | Migrate Fitness Trends to visx | ✅ done | Bespoke dual-axis (RHR bpm left, HRV ms + VO2 dots right) |
-| Migrate Body Battery to visx | ✅ done | Bespoke range band via `<Threshold>`, ref line at 50 |
-| Migrate Stress Levels to visx | ✅ done | Bespoke area + line with ref lines at 25 / 50 |
+| Migrate Body Battery to visx | ✅ done | `Bars` kind diverging — charged above / drained below. No line overlay (bb_lowest semantic is "daily min", not "morning BB"). |
+| Migrate Stress Levels to visx | ✅ done | Gradient-filled area under avg_stress (green→yellow→red) + Overnight as grey dashed line. max_stress omitted (near-constant, no signal). |
+| Naming + UX review pass | ✅ done | Renames: "Training" → "Training Load" (hero); section 1 → "Activity & Fitness"; section 4 → "Energy & Stress"; "Load Divergence" → "Short vs Long Load"; "Sleep Breakdown" → "Sleep Quality"; "Body Battery" → "Energy Balance"; hero submetric "BB" → "Morning BB"; Fitness Direction collapsed 5→3 levels; `activityScore` tooltip key replaces `intensityMinutes` on the Activity card; RHR legend reads "RHR (lower = fitter)". |
+| Chart subtitles + header extras | ✅ done | `ChartCard` gained a `subtitle` slot — every chart shows the question it answers. Divergence, Recovery, Sleep gained "today's reading" header extras (previously only 5/8 had them). |
 | Drop recharts from dashboard | ⏳ pending | Blocked on strength-tracker migration (out of scope here) |
 
 See `docs/CHARTS-VISX-MIGRATION.md` for phase-by-phase implementation prompts.

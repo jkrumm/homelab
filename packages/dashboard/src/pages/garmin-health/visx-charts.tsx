@@ -7,7 +7,7 @@ import { scaleLinear, scalePoint } from '@visx/scale'
 import { LinePath } from '@visx/shape'
 import { Threshold } from '@visx/threshold'
 import type { DailyMetric } from './types'
-import { METRIC_TOOLTIPS } from './constants'
+import { METRIC_TOOLTIPS, scoreColor } from './constants'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
@@ -55,6 +55,7 @@ export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
   return (
     <ChartCard
       title="Training Load (ACWR)"
+      subtitle="Am I overloading?"
       tooltip={METRIC_TOOLTIPS.trainingLoad}
       extra={
         latest?.acwr !== null && latest?.acwr !== undefined ? (
@@ -74,13 +75,13 @@ export function ACWRThresholdChart({ data }: { data: DailyMetric[] }) {
         ) : null
       }
     >
-      <div style={{ height: 260 }}>
+      <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
             <ZonedLine<TrainingLoadPoint>
               data={loadData}
               width={Math.max(width, 200)}
-              height={260}
+              height={280}
               chartId="acwr"
               getX={(d) => d.date}
               getY={(d) => d.acwr}
@@ -410,16 +411,39 @@ function DivergenceChartInner({
 export function DivergenceThresholdChart({ data }: { data: DailyMetric[] }) {
   const loadData = useMemo(() => computeTrainingLoad(data), [data])
   const [highlighted, setHighlighted] = useState<string | null>(null)
+  const latest = loadData[loadData.length - 1]
+
+  const headerExtra =
+    latest !== undefined ? (
+      <span style={{ fontSize: 12 }}>
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: latest.divergence >= 0 ? VX.goodSolid : VX.badSolid,
+          }}
+        >
+          {latest.divergence >= 0 ? '+' : ''}
+          {latest.divergence.toFixed(1)}
+        </span>
+        <span style={{ opacity: 0.5 }}> Gap</span>
+      </span>
+    ) : null
 
   return (
-    <ChartCard title="Load Divergence" tooltip={METRIC_TOOLTIPS.loadBalance}>
-      <div style={{ height: 260 }}>
+    <ChartCard
+      title="Short vs Long Load"
+      subtitle="Is load spiking or tapering?"
+      tooltip={METRIC_TOOLTIPS.loadBalance}
+      extra={headerExtra}
+    >
+      <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
             <DivergenceChartInner
               data={loadData}
               width={Math.max(width, 200)}
-              height={260}
+              height={280}
               highlighted={highlighted}
             />
           )}
@@ -482,10 +506,36 @@ const sleepGetValue = (d: SleepPoint, k: string): number | null => {
 
 export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildSleepChartData(data), [data])
+  const { line } = useVxTheme()
   const [highlighted, setHighlighted] = useState<string | null>(null)
+  const latest = chartData[chartData.length - 1]
+
+  const headerExtra =
+    latest && latest.sleepScore !== null ? (
+      <span style={{ fontSize: 12 }}>
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: scoreColor(latest.sleepScore),
+          }}
+        >
+          {latest.sleepScore}
+        </span>
+        {(() => {
+          const total = (latest.deep ?? 0) + (latest.light ?? 0) + (latest.rem ?? 0)
+          return total > 0 ? <span style={{ opacity: 0.5 }}> · {total.toFixed(1)}h</span> : null
+        })()}
+      </span>
+    ) : null
 
   return (
-    <ChartCard title="Sleep Breakdown" tooltip={METRIC_TOOLTIPS.sleepStages}>
+    <ChartCard
+      title="Sleep Quality"
+      subtitle="How well did I sleep?"
+      tooltip={METRIC_TOOLTIPS.sleepStages}
+      extra={headerExtra}
+    >
       <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
@@ -518,7 +568,7 @@ export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
                 {
                   key: 'sleepScore',
                   label: 'Sleep Score',
-                  color: VX.series.sleepScore,
+                  color: line,
                   axisSide: 'right',
                   strokeWidth: 2,
                 },
@@ -538,7 +588,7 @@ export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
                 if (total === 0) return null
                 return (
                   <TooltipRow
-                    color={VX.series.sleepScore}
+                    color={line}
                     label="Total"
                     value={`${total.toFixed(1)}h`}
                     shape="line"
@@ -557,7 +607,7 @@ export function SleepBreakdownChart({ data }: { data: DailyMetric[] }) {
           { key: 'light', label: 'Light', color: VX.series.light, shape: 'bar' },
           { key: 'rem', label: 'REM', color: VX.series.rem, shape: 'bar' },
           { key: 'awake', label: 'Awake', color: VX.series.awake, shape: 'bar' },
-          { key: 'sleepScore', label: 'Sleep Score', color: VX.series.sleepScore, strokeWidth: 2 },
+          { key: 'sleepScore', label: 'Sleep Score', color: line, strokeWidth: 2 },
         ]}
         highlighted={highlighted}
         onHighlight={setHighlighted}
@@ -593,7 +643,8 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
   return (
     <ChartCard
       title="Daily Activity"
-      tooltip={METRIC_TOOLTIPS.intensityMinutes}
+      subtitle="Am I moving enough?"
+      tooltip={METRIC_TOOLTIPS.activityScore}
       extra={
         latest?.score !== null && latest?.score !== undefined ? (
           <span style={{ fontSize: 12 }}>
@@ -606,18 +657,18 @@ export function ActivityBarChart({ data }: { data: DailyMetric[] }) {
             >
               {Math.round(latest.score)}
             </span>
-            <span style={{ opacity: 0.5 }}> Score</span>
+            <span style={{ opacity: 0.5 }}> MET-min</span>
           </span>
         ) : null
       }
     >
-      <div style={{ height: 220 }}>
+      <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
             <Bars<ActivityPoint>
               data={chartData}
               width={Math.max(width, 200)}
-              height={220}
+              height={280}
               chartId="activity"
               getX={(d) => d.date}
               getValue={activityGetValue}
@@ -738,16 +789,45 @@ function recoveryZoneLabel(v: number): { text: string; color: string } {
 export function RecoveryThresholdChart({ data }: { data: DailyMetric[] }) {
   const { line } = useVxTheme()
   const chartData = useMemo(() => buildRecoveryTrendData(data), [data])
+  const latest = chartData[chartData.length - 1]
+
+  const headerExtra =
+    latest && latest.recovery !== null ? (
+      <span style={{ fontSize: 12 }}>
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: recoveryZoneLabel(latest.recovery).color,
+          }}
+        >
+          {latest.recovery}
+        </span>
+        <span
+          style={{
+            marginLeft: 6,
+            color: recoveryZoneLabel(latest.recovery).color,
+          }}
+        >
+          {recoveryZoneLabel(latest.recovery).text}
+        </span>
+      </span>
+    ) : null
 
   return (
-    <ChartCard title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore}>
-      <div style={{ height: 260 }}>
+    <ChartCard
+      title="Recovery Trend"
+      subtitle="Am I ready to push?"
+      tooltip={METRIC_TOOLTIPS.recoveryScore}
+      extra={headerExtra}
+    >
+      <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
             <ZonedLine<RecoveryPoint>
               data={chartData}
               width={Math.max(width, 200)}
-              height={260}
+              height={280}
               chartId="recovery"
               getX={(d) => d.date}
               getY={(d) => d.recovery}
@@ -1043,14 +1123,19 @@ export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
   )
 
   return (
-    <ChartCard title="Fitness Trends" tooltip={METRIC_TOOLTIPS.fitnessTrends} extra={headerExtra}>
-      <div style={{ height: 300 }}>
+    <ChartCard
+      title="Fitness Trends"
+      subtitle="Is my body adapting?"
+      tooltip={METRIC_TOOLTIPS.fitnessTrends}
+      extra={headerExtra}
+    >
+      <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
             <FitnessTrendChartInner
               data={chartData}
               width={Math.max(width, 200)}
-              height={300}
+              height={280}
               highlighted={highlighted}
             />
           )}
@@ -1060,7 +1145,7 @@ export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
         items={[
           {
             key: 'rhr',
-            label: 'RHR (7d avg, flipped)',
+            label: 'RHR (lower = fitter)',
             color: VX.series.restingHr,
             strokeWidth: 2.5,
           },
@@ -1079,235 +1164,81 @@ export function FitnessTrendChart({ data }: { data: DailyMetric[] }) {
   )
 }
 
-// ── Body Battery — filled high/low range band ──────────────────────────
+// ── Body Battery — Energy Balance (diverging bars + Morning Low line) ──
 
 type BodyBatteryPoint = ReturnType<typeof buildBodyBatteryData>[number]
 
-function BodyBatteryRangeChartInner({
-  data,
-  width,
-  height,
-  highlighted,
-}: {
-  data: BodyBatteryPoint[]
-  width: number
-  height: number
-  highlighted: string | null
-}) {
-  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yMax = height - MARGIN.top - MARGIN.bottom
-
-  const xScale = useMemo(
-    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
-    [data, xMax],
-  )
-  const yScale = useMemo(() => scaleLinear<number>({ domain: [0, 100], range: [yMax, 0] }), [yMax])
-
-  const highValid = useMemo(
-    () => data.filter((d): d is BodyBatteryPoint & { high: number } => d.high !== null),
-    [data],
-  )
-  const lowValid = useMemo(
-    () => data.filter((d): d is BodyBatteryPoint & { low: number } => d.low !== null),
-    [data],
-  )
-
-  const bandData = useMemo(
-    () =>
-      data.filter(
-        (d): d is BodyBatteryPoint & { high: number; low: number } =>
-          d.high !== null && d.low !== null,
-      ),
-    [data],
-  )
-
-  const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<BodyBatteryPoint>({
-      data,
-      chartId: 'body-battery',
-      getX: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN.left,
-    })
-
-  const tickValues = useMemo(
-    () =>
-      smartTicks(
-        data.map((d) => d.date),
-        xMax,
-      ),
-    [data, xMax],
-  )
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN.left} top={MARGIN.top}>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          {/* Filled range band between low (y0) and high (y1) — dims when either legend item is focused */}
-          <Threshold<BodyBatteryPoint & { high: number; low: number }>
-            id="bb-range"
-            data={bandData}
-            x={(d) => xScale(d.date) ?? 0}
-            y0={(d) => yScale(d.low)}
-            y1={(d) => yScale(d.high)}
-            clipAboveTo={0}
-            clipBelowTo={yMax}
-            curve={curveMonotoneX}
-            belowAreaProps={{
-              fill: VX.series.bodyBatteryHigh,
-              fillOpacity: 0.25 * (highlighted === null ? 1 : 0.6),
-            }}
-            aboveAreaProps={{
-              fill: VX.series.bodyBatteryHigh,
-              fillOpacity: 0.25 * (highlighted === null ? 1 : 0.6),
-            }}
-          />
-
-          {/* Reference line at 50 */}
-          <line
-            x1={0}
-            x2={xMax}
-            y1={yScale(50)}
-            y2={yScale(50)}
-            stroke={VX.badRef}
-            strokeDasharray="4 4"
-          />
-
-          {/* Top edge — solid 2px (Daily High) */}
-          <LinePath<BodyBatteryPoint & { high: number }>
-            data={highValid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.high)}
-            stroke={VX.series.bodyBatteryHigh}
-            strokeWidth={2}
-            strokeOpacity={dim('high')}
-            curve={curveMonotoneX}
-          />
-          {/* Bottom edge — dashed 1.5px (Morning Low) */}
-          <LinePath<BodyBatteryPoint & { low: number }>
-            data={lowValid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.low)}
-            stroke={VX.series.bodyBatteryLow}
-            strokeWidth={1.5}
-            strokeDasharray="4 4"
-            strokeOpacity={dim('low')}
-            curve={curveMonotoneX}
-          />
-
-          {syncedPoint &&
-            (() => {
-              const sx = xScale(syncedPoint.date) ?? 0
-              return (
-                <>
-                  <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
-                  {syncedPoint.high !== null && (
-                    <circle
-                      cx={sx}
-                      cy={yScale(syncedPoint.high)}
-                      r={4}
-                      fill={VX.series.bodyBatteryHigh}
-                      stroke={VX.dotStroke}
-                      strokeWidth={2}
-                    />
-                  )}
-                  {syncedPoint.low !== null && (
-                    <circle
-                      cx={sx}
-                      cy={yScale(syncedPoint.low)}
-                      r={4}
-                      fill={VX.series.bodyBatteryLow}
-                      stroke={VX.dotStroke}
-                      strokeWidth={2}
-                    />
-                  )}
-                </>
-              )
-            })()}
-
-          <AxisLeftNumeric scale={yScale} numTicks={5} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader date={tip.data.date} />
-            <TooltipBody>
-              {tip.data.high !== null && (
-                <TooltipRow
-                  color={VX.series.bodyBatteryHigh}
-                  label="Daily High"
-                  value={String(tip.data.high)}
-                  shape="line"
-                  strokeWidth={2}
-                />
-              )}
-              {tip.data.low !== null && (
-                <TooltipRow
-                  color={VX.series.bodyBatteryLow}
-                  label="Morning Low"
-                  value={String(tip.data.low)}
-                  shape="line"
-                  strokeWidth={1.5}
-                  dashed
-                />
-              )}
-              {tip.data.charged !== null && (
-                <TooltipRow
-                  color={VX.series.bodyBatteryHigh}
-                  label="Charged"
-                  value={`+${tip.data.charged}`}
-                  shape="dot"
-                />
-              )}
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
-  )
-}
+const bbGetValue = (d: BodyBatteryPoint, k: string): number | null =>
+  k === 'charged' ? d.charged : k === 'drained' ? d.drained : k === 'net' ? d.net : null
 
 export function BodyBatteryRangeChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildBodyBatteryData(data), [data])
+  const { line } = useVxTheme()
   const [highlighted, setHighlighted] = useState<string | null>(null)
+  const latest = chartData[chartData.length - 1]
+
+  const headerExtra =
+    latest && latest.net !== null ? (
+      <span style={{ fontSize: 12 }}>
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: latest.net >= 0 ? VX.goodSolid : VX.badSolid,
+          }}
+        >
+          {latest.net >= 0 ? '+' : ''}
+          {latest.net}
+        </span>
+        <span style={{ opacity: 0.5 }}> Net</span>
+      </span>
+    ) : null
 
   return (
-    <ChartCard title="Body Battery" tooltip={METRIC_TOOLTIPS.bodyBattery}>
-      <div style={{ height: 220 }}>
+    <ChartCard
+      title="Energy Balance"
+      subtitle="Net recovery or deficit?"
+      tooltip={METRIC_TOOLTIPS.bodyBattery}
+      extra={headerExtra}
+    >
+      <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
-            <BodyBatteryRangeChartInner
+            <Bars<BodyBatteryPoint>
               data={chartData}
               width={Math.max(width, 200)}
-              height={220}
-              highlighted={highlighted}
+              height={280}
+              chartId="body-battery"
+              getX={(d) => d.date}
+              getValue={bbGetValue}
+              positiveBars={[{ key: 'charged', label: 'Charged', color: VX.goodSolid }]}
+              negativeBars={[{ key: 'drained', label: 'Drained', color: VX.badSolid }]}
+              lines={[
+                {
+                  key: 'net',
+                  label: 'Net',
+                  color: line,
+                  axisSide: 'left',
+                  strokeWidth: 2,
+                  formatValue: (v) => `${v >= 0 ? '+' : ''}${Math.round(v)}`,
+                },
+              ]}
+              leftAxis={{
+                domain: 'auto',
+                autoPad: 1.1,
+                numTicks: 5,
+                formatTick: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
+              }}
+              highlightedKey={highlighted}
             />
           )}
         </ParentSize>
       </div>
       <ChartLegend
         items={[
-          {
-            key: 'high',
-            label: 'Daily High',
-            color: VX.series.bodyBatteryHigh,
-            strokeWidth: 2,
-          },
-          {
-            key: 'low',
-            label: 'Morning Low',
-            color: VX.series.bodyBatteryLow,
-            strokeWidth: 1.5,
-            dashed: true,
-          },
+          { key: 'charged', label: 'Charged', color: VX.goodSolid, shape: 'bar' },
+          { key: 'drained', label: 'Drained', color: VX.badSolid, shape: 'bar' },
+          { key: 'net', label: 'Net', color: line, strokeWidth: 2 },
         ]}
         highlighted={highlighted}
         onHighlight={setHighlighted}
@@ -1331,6 +1262,7 @@ function StressLevelsChartInner({
   height: number
   highlighted: string | null
 }) {
+  const { line, line2 } = useVxTheme()
   const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
@@ -1375,7 +1307,25 @@ function StressLevelsChartInner({
         <Group left={MARGIN.left} top={MARGIN.top}>
           <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
 
-          {/* Filled area for avg stress */}
+          {/* Gradient mapped to stress zones (userSpaceOnUse so each y-pixel has its own color) */}
+          <defs>
+            <linearGradient
+              id="stress-zone-gradient"
+              gradientUnits="userSpaceOnUse"
+              x1={0}
+              y1={yScale(100)}
+              x2={0}
+              y2={yScale(0)}
+            >
+              <stop offset="0%" stopColor={VX.badSolid} stopOpacity={0.45} />
+              <stop offset="25%" stopColor={VX.badSolid} stopOpacity={0.3} />
+              <stop offset="50%" stopColor={VX.warnSolid} stopOpacity={0.28} />
+              <stop offset="75%" stopColor={VX.warnSolid} stopOpacity={0.15} />
+              <stop offset="100%" stopColor={VX.goodSolid} stopOpacity={0.1} />
+            </linearGradient>
+          </defs>
+
+          {/* Gradient-filled area under avg_stress */}
           <Threshold<StressPoint & { avgStress: number }>
             id="stress-area"
             data={avgValid}
@@ -1385,11 +1335,11 @@ function StressLevelsChartInner({
             clipAboveTo={0}
             clipBelowTo={yMax}
             curve={curveMonotoneX}
-            belowAreaProps={{ fill: VX.series.stress, fillOpacity: 0.15 * dim('avg') }}
-            aboveAreaProps={{ fill: VX.series.stress, fillOpacity: 0.15 * dim('avg') }}
+            belowAreaProps={{ fill: 'url(#stress-zone-gradient)', fillOpacity: dim('avg') }}
+            aboveAreaProps={{ fill: 'url(#stress-zone-gradient)', fillOpacity: dim('avg') }}
           />
 
-          {/* Reference lines at 25 (relaxed) and 50 (elevated) */}
+          {/* Zone thresholds: 25 (rest/low), 50 (low/moderate), 75 (moderate/high) */}
           <line
             x1={0}
             x2={xMax}
@@ -1406,22 +1356,34 @@ function StressLevelsChartInner({
             stroke={VX.warnRef}
             strokeDasharray="4 4"
           />
+          <line
+            x1={0}
+            x2={xMax}
+            y1={yScale(75)}
+            y2={yScale(75)}
+            stroke={VX.badRef}
+            strokeDasharray="4 4"
+          />
 
+          {/* Avg stress — primary line (theme neutral so gradient carries the stress semantic) */}
           <LinePath<StressPoint & { avgStress: number }>
             data={avgValid}
             x={(d) => xScale(d.date) ?? 0}
             y={(d) => yScale(d.avgStress)}
-            stroke={VX.series.stress}
+            stroke={line}
             strokeWidth={2}
             strokeOpacity={dim('avg')}
             curve={curveMonotoneX}
           />
+
+          {/* Overnight stress — grey dashed, should hug zero */}
           <LinePath<StressPoint & { sleepStress: number }>
             data={sleepValid}
             x={(d) => xScale(d.date) ?? 0}
             y={(d) => yScale(d.sleepStress)}
-            stroke={VX.series.sleepStress}
+            stroke={line2}
             strokeWidth={1.5}
+            strokeDasharray="4 4"
             strokeOpacity={dim('sleep')}
             curve={curveMonotoneX}
           />
@@ -1437,7 +1399,7 @@ function StressLevelsChartInner({
                       cx={sx}
                       cy={yScale(syncedPoint.avgStress)}
                       r={4}
-                      fill={VX.series.stress}
+                      fill={line}
                       stroke={VX.dotStroke}
                       strokeWidth={2}
                     />
@@ -1447,7 +1409,7 @@ function StressLevelsChartInner({
                       cx={sx}
                       cy={yScale(syncedPoint.sleepStress)}
                       r={4}
-                      fill={VX.series.sleepStress}
+                      fill={line2}
                       stroke={VX.dotStroke}
                       strokeWidth={2}
                     />
@@ -1465,11 +1427,19 @@ function StressLevelsChartInner({
       <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
         {tip && isDirectHover && (
           <>
-            <TooltipHeader date={tip.data.date} />
+            <TooltipHeader
+              date={tip.data.date}
+              label={
+                tip.data.avgStress !== null ? stressZoneLabel(tip.data.avgStress).text : undefined
+              }
+              labelColor={
+                tip.data.avgStress !== null ? stressZoneLabel(tip.data.avgStress).color : undefined
+              }
+            />
             <TooltipBody>
               {tip.data.avgStress !== null && (
                 <TooltipRow
-                  color={VX.series.stress}
+                  color={line}
                   label="Avg Stress"
                   value={String(Math.round(tip.data.avgStress))}
                   shape="line"
@@ -1478,11 +1448,12 @@ function StressLevelsChartInner({
               )}
               {tip.data.sleepStress !== null && (
                 <TooltipRow
-                  color={VX.series.sleepStress}
-                  label="Sleep Stress"
+                  color={line2}
+                  label="Overnight"
                   value={String(Math.round(tip.data.sleepStress))}
                   shape="line"
                   strokeWidth={1.5}
+                  dashed
                 />
               )}
             </TooltipBody>
@@ -1493,19 +1464,49 @@ function StressLevelsChartInner({
   )
 }
 
+function stressZoneLabel(v: number): { text: string; color: string } {
+  if (v >= 75) return { text: 'High', color: VX.badSolid }
+  if (v >= 50) return { text: 'Moderate', color: VX.warnSolid }
+  if (v >= 25) return { text: 'Low', color: VX.goodSolid }
+  return { text: 'Rest', color: VX.goodSolid }
+}
+
 export function StressLevelsChart({ data }: { data: DailyMetric[] }) {
   const chartData = useMemo(() => buildStressData(data), [data])
   const [highlighted, setHighlighted] = useState<string | null>(null)
+  const { line, line2 } = useVxTheme()
+  const latest = chartData[chartData.length - 1]
+
+  const headerExtra =
+    latest && latest.avgStress !== null ? (
+      <span style={{ fontSize: 12 }}>
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: stressZoneLabel(latest.avgStress).color,
+          }}
+        >
+          {Math.round(latest.avgStress)}
+        </span>
+        <span style={{ opacity: 0.5 }}> {stressZoneLabel(latest.avgStress).text}</span>
+      </span>
+    ) : null
 
   return (
-    <ChartCard title="Stress Levels" tooltip={METRIC_TOOLTIPS.stress}>
-      <div style={{ height: 220 }}>
+    <ChartCard
+      title="Stress Levels"
+      subtitle="How calm was my day?"
+      tooltip={METRIC_TOOLTIPS.stress}
+      extra={headerExtra}
+    >
+      <div style={{ height: 280 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
             <StressLevelsChartInner
               data={chartData}
               width={Math.max(width, 200)}
-              height={220}
+              height={280}
               highlighted={highlighted}
             />
           )}
@@ -1513,12 +1514,13 @@ export function StressLevelsChart({ data }: { data: DailyMetric[] }) {
       </div>
       <ChartLegend
         items={[
-          { key: 'avg', label: 'Avg Stress', color: VX.series.stress, strokeWidth: 2 },
+          { key: 'avg', label: 'Avg Stress', color: line, strokeWidth: 2 },
           {
             key: 'sleep',
-            label: 'Sleep Stress',
-            color: VX.series.sleepStress,
+            label: 'Overnight',
+            color: line2,
             strokeWidth: 1.5,
+            dashed: true,
           },
         ]}
         highlighted={highlighted}

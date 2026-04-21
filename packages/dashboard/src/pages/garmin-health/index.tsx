@@ -124,7 +124,7 @@ export default function GarminHealthPage() {
         {/* Section 1: Effort & Adaptation */}
         {(hasActivityData || hasHeartData) && (
           <>
-            <SectionTitle title="Effort & Adaptation" />
+            <SectionTitle title="Activity & Fitness" />
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               {hasActivityData && (
                 <Col xs={24} lg={12}>
@@ -177,7 +177,7 @@ export default function GarminHealthPage() {
         {/* Section 4: Body State */}
         {(hasBodyBattery || hasStressData) && (
           <>
-            <SectionTitle title="Body State" />
+            <SectionTitle title="Energy & Stress" />
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               {hasBodyBattery && (
                 <Col xs={24} lg={12}>
