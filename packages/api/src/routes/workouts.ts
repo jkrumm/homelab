@@ -206,6 +206,15 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
   .post(
     '/',
     async ({ body, set }) => {
+      const [exists] = await db
+        .select({ id: exercises.id })
+        .from(exercises)
+        .where(eq(exercises.id, body.exercise_id))
+      if (!exists) {
+        set.status = 400
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return `Unknown exercise_id: ${body.exercise_id}` as any
+      }
       const result = await db.transaction(async (tx) => {
         const [workout] = await tx
           .insert(workouts)
@@ -247,7 +256,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           }),
         ),
       }),
-      response: { 201: t.Object({ id: t.Number() }) },
+      response: {
+        201: t.Object({ id: t.Number() }),
+        400: t.String(),
+      },
       detail: {
         tags: ['Workouts'],
         summary: 'Create workout with sets (transactional)',
@@ -266,6 +278,18 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         set.status = 404
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return 'Not found' as any
+      }
+
+      if (body.exercise_id !== undefined) {
+        const [ok] = await db
+          .select({ id: exercises.id })
+          .from(exercises)
+          .where(eq(exercises.id, body.exercise_id))
+        if (!ok) {
+          set.status = 400
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return `Unknown exercise_id: ${body.exercise_id}` as any
+        }
       }
 
       await db.transaction(async (tx) => {
@@ -320,6 +344,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       }),
       response: {
         200: t.Object({ id: t.Number() }),
+        400: t.String(),
         404: t.String(),
       },
       detail: {

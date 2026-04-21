@@ -1148,7 +1148,7 @@ export function TrainingLoadChart({
             fontSize: 13,
           }}
         >
-          Not enough data — need at least 4 weeks
+          Not enough data — need at least 2 weeks of sessions
         </div>
         <ChartLegend items={[]} highlighted={null} onHighlight={() => {}} />
       </ChartCard>
@@ -2282,6 +2282,7 @@ export function ReadinessStrainChart({
         items={[
           { key: 'readiness', label: 'Readiness (adjusted)', color: line },
           { key: 'push', label: 'Push (≥70)', color: VX.goodSolid, shape: 'bar' },
+          { key: 'normal', label: 'Normal (40–69)', color: VX.warnSolid, shape: 'bar' },
           { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },
         ]}
         highlighted={null}
