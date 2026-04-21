@@ -1,4 +1,4 @@
-import { AxisBottom, AxisLeft, type AxisScale } from '@visx/axis'
+import { AxisBottom, AxisLeft, AxisRight, type AxisScale } from '@visx/axis'
 import { useVxTheme } from '../theme'
 import { VX } from '../tokens'
 import { fmtAxisDate } from '../utils/format'
@@ -17,6 +17,30 @@ export function AxisLeftNumeric({
       scale={scale}
       numTicks={numTicks}
       tickLabelProps={{ fill: axis, fontSize: VX.axisFont, dx: -4 }}
+      stroke={axisStroke}
+      tickStroke={axisStroke}
+    />
+  )
+}
+
+/** Themed right numeric axis — mirrors AxisLeftNumeric for dual-axis charts. */
+export function AxisRightNumeric({
+  scale,
+  left,
+  numTicks = 5,
+}: {
+  scale: AxisScale
+  /** Left offset inside the Group (typically xMax). Required since AxisRight needs positioning. */
+  left: number
+  numTicks?: number
+}) {
+  const { axis, axisStroke } = useVxTheme()
+  return (
+    <AxisRight
+      left={left}
+      scale={scale}
+      numTicks={numTicks}
+      tickLabelProps={{ fill: axis, fontSize: VX.axisFont, dx: 4 }}
       stroke={axisStroke}
       tickStroke={axisStroke}
     />

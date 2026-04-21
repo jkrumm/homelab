@@ -11,7 +11,7 @@ export {
   TooltipBody,
   useTooltipStyles,
 } from './primitives/ChartTooltip'
-export { AxisBottomDate, AxisLeftNumeric } from './primitives/Axes'
+export { AxisBottomDate, AxisLeftNumeric, AxisRightNumeric } from './primitives/Axes'
 export { HoverOverlay } from './primitives/HoverOverlay'
 
 export { useChartTooltip, type TooltipState } from './hooks/useChartTooltip'
