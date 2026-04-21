@@ -7,7 +7,6 @@ export interface WeightLogEntry {
   weight_kg: number
 }
 
-
 export interface UserProfile {
   gender: 'male' | 'female' | null
   goal_weight_kg: number | null
