@@ -1,18 +1,43 @@
-import { useList, useOne } from '@refinedev/core'
+import { useEffect, useState } from 'react'
+import { useList } from '@refinedev/core'
+import { api } from '../../providers/eden'
 
 export interface WeightLogEntry {
   date: string
   weight_kg: number
 }
 
-export interface DailyMetricEntry {
-  date: string
-  // weight_kg is not currently in the daily_metrics schema; reserved for future use
-  [key: string]: unknown
+
+export interface UserProfile {
+  gender: 'male' | 'female' | null
+  goal_weight_kg: number | null
 }
 
-export interface UserProfileEntry {
-  goal_weight_kg: number | null
+let _genderWarned = false
+
+export function useUserProfile(): UserProfile | null {
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+
+  useEffect(() => {
+    api['user-profile']
+      .get()
+      .then(({ data }) => {
+        if (data) {
+          const gender = data.gender as 'male' | 'female' | null
+          if (!gender && !_genderWarned) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              '[StrengthTracker] user_profile.gender is null — defaulting to male for DOTS. Set gender in user profile for accurate balance ratios.',
+            )
+            _genderWarned = true
+          }
+          setProfile({ gender, goal_weight_kg: data.goal_weight_kg })
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  return profile
 }
 
 const HARD_FALLBACK_KG = 80
@@ -43,14 +68,10 @@ export function useBodyWeight(): (date: string) => number {
     pagination: { currentPage: 1, pageSize: 500 },
     sorters: [{ field: 'date', order: 'desc' }],
   })
-  const { result: profileResult } = useOne<UserProfileEntry>({
-    resource: 'user-profile',
-    id: '1',
-  })
+  const profile = useUserProfile()
 
   const weightLog = (weightLogResult.data as WeightLogEntry[] | undefined) ?? []
-  const profileDefault =
-    (profileResult as UserProfileEntry | undefined)?.goal_weight_kg ?? HARD_FALLBACK_KG
+  const profileDefault = profile?.goal_weight_kg ?? HARD_FALLBACK_KG
 
   return (date: string) => bodyWeight(date, { weightLog, profileDefault })
 }

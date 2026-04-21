@@ -32,6 +32,16 @@ export const METRIC_TOOLTIPS = {
   inol: 'INOL (Intensity × Number Of Lifts) = Σ reps / (100 − %1RM) per session. Optimal zone 0.6–1.0. Below is underdosing, above is high CNS fatigue. Only work/AMRAP sets with 1–12 reps and ≤3 RIR count.',
   momentum:
     'e1RM trend with 8-session moving average (top). Velocity (%/day, 28-day linear regression) in the bottom panel — green bars = positive trend, red = decline.',
+  relativeProgression:
+    'Each lift normalized to 100% at the start of the selected date range. Shows relative momentum — which lifts are gaining, which are stalling — independent of absolute strength levels.',
+  strengthRatios:
+    'DOTS-adjusted strength ratios vs IPF normative ranges (809,986 entries). Green band = expected range. Colored tick = current ratio. ✓ balanced · △ imbalanced (>15% off) · ✗ critical (>30% off). Pull-up ratio = added weight / bodyweight.',
+  heroStrength:
+    "Strength Direction: 3-level verdict (Improving/Stable/Declining) from 28-day e1RM velocity (f') for the leader lift. Sub-text shows f'' sign — accelerating means the trend is steepening, decelerating means it's tapering.",
+  heroLoadQuality:
+    'Load Quality: 0–100 composite. 40% INOL zone score (optimal: 0.6–1.0) + 40% ACWR zone score (optimal: 0.8–1.3) + 20% weekly volume vs personal MEV/MAV landmarks. ≥75 = Quality · 50–74 = Adequate · <50 = Poor.',
+  heroBalance:
+    'Balance: DOTS-adjusted ratio status across DL/Squat, Squat/Bench, DL/Bench, and Pull-up/BW. Shows the worst-offender pair. Balanced = all ratios within normative range. Imbalanced = >15% off. Critical = >30% off.',
 } as const
 
 export function acwrZoneColor(zone: AcwrZone): string {

@@ -1,124 +1,215 @@
-import { Card, Col, Row, Spin, Statistic, Tooltip } from 'antd'
+import { Card, Col, Row, Spin, Tooltip } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons'
 import { useMemo } from 'react'
+import { VX } from '../../charts'
+import { METRIC_TOOLTIPS } from './constants'
 import type { ExerciseKey, Workout } from './types'
-import { computeSummaryStats } from './utils'
+import {
+  computeBalanceComposite,
+  computeLoadQuality,
+  computeStrengthDirectionHero,
+  computeStrengthRatios,
+  type RatioStatus,
+} from './analytics'
+import { exerciseLabel } from './utils'
 
-function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return null
-  const sign = delta >= 0 ? '+' : ''
-  const color = delta > 0 ? '#52c41a' : delta < 0 ? '#ff4d4f' : 'rgba(128,128,128,0.6)'
+function InfoIcon({ tooltip }: { tooltip: string }) {
   return (
-    <span style={{ fontSize: 14, fontWeight: 500, color, marginLeft: 6 }}>
-      {sign}
-      {delta.toFixed(0)}%
-    </span>
+    <Tooltip title={tooltip} placement="bottom">
+      <InfoCircleOutlined
+        style={{ fontSize: 11, marginLeft: 4, color: 'rgba(128,128,128,0.45)', cursor: 'help' }}
+      />
+    </Tooltip>
   )
 }
 
-interface SummaryStatsProps {
+function directionArrow(dir: 'improving' | 'stable' | 'declining'): string {
+  if (dir === 'improving') return '▲'
+  if (dir === 'declining') return '▼'
+  return '►'
+}
+
+function directionColor(dir: 'improving' | 'stable' | 'declining'): string {
+  if (dir === 'improving') return VX.goodSolid
+  if (dir === 'declining') return VX.badSolid
+  return VX.warnSolid
+}
+
+function loadQualityColor(score: number): string {
+  if (score >= 75) return VX.goodSolid
+  if (score >= 50) return VX.warnSolid
+  return VX.badSolid
+}
+
+function balanceColor(status: RatioStatus | null): string {
+  if (status === 'critical') return VX.badSolid
+  if (status === 'imbalanced') return VX.warnSolid
+  if (status === 'balanced') return VX.goodSolid
+  return 'rgba(128,128,128,0.5)'
+}
+
+function balanceSymbol(status: RatioStatus | null): string {
+  if (status === 'critical') return '✗'
+  if (status === 'imbalanced') return '△'
+  if (status === 'balanced') return '✓'
+  return '—'
+}
+
+function balanceLabel(status: RatioStatus | null): string {
+  if (status === 'critical') return 'Critical'
+  if (status === 'imbalanced') return 'Imbalanced'
+  if (status === 'balanced') return 'Balanced'
+  return 'No data'
+}
+
+interface HeroStatsProps {
   workouts: Workout[]
   activeExercises: ExerciseKey[]
+  bodyWeightKg: number
+  gender: 'male' | 'female'
   isLoading: boolean
 }
 
-export function SummaryStats({ workouts, activeExercises, isLoading }: SummaryStatsProps) {
-  const stats = useMemo(
-    () => computeSummaryStats(workouts, activeExercises),
+export function HeroStats({
+  workouts,
+  activeExercises,
+  bodyWeightKg,
+  gender,
+  isLoading,
+}: HeroStatsProps) {
+  const strengthDir = useMemo(
+    () => computeStrengthDirectionHero(workouts, activeExercises),
     [workouts, activeExercises],
   )
 
-  const statCards: {
-    label: string
-    value: string | number
-    suffix: string
-    delta: number | null
-    tooltip: string
-  }[] = [
-    {
-      label: 'Best 1RM',
-      value: stats.best1rm > 0 ? stats.best1rm.toFixed(1) : '—',
-      suffix: stats.best1rm > 0 ? 'kg' : '',
-      delta: null,
-      tooltip:
-        'Your all-time estimated one-rep max. This is your strength ceiling — the theoretical maximum you could lift for a single rep based on your best performance.',
-    },
-    {
-      label: 'Current 1RM',
-      value: stats.current1rmAvg > 0 ? stats.current1rmAvg.toFixed(1) : '—',
-      suffix: stats.current1rmAvg > 0 ? 'kg' : '',
-      delta: stats.current1rmDelta,
-      tooltip:
-        'Average estimated 1RM over the last 30 days. The % shows change vs the previous 30 days. Positive = getting stronger. A drop after a deload week is normal.',
-    },
-    {
-      label: 'Vol / week',
-      value: Math.round(stats.weeklyVolume),
-      suffix: 'kg',
-      delta: stats.weeklyVolumeDelta,
-      tooltip:
-        'Total training volume (sets x reps x weight) in the last 7 days. The % compares to the previous 7 days. Volume is the #1 driver of muscle growth — aim for gradual weekly increases of 5-10%.',
-    },
-    {
-      label: 'Intensity',
-      value: stats.avgIntensity !== null ? stats.avgIntensity.toFixed(0) : '—',
-      suffix: stats.avgIntensity !== null ? '%' : '',
-      delta: stats.intensityDelta,
-      tooltip:
-        'Average work set weight as a percentage of your estimated 1RM (last 30 days vs previous 30 days). 70-85% = hypertrophy zone, 85%+ = maximal strength. Rising intensity with stable volume = peaking. Dropping intensity with rising volume = accumulation phase.',
-    },
-    {
-      label: 'Frequency',
-      value: stats.freqPerWeek,
-      suffix: 'x/wk',
-      delta: stats.freqDelta,
-      tooltip:
-        'Average training sessions per week (last 30 days vs previous 30 days). Research shows 2x per muscle group per week is optimal. A drop may signal recovery issues or schedule changes.',
-    },
-    {
-      label: 'Sessions',
-      value: stats.sessionsLast30,
-      suffix: '',
-      delta: stats.sessionsDelta,
-      tooltip:
-        'Total training sessions in the last 30 days. The % compares to the previous 30 days. Consistency matters more than intensity — a sudden drop may indicate recovery issues.',
-    },
-  ]
+  const loadQuality = useMemo(
+    () => computeLoadQuality(workouts, activeExercises),
+    [workouts, activeExercises],
+  )
+
+  const ratios = useMemo(
+    () => computeStrengthRatios(workouts, bodyWeightKg, gender),
+    [workouts, bodyWeightKg, gender],
+  )
+
+  const balance = useMemo(() => computeBalanceComposite(ratios), [ratios])
 
   return (
     <Spin spinning={isLoading}>
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        {statCards.map((stat) => (
-          <Col xs={12} sm={8} md={4} key={stat.label}>
-            <Card size="small">
-              <Statistic
-                title={
-                  <span>
-                    {stat.label}
-                    <Tooltip title={stat.tooltip} placement="bottom">
-                      <InfoCircleOutlined
-                        style={{
-                          fontSize: 11,
-                          marginLeft: 4,
-                          color: 'rgba(128,128,128,0.45)',
-                          cursor: 'help',
-                        }}
-                      />
-                    </Tooltip>
-                  </span>
-                }
-                value={stat.value}
-                suffix={
-                  <>
-                    {stat.suffix}
-                    <DeltaBadge delta={stat.delta} />
-                  </>
-                }
-                valueStyle={{ fontSize: 18 }}
-              />
-            </Card>
-          </Col>
-        ))}
+        {/* Strength */}
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ height: '100%' }}>
+            <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+              Strength
+              <InfoIcon tooltip={METRIC_TOOLTIPS.heroStrength} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: directionColor(strengthDir.direction),
+                  lineHeight: 1,
+                }}
+              >
+                {directionArrow(strengthDir.direction)}
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: directionColor(strengthDir.direction),
+                }}
+              >
+                {strengthDir.direction === 'improving'
+                  ? 'Improving'
+                  : strengthDir.direction === 'declining'
+                    ? 'Declining'
+                    : 'Stable'}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+              {strengthDir.leaderExercise !== null && strengthDir.leaderVelocityPctPerMonth !== null
+                ? `${exerciseLabel(strengthDir.leaderExercise)} ${strengthDir.leaderVelocityPctPerMonth >= 0 ? '+' : ''}${strengthDir.leaderVelocityPctPerMonth.toFixed(1)}%/mo · ${strengthDir.momentumSign}`
+                : 'Need more data'}
+            </div>
+          </Card>
+        </Col>
+
+        {/* Load Quality */}
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ height: '100%' }}>
+            <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+              Load Quality
+              <InfoIcon tooltip={METRIC_TOOLTIPS.heroLoadQuality} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: loadQualityColor(loadQuality.score),
+                  lineHeight: 1,
+                }}
+              >
+                {loadQuality.score}
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: loadQualityColor(loadQuality.score),
+                }}
+              >
+                {loadQuality.verdict}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+              {loadQuality.dragComponent !== null
+                ? `${loadQuality.dragComponent} ${loadQuality.dragComponent === 'INOL' && loadQuality.latestInol !== null ? `avg ${loadQuality.latestInol.toFixed(2)}` : loadQuality.dragComponent === 'ACWR' && loadQuality.latestAcwr !== null ? `ratio ${loadQuality.latestAcwr.toFixed(2)}` : ''} · dragging score`
+                : loadQuality.latestInol !== null
+                  ? `INOL ${loadQuality.latestInol.toFixed(2)} · ACWR ${loadQuality.latestAcwr !== null ? loadQuality.latestAcwr.toFixed(2) : '—'}`
+                  : 'Need more data'}
+            </div>
+          </Card>
+        </Col>
+
+        {/* Balance */}
+        <Col xs={24} sm={8}>
+          <Card size="small" style={{ height: '100%' }}>
+            <div style={{ fontSize: 12, color: 'rgba(128,128,128,0.65)', marginBottom: 4 }}>
+              Balance
+              <InfoIcon tooltip={METRIC_TOOLTIPS.heroBalance} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: balanceColor(balance.status),
+                  lineHeight: 1,
+                }}
+              >
+                {balanceSymbol(balance.status)}
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: balanceColor(balance.status),
+                }}
+              >
+                {balanceLabel(balance.status)}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(128,128,128,0.5)', marginTop: 4 }}>
+              {balance.worstPair !== null && balance.worstPair.ratio !== null
+                ? `${balance.worstPair.label} · ${balance.worstPair.ratio.toFixed(2)} (range ${balance.worstPair.range[0]}–${balance.worstPair.range[1]})`
+                : 'Need data for multiple lifts'}
+            </div>
+          </Card>
+        </Col>
       </Row>
     </Spin>
   )

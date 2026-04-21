@@ -53,6 +53,12 @@ import {
   velocityPctPerDay,
   volumeLandmarks,
 } from './utils'
+import {
+  type RelProgressPoint,
+  buildRelativeProgressionData,
+  computeBalanceComposite,
+  computeStrengthRatios,
+} from './analytics'
 
 const MARGIN = VX.margin
 
@@ -694,7 +700,7 @@ export function StrengthCompositeChart({
     ) : null
 
   const sigmaChips =
-    latest !== null ? (
+    latest !== undefined ? (
       <span style={{ fontSize: 12 }}>
         {latest.velocityZma !== null && (
           <span style={{ color: COMPOSITE_COLORS.velocity, marginRight: 8 }}>
@@ -1702,6 +1708,425 @@ export function MomentumChart({
         highlighted={null}
         onHighlight={() => {}}
       />
+    </ChartCard>
+  )
+}
+
+// ── Relative Progression Chart ────────────────────────────────────────────
+
+type RelProgressInnerProps = {
+  data: RelProgressPoint[]
+  width: number
+  height: number
+  activeExercises: string[]
+  highlighted: string | null
+}
+
+function RelativeProgressionChartInner({
+  data,
+  width,
+  height,
+  activeExercises,
+  highlighted,
+}: RelProgressInnerProps) {
+  const { axis } = useVxTheme()
+  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
+
+  const xMax = width - MARGIN.left - MARGIN.right
+  const yMax = height - MARGIN.top - MARGIN.bottom
+
+  const xScale = useMemo(
+    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
+    [data, xMax],
+  )
+
+  const yScale = useMemo(() => {
+    const vals: number[] = []
+    for (const d of data) {
+      for (const exId of activeExercises) {
+        const v = d.pct[exId]
+        if (v !== null && v !== undefined) vals.push(v)
+      }
+    }
+    if (!vals.length) return scaleLinear<number>({ domain: [-20, 20], range: [yMax, 0] })
+    const maxAbs = Math.max(10, Math.max(...vals.map(Math.abs)) * 1.15)
+    return scaleLinear<number>({ domain: [-maxAbs, maxAbs], range: [yMax, 0], nice: true })
+  }, [data, yMax, activeExercises])
+
+  const tooltipStyles = useTooltipStyles()
+  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
+    useHoverSync<RelProgressPoint>({
+      data,
+      chartId: 'relative-progression',
+      getX: (d) => d.date,
+      xScale,
+      marginLeft: MARGIN.left,
+    })
+
+  const tickValues = useMemo(
+    () =>
+      smartTicks(
+        data.map((d) => d.date),
+        xMax,
+      ),
+    [data, xMax],
+  )
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg width={width} height={height}>
+        <Group left={MARGIN.left} top={MARGIN.top}>
+          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
+
+          {/* Zero baseline */}
+          <line
+            x1={0}
+            x2={xMax}
+            y1={yScale(0)}
+            y2={yScale(0)}
+            stroke={axis}
+            strokeWidth={1}
+            strokeDasharray="2 4"
+            strokeOpacity={0.6}
+          />
+
+          {activeExercises.map((exId) => {
+            const valid = data.filter((d) => {
+              const v = d.pct[exId]
+              return v !== null && v !== undefined
+            })
+            if (valid.length < 1) return null
+            return (
+              <LinePath<RelProgressPoint>
+                key={exId}
+                data={valid}
+                x={(d) => xScale(d.date) ?? 0}
+                y={(d) => yScale(d.pct[exId] as number)}
+                stroke={colorForExercise(exId)}
+                strokeWidth={2.5}
+                strokeOpacity={dim(exId)}
+                curve={curveMonotoneX}
+              />
+            )
+          })}
+
+          {/* Crosshair + dots on hover */}
+          {syncedPoint !== null &&
+            (() => {
+              const sx = xScale(syncedPoint.date) ?? 0
+              return (
+                <>
+                  <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
+                  {activeExercises.map((exId) => {
+                    const v = syncedPoint.pct[exId]
+                    if (v === null || v === undefined) return null
+                    return (
+                      <circle
+                        key={exId}
+                        cx={sx}
+                        cy={yScale(v)}
+                        r={4}
+                        fill={colorForExercise(exId)}
+                        stroke={VX.dotStroke}
+                        strokeWidth={2}
+                      />
+                    )
+                  })}
+                </>
+              )
+            })()}
+
+          <AxisLeftNumeric
+            scale={yScale}
+            numTicks={5}
+            tickFormat={(v) => `${Number(v).toFixed(0)}%`}
+          />
+          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
+          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
+        </Group>
+      </svg>
+      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
+        {tip && isDirectHover && (
+          <>
+            <TooltipHeader date={tip.data.date} />
+            <TooltipBody>
+              {activeExercises.map((exId) => {
+                const v = tip.data.pct[exId]
+                if (v === null || v === undefined) return null
+                return (
+                  <TooltipRow
+                    key={exId}
+                    color={colorForExercise(exId)}
+                    label={exerciseLabel(exId)}
+                    value={`${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
+                    shape="line"
+                    strokeWidth={2.5}
+                  />
+                )
+              })}
+            </TooltipBody>
+          </>
+        )}
+      </ChartTooltip>
+    </div>
+  )
+}
+
+export function RelativeProgressionChart({
+  workouts,
+  activeExercises,
+}: {
+  workouts: Workout[]
+  activeExercises: string[]
+}) {
+  const [highlighted, setHighlighted] = useState<string | null>(null)
+
+  const chartData = useMemo(
+    () => buildRelativeProgressionData(workouts, activeExercises),
+    [workouts, activeExercises],
+  )
+
+  const headerExtra = useMemo(() => {
+    const last = chartData[chartData.length - 1]
+    if (!last) return null
+
+    const pairs = activeExercises
+      .map((exId) => ({ exId, pct: last.pct[exId] ?? null }))
+      .filter((p): p is { exId: string; pct: number } => p.pct !== null)
+      .sort((a, b) => b.pct - a.pct)
+
+    if (pairs.length === 0) return null
+    const leader = pairs[0]!
+    const laggard = pairs[pairs.length - 1]!
+
+    if (pairs.length < 2 || leader.exId === laggard.exId) {
+      return (
+        <span style={{ fontSize: 12, color: colorForExercise(leader.exId) }}>
+          {exerciseLabel(leader.exId)} {leader.pct >= 0 ? '+' : ''}
+          {leader.pct.toFixed(1)}%
+        </span>
+      )
+    }
+
+    return (
+      <span style={{ fontSize: 12 }}>
+        <span style={{ color: colorForExercise(leader.exId) }}>
+          {exerciseLabel(leader.exId)} {leader.pct >= 0 ? '+' : ''}
+          {leader.pct.toFixed(1)}%
+        </span>
+        <span style={{ opacity: 0.4, marginInline: 4 }}>·</span>
+        <span style={{ color: colorForExercise(laggard.exId) }}>
+          {exerciseLabel(laggard.exId)} {laggard.pct >= 0 ? '+' : ''}
+          {laggard.pct.toFixed(1)}%
+        </span>
+      </span>
+    )
+  }, [chartData, activeExercises])
+
+  if (chartData.length === 0) {
+    return (
+      <ChartCard
+        title="Relative Progression"
+        subtitle="Which lifts are lagging?"
+        tooltip={METRIC_TOOLTIPS.relativeProgression}
+      >
+        <div
+          style={{
+            height: 260,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.4,
+            fontSize: 13,
+          }}
+        >
+          Not enough data — need at least one session per lift
+        </div>
+        <ChartLegend items={[]} highlighted={null} onHighlight={() => {}} />
+      </ChartCard>
+    )
+  }
+
+  return (
+    <ChartCard
+      title="Relative Progression"
+      subtitle="Which lifts are lagging?"
+      tooltip={METRIC_TOOLTIPS.relativeProgression}
+      extra={headerExtra}
+    >
+      <div style={{ height: 260 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <RelativeProgressionChartInner
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={260}
+              activeExercises={activeExercises}
+              highlighted={highlighted}
+            />
+          )}
+        </ParentSize>
+      </div>
+      <ChartLegend
+        items={activeExercises.map((exId) => ({
+          key: exId,
+          label: exerciseLabel(exId),
+          color: colorForExercise(exId),
+          strokeWidth: 2.5 as const,
+        }))}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
+      />
+    </ChartCard>
+  )
+}
+
+// ── Strength Ratios Chart ─────────────────────────────────────────────────
+// Static chart — no time axis, no hover sync (values don't change per date).
+
+export function StrengthRatiosChart({
+  workouts,
+  bodyWeightKg,
+  gender,
+}: {
+  workouts: Workout[]
+  bodyWeightKg: number
+  gender: 'male' | 'female'
+}) {
+  const ratios = useMemo(
+    () => computeStrengthRatios(workouts, bodyWeightKg, gender),
+    [workouts, bodyWeightKg, gender],
+  )
+
+  const balance = useMemo(() => computeBalanceComposite(ratios), [ratios])
+
+  const headerExtra = useMemo(() => {
+    const { worstPair, status } = balance
+    if (!worstPair || !status) return null
+    const color =
+      status === 'critical' ? VX.badSolid : status === 'imbalanced' ? VX.warnSolid : VX.goodSolid
+    const ratio = worstPair.ratio !== null ? worstPair.ratio.toFixed(2) : '—'
+    return (
+      <span style={{ fontSize: 12, color }}>
+        {worstPair.label} {status} · {ratio}
+      </span>
+    )
+  }, [balance])
+
+  return (
+    <ChartCard
+      title="Strength Ratios"
+      subtitle="Are my lifts balanced?"
+      tooltip={METRIC_TOOLTIPS.strengthRatios}
+      extra={headerExtra}
+    >
+      {ratios.hasData ? (
+        <div style={{ padding: '8px 4px 4px' }}>
+          {ratios.pairs.map((pair) => {
+            const statusColor =
+              pair.status === 'critical'
+                ? VX.badSolid
+                : pair.status === 'imbalanced'
+                  ? VX.warnSolid
+                  : pair.status === 'balanced'
+                    ? VX.goodSolid
+                    : 'rgba(128,128,128,0.4)'
+            const statusSymbol =
+              pair.status === 'critical'
+                ? '✗'
+                : pair.status === 'imbalanced'
+                  ? '△'
+                  : pair.status === 'balanced'
+                    ? '✓'
+                    : null
+
+            const toPercent = (v: number) => Math.max(0, Math.min(100, (v / pair.scaleMax) * 100))
+
+            return (
+              <div
+                key={pair.label}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}
+              >
+                <div
+                  style={{
+                    width: 90,
+                    fontSize: 11,
+                    color: 'rgba(128,128,128,0.75)',
+                    flexShrink: 0,
+                    textAlign: 'right',
+                  }}
+                >
+                  {pair.label}
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    position: 'relative',
+                    height: 14,
+                    borderRadius: 3,
+                    background: 'rgba(128,128,128,0.08)',
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: `${toPercent(pair.range[0])}%`,
+                      width: `${toPercent(pair.range[1]) - toPercent(pair.range[0])}%`,
+                      height: '100%',
+                      background: VX.good,
+                      borderRadius: 3,
+                    }}
+                  />
+                  {pair.ratio !== null && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${toPercent(pair.ratio)}%`,
+                        top: -3,
+                        bottom: -3,
+                        width: 3,
+                        background: statusColor,
+                        transform: 'translateX(-50%)',
+                        borderRadius: 2,
+                      }}
+                    />
+                  )}
+                </div>
+                <div
+                  style={{
+                    width: 80,
+                    fontSize: 11,
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <span style={{ opacity: 0.6 }}>
+                    {pair.ratio !== null ? pair.ratio.toFixed(2) : '—'}
+                  </span>
+                  {statusSymbol && (
+                    <span style={{ color: statusColor, fontWeight: 600 }}>{statusSymbol}</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div
+          style={{
+            height: 180,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.4,
+            fontSize: 13,
+          }}
+        >
+          Need data for at least 2 lifts to compute ratios
+        </div>
+      )}
     </ChartCard>
   )
 }

@@ -1,6 +1,6 @@
 import { useList } from '@refinedev/core'
 import { UndoOutlined } from '@ant-design/icons'
-import { Button, Card, Col, DatePicker, Row, Select, Space, Typography } from 'antd'
+import { Button, Col, DatePicker, Row, Select, Space, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HoverContext } from '../../charts'
@@ -14,14 +14,17 @@ import {
 import { generateDemoWorkouts } from './demo-data'
 import { WorkoutHistory } from './history'
 import { RecentRecords } from './records'
-import { SummaryStats } from './stats'
+import { HeroStats } from './stats'
 import type { ExerciseKey, Workout } from './types'
 import { useLocalState, resetConfig } from './use-local-state'
+import { useBodyWeight, useUserProfile } from './body-weight'
 import {
   InolChart,
   MomentumChart,
   OneRmTrendChart,
+  RelativeProgressionChart,
   StrengthCompositeChart,
+  StrengthRatiosChart,
   TrainingLoadChart,
   WeeklyVolumeChart,
 } from './visx-charts'
@@ -43,6 +46,11 @@ function useIsMobile() {
 
 export default function StrengthTrackerPage() {
   const isMobile = useIsMobile()
+
+  const getBodyWeight = useBodyWeight()
+  const userProfile = useUserProfile()
+  const todayBw = getBodyWeight(dayjs().format('YYYY-MM-DD'))
+  const gender = (userProfile?.gender ?? 'male') as 'male' | 'female'
 
   const [activeExercises, setActiveExercises] = useLocalState<ExerciseKey[]>('st-exercises', [
     'bench_press',
@@ -189,9 +197,11 @@ export default function StrengthTrackerPage() {
 
   const content = (
     <>
-      <SummaryStats
+      <HeroStats
         workouts={displayWorkouts}
         activeExercises={activeExercises}
+        bodyWeightKg={todayBw}
+        gender={gender}
         isLoading={isLoading && !useDemoData}
       />
       {view === 'charts' ? (
@@ -240,14 +250,17 @@ export default function StrengthTrackerPage() {
           </Typography.Title>
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
-              <Card size="small">
-                <Typography.Text type="secondary">Coming in Group 5</Typography.Text>
-              </Card>
+              <RelativeProgressionChart
+                workouts={displayWorkouts}
+                activeExercises={activeExercises}
+              />
             </Col>
             <Col xs={24} lg={12}>
-              <Card size="small">
-                <Typography.Text type="secondary">Coming in Group 5</Typography.Text>
-              </Card>
+              <StrengthRatiosChart
+                workouts={displayWorkouts}
+                bodyWeightKg={todayBw}
+                gender={gender}
+              />
             </Col>
           </Row>
         </>
