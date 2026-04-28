@@ -1,10 +1,64 @@
 import { Elysia, t } from 'elysia'
 
 const OPEN_METEO_BASE = 'https://api.open-meteo.com/v1/forecast'
+const OPEN_METEO_GEOCODING = 'https://geocoding-api.open-meteo.com/v1/search'
 
-// Munich coordinates — single-user API, location is fixed
-const DEFAULT_LAT = 48.137
-const DEFAULT_LON = 11.575
+interface ResolvedLocation {
+  lat: number
+  lon: number
+  city: string
+  country: string
+  timezone: string
+}
+
+const MUNICH: ResolvedLocation = {
+  lat: 48.137,
+  lon: 11.575,
+  city: 'Munich',
+  country: 'Germany',
+  timezone: 'Europe/Berlin',
+}
+
+// City locations don't change — cache forever, pre-seed with default
+const geocodeCache = new Map<string, ResolvedLocation>([['munich', MUNICH]])
+
+interface GeocodingResponse {
+  results?: {
+    name: string
+    latitude: number
+    longitude: number
+    country: string
+    timezone: string
+  }[]
+}
+
+async function geocodeCity(city: string): Promise<ResolvedLocation | null> {
+  const key = city.trim().toLowerCase()
+  const cached = geocodeCache.get(key)
+  if (cached) return cached
+
+  const params = new URLSearchParams({
+    name: city,
+    count: '1',
+    language: 'en',
+    format: 'json',
+  })
+  const res = await fetch(`${OPEN_METEO_GEOCODING}?${params}`)
+  if (!res.ok) throw new Error(`Open-Meteo geocoding error: ${res.status}`)
+  const data = (await res.json()) as GeocodingResponse
+  const hit = data.results?.[0]
+  if (!hit) return null
+
+  const resolved: ResolvedLocation = {
+    lat: hit.latitude,
+    lon: hit.longitude,
+    city: hit.name,
+    country: hit.country,
+    timezone: hit.timezone,
+  }
+  geocodeCache.set(key, resolved)
+  return resolved
+}
 
 // WMO Weather interpretation codes → human-readable descriptions
 const WMO_CODES: Record<number, string> = {
@@ -48,10 +102,10 @@ interface OpenMeteoResponse {
   daily: Record<string, (number | string | null)[]>
 }
 
-async function fetchForecast(): Promise<OpenMeteoResponse> {
+async function fetchForecast(loc: ResolvedLocation): Promise<OpenMeteoResponse> {
   const params = new URLSearchParams({
-    latitude: String(DEFAULT_LAT),
-    longitude: String(DEFAULT_LON),
+    latitude: String(loc.lat),
+    longitude: String(loc.lon),
     current:
       'temperature_2m,apparent_temperature,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,precipitation,weather_code,relative_humidity_2m',
     hourly:
@@ -60,7 +114,7 @@ async function fetchForecast(): Promise<OpenMeteoResponse> {
       'temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,weather_code,sunrise,sunset',
     forecast_hours: '48',
     forecast_days: '7',
-    timezone: 'auto',
+    timezone: loc.timezone,
   })
 
   const res = await fetch(`${OPEN_METEO_BASE}?${params}`)
@@ -115,8 +169,10 @@ const DailyEntrySchema = t.Object({
 })
 
 const ForecastSchema = t.Object({
-  location: t.String(),
-  today: t.String({ description: 'Current date in YYYY-MM-DD format (Europe/Berlin timezone)' }),
+  location: t.String({ description: 'Resolved "City, Country"' }),
+  city: t.String(),
+  country: t.String(),
+  today: t.String({ description: 'Current date in YYYY-MM-DD format (resolved timezone)' }),
   current: CurrentSchema,
   hourly_48h: t.Array(HourlyEntrySchema),
   daily_7d: t.Array(DailyEntrySchema),
@@ -124,7 +180,7 @@ const ForecastSchema = t.Object({
 
 // --- Transform Open-Meteo response to clean format ---
 
-function transformResponse(raw: OpenMeteoResponse) {
+function transformResponse(raw: OpenMeteoResponse, loc: ResolvedLocation) {
   const { current: c, hourly: h, daily: d } = raw
 
   const current = {
@@ -174,24 +230,46 @@ function transformResponse(raw: OpenMeteoResponse) {
     sunset: String(d.sunset[i]),
   }))
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' })
-  return { location: 'Munich, Germany', today, current, hourly_48h, daily_7d }
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: loc.timezone })
+  return {
+    location: `${loc.city}, ${loc.country}`,
+    city: loc.city,
+    country: loc.country,
+    today,
+    current,
+    hourly_48h,
+    daily_7d,
+  }
 }
 
 export const weatherRoutes = new Elysia({ prefix: '/weather' }).get(
   '/forecast',
-  async () => {
-    const raw = await fetchForecast()
-    return transformResponse(raw)
+  async ({ query, status }) => {
+    let loc: ResolvedLocation = MUNICH
+    if (query.city) {
+      const resolved = await geocodeCity(query.city)
+      if (!resolved) return status(400, `Could not geocode city: ${query.city}`)
+      loc = resolved
+    }
+    const raw = await fetchForecast(loc)
+    return transformResponse(raw, loc)
   },
   {
-    response: ForecastSchema,
+    query: t.Object({
+      city: t.Optional(
+        t.String({ minLength: 2, description: 'City name (default: Munich)' }),
+      ),
+    }),
+    response: {
+      200: ForecastSchema,
+      400: t.String(),
+    },
     detail: {
       tags: ['Weather'],
       summary:
         'Full weather forecast — current conditions, 48h hourly detail, 7-day daily overview',
       description:
-        'Data from Open-Meteo (no API key). Location: Munich. Includes temperature, feels-like, rain, cloud cover, UV index, wind speed/direction/gusts, and human-readable conditions. Weather codes translated from WMO standard.',
+        'Data from Open-Meteo (no API key). Default location: Munich. Pass `?city=<name>` to fetch any city — geocoded via Open-Meteo Geocoding API. Includes temperature, feels-like, rain, cloud cover, UV index, wind speed/direction/gusts, and human-readable conditions. Weather codes translated from WMO standard.',
       security: [{ BearerAuth: [] }],
     },
   },
