@@ -129,22 +129,6 @@ groups:
             timeout: 48
             retry_interval: 700
 
-          # Hermes Agent on Mac Mini — liveness ping every 5 min from
-          # claude-local/hermes/scripts/hermes-liveness.sh.
-          # After creating: copy push URL → 1Password hermes/uptime-kuma/agent-push-url
-          - name: Hermes Agent - Push
-            type: push
-            interval: 360 # 5 min cron + buffer
-            timeout: 48
-            retry_interval: 360
-
-          # Hermes daily backup → /mnt/hdd/backups/hermes/ (rsync from Mac Mini at 03:00).
-          # After creating: copy push URL → 1Password hermes/uptime-kuma/backup-push-url
-          - name: Hermes Backup - Push
-            type: push
-            interval: 90000 # 25h — daily cron at 03:00 + buffer
-            retry_interval: 90000
-
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
             type: http
@@ -279,6 +263,28 @@ groups:
             url: http://couchdb:5984/_up
             interval: 200
             accepted_statuscodes: ['200-299']
+
+      # --- Hermes subgroup ---
+      # Mac Mini agent — push monitors fed by claude-local/hermes/scripts/.
+      # See claude-local/hermes/README.md "Cron — Liveness + Backup".
+      - name: Hermes
+        type: group
+        interval: 210
+        monitors:
+          # Liveness — every 5 min from hermes-liveness.sh.
+          # Push URL → 1Password hermes/uptime-kuma/agent-push-url
+          - name: Hermes Agent - Push
+            type: push
+            interval: 360 # 5 min cron + buffer
+            timeout: 48
+            retry_interval: 360
+
+          # Daily backup → /mnt/hdd/backups/hermes/ from hermes-backup.sh at 03:00.
+          # Push URL → 1Password hermes/uptime-kuma/backup-push-url
+          - name: Hermes Backup - Push
+            type: push
+            interval: 90000 # 25h — daily cron at 03:00 + buffer
+            retry_interval: 90000
 
       # --- Apps subgroup ---
       - name: Apps
