@@ -303,44 +303,6 @@ groups:
             retry_interval: 28800
 
   # ============================================
-  # IU Mac - M2 Max local AI machine
-  # Services: Ollama (LLM :11434), mlx-audio (STT+TTS :8000), Caddy (HTTPS proxy :443)
-  # Access: Tailscale MagicDNS → https://iu-mac-book.dinosaur-sole.ts.net/v1
-  # ============================================
-  - name: IU Mac
-    interval: 300
-    monitors:
-      - name: Ollama - HTTP
-        type: keyword
-        url: http://iu-mac-book.dinosaur-sole.ts.net:11434/
-        keyword: 'Ollama is running'
-        interval: 120
-
-      - name: LLM - Models API
-        type: keyword
-        url: https://iu-mac-book.dinosaur-sole.ts.net/v1/models
-        keyword: 'gemma4-agent'
-        interval: 120
-
-      - name: STT - Whisper
-        type: http
-        url: https://iu-mac-book.dinosaur-sole.ts.net/v1/audio/transcriptions
-        interval: 300
-        accepted_statuscodes: ['405']
-
-      - name: TTS - Kokoro
-        type: http
-        url: https://iu-mac-book.dinosaur-sole.ts.net/v1/audio/speech
-        interval: 300
-        accepted_statuscodes: ['405']
-
-      - name: Management API
-        type: keyword
-        url: https://iu-mac-book.dinosaur-sole.ts.net/api/health
-        keyword: 'ok'
-        interval: 120
-
-  # ============================================
   # VPS (Hetzner) - hetzner-vps infrastructure
   # ============================================
   - name: VPS
