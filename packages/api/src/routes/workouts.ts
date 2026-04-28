@@ -10,7 +10,6 @@ const WorkoutWithSetsSchema = t.Object({
   exercise_id: t.String(),
   exercise_name: t.Union([t.String(), t.Null()]),
   is_bodyweight: t.Union([t.Number(), t.Null()]),
-  rir: t.Union([t.Integer(), t.Null()]),
   notes: t.Union([t.String(), t.Null()]),
   created_at: t.Union([t.String(), t.Null()]),
   sets: t.Array(WorkoutSetSchema),
@@ -60,7 +59,6 @@ async function loadBodyweightResolver(): Promise<(date: string) => number> {
 function computeMetrics(
   sets: Array<{ set_type: string; weight_kg: number; reps: number }>,
   exercise_id: string,
-  rir: number | null | undefined,
   bodyweightKg: number,
 ) {
   const isPullUps = exercise_id === 'pull_ups'
@@ -75,10 +73,7 @@ function computeMetrics(
 
   for (const s of sets) {
     const eligible =
-      (s.set_type === 'work' || s.set_type === 'amrap') &&
-      s.reps >= 1 &&
-      s.reps <= 12 &&
-      (rir === null || rir === undefined || rir <= 3)
+      (s.set_type === 'work' || s.set_type === 'amrap') && s.reps >= 1 && s.reps <= 12
     if (!eligible) continue
 
     const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
@@ -145,7 +140,6 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           exercise_id: workouts.exercise_id,
           exercise_name: exercises.name,
           is_bodyweight: exercises.is_bodyweight,
-          rir: workouts.rir,
           notes: workouts.notes,
           created_at: workouts.created_at,
         })
@@ -176,7 +170,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return rows.map((w) => {
         const wSets = setMap.get(w.id) ?? []
-        return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise_id, w.rir, bwAt(w.date)) }
+        return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise_id, bwAt(w.date)) }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any
     },
@@ -210,7 +204,6 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           exercise_id: workouts.exercise_id,
           exercise_name: exercises.name,
           is_bodyweight: exercises.is_bodyweight,
-          rir: workouts.rir,
           notes: workouts.notes,
           created_at: workouts.created_at,
         })
@@ -224,7 +217,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       }
       const sets = await db.select().from(workoutSets).where(eq(workoutSets.workout_id, row.id))
       const bwAt = await loadBodyweightResolver()
-      const metrics = computeMetrics(sets, row.exercise_id, row.rir, bwAt(row.date))
+      const metrics = computeMetrics(sets, row.exercise_id, bwAt(row.date))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return { ...row, sets, ...metrics } as any
     },
@@ -259,7 +252,6 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           .values({
             date: body.date,
             exercise_id: body.exercise_id,
-            rir: body.rir ?? null,
             notes: body.notes ?? null,
           })
           .returning()
@@ -283,7 +275,6 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       body: t.Object({
         date: t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'YYYY-MM-DD' }),
         exercise_id: t.String(),
-        rir: t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 5 }), t.Null()])),
         notes: t.Optional(t.String()),
         sets: t.Array(
           t.Object({
@@ -334,7 +325,6 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         const updateData: Partial<typeof workouts.$inferInsert> = {}
         if (body.date !== undefined) updateData.date = body.date
         if (body.exercise_id !== undefined) updateData.exercise_id = body.exercise_id
-        if (body.rir !== undefined) updateData.rir = body.rir
         if (body.notes !== undefined) updateData.notes = body.notes
 
         if (Object.keys(updateData).length > 0) {
@@ -367,7 +357,6 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       body: t.Object({
         date: t.Optional(t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })),
         exercise_id: t.Optional(t.String()),
-        rir: t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 5 }), t.Null()])),
         notes: t.Optional(t.Union([t.String(), t.Null()])),
         sets: t.Optional(
           t.Array(
@@ -387,7 +376,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       },
       detail: {
         tags: ['Workouts'],
-        summary: 'Update workout (exercise_id, date, rir, notes, sets)',
+        summary: 'Update workout (exercise_id, date, notes, sets)',
         security: [{ BearerAuth: [] }],
       },
     },

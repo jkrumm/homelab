@@ -22,14 +22,14 @@ export function colorForExercise(id: string): string {
 
 export const METRIC_TOOLTIPS = {
   oneRmTrend:
-    'Estimated 1-rep max per session using Brzycki + Epley average. Only work/AMRAP sets with ≤3 RIR and 1–12 reps count. Dashed line = 30-day moving average. Stars = personal records. Direction arrow (▲►▼) from 28-day linear regression of e1RM.',
+    'Estimated 1-rep max per session using Brzycki + Epley average. Only work/AMRAP sets with 1–12 reps count. Dashed line = 30-day moving average. Stars = personal records. Direction arrow (▲►▼) from 28-day linear regression of e1RM.',
   strengthComposite:
     "Three independent signals z-scored to your own 90-day baseline. Velocity (f'): e1RM growth rate. Tonnage growth: weekly volume vs 28-day MA. INOL quality: session load index (0.6–1.0 = optimal). All on a shared σ axis — up means above your own average.",
   weeklyVolume:
     'Weekly tonnage (weight × reps) broken down by set type. Dashed line = 4-week moving average. Ref lines: MEV (p25), MAV (p50), MRV (p90) computed from 90-day window — use as rough volume landmarks.',
   trainingLoad:
     'Acute:chronic workload ratio — 4-week vs 16-week EWMA of weekly tonnage per exercise. Green zone (0.8–1.3) = optimal adaptation stimulus. Below 0.8 = undertrained. 1.3–1.5 = caution. Above 1.5 = injury risk.',
-  inol: 'INOL (Intensity × Number Of Lifts) = Σ reps / (100 − %1RM) per session. Optimal zone 0.6–1.0. Below is underdosing, above is high CNS fatigue. Only work/AMRAP sets with 1–12 reps and ≤3 RIR count.',
+  inol: 'INOL (Intensity × Number Of Lifts) = Σ reps / (100 − %1RM) per session. Optimal zone 0.6–1.0. Below is underdosing, above is high CNS fatigue. Only work/AMRAP sets with 1–12 reps count.',
   momentum:
     'e1RM trend with 8-session moving average (top). Velocity (%/day, 28-day linear regression) in the bottom panel — green bars = positive trend, red = decline.',
   relativeProgression:

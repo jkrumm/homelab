@@ -97,7 +97,6 @@ export const workouts = sqliteTable('workouts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   date: text('date').notNull(),
   exercise_id: text('exercise_id').notNull(),
-  rir: integer('rir'),
   notes: text('notes'),
   created_at: text('created_at').default(sql`(datetime('now'))`),
 })

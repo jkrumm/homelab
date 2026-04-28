@@ -1,5 +1,5 @@
 import { useCreate } from '@refinedev/core'
-import { App, Button, Card, DatePicker, InputNumber, Modal, Select, Space, Typography } from 'antd'
+import { App, Button, Card, DatePicker, Modal, Select, Space, Typography } from 'antd'
 import { TrophyOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -16,7 +16,6 @@ export interface StoredForm {
   exercise: ExerciseKey
   date: string
   sets: SetEntry[]
-  rir?: number | null
 }
 
 export function loadStoredForm(): StoredForm | null {
@@ -44,13 +43,12 @@ export function WorkoutForm({
   const [exercise, setExercise] = useState<ExerciseKey>(stored?.exercise ?? 'bench_press')
   const [date, setDate] = useState<Dayjs>(stored?.date ? dayjs(stored.date) : dayjs())
   const [sets, setSets] = useState<SetEntry[]>(stored?.sets ?? DEFAULT_SETS)
-  const [rir, setRir] = useState<number | null>(stored?.rir ?? null)
   const [showReview, setShowReview] = useState(false)
 
   useEffect(() => {
-    const data: StoredForm = { exercise, date: date.format('YYYY-MM-DD'), sets, rir }
+    const data: StoredForm = { exercise, date: date.format('YYYY-MM-DD'), sets }
     localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(data))
-  }, [exercise, date, sets, rir])
+  }, [exercise, date, sets])
 
   const previousSets = useMemo(() => {
     const latest = [...workouts]
@@ -121,7 +119,6 @@ export function WorkoutForm({
         values: {
           date: date.format('YYYY-MM-DD'),
           exercise_id: exercise,
-          rir: rir ?? null,
           sets: submittedSets,
         },
       },
@@ -147,7 +144,6 @@ export function WorkoutForm({
           setShowReview(false)
           localStorage.removeItem(FORM_STORAGE_KEY)
           setSets([{ set_type: 'work', weight_kg: sets[0]?.weight_kg ?? 60, reps: 5 }])
-          setRir(null)
           onSuccess?.()
         },
         onError: (err) => {
@@ -192,21 +188,6 @@ export function WorkoutForm({
           </div>
 
           <SetEditor sets={sets} onChange={setSets} previousSets={previousSets} showConfirm />
-
-          <div>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              RIR (Reps In Reserve, optional)
-            </Typography.Text>
-            <InputNumber
-              value={rir}
-              onChange={(v) => setRir(v ?? null)}
-              min={0}
-              max={5}
-              placeholder="0–5"
-              style={{ width: '100%', marginTop: 4 }}
-              size="large"
-            />
-          </div>
 
           <Button
             type="default"

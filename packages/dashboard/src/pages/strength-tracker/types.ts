@@ -23,7 +23,6 @@ export interface Workout {
   exercise_id: string
   exercise_name?: string | null
   is_bodyweight?: number | null
-  rir: number | null
   notes: string | null
   created_at: string | null
   sets: WorkoutSet[]

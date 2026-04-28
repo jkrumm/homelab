@@ -88,17 +88,10 @@ export function sessionInol(workout: Workout, bodyweightKg = 80): number | null 
   const best1rm = workout.estimated_1rm
   if (!best1rm || best1rm <= 0) return null
   const isPullUps = workout.exercise_id === 'pull_ups'
-  const rir = workout.rir
   let total = 0
   let count = 0
   for (const s of workout.sets) {
-    if (
-      (s.set_type !== 'work' && s.set_type !== 'amrap') ||
-      s.reps < 1 ||
-      s.reps > 12 ||
-      (rir !== null && rir !== undefined && rir > 3)
-    )
-      continue
+    if ((s.set_type !== 'work' && s.set_type !== 'amrap') || s.reps < 1 || s.reps > 12) continue
     const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
     const pct = Math.max(40, Math.min(99, (ew / best1rm) * 100))
     total += s.reps / (100 - pct)
@@ -140,7 +133,6 @@ export function tonnageGrowthRatio(
 export type BestSetInfo = {
   weight_kg: number
   reps: number
-  rir: number | null
   e1rm: number
 }
 
@@ -155,18 +147,11 @@ function extractBestSet(workout: Workout, bodyweightKg = 80): BestSetInfo | null
   const best1rm = workout.estimated_1rm
   if (!best1rm) return null
   const isPullUps = workout.exercise_id === 'pull_ups'
-  const rir = workout.rir
   let bestE1rm: number | null = null
   let bestWeight = 0
   let bestReps = 0
   for (const s of workout.sets) {
-    if (
-      (s.set_type !== 'work' && s.set_type !== 'amrap') ||
-      s.reps < 1 ||
-      s.reps > 12 ||
-      (rir !== null && rir !== undefined && rir > 3)
-    )
-      continue
+    if ((s.set_type !== 'work' && s.set_type !== 'amrap') || s.reps < 1 || s.reps > 12) continue
     const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
     const e1rm = estimate1RM(ew, s.reps)
     if (e1rm !== null && (bestE1rm === null || e1rm > bestE1rm)) {
@@ -179,7 +164,6 @@ function extractBestSet(workout: Workout, bodyweightKg = 80): BestSetInfo | null
   return {
     weight_kg: Math.round(bestWeight * 10) / 10,
     reps: bestReps,
-    rir,
     e1rm: Math.round(bestE1rm * 10) / 10,
   }
 }

@@ -125,7 +125,6 @@ export function generateDemoWorkouts(): Workout[] {
       id: idCounter++,
       date,
       exercise_id: ex,
-      rir: null,
       notes: null,
       created_at: null,
       sets: fullSets,

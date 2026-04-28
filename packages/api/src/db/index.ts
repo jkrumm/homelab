@@ -103,7 +103,6 @@ sqlite.run(`
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     date TEXT NOT NULL,
     exercise_id TEXT NOT NULL,
-    rir INTEGER,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   )
@@ -116,11 +115,11 @@ try {
   // Already renamed or column doesn't exist — safe to ignore
 }
 
-// One-time migration: add rir column if it doesn't exist yet
+// One-time migration: drop rir column (RIR concept retired)
 try {
-  sqlite.run('ALTER TABLE workouts ADD COLUMN rir INTEGER')
+  sqlite.run('ALTER TABLE workouts DROP COLUMN rir')
 } catch {
-  // Already exists — safe to ignore
+  // Already dropped or never existed — safe to ignore
 }
 
 sqlite.run(`

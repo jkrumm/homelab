@@ -300,7 +300,7 @@ function OneRmTrendChartInner({
                 if (v === null) return null
                 const bs: BestSetInfo | null = tip.data.bestSets[ex]
                 const setStr = bs
-                  ? ` (${fmtWeight(bs.weight_kg)}×${bs.reps}${bs.rir !== null ? ` @RIR${bs.rir}` : ''} → ${bs.e1rm.toFixed(1)} kg)`
+                  ? ` (${fmtWeight(bs.weight_kg)}×${bs.reps} → ${bs.e1rm.toFixed(1)} kg)`
                   : ''
                 return (
                   <TooltipRow
