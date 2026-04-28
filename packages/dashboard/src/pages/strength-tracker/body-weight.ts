@@ -43,8 +43,9 @@ const HARD_FALLBACK_KG = 80
 
 // Returns the best-known bodyweight for the given date using the resolution chain:
 // 1. Nearest weight_log entry on-or-before date
-// 2. profileDefault from user_profile (goal_weight_kg if set)
-// 3. 80 kg hard fallback
+// 2. Earliest weight_log entry (so a recent first entry still applies to backfilled workouts)
+// 3. profileDefault from user_profile (goal_weight_kg if set)
+// 4. 80 kg hard fallback
 export function bodyWeight(
   date: string,
   sources: {
@@ -52,11 +53,15 @@ export function bodyWeight(
     profileDefault: number
   },
 ): number {
-  const onOrBefore = sources.weightLog
-    .filter((e) => e.date <= date)
-    .sort((a, b) => b.date.localeCompare(a.date))
+  if (sources.weightLog.length > 0) {
+    const onOrBefore = sources.weightLog
+      .filter((e) => e.date <= date)
+      .sort((a, b) => b.date.localeCompare(a.date))
+    if (onOrBefore.length > 0) return onOrBefore[0].weight_kg
 
-  if (onOrBefore.length > 0) return onOrBefore[0].weight_kg
+    const earliest = [...sources.weightLog].sort((a, b) => a.date.localeCompare(b.date))[0]
+    return earliest.weight_kg
+  }
 
   return sources.profileDefault
 }

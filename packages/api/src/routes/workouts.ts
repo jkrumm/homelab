@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { workouts, workoutSets, exercises } from '../db/schema.js'
+import { workouts, workoutSets, exercises, weightLog, userProfile } from '../db/schema.js'
 import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 
 const WorkoutWithSetsSchema = t.Object({
@@ -20,14 +20,48 @@ const WorkoutWithSetsSchema = t.Object({
   total_volume: t.Number(),
 })
 
-// e1RM validity gates per STRENGTH-ANALYTICS.md §2.2.
-// Bodyweight for pull-ups falls back to 80 kg (no user context available server-side).
-const PULL_UPS_BW = 80
+// Bodyweight resolution for pull-ups: weight_log latest-on-or-before the workout date,
+// then earliest weight_log entry (so a recent first entry still applies to backfilled
+// historical workouts), then user_profile.goal_weight_kg, then 80 kg.
+const HARD_FALLBACK_BW = 80
+
+type WeightEntry = { date: string; weight_kg: number }
+
+function makeBodyweightResolver(
+  entries: WeightEntry[],
+  profileFallback: number,
+): (date: string) => number {
+  if (entries.length === 0) return () => profileFallback
+  // entries arrive sorted asc by date
+  const earliest = entries[0]!.weight_kg
+  return (date: string) => {
+    let latest: number | null = null
+    for (const e of entries) {
+      if (e.date <= date) latest = e.weight_kg
+      else break
+    }
+    return latest ?? earliest
+  }
+}
+
+async function loadBodyweightResolver(): Promise<(date: string) => number> {
+  const entries = await db
+    .select({ date: weightLog.date, weight_kg: weightLog.weight_kg })
+    .from(weightLog)
+    .orderBy(asc(weightLog.date))
+  const [profile] = await db
+    .select({ goal_weight_kg: userProfile.goal_weight_kg })
+    .from(userProfile)
+    .where(eq(userProfile.id, 1))
+  const profileFallback = profile?.goal_weight_kg ?? HARD_FALLBACK_BW
+  return makeBodyweightResolver(entries, profileFallback)
+}
 
 function computeMetrics(
   sets: Array<{ set_type: string; weight_kg: number; reps: number }>,
   exercise_id: string,
   rir: number | null | undefined,
+  bodyweightKg: number,
 ) {
   const isPullUps = exercise_id === 'pull_ups'
   let totalVolume = 0
@@ -35,7 +69,7 @@ function computeMetrics(
   let maxBrzycki: number | null = null
 
   for (const s of sets) {
-    const ew = isPullUps ? s.weight_kg + PULL_UPS_BW : s.weight_kg
+    const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
     totalVolume += ew * s.reps
   }
 
@@ -47,7 +81,7 @@ function computeMetrics(
       (rir === null || rir === undefined || rir <= 3)
     if (!eligible) continue
 
-    const ew = isPullUps ? s.weight_kg + PULL_UPS_BW : s.weight_kg
+    const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
     const epley = ew * (1 + s.reps / 30)
     maxEpley = maxEpley === null ? epley : Math.max(maxEpley, epley)
 
@@ -137,10 +171,12 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         setMap.set(s.workout_id, list)
       }
 
+      const bwAt = await loadBodyweightResolver()
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return rows.map((w) => {
         const wSets = setMap.get(w.id) ?? []
-        return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise_id, w.rir) }
+        return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise_id, w.rir, bwAt(w.date)) }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any
     },
@@ -187,8 +223,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         return 'Not found' as any
       }
       const sets = await db.select().from(workoutSets).where(eq(workoutSets.workout_id, row.id))
+      const bwAt = await loadBodyweightResolver()
+      const metrics = computeMetrics(sets, row.exercise_id, row.rir, bwAt(row.date))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { ...row, sets, ...computeMetrics(sets, row.exercise_id, row.rir) } as any
+      return { ...row, sets, ...metrics } as any
     },
     {
       params: t.Object({ id: t.String() }),

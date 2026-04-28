@@ -57,10 +57,12 @@ export const userProfileRoutes = new Elysia({ prefix: '/user-profile' })
     },
     {
       body: t.Object({
-        height_cm: t.Optional(t.Number({ minimum: 100, maximum: 250 })),
-        birth_date: t.Optional(t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })),
-        gender: t.Optional(t.Union([t.Literal('male'), t.Literal('female')])),
-        goal_weight_kg: t.Optional(t.Number({ minimum: 30, maximum: 300 })),
+        height_cm: t.Optional(t.Union([t.Number({ minimum: 100, maximum: 250 }), t.Null()])),
+        birth_date: t.Optional(
+          t.Union([t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' }), t.Null()]),
+        ),
+        gender: t.Optional(t.Union([t.Literal('male'), t.Literal('female'), t.Null()])),
+        goal_weight_kg: t.Optional(t.Union([t.Number({ minimum: 30, maximum: 300 }), t.Null()])),
       }),
       response: UserProfileSchema,
       detail: {
