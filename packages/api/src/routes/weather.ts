@@ -256,9 +256,7 @@ export const weatherRoutes = new Elysia({ prefix: '/weather' }).get(
   },
   {
     query: t.Object({
-      city: t.Optional(
-        t.String({ minLength: 2, description: 'City name (default: Munich)' }),
-      ),
+      city: t.Optional(t.String({ minLength: 2, description: 'City name (default: Munich)' })),
     }),
     response: {
       200: ForecastSchema,

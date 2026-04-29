@@ -19,6 +19,7 @@ import { dailyMetricsRoutes } from './routes/daily-metrics.js'
 import { weightLogRoutes } from './routes/weight-log.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { registerCronJobs } from './cron/index.js'
+import { uptimeKumaClient } from './clients/uptime-kuma.js'
 // eslint-disable-next-line import/no-unassigned-import
 import './db/index.js' // Initialize DB and ensure tables exist
 
@@ -84,5 +85,13 @@ export const app = new Elysia()
 export type App = typeof app
 
 registerCronJobs()
+uptimeKumaClient.start()
 // eslint-disable-next-line no-console
 console.log('api running on port 4000')
+
+const shutdown = async (): Promise<void> => {
+  await uptimeKumaClient.stop()
+  process.exit(0)
+}
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)

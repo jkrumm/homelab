@@ -1,7 +1,6 @@
-import { io } from 'socket.io-client'
+import { io, type Socket } from 'socket.io-client'
 
 const UPTIME_KUMA_URL = process.env.UPTIME_KUMA_URL ?? ''
-const UPTIME_KUMA_API_KEY = process.env.UPTIME_KUMA_API_KEY ?? ''
 const UPTIME_KUMA_USERNAME = process.env.UPTIME_KUMA_USERNAME ?? 'admin'
 const UPTIME_KUMA_PASSWORD = process.env.UPTIME_KUMA_PASSWORD ?? ''
 
@@ -13,8 +12,35 @@ export interface UptimeMonitor {
   active: boolean
   status: number // 0=DOWN, 1=UP, 2=PENDING, 3=MAINTENANCE
   ping: number | null // ms; null for docker and push monitors
-  uptime1d: number | null // ratio 0.0–1.0; null for push monitors
-  uptime30d: number | null // ratio 0.0–1.0; null for push monitors
+  uptime1d: number | null // ratio 0.0–1.0; null until first uptime event
+  uptime30d: number | null // ratio 0.0–1.0; null until first uptime event
+}
+
+export type ClientStatus = 'warming' | 'ready' | 'stale'
+
+export interface UptimeKumaSnapshot {
+  status: ClientStatus
+  lastUpdatedAt: string | null
+  staleSince: string | null
+  lastError: string | null
+  monitors: UptimeMonitor[]
+}
+
+interface MonitorMeta {
+  name: string
+  type: string
+  url: string | null
+  active: boolean
+}
+
+interface MonitorRuntime {
+  status: number
+  ping: number | null
+}
+
+interface UptimeRatios {
+  d1: number | null
+  d30: number | null
 }
 
 interface RawMonitor {
@@ -31,152 +57,270 @@ interface RawHeartbeat {
   time: string
 }
 
-interface MonitorStatus {
-  active: boolean
+interface RawHeartbeatLive {
+  monitorID: number
   status: number
   ping: number | null
+  time: string
 }
 
-// Fetches live status via Socket.IO — connect, login, collect monitorList + heartbeatList, disconnect
-async function fetchViaSocketIO(): Promise<
-  Map<
-    string,
-    {
-      monitor: Pick<UptimeMonitor, 'name' | 'type' | 'url' | 'active'>
-      status: number
-      ping: number | null
+interface LoginResponse {
+  ok: boolean
+  msg?: string
+  token?: string
+}
+
+const STALE_AFTER_MS = 60_000
+const PUBLIC_HEARTBEAT_INTERVAL_MS = 30_000
+const RECONNECTION_DELAY_MS = 1_000
+const RECONNECTION_DELAY_MAX_MS = 30_000
+
+function normalizeUrl(raw: string | undefined): string | null {
+  const v = raw ?? ''
+  return v === '' || v === 'https://' ? null : v
+}
+
+class UptimeKumaClient {
+  private socket: Socket | null = null
+  private monitorMeta = new Map<string, MonitorMeta>()
+  private monitorRuntime = new Map<string, MonitorRuntime>()
+  private uptimeRatios = new Map<string, UptimeRatios>()
+  private token: string | null = null
+
+  private monitorListReceived = false
+  private lastUpdatedAt: number | null = null
+  private staleSince: number | null = null
+  private lastError: string | null = null
+  private connectionState:
+    | 'idle'
+    | 'connecting'
+    | 'authenticating'
+    | 'warming'
+    | 'ready'
+    | 'reconnecting'
+    | 'stale' = 'idle'
+
+  private heartbeatTimer: NodeJS.Timeout | null = null
+
+  start(): void {
+    if (this.socket) return
+    if (!UPTIME_KUMA_URL) {
+      // eslint-disable-next-line no-console
+      console.warn('[uptime-kuma] UPTIME_KUMA_URL not set — client disabled')
+      return
     }
-  >
-> {
-  return new Promise((resolve, reject) => {
-    const socket = io(UPTIME_KUMA_URL, { transports: ['websocket'] })
 
-    const monitorMeta = new Map<string, Pick<UptimeMonitor, 'name' | 'type' | 'url' | 'active'>>()
-    const heartbeatMap = new Map<string, MonitorStatus>()
-    const pendingIds = new Set<string>()
-    let monitorListReceived = false
-    let resolved = false
-
-    function buildResult() {
-      const result = new Map<
-        string,
-        {
-          monitor: Pick<UptimeMonitor, 'name' | 'type' | 'url' | 'active'>
-          status: number
-          ping: number | null
-        }
-      >()
-      for (const [id, meta] of monitorMeta) {
-        const hb = heartbeatMap.get(id)
-        result.set(id, { monitor: meta, status: hb?.status ?? 0, ping: hb?.ping ?? null })
-      }
-      return result
-    }
-
-    function tryResolve() {
-      if (resolved || !monitorListReceived) return
-      if (pendingIds.size === 0) {
-        resolved = true
-        clearTimeout(timer)
-        socket.disconnect()
-        resolve(buildResult())
-      }
-    }
-
-    const timer = setTimeout(() => {
-      if (resolved) return
-      resolved = true
-      socket.disconnect()
-      resolve(buildResult())
-    }, 5000)
-
-    socket.on('connect_error', (err) => {
-      if (resolved) return
-      resolved = true
-      clearTimeout(timer)
-      socket.disconnect()
-      reject(new Error(`UptimeKuma Socket.IO connect error: ${err.message}`))
+    this.connectionState = 'connecting'
+    this.socket = io(UPTIME_KUMA_URL, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: RECONNECTION_DELAY_MS,
+      reconnectionDelayMax: RECONNECTION_DELAY_MAX_MS,
+      randomizationFactor: 0.5,
+      timeout: 20_000,
     })
 
+    this.bindListeners(this.socket)
+
+    this.heartbeatTimer = setInterval(() => {
+      if (this.connectionState === 'ready' && this.lastUpdatedAt !== null) {
+        if (Date.now() - this.lastUpdatedAt > STALE_AFTER_MS) {
+          this.connectionState = 'stale'
+          this.staleSince = this.lastUpdatedAt
+        }
+      }
+    }, PUBLIC_HEARTBEAT_INTERVAL_MS)
+  }
+
+  async stop(): Promise<void> {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+    if (this.socket) {
+      this.socket.removeAllListeners()
+      this.socket.disconnect()
+      this.socket = null
+    }
+    this.connectionState = 'idle'
+  }
+
+  getSnapshot(): UptimeKumaSnapshot {
+    const status: ClientStatus =
+      this.connectionState === 'ready' ? 'ready' : this.monitorListReceived ? 'stale' : 'warming'
+
+    const monitors: UptimeMonitor[] = [...this.monitorMeta.entries()].map(([id, meta]) => {
+      const runtime = this.monitorRuntime.get(id)
+      const ratios = this.uptimeRatios.get(id)
+      return {
+        id,
+        name: meta.name,
+        type: meta.type,
+        url: meta.url,
+        active: meta.active,
+        status: runtime?.status ?? 0,
+        ping: runtime?.ping ?? null,
+        uptime1d: ratios?.d1 ?? null,
+        uptime30d: ratios?.d30 ?? null,
+      }
+    })
+
+    return {
+      status,
+      lastUpdatedAt: this.lastUpdatedAt ? new Date(this.lastUpdatedAt).toISOString() : null,
+      staleSince: this.staleSince ? new Date(this.staleSince).toISOString() : null,
+      lastError: this.lastError,
+      monitors,
+    }
+  }
+
+  // ── Internals ─────────────────────────────────────────────────────────────
+
+  private touch(): void {
+    this.lastUpdatedAt = Date.now()
+    this.staleSince = null
+    if (this.connectionState === 'stale') this.connectionState = 'ready'
+  }
+
+  private bindListeners(socket: Socket): void {
     socket.on('connect', () => {
-      socket.emit(
-        'login',
-        { username: UPTIME_KUMA_USERNAME, password: UPTIME_KUMA_PASSWORD, token: '' },
-        (res: { ok: boolean; msg?: string }) => {
-          if (!res.ok && !resolved) {
-            resolved = true
-            clearTimeout(timer)
-            socket.disconnect()
-            reject(new Error(`UptimeKuma login failed: ${res.msg ?? 'unknown'}`))
-          }
-        },
-      )
+      this.connectionState = 'authenticating'
+      this.authenticate(socket)
+    })
+
+    socket.on('disconnect', (reason: string) => {
+      this.connectionState = 'stale'
+      this.staleSince = Date.now()
+      this.lastError = `disconnected: ${reason}`
+    })
+
+    socket.on('connect_error', (err: Error) => {
+      this.lastError = `connect_error: ${err.message}`
+    })
+
+    socket.io.on('reconnect_attempt', () => {
+      this.connectionState = 'reconnecting'
+    })
+
+    // Kuma protocol events
+    socket.on('loginRequired', () => {
+      // Server cleared our session (e.g. server restart while we held an old token)
+      this.connectionState = 'authenticating'
+      this.authenticate(socket)
     })
 
     socket.on('monitorList', (data: Record<string, RawMonitor>) => {
+      const next = new Map<string, MonitorMeta>()
       for (const [id, m] of Object.entries(data)) {
-        const rawUrl = m.url ?? ''
-        const url = rawUrl === '' || rawUrl === 'https://' ? null : rawUrl
-        monitorMeta.set(id, { name: m.name, type: m.type, url, active: m.active })
-        pendingIds.add(id)
+        next.set(id, {
+          name: m.name,
+          type: m.type,
+          url: normalizeUrl(m.url),
+          active: m.active,
+        })
       }
-      monitorListReceived = true
-      tryResolve()
+      this.monitorMeta = next
+      // Drop runtime/ratio entries for monitors that no longer exist
+      for (const id of [...this.monitorRuntime.keys()]) {
+        if (!next.has(id)) this.monitorRuntime.delete(id)
+      }
+      for (const id of [...this.uptimeRatios.keys()]) {
+        if (!next.has(id)) this.uptimeRatios.delete(id)
+      }
+      this.monitorListReceived = true
+      this.touch()
+      if (this.connectionState === 'authenticating' || this.connectionState === 'warming') {
+        this.connectionState = 'ready'
+      }
     })
 
-    socket.on('heartbeatList', (monitorId: number, beats: RawHeartbeat[], _overwrite: boolean) => {
+    socket.on('updateMonitorIntoList', (data: Record<string, RawMonitor>) => {
+      for (const [id, m] of Object.entries(data)) {
+        this.monitorMeta.set(id, {
+          name: m.name,
+          type: m.type,
+          url: normalizeUrl(m.url),
+          active: m.active,
+        })
+      }
+      this.touch()
+    })
+
+    socket.on('deleteMonitorFromList', (monitorId: number) => {
       const id = String(monitorId)
-      const last = beats.at(-1)
-      heartbeatMap.set(id, { active: true, status: last?.status ?? 0, ping: last?.ping ?? null })
-      pendingIds.delete(id)
-      tryResolve()
+      this.monitorMeta.delete(id)
+      this.monitorRuntime.delete(id)
+      this.uptimeRatios.delete(id)
+      this.touch()
     })
-  })
-}
 
-// Fetches uptime ratios from Prometheus endpoint (1d + 30d per monitor)
-async function fetchUptimeRatios(): Promise<
-  Map<string, { d1: number | null; d30: number | null }>
-> {
-  const credentials = Buffer.from(`:${UPTIME_KUMA_API_KEY}`).toString('base64')
-  const base = UPTIME_KUMA_URL.replace(/\/$/, '')
-  const res = await fetch(`${base}/metrics`, {
-    headers: { Authorization: `Basic ${credentials}` },
-  })
-  if (!res.ok) throw new Error(`UptimeKuma metrics ${res.status}: ${await res.text()}`)
-  const text = await res.text()
+    socket.on('heartbeatList', (monitorId: number, beats: RawHeartbeat[]) => {
+      const last = beats.at(-1)
+      if (!last) return
+      this.monitorRuntime.set(String(monitorId), {
+        status: last.status,
+        ping: last.ping,
+      })
+      this.touch()
+    })
 
-  const map = new Map<string, { d1: number | null; d30: number | null }>()
-  for (const line of text.split('\n')) {
-    if (line.startsWith('#') || !line.trim()) continue
-    const m = line.match(
-      /^monitor_uptime_ratio\{monitor_id="([^"]+)"[^}]*,window="([^"]+)"\}\s+([\d.]+)/,
-    )
-    if (!m) continue
-    const [, id, window, val] = m
-    if (!map.has(id)) map.set(id, { d1: null, d30: null })
-    const entry = map.get(id)!
-    if (window === '1d') entry.d1 = Number(val)
-    if (window === '30d') entry.d30 = Number(val)
+    socket.on('heartbeat', (beat: RawHeartbeatLive) => {
+      this.monitorRuntime.set(String(beat.monitorID), {
+        status: beat.status,
+        ping: beat.ping,
+      })
+      this.touch()
+    })
+
+    socket.on('uptime', (monitorId: number, type: number, value: number) => {
+      const id = String(monitorId)
+      const existing = this.uptimeRatios.get(id) ?? { d1: null, d30: null }
+      // Kuma emits multiple windows; we surface 24h (1d) and 720h (30d).
+      if (type === 24) existing.d1 = value
+      else if (type === 720) existing.d30 = value
+      else return
+      this.uptimeRatios.set(id, existing)
+      this.touch()
+    })
   }
-  return map
+
+  private authenticate(socket: Socket): void {
+    if (this.token) {
+      socket.emit('loginByToken', this.token, (res: LoginResponse) => {
+        if (res.ok) {
+          this.connectionState = this.monitorListReceived ? 'ready' : 'warming'
+          this.lastError = null
+          return
+        }
+        // Token rejected (server restart or expiry) — fall back to user/pass
+        this.token = null
+        this.loginByCredentials(socket)
+      })
+      return
+    }
+    this.loginByCredentials(socket)
+  }
+
+  private loginByCredentials(socket: Socket): void {
+    if (!UPTIME_KUMA_PASSWORD) {
+      this.lastError = 'login: UPTIME_KUMA_PASSWORD not set'
+      return
+    }
+    socket.emit(
+      'login',
+      { username: UPTIME_KUMA_USERNAME, password: UPTIME_KUMA_PASSWORD, token: '' },
+      (res: LoginResponse) => {
+        if (!res.ok) {
+          this.lastError = `login failed: ${res.msg ?? 'unknown'}`
+          return
+        }
+        if (res.token) this.token = res.token
+        this.connectionState = this.monitorListReceived ? 'ready' : 'warming'
+        this.lastError = null
+      },
+    )
+  }
 }
 
-export async function fetchMonitors(): Promise<UptimeMonitor[]> {
-  const [socketData, ratios] = await Promise.all([
-    fetchViaSocketIO(),
-    fetchUptimeRatios().catch(() => new Map<string, { d1: number | null; d30: number | null }>()),
-  ])
-
-  return [...socketData.entries()].map(([id, { monitor, status, ping }]) => ({
-    id,
-    name: monitor.name,
-    type: monitor.type,
-    url: monitor.url,
-    active: monitor.active,
-    status,
-    ping,
-    uptime1d: ratios.get(id)?.d1 ?? null,
-    uptime30d: ratios.get(id)?.d30 ?? null,
-  }))
-}
+export const uptimeKumaClient = new UptimeKumaClient()

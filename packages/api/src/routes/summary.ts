@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { fetchMonitors } from '../clients/uptime-kuma.js'
+import { uptimeKumaClient } from '../clients/uptime-kuma.js'
 import { ticktickOps } from '../clients/ticktick.js'
 import type { Project, Task } from '../generated/ticktick/types.gen.js'
 
@@ -178,20 +178,25 @@ const TickTaskItemSchema = t.Object({
   priority: t.Number({ description: '0=none 1=low 3=medium 5=high' }),
 })
 
+const UptimeKumaSummarySchema = t.Object({
+  status: t.Union([t.Literal('warming'), t.Literal('ready'), t.Literal('stale')], {
+    description: 'warming = no data yet · ready = live · stale = last-known data, connection lost',
+  }),
+  lastUpdatedAt: t.Union([t.String(), t.Null()]),
+  staleSince: t.Union([t.String(), t.Null()]),
+  lastError: t.Union([t.String(), t.Null()]),
+  up: t.Number(),
+  down: t.Number(),
+  maintenance: t.Number(),
+  total: t.Number(),
+  downMonitors: t.Array(
+    t.Object({ name: t.String(), type: t.String(), uptime1d: t.Union([t.Number(), t.Null()]) }),
+  ),
+})
+
 const SummaryResponseSchema = t.Object({
   generatedAt: t.String({ description: 'ISO timestamp when summary was generated' }),
-  uptimeKuma: t.Union([
-    t.Object({
-      up: t.Number(),
-      down: t.Number(),
-      maintenance: t.Number(),
-      total: t.Number(),
-      downMonitors: t.Array(
-        t.Object({ name: t.String(), type: t.String(), uptime1d: t.Union([t.Number(), t.Null()]) }),
-      ),
-    }),
-    errSchema,
-  ]),
+  uptimeKuma: UptimeKumaSummarySchema,
   dockerHomelab: t.Union([DockerSummarySchema, errSchema]),
   dockerVps: t.Union([DockerSummarySchema, errSchema]),
   ticktick: t.Union([
@@ -206,23 +211,23 @@ export const summaryRoute = new Elysia().get(
   '/summary',
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async (): Promise<any> => {
-    const [kumaResult, dockerHLResult, dockerVPSResult, ticktickResult] = await Promise.allSettled([
-      withTimeout(
-        fetchMonitors().then((monitors) => {
-          const nonGroup = monitors.filter((m) => m.type !== 'group')
-          return {
-            up: nonGroup.filter((m) => m.status === 1).length,
-            down: nonGroup.filter((m) => m.status === 0).length,
-            maintenance: nonGroup.filter((m) => m.status === 3).length,
-            total: nonGroup.length,
-            downMonitors: nonGroup
-              .filter((m) => m.status === 0)
-              .map((m) => ({ name: m.name, type: m.type, uptime1d: m.uptime1d })),
-          }
-        }),
-        10_000,
-        'uptimeKuma',
-      ),
+    const kumaSnapshot = uptimeKumaClient.getSnapshot()
+    const nonGroup = kumaSnapshot.monitors.filter((m) => m.type !== 'group')
+    const uptimeKuma = {
+      status: kumaSnapshot.status,
+      lastUpdatedAt: kumaSnapshot.lastUpdatedAt,
+      staleSince: kumaSnapshot.staleSince,
+      lastError: kumaSnapshot.lastError,
+      up: nonGroup.filter((m) => m.status === 1).length,
+      down: nonGroup.filter((m) => m.status === 0).length,
+      maintenance: nonGroup.filter((m) => m.status === 3).length,
+      total: nonGroup.length,
+      downMonitors: nonGroup
+        .filter((m) => m.status === 0)
+        .map((m) => ({ name: m.name, type: m.type, uptime1d: m.uptime1d })),
+    }
+
+    const [dockerHLResult, dockerVPSResult, ticktickResult] = await Promise.allSettled([
       withTimeout(fetchDockerSummary('http://docker-socket-proxy:2375'), 10_000, 'dockerHomelab'),
       withTimeout(
         fetchDockerSummary(`http://${process.env.VPS_TAILSCALE_IP}:2376`),
@@ -234,7 +239,7 @@ export const summaryRoute = new Elysia().get(
 
     return {
       generatedAt: new Date().toISOString(),
-      uptimeKuma: settle(kumaResult),
+      uptimeKuma,
       dockerHomelab: settle(dockerHLResult),
       dockerVps: settle(dockerVPSResult),
       ticktick: settle(ticktickResult),
