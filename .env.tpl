@@ -29,9 +29,19 @@ GARMIN_EMAIL=op://homelab/garmin/EMAIL
 GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
 GARMIN_SYNC_PUSH_URL=op://homelab/garmin/PUSH_URL
 
-# --- Duplicati ---
+# --- Duplicati (legacy — being replaced by Restic, kept during migration) ---
 DUPLICATI_ENCRYPTION_KEY=op://homelab/duplicati/ENCRYPTION_KEY
 DUPLICATI_WEBSERVICE_PASSWORD=op://homelab/duplicati/WEBSERVICE_PASSWORD
+
+# --- Restic → Backblaze B2 ---
+# Repo password — NEVER changes after init (encrypts the repo)
+RESTIC_PASSWORD=op://homelab/restic/PASSWORD
+# Shared B2 application key — APPEND-ONLY (no delete perms, ransomware-safe).
+# Also used by VPS pg-dump. Master key for prune/init lives in Private/Backblaze B2.
+B2_RESTIC_KEY_ID=op://common/backblaze-s3/ACCESS_KEY_ID
+B2_RESTIC_APP_KEY=op://common/backblaze-s3/SECRET_ACCESS_KEY
+# UptimeKuma push URL — backup heartbeat (post-success / post-failure)
+RESTIC_HEARTBEAT_URL=op://homelab/restic/HEARTBEAT_URL
 
 # --- Slack ---
 SLACK_WEBHOOK_ALERTS=op://common/slack/WEBHOOK_ALERTS

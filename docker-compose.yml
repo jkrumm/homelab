@@ -228,6 +228,59 @@ services:
       glance.url: https://duplicati.jkrumm.com
       glance.hide: false
 
+  # Restic backup → Backblaze B2 (S3-compatible, EU Central).
+  # Repo: s3://jkrumm/backups/homelab/restic
+  # Append-only key (op://common/backblaze-s3, no delete perms) for ransomware
+  # safety; manual prune via `make restic-prune` from Mac with master key
+  # (op://Private/Backblaze B2). See CLAUDE.md "Backups" for the full design.
+  restic-backup:
+    image: mazzolino/restic:latest
+    container_name: restic-backup
+    hostname: homelab
+    restart: unless-stopped
+    environment:
+      RESTIC_REPOSITORY: s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${B2_RESTIC_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${B2_RESTIC_APP_KEY}
+      RESTIC_CACHE_DIR: /cache
+      BACKUP_CRON: "0 30 3 * * *" # daily 03:30 (6-field: sec min hour dom mon dow)
+      RESTIC_BACKUP_SOURCES: /sources
+      RESTIC_BACKUP_ARGS: >-
+        --tag homelab
+        --exclude-file=/excludes.txt
+        --one-file-system
+        --skip-if-unchanged
+      RESTIC_FORGET_ARGS: >-
+        --tag homelab
+        --keep-daily 14
+        --keep-weekly 8
+        --keep-monthly 12
+        --keep-yearly 5
+      POST_COMMANDS_SUCCESS: |-
+        wget -q -O - --timeout=10 --tries=3 "${RESTIC_HEARTBEAT_URL}?status=up&msg=ok" || true
+      POST_COMMANDS_FAILURE: |-
+        wget -q -O - --timeout=10 --tries=3 "${RESTIC_HEARTBEAT_URL}?status=down&msg=fail" || true
+      TZ: Europe/Berlin
+    volumes:
+      - /home/jkrumm/ssd/SSD/Bilder:/sources/Bilder:ro
+      - /home/jkrumm/ssd/SSD/Dokumente:/sources/Dokumente:ro
+      - /home/jkrumm/ssd/SSD/Bücher:/sources/Buecher:ro
+      - /home/jkrumm/ssd/SSD/Videos:/sources/Videos:ro
+      - /home/jkrumm/ssd/SSD/Public:/sources/Public:ro
+      - /home/jkrumm/ssd/SSD/Dev:/sources/Dev:ro
+      - /mnt/hdd/fuji/RAWs:/sources/Fuji-RAWs:ro
+      - /mnt/hdd/backups:/sources/db-dumps:ro
+      - /home/jkrumm/homelab/packages/api/data:/sources/api-sqlite:ro
+      - /mnt/hdd/restic/cache:/cache
+      - ./restic-excludes.txt:/excludes.txt:ro
+    labels:
+      glance.parent: uptime
+      glance.name: Restic Backup
+      glance.icon: si:restic
+      glance.hide: false
+      com.centurylinklabs.watchtower.enable: 'true'
+
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower

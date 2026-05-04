@@ -18,7 +18,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs
+.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -53,6 +53,15 @@ help: ## Show all targets
 	@echo "    make uk-sync             Apply all Uptime Kuma monitors (public + private)"
 	@echo "    make uk-dry-run          Preview Uptime Kuma monitor changes"
 	@echo "    make uk-export           Export current Uptime Kuma monitors to YAML"
+	@echo ""
+	@echo "  Restic Backup (Homelab → Backblaze B2)"
+	@echo "    make restic-deploy       Deploy/refresh restic-backup container"
+	@echo "    make restic-run          Trigger an unscheduled backup right now"
+	@echo "    make restic-logs         Follow restic-backup logs"
+	@echo "    make restic-snapshots    List snapshots in the B2 repo"
+	@echo "    make restic-stats        Show repo size + dedup stats"
+	@echo "    make restic-check        Verify repo integrity (read structure only)"
+	@echo "    make restic-prune        ⚠ Run on YOUR MAC with admin key — quarterly cleanup"
 	@echo ""
 
 # ── API Operations ───────────────────────────────────────────────────────────
@@ -130,3 +139,44 @@ uk-dry-run: ## Preview all monitor changes (no apply)
 
 uk-export: ## Export current Uptime Kuma monitors to YAML
 	$(SSH) "$(CD) && $(SYNC_BASE) --export"
+
+# ── Restic Backup ────────────────────────────────────────────────────────────
+# Backup runs daily at 03:30 inside container (BACKUP_CRON env).
+# Forget runs after each backup. Prune is MANUAL — see restic-prune below.
+
+RESTIC_REPO := s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic
+
+restic-deploy: ## Deploy / refresh the restic-backup container
+	$(SSH) "$(CD) && git pull && $(DC) up -d restic-backup"
+
+restic-run: ## Trigger an unscheduled backup now (runs in foreground)
+	$(SSH) "$(CD) && $(DC) exec restic-backup /bin/run_backup.sh"
+
+restic-logs: ## Follow restic-backup logs
+	$(SSH) "docker logs -f --tail=200 restic-backup"
+
+restic-snapshots: ## List snapshots in the B2 repo
+	$(SSH) "$(CD) && $(DC) exec restic-backup restic snapshots --compact"
+
+restic-stats: ## Show repo size + deduplication stats
+	$(SSH) "$(CD) && $(DC) exec restic-backup restic stats --mode raw-data"
+
+restic-check: ## Verify repo metadata integrity (no data download)
+	$(SSH) "$(CD) && $(DC) exec restic-backup restic check"
+
+# ⚠ Runs LOCALLY on your Mac with the MASTER B2 key (op://Private/Backblaze B2).
+# Shared backup key in common/backblaze-s3 has no delete perms by design.
+# Run quarterly to reclaim space from forgotten snapshots.
+restic-prune: ## ⚠ Run from Mac with master key — quarterly prune
+	@echo "Pruning B2 restic repo with master key — this can take a while..."
+	@AWS_ACCESS_KEY_ID="$$(op read 'op://Private/Backblaze B2/MASTER_KEY_ID' --account tkrumm)" \
+	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm)" \
+	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
+	 restic -r $(RESTIC_REPO) prune
+
+restic-init: ## ⚠ Run ONCE from Mac with master key — initialise repo
+	@echo "Initialising restic repo at $(RESTIC_REPO)"
+	@AWS_ACCESS_KEY_ID="$$(op read 'op://Private/Backblaze B2/MASTER_KEY_ID' --account tkrumm)" \
+	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm)" \
+	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
+	 restic -r $(RESTIC_REPO) init

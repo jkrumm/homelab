@@ -121,6 +121,13 @@ groups:
             timeout: 120
             maxretries: 5
 
+          - name: Restic Backup - Docker
+            type: docker
+            docker_container: restic-backup
+            interval: 142
+            timeout: 120
+            maxretries: 5
+
           # Push monitors
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
           - name: HomeLab Watchdog - Push
@@ -128,6 +135,12 @@ groups:
             interval: 700 # Cron runs every 10 min (600s) + buffer for execution
             timeout: 48
             retry_interval: 700
+
+          - name: Restic - Push
+            type: push
+            interval: 90000 # 25h — daily 03:30 backup cron + buffer
+            timeout: 48
+            retry_interval: 90000
 
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime

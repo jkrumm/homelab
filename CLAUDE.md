@@ -97,7 +97,11 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/postgres/PASSWORD`       | Immich PostgreSQL                                       |
 | `homelab/samba/PASSWORD`          | Samba file share auth                                   |
 | `homelab/calibre/PASSWORD`        | Calibre GUI access                                      |
-| `homelab/duplicati/*`             | Duplicati backup encryption                             |
+| `homelab/duplicati/*`             | Duplicati backup encryption (legacy — being retired)    |
+| `homelab/restic/PASSWORD`         | Restic repo password (NEVER changes after init)         |
+| `homelab/restic/HEARTBEAT_URL`    | UptimeKuma push URL for restic backup heartbeat         |
+| `common/backblaze-s3/*`           | B2 append-only key — shared by homelab restic + VPS pg-dump (no delete perms) |
+| `Private/Backblaze B2/MASTER_*`   | B2 master key — manual use only, `make restic-prune`/`init` from Mac |
 | `homelab/dufs/PASSWORD`           | Public file server auth                                 |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `homelab/couchdb/PASSWORD`        | CouchDB admin password                                  |
@@ -293,11 +297,11 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 
 ### Mount Points
 
-| Path               | Type                     | Purpose                      |
-| ------------------ | ------------------------ | ---------------------------- |
-| `/home/jkrumm/ssd` | Internal SSD             | Fast storage, databases      |
-| `/mnt/hdd`         | External HDD (encrypted) | Media, backups, large files  |
-| `/mnt/transfer`    | Partition                | Duplicati backup destination |
+| Path               | Type                     | Purpose                                    |
+| ------------------ | ------------------------ | ------------------------------------------ |
+| `/home/jkrumm/ssd` | Internal SSD             | Fast storage, databases                    |
+| `/mnt/hdd`         | External HDD (encrypted) | Media, backups, large files, restic cache  |
+| `/mnt/transfer`    | Partition                | Movies (`Filme/`); Duplicati legacy staging (cleared after restic migration) |
 
 ### Key Directories
 
@@ -306,24 +310,92 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 ├── homelab/              # This repository
 ├── ssd/
 │   ├── SSD/
-│   │   ├── Bilder/       # Immich photos, Fuji imports
+│   │   ├── Bilder/       # Photos (incl. Immich subfolder)
 │   │   ├── Bücher/       # Calibre library
-│   │   ├── Dokumente/    # ExcaliDash, misc
-│   │   └── Public/       # Dufs public files
-│   ├── couchdb/          # CouchDB data
+│   │   ├── Dokumente/    # Documents — includes Obsidian/ vault sync target
+│   │   ├── Videos/       # Personal videos
+│   │   ├── Public/       # Dufs public files
+│   │   └── Dev/          # Static dev files
+│   ├── couchdb/          # CouchDB data (Obsidian LiveSync)
+│   ├── garmin-tokens/    # Garmin Connect OAuth tokens
 │   └── uptime-kuma/      # UptimeKuma data
 
 /mnt/hdd/
-├── duplicati/            # Backup configs
+├── fuji/                 # Fuji RAW + Videos archive
+├── restic/cache/         # Restic local cache (~200 MB metadata)
+├── duplicati/            # Legacy backup configs (being retired)
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
-└── backups/              # Database backups
+└── backups/              # FPP MySQL hourly dump (restic source)
 ```
 
 ### Storage Usage Patterns
 
 - **SSD:** Databases, frequently accessed files, application configs
 - **HDD:** Media files, backups, archives, large datasets
+
+---
+
+## Backups (Restic → Backblaze B2)
+
+**Repo:** `s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic`
+**Schedule:** Daily 03:30 (container cron, `BACKUP_CRON` env)
+**Retention (forget, automated):** `keep-daily 14, keep-weekly 8, keep-monthly 12, keep-yearly 5`
+**Container:** `mazzolino/restic` — see `restic-backup` service in `docker-compose.yml`
+**Excludes:** `restic-excludes.txt` at repo root
+
+### Sources backed up
+
+| Path | Mounts as | Note |
+| - | - | - |
+| `/home/jkrumm/ssd/SSD/Bilder` | `/sources/Bilder` | All photos incl. Immich subfolder |
+| `/home/jkrumm/ssd/SSD/Dokumente` | `/sources/Dokumente` | Includes `Obsidian/` sync target |
+| `/home/jkrumm/ssd/SSD/Bücher` | `/sources/Buecher` | |
+| `/home/jkrumm/ssd/SSD/Videos` | `/sources/Videos` | |
+| `/home/jkrumm/ssd/SSD/Public` | `/sources/Public` | Dufs files |
+| `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
+| `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
+| `/mnt/hdd/backups` | `/sources/db-dumps` | FPP MySQL hourly dump |
+| `/home/jkrumm/homelab/packages/api/data` | `/sources/api-sqlite` | API SQLite (read live; small + WAL) |
+
+**Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser/Jellyfin/Transmission/Prowlarr/qbittorrent state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`.
+
+### Two-key pattern (ransomware safety)
+
+| Key | Permissions | Storage | Used by |
+| - | - | - | - |
+| `common/backblaze-s3` | `listAllBucketNames, listBuckets, readBuckets, listFiles, readFiles, writeFiles` — bucket `jkrumm` (no prefix scope) | 1Password + injected via `op run` | Daily restic backup (homelab) AND daily Postgres dump (VPS). Append-only — no delete perms |
+| `Private/Backblaze B2` (`MASTER_KEY_ID` + `MASTER_APP_KEY` fields) | Master (full access) | 1Password ONLY, never automated | `make restic-prune` and `restic-init` from your Mac |
+
+**Why two keys:** the shared automation key can never delete from B2. Even with the restic password leaked, an attacker cannot wipe the offsite repo. Pruning is a deliberate human action with the master key. Single shared automation key (no per-host prefix scoping) — append-only already protects integrity, prefix scoping would only marginally limit a junk-upload cost attack.
+
+### Operations
+
+| Command | What it does | Where |
+| - | - | - |
+| `make restic-init` | One-time repo init (only runs once) | Mac (admin key) |
+| `make restic-deploy` | Deploy/refresh container | Mac → SSH |
+| `make restic-run` | Trigger unscheduled backup now | Mac → SSH |
+| `make restic-snapshots` | List snapshots | Mac → SSH (container key) |
+| `make restic-stats` | Repo size + dedup ratio | Mac → SSH (container key) |
+| `make restic-check` | Verify metadata integrity | Mac → SSH (container key) |
+| `make restic-prune` | ⚠ Quarterly: reclaim space from forgotten snapshots | Mac (admin key) |
+| `make restic-logs` | Tail container logs | Mac → SSH |
+
+**Restore drill (manual):**
+
+```bash
+# List recent snapshots
+make restic-snapshots
+# Mount snapshot read-only (use container key — restore-only)
+ssh homelab "docker exec restic-backup restic restore latest --target /tmp/restore --include /sources/Dokumente/<file>"
+ssh homelab "ls -la /tmp/restore/sources/Dokumente/"
+```
+
+### Heartbeat monitoring
+
+- Container `POST_COMMANDS_SUCCESS`/`POST_COMMANDS_FAILURE` push to `${RESTIC_HEARTBEAT_URL}` (UptimeKuma).
+- Monitor: `Restic Backup - Push` in `uptime-kuma/monitors.yaml` (HomeLab → Backups subgroup, 25h interval).
 
 ---
 
@@ -730,6 +802,21 @@ When making changes that affect infrastructure or script behavior:
 | `make uk-dry-run` | Preview monitor changes               |
 | `make uk-sync`    | Apply all monitors (public + private) |
 | `make uk-export`  | Export current monitors to YAML       |
+
+### Restic Backup (Homelab → Backblaze B2)
+
+> **Two-key model:** automation uses an append-only B2 key (no delete) from `op://common/backblaze-s3`. `restic-prune` and `restic-init` run from your Mac with the master key from `op://Private/Backblaze B2`. See "Backups" section above.
+
+| Command                | Purpose                                           |
+| ---------------------- | ------------------------------------------------- |
+| `make restic-deploy`   | Deploy/refresh `restic-backup` container          |
+| `make restic-run`      | Trigger an unscheduled backup now                 |
+| `make restic-snapshots`| List snapshots in B2                              |
+| `make restic-stats`    | Repo size + dedup ratio                           |
+| `make restic-check`    | Verify metadata integrity                         |
+| `make restic-logs`     | Follow restic-backup logs                         |
+| `make restic-prune`    | ⚠ Quarterly prune (Mac, admin key)                |
+| `make restic-init`     | ⚠ One-time repo init (Mac, admin key)             |
 
 ### HDD Operations
 

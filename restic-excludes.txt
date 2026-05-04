@@ -1,0 +1,47 @@
+# Restic exclusion patterns — global to all sources
+# Reference: https://restic.readthedocs.io/en/latest/040_backup.html#excluding-files
+
+# macOS / Samba metadata
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Trash bins
+.Trash-*
+**/.trash/**
+
+# Editor temp / swap
+*.swp
+*.swo
+*~
+
+# Build/cache (Dev folder)
+**/node_modules/**
+**/.next/**
+**/.nuxt/**
+**/dist/**
+**/build/**
+**/target/**
+**/.cache/**
+**/.venv/**
+**/__pycache__/**
+**/*.pyc
+
+# Generic temp
+*.tmp
+**/.tmp/**
+
+# Lockfiles for live DBs (we back up the file, lock noise is irrelevant)
+*-shm
+*-journal
+
+# Immich noise (Immich subfolder is included as the user opted in for the whole Bilder tree)
+**/immich/encoded-video/**
+**/immich/thumbs/**
+**/immich/profile/**
+**/immich/library/preview/**
+**/immich/library/thumb/**
