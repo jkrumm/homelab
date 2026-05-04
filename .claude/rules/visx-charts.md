@@ -5,7 +5,7 @@ paths:
 
 # Visx Charts — Dashboard Implementation
 
-Project-specific primitives, tokens, and kinds for the homelab dashboard. For the general philosophy and cross-project conventions, see: `~/SourceRoot/claude-local/rules/visx-charts.md`.
+Project-specific primitives, tokens, and kinds for the homelab dashboard. For the general philosophy and cross-project conventions, see: `~/SourceRoot/dotfiles/rules/visx-charts.md`.
 
 ## Where things live
 

@@ -88,7 +88,7 @@ Right margin auto-widens to 40px when `rightAxis` is configured.
 - Every non-sparkline chart wraps in `<ChartCard>` with `tooltip` from `METRIC_TOOLTIPS`.
 - Append `<ChartLegend>` outside `<ParentSize>` for every multi-series chart.
 - X-scale built from full `data`, not filtered — preserves calendar continuity through nulls.
-- Read `.claude/rules/visx-charts.md` and `~/SourceRoot/claude-local/rules/visx-charts.md` before starting any phase.
+- Read `.claude/rules/visx-charts.md` and `~/SourceRoot/dotfiles/rules/visx-charts.md` before starting any phase.
 - One commit per phase. Run `bun run lint && bun tsc --noEmit && bun run format:check` before committing.
 - Validate the running dev server in Chrome before ending a phase — `cd packages/dashboard && VITE_API_URL=https://api.jkrumm.com bun run dev` points at prod API.
 - Leave the dev server running after your own validation so the user can verify.

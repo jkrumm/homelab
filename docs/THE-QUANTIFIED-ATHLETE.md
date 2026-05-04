@@ -942,5 +942,5 @@ The formulas above are not original. Primary sources:
 
 For the reference-manual view of each half, see `docs/GARMIN-HEALTH.md` and
 `docs/STRENGTH-ANALYTICS.md`. For the chart-primitive contract, see
-`~/SourceRoot/claude-local/rules/visx-charts.md` and
+`~/SourceRoot/dotfiles/rules/visx-charts.md` and
 `.claude/rules/visx-charts.md`.

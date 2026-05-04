@@ -177,7 +177,7 @@ git -c commit.gpgsign=false commit --no-verify -m "docs(dashboard): mark strengt
 ```
 
 If you'd rather a single commit, that's also fine — fewer small commits is preferable per
-`~/SourceRoot/claude-local/rules/commit-conventions.md`. Use your judgment.
+`~/SourceRoot/dotfiles/rules/commit-conventions.md`. Use your judgment.
 
 Fallback per shared-context.md if any commit fails.
 

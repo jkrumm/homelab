@@ -166,7 +166,7 @@ When you have a question, consult in this order. Stop at the first source that a
 
 1. **`docs/STRENGTH-ANALYTICS.md`** — *what* to build: metrics, formulas, composites, chart catalogue, naming rule, subtitle rule, phase boundaries
 2. **`docs/GARMIN-HEALTH.md`** + `packages/dashboard/src/pages/garmin-health/` — *how* to build it: patterns, code references, component contracts
-3. **`.claude/rules/visx-charts.md`** + **`~/SourceRoot/claude-local/rules/visx-charts.md`** — *primitive contract*: what's mandatory, what's banned
+3. **`.claude/rules/visx-charts.md`** + **`~/SourceRoot/dotfiles/rules/visx-charts.md`** — *primitive contract*: what's mandatory, what's banned
 4. **`.claude/rules/dashboard-patterns.md`** + **`.claude/rules/refine.md`** — dashboard/Refine conventions
 5. **This file** — RALPH-specific conventions (commits, completion, notes)
 6. **`packages/dashboard/CLAUDE.md`** + repo-root `CLAUDE.md` — project norms

@@ -202,8 +202,8 @@ If any routes were added, removed, or modified in `api/src/`:
 **Steps:**
 
 1. Fetch the live OpenAPI spec: `curl -s https://api.jkrumm.com/docs/json`
-2. Regenerate `~/SourceRoot/claude-local/hermes/skills/homelab-api/SKILL.md` — update endpoint tables to match the spec. Preserve the frontmatter, Usage Pattern section, and Notes section (which lists domain skills).
-3. If the changed route falls under a domain skill (see table above), update that domain skill's curl commands and field semantics to match the new API. Domain skills live at `~/SourceRoot/claude-local/hermes/skills/{name}/SKILL.md`.
+2. Regenerate `~/SourceRoot/hermes-agent/skills/homelab-api/SKILL.md` — update endpoint tables to match the spec. Preserve the frontmatter, Usage Pattern section, and Notes section (which lists domain skills).
+3. If the changed route falls under a domain skill (see table above), update that domain skill's curl commands and field semantics to match the new API. Domain skills live at `~/SourceRoot/hermes-agent/skills/{name}/SKILL.md`.
 4. If the change adds a new endpoint group that doesn't fit an existing domain skill, consider creating a new one following the pattern: decision tree, curl commands, field semantics, response formatting guidance.
 5. Note changes in the commit message. Homelab API changes and skill updates go in separate commits (different repos).
 
@@ -230,8 +230,8 @@ If new multi-component stack detected:
 | `uptime-kuma/monitors.yaml`                                    | If monitor config changed                                                                       |
 | `.claude/skills/upgrade-stack/SKILL.md`                        | New multi-component stacks                                                                      |
 | `.claude/skills/docs/SKILL.md`                                 | This file - if audit scope changes                                                              |
-| `~/SourceRoot/claude-local/hermes/skills/homelab-api/SKILL.md` | Endpoint tables regenerated from live OpenAPI spec when `api/src/` changes                      |
-| `~/SourceRoot/claude-local/hermes/skills/{domain}/SKILL.md`    | Domain skill (infrastructure, tasks, schedule, weather, slack) updated if its endpoints changed |
+| `~/SourceRoot/hermes-agent/skills/homelab-api/SKILL.md` | Endpoint tables regenerated from live OpenAPI spec when `api/src/` changes                      |
+| `~/SourceRoot/hermes-agent/skills/{domain}/SKILL.md`    | Domain skill (infrastructure, tasks, schedule, weather, slack) updated if its endpoints changed |
 
 ---
 

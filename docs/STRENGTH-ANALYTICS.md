@@ -751,7 +751,7 @@ landmarks, momentum.
 
 ### Cross-cutting rules for every group
 
-- Read `~/SourceRoot/claude-local/rules/visx-charts.md` and `.claude/rules/visx-charts.md` before
+- Read `~/SourceRoot/dotfiles/rules/visx-charts.md` and `.claude/rules/visx-charts.md` before
   starting. Read this doc. Read `GARMIN-HEALTH.md` when a decision is ambiguous — its pattern wins.
 - One commit per group. Conventional commit prefix: `feat(dashboard):` for visible changes,
   `refactor(dashboard):` for migrations, `chore(dashboard):` for dependency drops.
