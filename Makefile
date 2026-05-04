@@ -150,7 +150,7 @@ restic-deploy: ## Deploy / refresh the restic-backup container
 	$(SSH) "$(CD) && git pull && $(DC) up -d restic-backup"
 
 restic-run: ## Trigger an unscheduled backup now (runs in foreground)
-	$(SSH) "$(CD) && $(DC) exec restic-backup /bin/run_backup.sh"
+	$(SSH) "$(CD) && $(DC) exec restic-backup /usr/local/bin/backup"
 
 restic-logs: ## Follow restic-backup logs
 	$(SSH) "docker logs -f --tail=200 restic-backup"
