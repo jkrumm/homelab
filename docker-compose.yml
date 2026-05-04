@@ -249,7 +249,6 @@ services:
       RESTIC_BACKUP_ARGS: >-
         --tag homelab
         --exclude-file=/excludes.txt
-        --one-file-system
         --skip-if-unchanged
       RESTIC_FORGET_ARGS: >-
         --tag homelab
