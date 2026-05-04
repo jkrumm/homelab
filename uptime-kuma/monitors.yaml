@@ -304,8 +304,8 @@ groups:
 
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
-  # Push monitors fed by claude-local/hermes/scripts/{hermes-liveness,hermes-backup}.sh
-  # See claude-local/hermes/README.md "Cron — Liveness + Backup".
+  # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
+  # See hermes-agent/README.md "Cron — Liveness + Backup".
   # ============================================
   - name: Hermes Agent
     interval: 250
