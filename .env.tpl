@@ -3,7 +3,11 @@
 # Also used by homelab-private (absolute path reference)
 
 # --- Cloudflare ---
+# Token + account + primary zone ID live in `common` — shared with VPS.
+# Tunnel token + tunnel ID are per-server (HomeLab and VPS run separate tunnels).
 CLOUDFLARE_API_TOKEN=op://common/cloudflare/DNS_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID=op://common/cloudflare/ACCOUNT_ID
+CLOUDFLARE_ZONE_ID=op://common/cloudflare/ZONE_ID_JKRUMM_COM
 CLOUDFLARE_TOKEN=op://homelab/cloudflare-tunnel/TOKEN
 CLOUDFLARE_TUNNEL_ID=op://homelab/config/CLOUDFLARE_TUNNEL_ID
 

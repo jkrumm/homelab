@@ -14,14 +14,15 @@ Handle any Cloudflare DNS or tunnel operation for HomeLab-hosted apps.
 
 ## Required 1Password Secrets
 
-All 4 secrets are now in `homelab` / `prod`:
+Shared bits live in **`common`** (VPS uses the same items). Per-server bits live in **`homelab`**. HomeLab and VPS run separate tunnels — each has its own `TUNNEL_ID` and tunnel `TOKEN`, but they share API token + account + zone IDs.
 
-| Secret                  | What it is                                                         |
-| ----------------------- | ------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | Zone:Read + DNS:Edit (all zones) + Tunnel:Edit — same token as VPS |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID                                              |
-| `CLOUDFLARE_ZONE_ID`    | Zone ID for `jkrumm.com`                                           |
-| `CLOUDFLARE_TUNNEL_ID`  | UUID of the HomeLab Cloudflare Tunnel                              |
+| Env var                 | 1Password ref                                       | What it is                                                          |
+| ----------------------- | --------------------------------------------------- | ------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | `op://common/cloudflare/DNS_API_TOKEN`              | Zone:Read + DNS:Edit (all zones) + Tunnel:Edit — same token as VPS. |
+| `CLOUDFLARE_ACCOUNT_ID` | `op://common/cloudflare/ACCOUNT_ID`                 | Account ID — same across all zones/tunnels.                         |
+| `CLOUDFLARE_ZONE_ID`    | `op://common/cloudflare/ZONE_ID_JKRUMM_COM`         | Zone ID for `jkrumm.com`. Other zones looked up on demand.          |
+| `CLOUDFLARE_TUNNEL_ID`  | `op://homelab/config/CLOUDFLARE_TUNNEL_ID`          | **HomeLab** tunnel UUID (VPS tunnel ID lives in `op://vps/...`).    |
+| `CLOUDFLARE_TOKEN`      | `op://homelab/cloudflare-tunnel/TOKEN`              | Per-server tunnel auth.                                             |
 
 ---
 
