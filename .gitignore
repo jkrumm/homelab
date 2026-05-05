@@ -17,3 +17,6 @@ node_modules/
 # RALPH loop state + logs
 .ralph-tasks.json
 .ralph-logs/
+
+# Claude Code runtime state
+.claude/scheduled_tasks.lock
