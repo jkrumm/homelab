@@ -245,7 +245,7 @@ services:
       - /home/jkrumm/ssd/SSD/Public:/sources/Public:ro
       - /home/jkrumm/ssd/SSD/Dev:/sources/Dev:ro
       - /mnt/hdd/fuji/RAWs:/sources/Fuji-RAWs:ro
-      - /mnt/hdd/backups:/sources/db-dumps:ro
+      - /mnt/hdd/backups:/sources/hermes-backup:ro
       - /home/jkrumm/homelab/packages/api/data:/sources/api-sqlite:ro
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
@@ -346,21 +346,6 @@ services:
     image: alpine
     volumes:
       - /var/log/homelab_watchdog.log:/var/log/stream.log
-    command:
-      - tail
-      - -f
-      - /var/log/stream.log
-    network_mode: none
-    restart: unless-stopped
-    labels:
-      glance.hide: true
-      com.centurylinklabs.watchtower.enable: 'false'
-
-  dozzle-backup-logs:
-    container_name: database-backup-logs
-    image: alpine
-    volumes:
-      - /mnt/hdd/backups/backup.log:/var/log/stream.log
     command:
       - tail
       - -f

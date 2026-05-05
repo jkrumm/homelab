@@ -258,7 +258,7 @@ ssh homelab "docker system prune -af"
    - [Garmin Sync](#garmin-sync)
    - [SigNoz (Observability)](#signoz-observability)
    - [HDD Diagnostics](#hdd-diagnostics)
-   - [Database Backup](#database-backup)
+   - [Restic Backup → Backblaze B2](#restic-backup--backblaze-b2)
    - [1Password Secrets](#1password-secrets)
    - [Emergency Commands](#emergency-commands)
 2. [Infrastructure Overview](#infrastructure-overview)
@@ -1115,7 +1115,6 @@ Create an Alpine container that tails the log file. The container appears in Doz
 **Currently monitored system logs:**
 
 - **HomeLab Watchdog** (`homelab-watchdog-logs` container) → `/var/log/homelab_watchdog.log`
-- **Database Backup** (`database-backup-logs` container) → `/mnt/hdd/backups/backup.log`
 
 **To add additional log files:**
 
@@ -1165,7 +1164,7 @@ make restic-prune
 
 #### What the daily snapshot covers
 
-`/sources/{Bilder,Dokumente,Buecher,Videos,Public,Dev,Fuji-RAWs,db-dumps,api-sqlite}` — defined as `volumes:` in the `restic-backup` service. `restic-excludes.txt` carves out volatile state (Immich Postgres, qbittorrent caches, etc.).
+`/sources/{Bilder,Dokumente,Buecher,Videos,Public,Dev,Fuji-RAWs,hermes-backup,api-sqlite}` — defined as `volumes:` in the `restic-backup` service. `restic-excludes.txt` carves out volatile state (Immich Postgres, qbittorrent caches, etc.).
 
 #### Heartbeat
 
@@ -1175,21 +1174,19 @@ The container pushes UK on `POST_COMMANDS_SUCCESS` / `POST_COMMANDS_FAILURE` to 
 
 You can monitor the backup process by:
 
-1. Checking the log file:
+1. Tailing the container logs:
 
    ```bash
-   sudo tail -f /mnt/hdd/backups/backup.log
+   make restic-logs
    ```
 
-2. Verifying the backup file exists and is recent:
+2. Confirming snapshots are landing:
 
    ```bash
-   ls -l /mnt/hdd/backups/fpp.sql
+   make restic-snapshots
    ```
 
-3. Checking UptimeKuma dashboard for backup status notifications
-
-The backup file is included in the restic offsite backup (mount `/sources/db-dumps`).
+3. UptimeKuma `Restic - Push` monitor (heartbeat fires on each successful run, 25h interval).
 
 ## Setup HomeLab self healing watchdog
 

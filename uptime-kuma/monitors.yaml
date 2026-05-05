@@ -421,11 +421,6 @@ groups:
         type: mysql
         # Connection details configured in Uptime Kuma UI (contains secrets)
 
-      - name: FPP - DB Backup
-        type: push
-        interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
-        retry_interval: 90000
-
       - name: FPP - Analytics Readmodel
         type: push
         interval: 650

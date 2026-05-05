@@ -352,7 +352,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | `/home/jkrumm/ssd/SSD/Public` | `/sources/Public` | Dufs files |
 | `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
-| `/mnt/hdd/backups` | `/sources/db-dumps` | FPP MySQL hourly dump |
+| `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
 | `/home/jkrumm/homelab/packages/api/data` | `/sources/api-sqlite` | API SQLite (read live; small + WAL) |
 
 **Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser/Jellyfin/Transmission/Prowlarr/qbittorrent state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`.
