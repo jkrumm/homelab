@@ -26,7 +26,7 @@
 | Skill                   | Context | Purpose                                                                                      |
 | ----------------------- | ------- | -------------------------------------------------------------------------------------------- |
 | `/audit`                | main    | Full health audit + repair — containers, resources, storage, updates, errors                 |
-| `/cloudflare`           | main    | Cloudflare DNS records + tunnel ingress config operations                                    |
+| `/cloudflare`           | main    | Cloudflare DNS records + tunnel ingress config operations. Centralized at `~/SourceRoot/.claude/skills/cloudflare/` (sourced from dotfiles), shared with VPS |
 | `/docs`                 | main    | Documentation maintenance — audit and update README.md, CLAUDE.md, docs/, skill files        |
 | `/upgrade-stack <name>` | fork    | Upgrade assistant for manually-managed containers with dependency + breaking change analysis |
 | `/commit`               | main    | Smart git commit with conventional commits (inherited from SourceRoot)                       |
