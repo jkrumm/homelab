@@ -204,30 +204,6 @@ services:
       glance.url: https://glance.jkrumm.com
       glance.hide: false
 
-  duplicati:
-    image: lscr.io/linuxserver/duplicati:latest
-    container_name: duplicati
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Berlin
-      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_ENCRYPTION_KEY}
-      - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_WEBSERVICE_PASSWORD}
-    # - CLI_ARGS= #optional
-    volumes:
-      - /mnt/hdd/duplicati/config:/config
-      - /mnt/transfer/duplicati_backups:/backups
-      - /home/jkrumm/ssd:/source/ssd
-      - /mnt:/source/mnt
-    networks:
-      - cloudflared
-    restart: unless-stopped
-    labels:
-      glance.name: Duplicati
-      glance.icon: si:duplicati
-      glance.url: https://duplicati.jkrumm.com
-      glance.hide: false
-
   # Restic backup → Backblaze B2 (S3-compatible, EU Central).
   # Repo: s3://jkrumm/backups/homelab/restic
   # Append-only key (op://common/backblaze-s3, no delete perms) for ransomware

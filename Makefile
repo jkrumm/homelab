@@ -89,10 +89,10 @@ dash-rebuild: ## Rebuild dashboard image (no cache) and restart with secrets
 # ── Stack Operations ─────────────────────────────────────────────────────────
 
 deploy: ## Full deploy: git pull + recreate all services with secrets
-	$(SSH) "$(CD) && git pull && $(DC) up -d"
+	$(SSH) "$(CD) && git pull && $(DC) up -d --remove-orphans"
 
 up: ## Start or recreate all services with secrets
-	$(SSH) "$(CD) && $(DC) up -d"
+	$(SSH) "$(CD) && $(DC) up -d --remove-orphans"
 
 restart: ## Force-recreate a single service: make restart svc=<name>
 	@[ -n "$(svc)" ] || { echo "ERROR: Specify service — make restart svc=<name>"; exit 1; }

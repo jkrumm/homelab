@@ -29,10 +29,6 @@ GARMIN_EMAIL=op://homelab/garmin/EMAIL
 GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
 GARMIN_SYNC_PUSH_URL=op://homelab/garmin/PUSH_URL
 
-# --- Duplicati (legacy — being replaced by Restic, kept during migration) ---
-DUPLICATI_ENCRYPTION_KEY=op://homelab/duplicati/ENCRYPTION_KEY
-DUPLICATI_WEBSERVICE_PASSWORD=op://homelab/duplicati/WEBSERVICE_PASSWORD
-
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
 RESTIC_PASSWORD=op://homelab/restic/PASSWORD

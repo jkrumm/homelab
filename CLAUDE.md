@@ -97,7 +97,6 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/postgres/PASSWORD`       | Immich PostgreSQL                                       |
 | `homelab/samba/PASSWORD`          | Samba file share auth                                   |
 | `homelab/calibre/PASSWORD`        | Calibre GUI access                                      |
-| `homelab/duplicati/*`             | Duplicati backup encryption (legacy — being retired)    |
 | `homelab/restic/PASSWORD`         | Restic repo password (NEVER changes after init)         |
 | `homelab/restic/HEARTBEAT_URL`    | UptimeKuma push URL for restic backup heartbeat         |
 | `common/backblaze-s3/*`           | B2 append-only key — shared by homelab restic + VPS pg-dump (no delete perms) |
@@ -232,7 +231,6 @@ docker events --since 1h --filter container=<name>
 | ----------- | ---- | -------------------- | ------------------------- |
 | Beszel      | 8090 | beszel.jkrumm.com    | System metrics            |
 | Dozzle      | 8081 | dozzle.jkrumm.com    | Container logs            |
-| Duplicati   | 8200 | duplicati.jkrumm.com | Backups                   |
 | FileBrowser | 80   | files.jkrumm.com     | File management           |
 | Calibre GUI | 8080 | calibre.jkrumm.com   | Book management admin     |
 | Calibre-Web | 8083 | books.jkrumm.com     | E-book library            |
@@ -301,7 +299,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | ------------------ | ------------------------ | ------------------------------------------ |
 | `/home/jkrumm/ssd` | Internal SSD             | Fast storage, databases                    |
 | `/mnt/hdd`         | External HDD (encrypted) | Media, backups, large files, restic cache  |
-| `/mnt/transfer`    | Partition                | Movies (`Filme/`); Duplicati legacy staging (cleared after restic migration) |
+| `/mnt/transfer`    | Partition                | Movies (`Filme/`)                          |
 
 ### Key Directories
 
@@ -323,7 +321,6 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 /mnt/hdd/
 ├── fuji/                 # Fuji RAW + Videos archive
 ├── restic/cache/         # Restic local cache (~200 MB metadata)
-├── duplicati/            # Legacy backup configs (being retired)
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
 └── backups/              # FPP MySQL hourly dump (restic source)
@@ -382,15 +379,42 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | `make restic-prune` | ⚠ Quarterly: reclaim space from forgotten snapshots | Mac (admin key) |
 | `make restic-logs` | Tail container logs | Mac → SSH |
 
-**Restore drill (manual):**
+**Restore drill (run from Mac — proves offsite recoverability):**
+
+The append-only key (`op://common/backblaze-s3`) has read perms (`listFiles, readFiles`), so restores work from any machine with restic + the repo password. This is the real DR drill — recovering from the laptop without touching homelab.
 
 ```bash
-# List recent snapshots
-make restic-snapshots
-# Mount snapshot read-only (use container key — restore-only)
-ssh homelab "docker exec restic-backup restic restore latest --target /tmp/restore --include /sources/Dokumente/<file>"
-ssh homelab "ls -la /tmp/restore/sources/Dokumente/"
+# Build env (one-shot; do not export to shell history)
+export RR="s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic"
+
+# List snapshots from Mac
+RESTIC_REPOSITORY="$RR" \
+  RESTIC_PASSWORD="$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
+  AWS_ACCESS_KEY_ID="$(op read 'op://common/backblaze-s3/ACCESS_KEY_ID' --account tkrumm)" \
+  AWS_SECRET_ACCESS_KEY="$(op read 'op://common/backblaze-s3/SECRET_ACCESS_KEY' --account tkrumm)" \
+  restic snapshots --compact
+
+# Restore specific files from a snapshot (use --include for a subset, or omit to restore the whole snapshot)
+RESTIC_REPOSITORY="$RR" \
+  RESTIC_PASSWORD="$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
+  AWS_ACCESS_KEY_ID="$(op read 'op://common/backblaze-s3/ACCESS_KEY_ID' --account tkrumm)" \
+  AWS_SECRET_ACCESS_KEY="$(op read 'op://common/backblaze-s3/SECRET_ACCESS_KEY' --account tkrumm)" \
+  restic restore <snapshot-id|latest> \
+    --target /tmp/restic-drill \
+    --include /sources/Dokumente/<path>
+
+# Verify restored vs source (run on homelab side via SSH for the source)
+shasum -a 256 /tmp/restic-drill/sources/Dokumente/<path>
+ssh homelab "sha256sum /home/jkrumm/ssd/SSD/Dokumente/<path>"
+# Hashes must match exactly.
+
+# Compare two snapshots (point-in-time diff for "previous versions")
+restic diff <older-id> <newer-id>
 ```
+
+**Validated 2026-05-04** with snapshot `49918079` (234 GiB / 82,274 files): three test files (text, JSON, SQLite binary) restored from B2 to Mac and SHA-256 matched the homelab originals exactly. `restic check` reported no errors. Restore of all 3 small files completed in <1 second.
+
+`restic diff <id1> <id2>` and `restic ls <id> <path>` both work the same way — useful for finding when a file was deleted or modified.
 
 ### Heartbeat monitoring
 

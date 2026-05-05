@@ -190,13 +190,6 @@ groups:
             timeout: 120
             maxretries: 5
 
-          - name: Duplicati - Docker
-            type: docker
-            docker_container: duplicati
-            interval: 176
-            timeout: 120
-            maxretries: 5
-
           - name: Public Files - HTTP
             type: http
             url: https://public.jkrumm.com/

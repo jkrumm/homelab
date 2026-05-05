@@ -43,13 +43,6 @@ http://dozzle.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
-duplicati.jkrumm.com {
-	reverse_proxy duplicati:8200
-}
-http://duplicati.jkrumm.com {
-	redir https://{host}{uri} permanent
-}
-
 files.jkrumm.com {
 	reverse_proxy filebrowser:80
 }

@@ -146,7 +146,7 @@ Usually resolves at state 1 (simple Docker restart).
 **What fails:**
 
 - `check_mount_integrity` - /mnt/hdd not accessible
-- Containers with HDD volumes fail (beszel, filebrowser, duplicati)
+- Containers with HDD volumes fail (beszel, filebrowser, restic-backup)
 
 **What keeps working:**
 

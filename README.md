@@ -276,10 +276,9 @@ ssh homelab "docker system prune -af"
 13. [Setup Beszel](#setup-beszel)
 14. [Setup Dozzle](#setup-dozzle)
 15. [Setup UptimeKuma](#setup-uptimekuma)
-16. [Setup Duplicati](#setup-duplicati)
-17. [Setup Database Backup](#setup-database-backup)
-18. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
-19. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
+16. [Setup Database Backup](#setup-database-backup)
+17. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
+18. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
 20. [Setup Immich](#setup-immich)
 21. [Setup ExcaliDash](#setup-excalidash)
 22. [Setup Public Files (Dufs)](#setup-public-files-dufs)
@@ -338,7 +337,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | ----------- | ---------------------------------------------------- | ----------------------------------------------------- |
 | Beszel      | [beszel.jkrumm.com](https://beszel.jkrumm.com)       | System metrics                                        |
 | Dozzle      | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)       | Container logs                                        |
-| Duplicati   | [duplicati.jkrumm.com](https://duplicati.jkrumm.com) | Backup management                                     |
 | FileBrowser | [files.jkrumm.com](https://files.jkrumm.com)         | File management                                       |
 | Calibre GUI | [calibre.jkrumm.com](https://calibre.jkrumm.com)     | Book management admin                                 |
 | Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com)         | E-book library                                        |
@@ -519,7 +517,6 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 | Dufs        | Public (Cloudflare) | public.jkrumm.com    |
 | Beszel      | Private (Tailscale) | beszel.jkrumm.com    |
 | Dozzle      | Private (Tailscale) | dozzle.jkrumm.com    |
-| Duplicati   | Private (Tailscale) | duplicati.jkrumm.com |
 | FileBrowser | Private (Tailscale) | files.jkrumm.com     |
 | Calibre GUI | Private (Tailscale) | calibre.jkrumm.com   |
 | Calibre-Web | Private (Tailscale) | books.jkrumm.com     |
@@ -1148,62 +1145,6 @@ Then restart Docker Compose to apply:
 op run --env-file=.env.tpl -- docker compose up -d
 ```
 
-## Setup Duplicati
-
-1. Create a specific folder for Duplicati data on the HDD:
-   ```bash
-   sudo mkdir -p /mnt/hdd/duplicati
-   sudo chown -R 1000:1000 /mnt/hdd/duplicati
-   chmod 755 /mnt/hdd/duplicati
-   ```
-2. create a config and a backups folder in the duplicati folder
-   ```bash
-   sudo mkdir -p /mnt/hdd/duplicati/config
-   sudo mkdir -p /mnt/transfer/duplicati_backups
-   sudo chown -R 1000:1000 /mnt/hdd/duplicati/config
-   sudo chown -R 1000:1000 /mnt/transfer/duplicati_backups
-   sudo chmod -R 755 /mnt/hdd/duplicati/config
-   sudo chmod -R 755 /mnt/transfer/duplicati_backups
-   ```
-3. Access the Duplicati server using the following credentials:
-   - Host: `https://duplicati.jkrumm.com`
-   - Username: jkrumm
-   - Password: You can find the secret in 1Password and 1Password
-
-4. Backups I run with Duplicati:
-   - SSD
-     - SSD LOCAL at 03:00
-       - Destination: /source/mnt/transfer/duplicati_backups/SSD/
-       - Source: /source/ssd/SSD/
-       - Config: 100 MByte and intelligent persistence
-       - IGNORE:
-         - /source/ssd/SSD/Bilder/immich/upload/library
-         - /source/ssd/SSD/Bilder/immich/postgres
-         - /source/ssd/SSD/Bilder/immich/upload/encoded-video
-         - /source/ssd/SSD/Bilder/immich/upload/profile
-         - /source/ssd/SSD/Bilder/immich/upload/thumbs
-     - SSD OneDrive at 03:30
-       - Destination: jkrumm_duplicati_ssd
-       - Source: /source/ssd/SSD/
-       - Config: 50 MByte and intelligent persistence
-       - IGNORE:
-         - /source/ssd/SSD/Bilder/immich/upload/library
-         - /source/ssd/SSD/Bilder/immich/postgres
-         - /source/ssd/SSD/Bilder/immich/upload/encoded-video
-         - /source/ssd/SSD/Bilder/immich/upload/profile
-         - /source/ssd/SSD/Bilder/immich/upload/thumbs
-   - HDD
-     - HDD LOCAL at 02:30
-       - Destination: /source/mnt/transfer/duplicati_backups/HDD/
-       - Source: /source/mnt/hdd/
-       - IGNORE: /source/mnt/hdd/Filme/
-       - Config: 100 MByte and intelligent persistence
-     - HDD OneDrive at 02:40
-       - Destination: jkrumm_duplicati_hdd
-       - Source: /source/mnt/hdd/
-       - IGNORE: /source/mnt/hdd/Filme/
-       - Config: 50 MByte and intelligent persistence
-
 ## Setup Database Backup
 
 This guide explains how to set up automated MySQL database backups for the Free Planning Poker database.
@@ -1281,7 +1222,7 @@ This guide explains how to set up automated MySQL database backups for the Free 
 - Location: Backups are stored in `/mnt/hdd/backups/fpp.sql`
 - Frequency: Hourly (every hour at minute 0)
 - Logging: All backup operations are logged to `/mnt/hdd/backups/backup.log`
-- Retention: Each backup overwrites the previous one (Duplicati handles versioning)
+- Retention: Each backup overwrites the previous one; restic's `restic-backup` container picks up `/mnt/hdd/backups` as a source for offsite versioning
 - Security: Credentials are stored in a root-only accessible file
 - Monitoring: Backup status is reported to UptimeKuma
 
@@ -1303,7 +1244,7 @@ You can monitor the backup process by:
 
 3. Checking UptimeKuma dashboard for backup status notifications
 
-The backup file is automatically included in your configured Duplicati backups of the HDD partition.
+The backup file is included in the restic offsite backup (mount `/sources/db-dumps`).
 
 ## Setup HomeLab self healing watchdog
 
@@ -1678,7 +1619,7 @@ to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo
 - Automatic updates via Watchtower
 - Monitoring via Glance dashboard
 - Secure HTTPS access through Cloudflare tunnels
-- All configurations and library are backed up via Duplicati
+- All configurations and library are backed up via restic (Bilder/Bücher SSD sources)
 
 ## Setup Immich
 
@@ -1790,7 +1731,7 @@ To enable acceleration in future, replace the stub files with the appropriate de
 
 - **Backend**: Node.js API with SQLite database (Prisma ORM) for storing diagrams
 - **Frontend**: Excalidraw-based web UI served via nginx
-- **Storage**: SQLite database at `/home/jkrumm/ssd/SSD/Dokumente/Anderes/excalidash/dev.db` (backed up via Duplicati)
+- **Storage**: SQLite database at `/home/jkrumm/ssd/SSD/Dokumente/Anderes/excalidash/dev.db` (backed up via restic — Dokumente source)
 
 ### Workflow
 
@@ -1867,7 +1808,7 @@ Embed in Notion/Linear:
 - ZIP download for folders
 - Search functionality
 - Automatic updates via Watchtower
-- Files backed up via Duplicati (same SSD backup)
+- Files backed up via restic (Public source)
 
 ### Configuration Details
 
