@@ -419,7 +419,11 @@ groups:
 
       - name: FPP - DB
         type: mysql
-        # Connection details configured in Uptime Kuma UI (contains secrets)
+        # Connection details (host, port, user, password, query, SSL) configured
+        # in the Uptime Kuma UI — sync.py skips DB monitor updates by design
+        # (see DB_MONITOR_TYPES in sync.py) so the password is never in git
+        # and survives every future sync. Password lives in
+        # op://vps/mariadb/FPP_PASSWORD — paste into UI when creating/rotating.
 
       - name: FPP - DB Backup
         type: push

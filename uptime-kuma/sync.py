@@ -58,6 +58,15 @@ def load_config(config_path: str) -> dict:
     return yaml.safe_load(content)
 
 
+# Database monitors hold connection details (host/port/user/password) in the
+# Uptime Kuma UI — never in this YAML — to keep secrets out of git. For these
+# types we skip the update path entirely once the monitor exists, so a future
+# uptime-kuma-api or Kuma server update can't wipe UI-managed fields by
+# accident. Initial creation goes through the normal path with metadata only;
+# fill connection details in the UI after first sync.
+DB_MONITOR_TYPES = {"mysql", "mssql", "postgres", "mongodb", "redis"}
+
+
 def get_monitor_type(type_str: str) -> MonitorType:
     """Convert string type to MonitorType enum."""
     type_map = {
@@ -152,6 +161,12 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
         """Process a single monitor (create or update)."""
         name = monitor["name"]
         processed_names.add(name)
+
+        # DB monitors: skip update once they exist — preserves UI-managed
+        # connection details (password, host, query). See DB_MONITOR_TYPES.
+        if monitor.get("type") in DB_MONITOR_TYPES and name in existing:
+            print(f"  [SKIP-DB] {name} (connection details preserved from UI)")
+            return existing[name]["id"]
 
         params = build_monitor_params(monitor, defaults, cloudflare_header, parent_id)
 
