@@ -162,7 +162,7 @@ ssh homelab "journalctl -p warning -n 100 --no-pager 2>/dev/null | grep -iE 'sud
 Get the list of running application containers (both stacks) and compare against what's monitored in the combined monitors.yaml.
 
 ```bash
-ssh homelab "docker ps --format '{{.Names}}' | grep -vE 'watchdog-logs|backup-logs|schema-migrator' | sort"
+ssh homelab "docker ps --format '{{.Names}}' | grep -vE 'watchdog-logs|schema-migrator' | sort"
 ```
 
 ```bash
@@ -185,7 +185,7 @@ Compare the CF tunnel hostnames against the HTTP monitor URLs — every tunnel h
 
 **Exclusions** (no monitor needed):
 
-- `homelab-watchdog-logs`, `database-backup-logs`
+- `homelab-watchdog-logs`
 
 **Thresholds:**
 

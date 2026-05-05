@@ -1282,15 +1282,15 @@ echo "$(date +%Y-%m-%d):0" > /var/lib/homelab_watchdog/reboot_tracker
 cat /var/lib/homelab_watchdog/state
 ```
 
-#### Setting up Automated Backups
+#### Setting up the Watchdog Cron
 
-1. Edit the root's crontab to set up nightly backups:
+1. Edit root's crontab:
 
    ```bash
    sudo crontab -e
    ```
 
-2. Add the following line to run the self healing every 10 minutes:
+2. Add the following line so the self-healing watchdog runs every 10 minutes:
 
    ```bash
     */10 * * * * /home/jkrumm/homelab/scripts/homelab_watchdog.sh
