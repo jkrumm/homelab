@@ -2,7 +2,7 @@
 
 ## Context
 
-Both machines expose **all** services through Cloudflare Tunnel, including admin tools (Beszel, Dozzle, Duplicati, FileBrowser) that only you access. Goal: Use Tailscale for private services with your own `jkrumm.com` subdomains, Caddy as config-as-code reverse proxy for all routing, and Cloudflare only for truly public services.
+Both machines expose **all** services through Cloudflare Tunnel, including admin tools (Beszel, Dozzle, FileBrowser) that only you access. Goal: Use Tailscale for private services with your own `jkrumm.com` subdomains, Caddy as config-as-code reverse proxy for all routing, and Cloudflare only for truly public services.
 
 **Tailnet:** `dinosaur-sole.ts.net` (nodes get MagicDNS names like `homelab.dinosaur-sole.ts.net`, but we use `jkrumm.com` subdomains via Caddy for services)
 
@@ -63,7 +63,6 @@ dns:
 | ----------- | ---- | -------------------- | ----------------------- |
 | Beszel      | 8090 | beszel.jkrumm.com    | Admin monitoring        |
 | Dozzle      | 8081 | dozzle.jkrumm.com    | Admin log viewer        |
-| Duplicati   | 8200 | duplicati.jkrumm.com | Backup management       |
 | FileBrowser | 8095 | files.jkrumm.com     | File management         |
 | Calibre GUI | 8085 | calibre.jkrumm.com   | Book management admin   |
 | Calibre-Web | 8083 | books.jkrumm.com     | Personal e-book library |
@@ -283,10 +282,6 @@ dozzle.jkrumm.com {
 	reverse_proxy dozzle:8081
 }
 
-duplicati.jkrumm.com {
-	reverse_proxy duplicati:8200
-}
-
 files.jkrumm.com {
 	reverse_proxy filebrowser:80
 }
@@ -368,7 +363,6 @@ In **Cloudflare DNS** for `jkrumm.com`:
 | ---- | --------- | --------------------------- | --------------- | ---- |
 | A    | beszel    | `100.x.y.z` (HomeLab TS IP) | DNS only (grey) | Auto |
 | A    | dozzle    | `100.x.y.z`                 | DNS only (grey) | Auto |
-| A    | duplicati | `100.x.y.z`                 | DNS only (grey) | Auto |
 | A    | files     | `100.x.y.z`                 | DNS only (grey) | Auto |
 | A    | calibre   | `100.x.y.z`                 | DNS only (grey) | Auto |
 | A    | books     | `100.x.y.z`                 | DNS only (grey) | Auto |
@@ -382,7 +376,7 @@ The public/private distinction is controlled entirely by the **Cloudflare DNS pr
 - **Orange cloud (proxied)** → traffic goes through Cloudflare CDN → tunnel → Caddy (public)
 - **Grey cloud (DNS-only)** → DNS resolves to Tailscale IP → direct to Caddy (private)
 
-For services with existing Cloudflare DNS records (beszel, dozzle, duplicati, files): switch them from orange cloud to grey cloud and update the target IP to the HomeLab Tailscale IP.
+For services with existing Cloudflare DNS records (beszel, dozzle, files): switch them from orange cloud to grey cloud and update the target IP to the HomeLab Tailscale IP.
 
 For `calibre.jkrumm.com` and `books.jkrumm.com` (may be new records): create as grey cloud A records pointing to Tailscale IP.
 
@@ -731,7 +725,7 @@ Removed private services from cloudflared's `depends_on`. Now only depends on ca
 
 ### 10c. Remove unnecessary host port bindings ✅ DONE
 
-Removed host port bindings from private services (beszel, dozzle, duplicati, filebrowser, calibre, calibre-web). All route through Caddy on the Docker network. Kept `beszel-agent:45876` (direct IP:port access).
+Removed host port bindings from private services (beszel, dozzle, filebrowser, calibre, calibre-web). All route through Caddy on the Docker network. Kept `beszel-agent:45876` (direct IP:port access).
 
 ### 10d. Fix Samba glance label ✅ DONE
 

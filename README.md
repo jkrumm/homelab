@@ -184,31 +184,35 @@ ssh homelab "docker exec signoz-query-service env | grep RETENTION"
 ### HDD Diagnostics
 
 ```bash
-# Run 7-step HDD verification
-ssh homelab "sudo ~/homelab/scripts/check_hdd.sh"
+# Mount + LUKS state
+ssh homelab "mount | grep hdd && sudo cryptsetup status encrypted_partition"
 
-# Check LUKS encryption status
-ssh homelab "sudo cryptsetup status encrypted_partition"
-
-# Manually unlock encrypted partition
+# Unlock encrypted partition manually
 ssh homelab "sudo cryptsetup luksOpen /dev/sdb2 encrypted_partition --key-file /root/.hdd-keyfile"
 
 # Mount HDD manually
 ssh homelab "sudo mount /dev/mapper/encrypted_partition /mnt/hdd"
+
+# Kernel events for USB / drive issues
+ssh homelab "sudo dmesg -T | tail -50"
 ```
 
-### Database Backup
+### Restic Backup → Backblaze B2
 
 ```bash
-# Run backup manually
-ssh homelab "sudo ~/homelab/scripts/backup_fpp_db.sh"
+# List snapshots / repo stats / metadata integrity
+make restic-snapshots
+make restic-stats
+make restic-check
 
-# View backup log
-ssh homelab "tail -f /mnt/hdd/backups/backup.log"
+# Trigger an unscheduled backup
+make restic-run
 
-# Check backup file
-ssh homelab "ls -la /mnt/hdd/backups/fpp.sql"
+# Tail container logs
+make restic-logs
 ```
+
+See **CLAUDE.md → Backups** for the full design (sources, retention, two-key model, Mac-side restore drill).
 
 ### 1Password Secrets
 
@@ -276,13 +280,13 @@ ssh homelab "docker system prune -af"
 13. [Setup Beszel](#setup-beszel)
 14. [Setup Dozzle](#setup-dozzle)
 15. [Setup UptimeKuma](#setup-uptimekuma)
-16. [Setup Database Backup](#setup-database-backup)
+16. [Setup Restic Backup](#setup-restic-backup)
 17. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
 18. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
-20. [Setup Immich](#setup-immich)
-21. [Setup ExcaliDash](#setup-excalidash)
-22. [Setup Public Files (Dufs)](#setup-public-files-dufs)
-23. [Setup Obsidian (Always-On)](#setup-obsidian-always-on)
+19. [Setup Immich](#setup-immich)
+20. [Setup ExcaliDash](#setup-excalidash)
+21. [Setup Public Files (Dufs)](#setup-public-files-dufs)
+22. [Setup Obsidian (Always-On)](#setup-obsidian-always-on)
 
 ---
 
@@ -1022,13 +1026,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 8. **Diagnostic tools:**
 
    ```bash
-   # Check DNS, SQLite, and monitor configurations
-   ./scripts/fix_uptime_kuma_monitors.sh
-
-   # Get container IPs for monitor URLs (optional optimization)
-   ./scripts/get_container_ips.sh
-
-   # Monitor logs for issues
+   # Tail Uptime Kuma logs for warnings/errors
    docker logs uptime-kuma -f | grep -iE "(warn|error)"
    ```
 
@@ -1145,86 +1143,33 @@ Then restart Docker Compose to apply:
 op run --env-file=.env.tpl -- docker compose up -d
 ```
 
-## Setup Database Backup
+## Setup Restic Backup
 
-This guide explains how to set up automated MySQL database backups for the Free Planning Poker database.
+The homelab's only backup tool is `restic-backup`, a `mazzolino/restic` container that runs daily at 03:30 local and pushes content-addressed encrypted snapshots to Backblaze B2 (`s3://jkrumm/backups/homelab/restic`).
 
-#### Installation
+The full design — sources, retention policy (`14 daily / 8 weekly / 12 monthly / 5 yearly`), two-key ransomware-safety model, Mac-side restore drill — lives in **`CLAUDE.md` → Backups**.
 
-1. The backup script is located in the repository at `scripts/backup_fpp_db.sh`. Make it executable:
+#### Quick reference
 
-   ```bash
-   chmod +x scripts/backup_fpp_db.sh
-   ```
+```bash
+# Manage backups (all run via the make targets — secrets injected through op run)
+make restic-snapshots   # list snapshots in B2
+make restic-stats       # repo size + dedup stats
+make restic-check       # metadata integrity (no data download)
+make restic-run         # trigger an unscheduled backup
+make restic-logs        # follow container logs
 
-2. Create the backup directory and log file with proper permissions:
+# Quarterly maintenance from your Mac (uses the master B2 key)
+make restic-prune
+```
 
-   ```bash
-   sudo mkdir -p /mnt/hdd/backups
-   sudo touch /mnt/hdd/backups/backup.log
-   sudo chown -R jkrumm:jkrumm /mnt/hdd/backups
-   sudo chmod 644 /mnt/hdd/backups/backup.log
-   ```
+#### What the daily snapshot covers
 
-3. Create and secure the credentials file:
-   ```bash
-   sudo bash -c 'cat > /root/.fpp-db-credentials << EOL
-   DB_HOST=""
-   DB_ROOT_PW=""
-   EOL'
-   ```
-4. Secure the credentials file
+`/sources/{Bilder,Dokumente,Buecher,Videos,Public,Dev,Fuji-RAWs,db-dumps,api-sqlite}` — defined as `volumes:` in the `restic-backup` service. `restic-excludes.txt` carves out volatile state (Immich Postgres, qbittorrent caches, etc.).
 
-   ```bash
-   sudo chmod 600 /root/.fpp-db-credentials
-   sudo chown root:root /root/.fpp-db-credentials
-   ```
+#### Heartbeat
 
-5. Verify the security of the credentials file:
-
-   ```bash
-   # This should show only root can read/write the file
-   sudo ls -l /root/.fpp-db-credentials
-   # Expected output: -rw------- 1 root root ...
-
-   # This should fail (permission denied) - confirming non-root users can't read it
-   cat /root/.fpp-db-credentials
-   # Expected output: cat: /root/.fpp-db-credentials: Permission denied
-   ```
-
-6. Test the backup script:
-   ```bash
-   sudo ./scripts/backup_fpp_db.sh
-   ```
-
-#### Setting up Automated Backups
-
-1. Edit the root's crontab to set up nightly backups:
-
-   ```bash
-   sudo crontab -e
-   ```
-
-2. Add the following line to run the backup daily at 2 AM UTC:
-
-   ```bash
-   0 2 * * * cd /home/jkrumm/homelab && /home/jkrumm/homelab/scripts/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
-   ```
-
-3. Add the following line to run the backup hourly:
-
-   ```bash
-   0 * * * * cd /home/jkrumm/homelab && /home/jkrumm/homelab/scripts/backup_fpp_db.sh >> /mnt/hdd/backups/backup.log 2>&1
-   ```
-
-#### Backup Details
-
-- Location: Backups are stored in `/mnt/hdd/backups/fpp.sql`
-- Frequency: Hourly (every hour at minute 0)
-- Logging: All backup operations are logged to `/mnt/hdd/backups/backup.log`
-- Retention: Each backup overwrites the previous one; restic's `restic-backup` container picks up `/mnt/hdd/backups` as a source for offsite versioning
-- Security: Credentials are stored in a root-only accessible file
-- Monitoring: Backup status is reported to UptimeKuma
+The container pushes UK on `POST_COMMANDS_SUCCESS` / `POST_COMMANDS_FAILURE` to `Restic - Push` (configured in `uptime-kuma/monitors.yaml`).
 
 #### Monitoring
 
@@ -1397,27 +1342,6 @@ Since the HomeLab is at a remote location (dad's house), the watchdog uses a pat
 - Post-recovery: Waits up to 21 minutes (3 attempts × 7 minutes) for external monitor to update
 - Prevents unnecessary recovery actions when services are actually healthy
 - Only takes action if BetterStack still reports down after all retries
-
-#### HDD Diagnostic Script
-
-For troubleshooting HDD issues remotely, use the diagnostic script:
-
-```bash
-cd ~/homelab
-sudo ./scripts/check_hdd.sh
-```
-
-The script performs 7 comprehensive checks:
-
-1. **USB Device Detection** - Verifies ORICO USB-SATA adapter is connected
-2. **USB Stability** - Checks for connection/disconnection events
-3. **Drive Detection** - Confirms the Seagate Exos drive is visible
-4. **LUKS Encryption** - Validates encrypted partition exists
-5. **Decryption Status** - Checks if partition is unlocked
-6. **Mount Status** - Verifies HDD is mounted at `/mnt/hdd`
-7. **Write Test** - Confirms drive is writable (no I/O errors)
-
-Each failed step provides specific instructions for your dad to fix the issue on-site (e.g., "Check USB cable", "Reconnect ORICO power supply", etc.).
 
 #### Design Philosophy
 

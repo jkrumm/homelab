@@ -456,11 +456,7 @@ homelab/
 ├── .env.tpl                 # 1Password secret references (op:// URIs)
 ├── setup.sh                 # Initial server setup (idempotent)
 ├── scripts/                 # Operational scripts
-│   ├── homelab_watchdog.sh  # Self-healing health monitor (cron)
-│   ├── check_hdd.sh         # HDD diagnostics
-│   ├── fix_uptime_kuma_monitors.sh
-│   ├── get_container_ips.sh
-│   └── backup_fpp_db.sh
+│   └── homelab_watchdog.sh  # Self-healing health monitor (cron)
 ├── config/                  # App configs + extends
 │   ├── glance.yml           # Dashboard config
 │   ├── hwaccel.ml.yml       # Immich ML GPU acceleration
@@ -530,10 +526,6 @@ See `packages/dashboard/CLAUDE.md` for the end-to-end workflow: schema → route
 | Script                        | Location       | Purpose                     |
 | ----------------------------- | -------------- | --------------------------- |
 | `homelab_watchdog.sh`         | `scripts/`     | Self-healing health monitor |
-| `check_hdd.sh`                | `scripts/`     | HDD diagnostics             |
-| `fix_uptime_kuma_monitors.sh` | `scripts/`     | Monitor diagnostics         |
-| `get_container_ips.sh`        | `scripts/`     | Container IP lookup         |
-| `backup_fpp_db.sh`            | `scripts/`     | FPP database backup         |
 | `sync.py`                     | `uptime-kuma/` | Config-as-code monitor sync |
 | `setup.sh`                    | root           | Initial server setup        |
 
@@ -559,8 +551,10 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
 ### HDD Diagnostics
 
 ```bash
-# Run 7-step HDD verification
-./scripts/check_hdd.sh
+# Inspect mount + LUKS state directly
+mount | grep hdd
+sudo cryptsetup status encrypted_partition
+sudo dmesg | tail -50
 ```
 
 ---
@@ -666,7 +660,7 @@ curl -I https://glance.jkrumm.com  # Verify external access
 | ---------------------- | ----------------- | ------------------------------------- |
 | Service not accessible | Check cloudflared | `docker logs cloudflared`             |
 | Container crash loop   | Check logs        | `docker logs --tail=100 <container>`  |
-| HDD not mounted        | Check encryption  | Run `./scripts/check_hdd.sh`          |
+| HDD not mounted        | Check encryption  | `sudo cryptsetup status encrypted_partition && mount \| grep hdd` |
 | Immich ML slow         | Check GPU         | `docker logs immich_machine_learning` |
 
 ### Diagnostic Commands
@@ -846,8 +840,8 @@ When making changes that affect infrastructure or script behavior:
 
 | Command                                      | Purpose                     |
 | -------------------------------------------- | --------------------------- |
-| `sudo ./scripts/check_hdd.sh`                | Run 7-step HDD verification |
 | `sudo cryptsetup status encrypted_partition` | Check LUKS status           |
+| `mount \| grep hdd && ls /mnt/hdd`           | Verify mounted + readable   |
 
 ### Git Workflow (Local Edit → Remote Deploy)
 
