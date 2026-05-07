@@ -402,7 +402,7 @@ groups:
 
       - name: FPP - Server
         type: keyword
-        url: https://fpp-server.jkrumm.com/health
+        url: https://server.free-planning-poker.com/health
         keyword: '{"status":"ok"}'
         ip_family: 6
         cloudflare_bypass: true
@@ -411,7 +411,7 @@ groups:
 
       - name: FPP - Analytics
         type: keyword
-        url: https://fpp-analytics.jkrumm.com/health
+        url: https://analytics.free-planning-poker.com/health
         keyword: '"status":"ok"'
         interval: 70
         ip_family: 6
