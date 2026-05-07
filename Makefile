@@ -50,8 +50,8 @@ help: ## Show all targets
 	@echo ""
 	@echo "  Infrastructure"
 	@echo "    make caddy-reload        Force-recreate Caddy (picks up Caddyfile changes)"
-	@echo "    make uk-sync             Apply all Uptime Kuma monitors (public + private)"
-	@echo "    make uk-dry-run          Preview Uptime Kuma monitor changes"
+	@echo "    make uk-sync             git pull + apply all Uptime Kuma monitors (public + private)"
+	@echo "    make uk-dry-run          git pull + preview Uptime Kuma monitor changes"
 	@echo "    make uk-export           Export current Uptime Kuma monitors to YAML"
 	@echo ""
 	@echo "  Restic Backup (Homelab → Backblaze B2)"
@@ -131,11 +131,11 @@ VENV_PYTHON := uptime-kuma/.venv/bin/python
 SYNC_BASE := $(OP) $(VENV_PYTHON) uptime-kuma/sync.py
 EXTRA_CONFIG := --extra-config ../homelab-private/uptime-kuma/monitors.yaml
 
-uk-sync: ## Apply all monitors (public + private) to Uptime Kuma
-	$(SSH) "$(CD) && $(SYNC_BASE) $(EXTRA_CONFIG)"
+uk-sync: ## git pull + apply all monitors (public + private) to Uptime Kuma
+	$(SSH) "$(CD) && git pull && $(SYNC_BASE) $(EXTRA_CONFIG)"
 
-uk-dry-run: ## Preview all monitor changes (no apply)
-	$(SSH) "$(CD) && $(SYNC_BASE) --dry-run $(EXTRA_CONFIG)"
+uk-dry-run: ## git pull + preview all monitor changes (no apply)
+	$(SSH) "$(CD) && git pull && $(SYNC_BASE) --dry-run $(EXTRA_CONFIG)"
 
 uk-export: ## Export current Uptime Kuma monitors to YAML
 	$(SSH) "$(CD) && $(SYNC_BASE) --export"
