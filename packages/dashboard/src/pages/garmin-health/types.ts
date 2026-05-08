@@ -37,4 +37,32 @@ export interface DailyMetric {
   synced_at: string | null
 }
 
+export interface GarminActivity {
+  activity_id: number
+  date: string
+  start_time_local: string
+  type_key: string
+  activity_name: string | null
+  duration_sec: number | null
+  distance_m: number | null
+  calories: number | null
+  avg_hr: number | null
+  max_hr: number | null
+  aerobic_te: number | null
+  anaerobic_te: number | null
+  training_effect_label: string | null
+  training_load: number | null
+  moderate_intensity_min: number | null
+  vigorous_intensity_min: number | null
+  hr_zone_1_sec: number | null
+  hr_zone_2_sec: number | null
+  hr_zone_3_sec: number | null
+  hr_zone_4_sec: number | null
+  hr_zone_5_sec: number | null
+  bb_delta: number | null
+  steps: number | null
+  vo2_max: number | null
+  synced_at: string | null
+}
+
 export type DatePreset = '7d' | '30d' | '3m' | '1y' | 'all'

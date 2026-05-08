@@ -6,8 +6,8 @@ import { ParentSize } from '@visx/responsive'
 import { scaleLinear, scalePoint } from '@visx/scale'
 import { LinePath } from '@visx/shape'
 import { Threshold } from '@visx/threshold'
-import type { DailyMetric } from './types'
-import { METRIC_TOOLTIPS, scoreColor } from './constants'
+import type { DailyMetric, GarminActivity } from './types'
+import { METRIC_TOOLTIPS, activityLegendTypes, activityTypeMeta, scoreColor } from './constants'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
@@ -30,6 +30,7 @@ import {
   ACTIVITY_TARGET_SCORE,
   acwrZoneColor,
   acwrZoneLabel,
+  buildActivityBuckets,
   buildActivityData,
   buildBodyBatteryData,
   buildFitnessData,
@@ -40,10 +41,305 @@ import {
   computeTrainingLoad,
   formatHoursMin,
   sleepScoreLabel,
+  type ActivityDayBucket,
   type TrainingLoadPoint,
 } from './utils'
 
 const MARGIN = VX.margin
+
+// ── Activity Stack Chart (per-day workouts, color = type, height = duration) ──
+
+function fmtMin(min: number): string {
+  if (min < 60) return `${Math.round(min)}m`
+  const h = Math.floor(min / 60)
+  const m = Math.round(min % 60)
+  return m === 0 ? `${h}h` : `${h}h ${m}m`
+}
+
+function ActivityStackInner({
+  buckets,
+  width,
+  height,
+}: {
+  buckets: ActivityDayBucket[]
+  width: number
+  height: number
+}) {
+  const { line, axis: axisColor, tooltipMuted } = useVxTheme()
+  const xMax = width - MARGIN.left - MARGIN.right
+  const yMax = height - MARGIN.top - MARGIN.bottom
+
+  const xScale = useMemo(
+    () =>
+      scalePoint<string>({
+        domain: buckets.map((b) => b.date),
+        range: [0, xMax],
+        padding: 0.5,
+      }),
+    [buckets, xMax],
+  )
+
+  const yMaxValue = useMemo(() => {
+    const maxDur = buckets.reduce((m, b) => Math.max(m, b.totalDurationMin), 0)
+    // Round up to a clean tick — 30-min steps for low totals, 60-min for higher.
+    const step = maxDur > 120 ? 60 : 30
+    return Math.max(step, Math.ceil(maxDur / step) * step)
+  }, [buckets])
+
+  const yScale = useMemo(
+    () => scaleLinear<number>({ domain: [0, yMaxValue], range: [yMax, 0], nice: true }),
+    [yMaxValue, yMax],
+  )
+
+  const slotWidth = buckets.length > 1 ? xMax / (buckets.length - 1) : xMax
+  const barWidth = Math.max(Math.min(slotWidth * 0.7, 22), 3)
+
+  const tooltipStyles = useTooltipStyles()
+  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
+    useHoverSync<ActivityDayBucket>({
+      data: buckets,
+      chartId: 'activities',
+      getX: (d) => d.date,
+      xScale,
+      marginLeft: MARGIN.left,
+    })
+
+  const tickValues = useMemo(
+    () => smartTicks(buckets.map((b) => b.date), xMax),
+    [buckets, xMax],
+  )
+
+  const hoveredX = syncedPoint ? (xScale(syncedPoint.date) ?? null) : null
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg width={width} height={height}>
+        <Group left={MARGIN.left} top={MARGIN.top}>
+          <GridRows
+            scale={yScale}
+            width={xMax}
+            stroke={VX.grid}
+            strokeWidth={1}
+            numTicks={4}
+            pointerEvents="none"
+          />
+
+          {/* Stacked bars, one column per day, segments earliest → latest (bottom → top) */}
+          {buckets.map((bucket) => {
+            const x = xScale(bucket.date) ?? 0
+            let cumMin = 0
+            return bucket.activities.map((a) => {
+              const durMin = (a.duration_sec ?? 0) / 60
+              if (durMin <= 0) return null
+              const yTop = yScale(cumMin + durMin)
+              const yBottom = yScale(cumMin)
+              cumMin += durMin
+              const meta = activityTypeMeta(a.type_key)
+              return (
+                <rect
+                  key={a.activity_id}
+                  x={x - barWidth / 2}
+                  y={yTop}
+                  width={barWidth}
+                  height={Math.max(1, yBottom - yTop)}
+                  fill={meta.color}
+                  opacity={0.88}
+                />
+              )
+            })
+          })}
+
+          {/* Ghost crosshair when another chart is hovered */}
+          {hoveredX !== null && !isDirectHover && (
+            <line
+              x1={hoveredX}
+              x2={hoveredX}
+              y1={0}
+              y2={yMax}
+              stroke={VX.crosshair}
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              pointerEvents="none"
+            />
+          )}
+          {/* Active crosshair when hovering this chart */}
+          {hoveredX !== null && isDirectHover && (
+            <line
+              x1={hoveredX}
+              x2={hoveredX}
+              y1={0}
+              y2={yMax}
+              stroke={line}
+              strokeOpacity={0.4}
+              strokeWidth={1}
+              pointerEvents="none"
+            />
+          )}
+
+          <AxisLeftNumeric
+            scale={yScale}
+            numTicks={4}
+            tickFormat={(v) => fmtMin(Number(v))}
+          />
+          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
+          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
+        </Group>
+      </svg>
+
+      <ChartTooltip
+        tip={isDirectHover ? tip : null}
+        tooltipRef={tooltipRef}
+        styles={tooltipStyles}
+      >
+        {tip?.data && (
+          <>
+            <TooltipHeader
+              date={tip.data.date}
+              label={tip.data.activities.length === 0 ? 'Rest' : fmtMin(tip.data.totalDurationMin)}
+              labelColor={tip.data.activities.length === 0 ? tooltipMuted : axisColor}
+            />
+            <TooltipBody>
+              {tip.data.activities.length === 0 ? (
+                <div style={{ padding: '4px 10px', fontSize: 11, color: tooltipMuted }}>
+                  No recorded workouts
+                </div>
+              ) : (
+                tip.data.activities.map((a, idx) => (
+                  <ActivityTooltipRow
+                    key={a.activity_id}
+                    activity={a}
+                    isFirst={idx === 0}
+                  />
+                ))
+              )}
+            </TooltipBody>
+          </>
+        )}
+      </ChartTooltip>
+    </div>
+  )
+}
+
+function ActivityTooltipRow({
+  activity,
+  isFirst,
+}: {
+  activity: GarminActivity
+  isFirst: boolean
+}) {
+  const { tooltipMuted } = useVxTheme()
+  const meta = activityTypeMeta(activity.type_key)
+  const dur = (activity.duration_sec ?? 0) / 60
+  const isGym = meta.label === 'Gym'
+  const showDistinctName =
+    activity.activity_name &&
+    activity.activity_name.toLowerCase() !== meta.label.toLowerCase() &&
+    !isGym
+  const aero = activity.aerobic_te
+  const anaero = activity.anaerobic_te
+  const teText =
+    aero !== null || anaero !== null
+      ? `TE ${aero?.toFixed(1) ?? '—'}/${anaero?.toFixed(1) ?? '—'}`
+      : null
+  const hrText =
+    activity.avg_hr !== null || activity.max_hr !== null
+      ? `HR ${activity.avg_hr ?? '—'}/${activity.max_hr ?? '—'}`
+      : null
+  const loadText = activity.training_load !== null ? `Load ${Math.round(activity.training_load)}` : null
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '4px 10px',
+        borderTop: isFirst ? 'none' : '1px solid rgba(128,128,128,0.15)',
+      }}
+    >
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 2,
+          backgroundColor: meta.color,
+          marginTop: 5,
+          flexShrink: 0,
+        }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ fontWeight: 500 }}>
+            {meta.label}
+            {showDistinctName ? (
+              <span style={{ fontWeight: 400, opacity: 0.7 }}> · {activity.activity_name}</span>
+            ) : null}
+          </span>
+          <span>{fmtMin(dur)}</span>
+        </div>
+        <div style={{ fontSize: 10.5, color: tooltipMuted, marginTop: 2 }}>
+          {[hrText, teText, loadText].filter(Boolean).join(' · ') || '—'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function ActivityStackChart({
+  activities,
+  dateFrom,
+  dateTo,
+}: {
+  activities: GarminActivity[]
+  dateFrom: string
+  dateTo: string
+}) {
+  const buckets = useMemo(
+    () => buildActivityBuckets(activities, dateFrom, dateTo),
+    [activities, dateFrom, dateTo],
+  )
+  const legendItems = useMemo(
+    () =>
+      activityLegendTypes(activities).map((m) => ({
+        key: m.label,
+        label: m.label,
+        color: m.color,
+        shape: 'bar' as const,
+      })),
+    [activities],
+  )
+  const totalMin = useMemo(
+    () => buckets.reduce((s, b) => s + b.totalDurationMin, 0),
+    [buckets],
+  )
+  const activeDays = useMemo(() => buckets.filter((b) => b.totalDurationMin > 0).length, [buckets])
+
+  return (
+    <ChartCard
+      title="Activities"
+      subtitle="What did I do?"
+      tooltip={METRIC_TOOLTIPS.activities}
+      extra={
+        <span style={{ fontSize: 13, opacity: 0.75 }}>
+          {activeDays} active · {fmtMin(totalMin)}
+        </span>
+      }
+    >
+      <div style={{ height: 240 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <ActivityStackInner
+              buckets={buckets}
+              width={Math.max(width, 200)}
+              height={240}
+            />
+          )}
+        </ParentSize>
+      </div>
+      <ChartLegend items={legendItems} highlighted={null} onHighlight={() => {}} />
+    </ChartCard>
+  )
+}
 
 // ── ACWR Threshold Chart ─────────────────────────────────────────────────
 

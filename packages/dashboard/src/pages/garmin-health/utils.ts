@@ -1,4 +1,5 @@
-import type { DailyMetric } from './types'
+import dayjs from 'dayjs'
+import type { DailyMetric, GarminActivity } from './types'
 import { VX } from '../../charts'
 
 /** Extract non-null numeric values for a field */
@@ -407,6 +408,46 @@ export function formatXDate(date: any): string {
   const match = s.match(/(\d{4})-(\d{2})-(\d{2})/)
   if (match) return `${match[3]}.${match[2]}`
   return s.length > 10 ? s.slice(0, 10) : s
+}
+
+// ── Activity stack (per-day buckets of recorded workouts) ───────────────
+
+export interface ActivityDayBucket {
+  date: string
+  activities: GarminActivity[]
+  totalDurationMin: number
+}
+
+/**
+ * Group activities by date, sorted within a day chronologically (earliest first).
+ * Returns ONE bucket per calendar day in [from, to] inclusive — empty days are
+ * preserved so the x-axis matches the other charts on the page.
+ */
+export function buildActivityBuckets(
+  activities: GarminActivity[],
+  from: string,
+  to: string,
+): ActivityDayBucket[] {
+  const byDate = new Map<string, GarminActivity[]>()
+  for (const a of activities) {
+    const list = byDate.get(a.date) ?? []
+    list.push(a)
+    byDate.set(a.date, list)
+  }
+  for (const list of byDate.values()) {
+    list.sort((x, y) => x.start_time_local.localeCompare(y.start_time_local))
+  }
+
+  const out: ActivityDayBucket[] = []
+  const start = dayjs(from)
+  const end = dayjs(to)
+  for (let d = start; !d.isAfter(end); d = d.add(1, 'day')) {
+    const date = d.format('YYYY-MM-DD')
+    const list = byDate.get(date) ?? []
+    const totalSec = list.reduce((sum, a) => sum + (a.duration_sec ?? 0), 0)
+    out.push({ date, activities: list, totalDurationMin: totalSec / 60 })
+  }
+  return out
 }
 
 // ── Training Load (ACWR) ─────────────────────────────────────────────────

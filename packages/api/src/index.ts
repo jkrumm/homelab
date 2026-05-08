@@ -16,6 +16,7 @@ import { workoutRoutes } from './routes/workouts.js'
 import { workoutSetRoutes } from './routes/workout-sets.js'
 import { exerciseRoutes } from './routes/exercises.js'
 import { dailyMetricsRoutes } from './routes/daily-metrics.js'
+import { activitiesRoutes } from './routes/activities.js'
 import { weightLogRoutes } from './routes/weight-log.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { registerCronJobs } from './cron/index.js'
@@ -78,6 +79,7 @@ export const app = new Elysia()
   .use(workoutRoutes)
   .use(workoutSetRoutes)
   .use(dailyMetricsRoutes)
+  .use(activitiesRoutes)
   .use(weightLogRoutes)
   .use(userProfileRoutes)
   .listen(4000)

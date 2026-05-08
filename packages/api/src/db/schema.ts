@@ -71,6 +71,36 @@ export const dailyMetrics = sqliteTable('daily_metrics', {
   synced_at: text('synced_at'),
 })
 
+// ── Garmin activities (per-workout, auto-synced via garmin-sync) ──
+
+export const garminActivities = sqliteTable('garmin_activities', {
+  activity_id: integer('activity_id').primaryKey(), // Garmin's own id
+  date: text('date').notNull(), // yyyy-mm-dd, derived from start_time_local
+  start_time_local: text('start_time_local').notNull(),
+  type_key: text('type_key').notNull(), // cycling | indoor_cardio | tennis_v2 | running | …
+  activity_name: text('activity_name'),
+  duration_sec: real('duration_sec'),
+  distance_m: real('distance_m'),
+  calories: integer('calories'),
+  avg_hr: integer('avg_hr'),
+  max_hr: integer('max_hr'),
+  aerobic_te: real('aerobic_te'),
+  anaerobic_te: real('anaerobic_te'),
+  training_effect_label: text('training_effect_label'), // AEROBIC_BASE | ANAEROBIC_CAPACITY | SPEED | RECOVERY | UNKNOWN
+  training_load: real('training_load'),
+  moderate_intensity_min: integer('moderate_intensity_min'),
+  vigorous_intensity_min: integer('vigorous_intensity_min'),
+  hr_zone_1_sec: real('hr_zone_1_sec'),
+  hr_zone_2_sec: real('hr_zone_2_sec'),
+  hr_zone_3_sec: real('hr_zone_3_sec'),
+  hr_zone_4_sec: real('hr_zone_4_sec'),
+  hr_zone_5_sec: real('hr_zone_5_sec'),
+  bb_delta: integer('bb_delta'), // differenceBodyBattery (typically negative)
+  steps: integer('steps'),
+  vo2_max: real('vo2_max'),
+  synced_at: text('synced_at'),
+})
+
 // ── Garmin sync control (cross-process flag table) ─────────────────
 
 export const syncControl = sqliteTable('sync_control', {

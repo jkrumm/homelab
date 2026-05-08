@@ -88,6 +88,17 @@ export const VX = {
     squat: '#52c41a',
     deadlift: '#ff4d4f',
     pullUps: '#fa8c16',
+
+    // Garmin activities — per-type stable identity. Gym is the anchor (red)
+    // because Garmin under-reports its load and we want it to read as "the
+    // important block" in the stacked-day view.
+    activity: {
+      gym: '#ff5252',
+      cycling: '#1677ff',
+      tennis: '#fa8c16',
+      running: '#52c41a',
+      other: '#8b949e',
+    },
   },
 
   // Shared sizing

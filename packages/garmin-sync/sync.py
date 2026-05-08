@@ -30,6 +30,13 @@ TOKEN_DIR = os.environ.get("TOKEN_DIR", "/app/tokens")
 SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "14400"))  # 4 hours
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "30"))  # control-flag poll cadence
 BACKFILL_DAYS = int(os.environ.get("BACKFILL_DAYS", "7"))
+# When the activities table is empty, fetch this many days back. Single API call so cheap.
+ACTIVITIES_INITIAL_BACKFILL_DAYS = int(os.environ.get("ACTIVITIES_INITIAL_BACKFILL_DAYS", "60"))
+# Activity types to skip on upsert. Walking dominates the count and contributes ~3% of load —
+# the activities chart shows intentional workouts only.
+ACTIVITY_SKIP_TYPES = frozenset(
+    os.environ.get("ACTIVITY_SKIP_TYPES", "walking").split(",")
+)
 UPTIME_KUMA_PUSH_URL = os.environ.get("UPTIME_KUMA_PUSH_URL", "")
 GARMIN_EMAIL = os.environ.get("GARMIN_EMAIL", "")
 GARMIN_PASSWORD = os.environ.get("GARMIN_PASSWORD", "")
@@ -199,6 +206,78 @@ def upsert_metrics(conn: sqlite3.Connection, metrics: dict):
         log.info("Updated %s (completed=%d)", target_date, completed)
 
 
+def fetch_activities(client: Garmin, start: str, end: str) -> list[dict]:
+    """Fetch activity summaries between start..end (yyyy-mm-dd, inclusive). Filters out skip types."""
+    raw = client.get_activities_by_date(start, end) or []
+    out: list[dict] = []
+    for a in raw:
+        type_key = (a.get("activityType") or {}).get("typeKey")
+        if not type_key or type_key in ACTIVITY_SKIP_TYPES:
+            continue
+        start_local = a.get("startTimeLocal")
+        if not start_local:
+            continue
+        out.append({
+            "activity_id": a.get("activityId"),
+            "date": start_local[:10],
+            "start_time_local": start_local,
+            "type_key": type_key,
+            "activity_name": a.get("activityName"),
+            "duration_sec": a.get("duration"),
+            "distance_m": a.get("distance"),
+            "calories": a.get("calories"),
+            "avg_hr": a.get("averageHR"),
+            "max_hr": a.get("maxHR"),
+            "aerobic_te": a.get("aerobicTrainingEffect"),
+            "anaerobic_te": a.get("anaerobicTrainingEffect"),
+            "training_effect_label": a.get("trainingEffectLabel"),
+            "training_load": a.get("activityTrainingLoad"),
+            "moderate_intensity_min": a.get("moderateIntensityMinutes"),
+            "vigorous_intensity_min": a.get("vigorousIntensityMinutes"),
+            "hr_zone_1_sec": a.get("hrTimeInZone_1"),
+            "hr_zone_2_sec": a.get("hrTimeInZone_2"),
+            "hr_zone_3_sec": a.get("hrTimeInZone_3"),
+            "hr_zone_4_sec": a.get("hrTimeInZone_4"),
+            "hr_zone_5_sec": a.get("hrTimeInZone_5"),
+            "bb_delta": a.get("differenceBodyBattery"),
+            "steps": a.get("steps"),
+            "vo2_max": a.get("vO2MaxValue"),
+        })
+    return out
+
+
+def upsert_activities(conn: sqlite3.Connection, records: list[dict]) -> int:
+    """INSERT OR REPLACE all activity records. Activities can be retroactively
+    enriched by Garmin (load/TE updates), so we always rewrite."""
+    if not records:
+        return 0
+    synced_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    cols = list(records[0].keys()) + ["synced_at"]
+    placeholders = ", ".join(["?"] * len(cols))
+    cols_str = ", ".join(cols)
+    for r in records:
+        values = [r.get(c) for c in records[0].keys()] + [synced_at]
+        conn.execute(
+            f"INSERT OR REPLACE INTO garmin_activities ({cols_str}) VALUES ({placeholders})",
+            values,
+        )
+    return len(records)
+
+
+def sync_activities(client: Garmin, conn: sqlite3.Connection) -> tuple[int, str]:
+    """Fetch activities for a rolling window. Uses initial backfill if table empty."""
+    existing = conn.execute("SELECT COUNT(*) FROM garmin_activities").fetchone()[0]
+    window_days = ACTIVITIES_INITIAL_BACKFILL_DAYS if existing == 0 else BACKFILL_DAYS
+    end_date = str(date.today())
+    start_date = str(date.today() - timedelta(days=window_days))
+    records = fetch_activities(client, start_date, end_date)
+    n = upsert_activities(conn, records)
+    conn.commit()
+    msg = f"window={window_days}d records={n}{' (initial)' if existing == 0 else ''}"
+    log.info("Activities sync: %s", msg)
+    return n, msg
+
+
 def ping_uptime_kuma(status: str = "up", msg: str = ""):
     """Ping UptimeKuma push monitor."""
     if not UPTIME_KUMA_PUSH_URL:
@@ -247,9 +326,18 @@ def run_sync() -> tuple[int, str]:
             log.error("Failed to sync %s: %s", target_date, e)
             errors += 1
 
+    # Activities — single API call covering the whole window
+    activities_msg = ""
+    try:
+        _, activities_msg = sync_activities(client, conn)
+    except Exception as e:
+        log.error("Activities sync failed: %s", e)
+        errors += 1
+        activities_msg = f"error: {e}"
+
     conn.close()
 
-    msg = f"synced={days_synced} skipped={days_skipped} errors={errors}"
+    msg = f"synced={days_synced} skipped={days_skipped} errors={errors} activities[{activities_msg}]"
     log.info("Sync cycle complete: %s", msg)
 
     if errors == 0:

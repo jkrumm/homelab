@@ -1,4 +1,5 @@
 import dayjs from 'dayjs'
+import { VX } from '../../charts'
 import type { DatePreset } from './types'
 
 export const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
@@ -54,6 +55,56 @@ export const METRIC_TOOLTIPS = {
     'Smoothed 7-day moving averages of Resting HR and HRV. Declining RHR = stronger cardiovascular system (better stroke volume). Rising HRV = improving autonomic recovery capacity. Daily noise is normal — focus on the trend direction over weeks and months.',
   loadBalance:
     'Short-term (7-day EWMA) vs long-term (28-day EWMA) training load. When the short-term line rises sharply above long-term, you are spiking load — injury risk increases. Gradual, steady increases keep both lines close together (optimal). A declining short-term below long-term signals detraining.',
+  activities:
+    'Recorded workouts per day, stacked by duration. Color = activity type. Walking is excluded (filtered server-side). Garmin under-reports gym load because rest periods between sets keep avg HR low — height shows duration, tooltip surfaces aerobic/anaerobic Training Effect and max HR so the actual stress is visible. ACWR uses Garmin\'s own load number; this chart is a separate signal.',
+}
+
+// Activity-type display + color map. typeKey values from get_activities_by_date.
+// Anything not in this map falls through to the "other" bucket (muted neutral).
+type ActivityTypeMeta = { label: string; color: string }
+
+const ACTIVITY_TYPE_META: Record<string, ActivityTypeMeta> = {
+  indoor_cardio: { label: 'Gym', color: VX.series.activity.gym },
+  strength_training: { label: 'Gym', color: VX.series.activity.gym },
+  cycling: { label: 'Cycling', color: VX.series.activity.cycling },
+  road_biking: { label: 'Cycling', color: VX.series.activity.cycling },
+  mountain_biking: { label: 'MTB', color: VX.series.activity.cycling },
+  indoor_cycling: { label: 'Indoor Bike', color: VX.series.activity.cycling },
+  tennis_v2: { label: 'Tennis', color: VX.series.activity.tennis },
+  tennis: { label: 'Tennis', color: VX.series.activity.tennis },
+  running: { label: 'Running', color: VX.series.activity.running },
+  trail_running: { label: 'Trail Run', color: VX.series.activity.running },
+  treadmill_running: { label: 'Treadmill', color: VX.series.activity.running },
+}
+
+const ACTIVITY_TYPE_OTHER: ActivityTypeMeta = {
+  label: 'Other',
+  color: VX.series.activity.other,
+}
+
+export function activityTypeMeta(typeKey: string): ActivityTypeMeta {
+  return ACTIVITY_TYPE_META[typeKey] ?? ACTIVITY_TYPE_OTHER
+}
+
+/** Distinct types observed in `activities`, ordered by total duration desc. Used to drive the legend. */
+export function activityLegendTypes(
+  activities: { type_key: string; duration_sec: number | null }[],
+): ActivityTypeMeta[] {
+  const totals = new Map<string, number>()
+  for (const a of activities) {
+    const meta = activityTypeMeta(a.type_key)
+    const dur = a.duration_sec ?? 0
+    totals.set(meta.label, (totals.get(meta.label) ?? 0) + dur)
+  }
+  // Resolve label → meta (using first match for that label)
+  const seen = new Map<string, ActivityTypeMeta>()
+  for (const a of activities) {
+    const meta = activityTypeMeta(a.type_key)
+    if (!seen.has(meta.label)) seen.set(meta.label, meta)
+  }
+  return [...seen.values()].sort(
+    (a, b) => (totals.get(b.label) ?? 0) - (totals.get(a.label) ?? 0),
+  )
 }
 
 export function scoreColor(score: number | null): string {

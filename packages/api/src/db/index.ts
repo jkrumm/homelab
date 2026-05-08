@@ -58,6 +58,37 @@ sqlite.run(`
 `)
 
 sqlite.run(`
+  CREATE TABLE IF NOT EXISTS garmin_activities (
+    activity_id INTEGER PRIMARY KEY,
+    date TEXT NOT NULL,
+    start_time_local TEXT NOT NULL,
+    type_key TEXT NOT NULL,
+    activity_name TEXT,
+    duration_sec REAL,
+    distance_m REAL,
+    calories INTEGER,
+    avg_hr INTEGER,
+    max_hr INTEGER,
+    aerobic_te REAL,
+    anaerobic_te REAL,
+    training_effect_label TEXT,
+    training_load REAL,
+    moderate_intensity_min INTEGER,
+    vigorous_intensity_min INTEGER,
+    hr_zone_1_sec REAL,
+    hr_zone_2_sec REAL,
+    hr_zone_3_sec REAL,
+    hr_zone_4_sec REAL,
+    hr_zone_5_sec REAL,
+    bb_delta INTEGER,
+    steps INTEGER,
+    vo2_max REAL,
+    synced_at TEXT
+  )
+`)
+sqlite.run('CREATE INDEX IF NOT EXISTS idx_garmin_activities_date ON garmin_activities(date)')
+
+sqlite.run(`
   CREATE TABLE IF NOT EXISTS sync_control (
     id INTEGER PRIMARY KEY DEFAULT 1,
     refresh_requested INTEGER DEFAULT 0,

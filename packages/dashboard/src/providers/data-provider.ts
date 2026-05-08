@@ -63,6 +63,20 @@ export const dataProvider: DataProvider = {
       return { data: (data ?? []) as never[], total }
     }
 
+    if (resource === 'activities') {
+      const query: Record<string, string> = {}
+      for (const f of flatFilters) {
+        if (f.field === 'date' && f.operator === 'gte') query.date_from = String(f.value)
+        if (f.field === 'date' && f.operator === 'lte') query.date_to = String(f.value)
+      }
+      const sorter = flatSorters[0]
+      if (sorter) query._order = sorter.order
+      const { data, error, response } = await api.activities.get({ query })
+      if (error) throw new Error(String(error.value))
+      const total = Number(response.headers.get('x-total-count') ?? 0)
+      return { data: (data ?? []) as never[], total }
+    }
+
     if (resource === 'weight-log') {
       const query: Record<string, string> = {}
       const sorter = flatSorters[0]

@@ -7,6 +7,7 @@ import { api } from '../../providers/eden'
 import {
   ACWRThresholdChart,
   ActivityBarChart,
+  ActivityStackChart,
   BodyBatteryRangeChart,
   DivergenceThresholdChart,
   FitnessTrendChart,
@@ -16,7 +17,7 @@ import {
 } from './visx-charts'
 import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
 import { HeroStats } from './stats'
-import type { DailyMetric, DatePreset } from './types'
+import type { DailyMetric, DatePreset, GarminActivity } from './types'
 
 // ── Hooks ─────────────────────────────────────────────────────────────────
 
@@ -187,6 +188,18 @@ export default function GarminHealthPage() {
   const metrics = (result.data as DailyMetric[] | undefined) ?? []
   const isLoading = query.isLoading
 
+  const { result: activitiesResult } = useList<GarminActivity>({
+    resource: 'activities',
+    pagination: { currentPage: 1, pageSize: 10000 },
+    sorters: [{ field: 'date', order: 'asc' }],
+    filters: [
+      { field: 'date', operator: 'gte', value: dateFrom },
+      { field: 'date', operator: 'lte', value: dateTo },
+    ],
+  })
+  const activities = (activitiesResult.data as GarminActivity[] | undefined) ?? []
+  const hasActivities = activities.length > 0
+
   const hasHeartData = metrics.some((m) => m.resting_hr !== null || m.hrv_last_night_avg !== null)
   const hasLoadData = metrics.some(
     (m) => m.moderate_intensity_min !== null || m.vigorous_intensity_min !== null,
@@ -253,6 +266,19 @@ export default function GarminHealthPage() {
 
         {/* Hero: 3 composite cards */}
         <HeroStats data={metrics} isLoading={isLoading} />
+
+        {/* Recorded workouts — sits at the top above the daily-aggregate views */}
+        {hasActivities && (
+          <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
+            <Col xs={24}>
+              <ActivityStackChart
+                activities={activities}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+              />
+            </Col>
+          </Row>
+        )}
 
         {/* Section 1: Effort & Adaptation */}
         {(hasActivityData || hasHeartData) && (

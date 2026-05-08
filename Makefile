@@ -18,7 +18,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune
+.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs garmin-exec restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -47,6 +47,7 @@ help: ## Show all targets
 	@echo "    make garmin-rebuild      Rebuild image (no cache) + restart (no git pull)"
 	@echo "    make garmin-restart      Restart container only"
 	@echo "    make garmin-logs         Follow garmin-sync logs"
+	@echo "    make garmin-exec script=<host-path>  Copy script into container, run with python, write outputs to /app/data"
 	@echo ""
 	@echo "  Infrastructure"
 	@echo "    make caddy-reload        Force-recreate Caddy (picks up Caddyfile changes)"
@@ -121,6 +122,12 @@ garmin-restart: ## Restart garmin-sync container (no rebuild)
 
 garmin-logs: ## Follow garmin-sync logs
 	$(SSH) "docker logs -f --tail=100 garmin-sync"
+
+garmin-exec: ## Run an ad-hoc Python script inside garmin-sync (uses existing tokens). Usage: make garmin-exec script=path/to/script.py
+	@[ -n "$(script)" ] || { echo "ERROR: Specify script — make garmin-exec script=path/to/script.py"; exit 1; }
+	@[ -f "$(script)" ] || { echo "ERROR: Script not found: $(script)"; exit 1; }
+	scp "$(script)" homelab:/tmp/garmin-exec.py
+	$(SSH) "docker cp /tmp/garmin-exec.py garmin-sync:/app/garmin-exec.py && docker exec garmin-sync python /app/garmin-exec.py && rm -f /tmp/garmin-exec.py"
 
 # ── Infrastructure ───────────────────────────────────────────────────────────
 
