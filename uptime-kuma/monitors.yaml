@@ -388,6 +388,14 @@ groups:
             interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
             retry_interval: 90000
 
+          # Liveness — VPS cron runs SELECT 1 every minute via scripts/health-pg.sh.
+          # Push URL → op://vps/config/UPTIME_KUMA_POSTGRES_PUSH_URL
+          - name: Postgres - DB - Push
+            type: push
+            interval: 120 # 2 min — cron runs every 60s + buffer
+            timeout: 48
+            retry_interval: 120
+
       # --- Services subgroup ---
       - name: Services
         type: group
