@@ -43,8 +43,9 @@ Top-level groups (`groups[].name`) and subgroups (`type: group`) **never** carry
 
 - Use the canonical service name as the subject (`Glance`, `Caddy`, `Watchtower`).
 - A service with multiple checks gets the same subject across them: `Glance - Docker` + `Glance - HTTP`, `API - Docker` + `API - HTTP`.
-- Backup heartbeats put `Backup` in the subject, type suffix stays `Push`: `VPS Postgres Backup - Push`, `Restic Backup - Push`, `1Password Backup - Push`. **Never** use `- Backup` as the type suffix — `Backup` describes what's tracked, `Push` describes how.
-- For tightly-grouped services that share a prefix (e.g. all FreePlanningPoker children), keep the namespace prefix in the subject: `FPP - Frontend - HTTP`, `FPP - DB - MySQL`. The last ` - ` still wins as the type separator.
+- Backup heartbeats put `Backup` in the subject, type suffix stays `Push`: `Postgres - Backup - Push`, `Restic Backup - Push`, `1Password Backup - Push`. **Never** use `- Backup` as the type suffix — `Backup` describes what's tracked, `Push` describes how.
+- **Don't repeat the parent group name in the subject.** The parent group already provides that scope in the UI, so a prefix like `VPS Postgres ...` inside the `VPS` group is decorative noise. Inside `VPS > Infra` use `Postgres - Backup - Push` and `Postgres - DB - Push`, not `VPS Postgres Backup - Push`. Same for `HomeLab > Apps` etc.
+- Exception — keep a namespace prefix when the parent is a *flat* group containing multiple distinct services that share an external identity. `FreePlanningPoker` children all use `FPP - <service> - <type>` (e.g. `FPP - Frontend - HTTP`, `FPP - DB - MySQL`) because they're a tightly-related family rendered flat, not split into subgroups. The last ` - ` still wins as the type separator.
 
 ## Examples
 
@@ -54,10 +55,11 @@ Glance - Docker
 Glance - HTTP
 Restic Backup - Docker
 Restic Backup - Push
-FPP - Frontend - HTTP
+FPP - Frontend - HTTP                # FPP family kept flat, namespace prefix OK
 FPP - DB - MySQL
 FPP - Analytics Readmodel - Push
-VPS Postgres Backup - Push
+Postgres - Backup - Push             # inside VPS > Infra, no VPS prefix
+Postgres - DB - Push
 Photos - HTTP
 Photos - Uptime
 BunEmailApi - HTTP
@@ -69,6 +71,7 @@ Photos                          # missing type suffix
 BunEmailApi                     # missing type suffix
 FPP - Frontend                  # missing type suffix
 VPS Postgres - Backup           # type suffix should be Push (type), not Backup (subject)
+VPS Postgres Backup - Push      # parent group already says VPS, prefix is noise
 FPP - DB Backup                 # missing type suffix
 ```
 
