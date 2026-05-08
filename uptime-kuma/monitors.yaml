@@ -383,7 +383,7 @@ groups:
         monitors:
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
           # After creating: copy push URL → 1Password vps/config/UPTIME_KUMA_PUSH_URL
-          - name: VPS Postgres Backup - Push
+          - name: Postgres - Backup - Push
             type: push
             interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
             retry_interval: 90000
