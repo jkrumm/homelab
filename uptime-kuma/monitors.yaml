@@ -136,7 +136,7 @@ groups:
             timeout: 48
             retry_interval: 700
 
-          - name: Restic - Push
+          - name: Restic Backup - Push
             type: push
             interval: 90000 # 25h — daily 03:30 backup cron + buffer
             timeout: 48
@@ -383,7 +383,7 @@ groups:
         monitors:
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
           # After creating: copy push URL → 1Password vps/config/UPTIME_KUMA_PUSH_URL
-          - name: VPS Postgres - Backup
+          - name: VPS Postgres Backup - Push
             type: push
             interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
             retry_interval: 90000
@@ -393,7 +393,7 @@ groups:
         type: group
         interval: 215
         monitors:
-          - name: BunEmailApi
+          - name: BunEmailApi - HTTP
             type: keyword
             url: https://bun-email-api.jkrumm.com/health
             keyword: '{"ok":true}'
@@ -406,13 +406,13 @@ groups:
   - name: FreePlanningPoker
     interval: 205
     monitors:
-      - name: FPP - Frontend
+      - name: FPP - Frontend - HTTP
         type: http
         url: https://free-planning-poker.com/
         ip_family: 6 # Force IPv6 (IPv4 path has issues)
         cloudflare_bypass: true
 
-      - name: FPP - Server
+      - name: FPP - Server - HTTP
         type: keyword
         url: https://server.free-planning-poker.com/health
         keyword: '{"status":"ok"}'
@@ -421,7 +421,7 @@ groups:
         headers:
           Authorization: 'Bearer ${FPP_SERVER_AUTH}'
 
-      - name: FPP - Analytics
+      - name: FPP - Analytics - HTTP
         type: keyword
         url: https://analytics.free-planning-poker.com/health
         keyword: '"status":"ok"'
@@ -429,7 +429,7 @@ groups:
         ip_family: 6
         cloudflare_bypass: true
 
-      - name: FPP - DB
+      - name: FPP - DB - MySQL
         type: mysql
         # Connection details (host, port, user, password, query, SSL) configured
         # in the Uptime Kuma UI — sync.py skips DB monitor updates by design
@@ -437,12 +437,12 @@ groups:
         # and survives every future sync. Password lives in
         # op://vps/mariadb/FPP_PASSWORD — paste into UI when creating/rotating.
 
-      - name: FPP - DB Backup
+      - name: FPP - DB Backup - Push
         type: push
         interval: 90000 # 25h — daily cron at 03:30 UTC + buffer
         retry_interval: 90000
 
-      - name: FPP - Analytics Readmodel
+      - name: FPP - Analytics Readmodel - Push
         type: push
         interval: 650
         retry_interval: 650
@@ -453,7 +453,7 @@ groups:
   - name: Websites
     interval: 215
     monitors:
-      - name: Photos
+      - name: Photos - HTTP
         type: http
         url: https://photos.jkrumm.com/
         ip_family: 6
