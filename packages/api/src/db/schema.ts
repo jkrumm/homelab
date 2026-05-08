@@ -71,6 +71,19 @@ export const dailyMetrics = sqliteTable('daily_metrics', {
   synced_at: text('synced_at'),
 })
 
+// ── Garmin sync control (cross-process flag table) ─────────────────
+
+export const syncControl = sqliteTable('sync_control', {
+  id: integer('id').primaryKey().default(1),
+  refresh_requested: integer('refresh_requested').default(0),
+  requested_at: text('requested_at'),
+  in_progress: integer('in_progress').default(0),
+  last_started_at: text('last_started_at'),
+  last_completed_at: text('last_completed_at'),
+  last_status: text('last_status'), // 'ok' | 'error'
+  last_message: text('last_message'),
+})
+
 // ── Weight log (manual entries) ─────────────────────────────────────
 
 export const weightLog = sqliteTable('weight_log', {

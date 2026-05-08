@@ -587,7 +587,8 @@ services:
       - UPTIME_KUMA_PUSH_URL=${GARMIN_SYNC_PUSH_URL}
       - DB_PATH=/app/data/homelab.db
       - TOKEN_DIR=/app/tokens
-      - SYNC_INTERVAL=21600
+      - SYNC_INTERVAL=14400
+      - POLL_INTERVAL=30
       - BACKFILL_DAYS=7
     volumes:
       - /home/jkrumm/homelab/packages/api/data:/app/data

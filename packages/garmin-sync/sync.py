@@ -1,7 +1,10 @@
 """
 Garmin Connect → SQLite daily metrics sync.
-Runs on a 6-hour loop, fetches rolling 7-day window, upserts to daily_metrics table.
-Pings UptimeKuma push monitor on success.
+Polls every POLL_INTERVAL seconds; runs a sync when either:
+  - sync_control.refresh_requested = 1 (manual trigger from API), or
+  - now - last_completed_at >= SYNC_INTERVAL (scheduled cadence).
+Fetches rolling 7-day window, upserts to daily_metrics table.
+Pings UptimeKuma push monitor on success/failure.
 """
 
 import logging
@@ -24,7 +27,8 @@ log = logging.getLogger("garmin-sync")
 
 DB_PATH = os.environ.get("DB_PATH", "/app/data/homelab.db")
 TOKEN_DIR = os.environ.get("TOKEN_DIR", "/app/tokens")
-SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "21600"))  # 6 hours
+SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "14400"))  # 4 hours
+POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "30"))  # control-flag poll cadence
 BACKFILL_DAYS = int(os.environ.get("BACKFILL_DAYS", "7"))
 UPTIME_KUMA_PUSH_URL = os.environ.get("UPTIME_KUMA_PUSH_URL", "")
 GARMIN_EMAIL = os.environ.get("GARMIN_EMAIL", "")
@@ -208,8 +212,8 @@ def ping_uptime_kuma(status: str = "up", msg: str = ""):
         log.warning("UptimeKuma ping failed: %s", e)
 
 
-def run_sync():
-    """Execute one sync cycle."""
+def run_sync() -> tuple[int, str]:
+    """Execute one sync cycle. Returns (errors, msg)."""
     log.info("Starting sync cycle (backfill=%d days)", BACKFILL_DAYS)
 
     client = get_garmin_client()
@@ -253,23 +257,149 @@ def run_sync():
     else:
         ping_uptime_kuma("down", msg)
 
+    return errors, msg
+
+
+# ── Control-flag helpers (cross-process via shared SQLite) ──────────────────
+
+
+def now_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def control_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    return conn
+
+
+def ensure_control_row():
+    """Create sync_control table + seed singleton row. Idempotent — API does the same on startup."""
+    conn = control_conn()
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sync_control (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                refresh_requested INTEGER DEFAULT 0,
+                requested_at TEXT,
+                in_progress INTEGER DEFAULT 0,
+                last_started_at TEXT,
+                last_completed_at TEXT,
+                last_status TEXT,
+                last_message TEXT
+            )
+            """
+        )
+        conn.execute("INSERT OR IGNORE INTO sync_control (id) VALUES (1)")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def should_run_now() -> tuple[bool, str]:
+    """Decide whether to run a sync this tick. Returns (should_run, reason)."""
+    conn = control_conn()
+    try:
+        row = conn.execute(
+            "SELECT refresh_requested, last_completed_at FROM sync_control WHERE id = 1"
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        return True, "no-control-row"
+
+    refresh_requested, last_completed_at = row
+    if refresh_requested:
+        return True, "manual-refresh"
+
+    if not last_completed_at:
+        return True, "first-run"
+
+    try:
+        last = datetime.strptime(last_completed_at, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc
+        )
+    except ValueError:
+        return True, "unparseable-timestamp"
+
+    elapsed = (datetime.now(timezone.utc) - last).total_seconds()
+    if elapsed >= SYNC_INTERVAL:
+        return True, f"scheduled (elapsed={int(elapsed)}s)"
+
+    return False, ""
+
+
+def mark_started():
+    conn = control_conn()
+    try:
+        conn.execute(
+            """
+            UPDATE sync_control
+            SET in_progress = 1,
+                last_started_at = ?,
+                refresh_requested = 0
+            WHERE id = 1
+            """,
+            (now_iso(),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_finished(status: str, message: str):
+    conn = control_conn()
+    try:
+        conn.execute(
+            """
+            UPDATE sync_control
+            SET in_progress = 0,
+                last_completed_at = ?,
+                last_status = ?,
+                last_message = ?
+            WHERE id = 1
+            """,
+            (now_iso(), status, message),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
 
 def main():
-    log.info("Garmin sync starting (interval=%ds, backfill=%d days)", SYNC_INTERVAL, BACKFILL_DAYS)
+    log.info(
+        "Garmin sync starting (sync_interval=%ds, poll_interval=%ds, backfill=%d days)",
+        SYNC_INTERVAL,
+        POLL_INTERVAL,
+        BACKFILL_DAYS,
+    )
 
     if not GARMIN_EMAIL or not GARMIN_PASSWORD:
         log.error("GARMIN_EMAIL and GARMIN_PASSWORD must be set")
         sys.exit(1)
 
+    ensure_control_row()
+
     while True:
         try:
-            run_sync()
+            should_run, reason = should_run_now()
+            if should_run:
+                log.info("Running sync (reason=%s)", reason)
+                mark_started()
+                try:
+                    errors, msg = run_sync()
+                    mark_finished("ok" if errors == 0 else "error", msg)
+                except Exception as e:
+                    log.error("Sync cycle failed: %s", e, exc_info=True)
+                    mark_finished("error", str(e))
+                    ping_uptime_kuma("down", str(e))
         except Exception as e:
-            log.error("Sync cycle failed: %s", e, exc_info=True)
-            ping_uptime_kuma("down", str(e))
+            log.error("Loop tick failed: %s", e, exc_info=True)
 
-        log.info("Sleeping %ds until next sync", SYNC_INTERVAL)
-        time.sleep(SYNC_INTERVAL)
+        time.sleep(POLL_INTERVAL)
 
 
 if __name__ == "__main__":

@@ -58,6 +58,20 @@ sqlite.run(`
 `)
 
 sqlite.run(`
+  CREATE TABLE IF NOT EXISTS sync_control (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    refresh_requested INTEGER DEFAULT 0,
+    requested_at TEXT,
+    in_progress INTEGER DEFAULT 0,
+    last_started_at TEXT,
+    last_completed_at TEXT,
+    last_status TEXT,
+    last_message TEXT
+  )
+`)
+sqlite.run(`INSERT OR IGNORE INTO sync_control (id) VALUES (1)`)
+
+sqlite.run(`
   CREATE TABLE IF NOT EXISTS weight_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     date TEXT NOT NULL,
