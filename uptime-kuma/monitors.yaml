@@ -388,6 +388,18 @@ groups:
             interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
             retry_interval: 90000
 
+      # --- Services subgroup ---
+      - name: Services
+        type: group
+        interval: 215
+        monitors:
+          - name: BunEmailApi
+            type: keyword
+            url: https://bun-email-api.jkrumm.com/health
+            keyword: '{"ok":true}'
+            interval: 161
+            cloudflare_bypass: true
+
   # ============================================
   # FreePlanningPoker - VPS application stack
   # ============================================
