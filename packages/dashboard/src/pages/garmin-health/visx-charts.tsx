@@ -294,9 +294,14 @@ export function ActivityStackChart({
   dateFrom: string
   dateTo: string
 }) {
+  const effectiveFrom = useMemo(() => {
+    if (activities.length === 0) return dateFrom
+    const earliest = activities.reduce((min, a) => (a.date < min ? a.date : min), activities[0]!.date)
+    return earliest > dateFrom ? earliest : dateFrom
+  }, [activities, dateFrom])
   const buckets = useMemo(
-    () => buildActivityBuckets(activities, dateFrom, dateTo),
-    [activities, dateFrom, dateTo],
+    () => buildActivityBuckets(activities, effectiveFrom, dateTo),
+    [activities, effectiveFrom, dateTo],
   )
   const legendItems = useMemo(
     () =>
