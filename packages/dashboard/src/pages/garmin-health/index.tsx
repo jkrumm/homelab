@@ -164,6 +164,7 @@ export default function GarminHealthPage() {
 
   const onSyncCompleted = useCallback(() => {
     void invalidate({ resource: 'daily-metrics', invalidates: ['list'] })
+    void invalidate({ resource: 'activities', invalidates: ['list'] })
     message.success('Garmin data refreshed')
   }, [invalidate, message])
   const {
