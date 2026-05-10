@@ -120,10 +120,14 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
 ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
 ```
 
-### Garmin Sync
+### Garmin Collector
+
+Stateless HTTP query layer over Garmin Connect — owns the OAuth tokens, exposes
+`/daily-metrics` and `/activities` to the argo API on the VPS via Tailscale.
+The cron schedule + write side lives in argo (not here).
 
 ```bash
-# Deploy garmin-sync (git pull + rebuild + restart)
+# Deploy garmin-collector (git pull + rebuild + restart)
 make garmin-deploy
 
 # Rebuild without git pull
@@ -136,49 +140,10 @@ make garmin-restart
 make garmin-logs
 
 # Re-authenticate after MFA/token expiry:
-# 1. Run explore.py locally with credentials (triggers MFA prompt)
+# 1. Trigger an interactive login locally (any garminconnect script that prompts MFA)
 # 2. Copy refreshed tokens to server:
 #    scp ~/.garminconnect/garmin_tokens.json homelab:~/ssd/garmin-tokens/
 # 3. Restart: make garmin-restart
-```
-
-### SigNoz (Observability)
-
-```bash
-# Access SigNoz UI (Tailscale only)
-# Browser: https://signoz.jkrumm.com
-
-# Check SigNoz containers
-ssh homelab "docker compose ps | grep signoz"
-
-# View SigNoz Query Service logs
-ssh homelab "docker compose logs -f signoz-query-service"
-
-# View OTel Collector logs
-ssh homelab "docker compose logs -f signoz-otel-collector"
-
-# View ClickHouse logs
-ssh homelab "docker compose logs -f clickhouse"
-
-# Check ClickHouse storage usage
-ssh homelab "du -sh /home/jkrumm/ssd/signoz/clickhouse"
-
-# Verify OTLP endpoint (public)
-curl -I https://otlp.jkrumm.com/v1/traces
-
-# Test OTLP endpoint with sample trace
-curl -X POST https://otlp.jkrumm.com/v1/traces \
-  -H "Content-Type: application/json" \
-  -d '{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"test-service"}}]},"scopeSpans":[{"spans":[{"traceId":"00000000000000000000000000000001","spanId":"0000000000000001","name":"test-span","kind":1,"startTimeUnixNano":"1609459200000000000","endTimeUnixNano":"1609459200100000000"}]}]}]}'
-
-# Check SigNoz resource usage
-ssh homelab "docker stats --no-stream clickhouse signoz-query-service signoz-otel-collector signoz-alertmanager"
-
-# Query ClickHouse directly
-ssh homelab "docker exec clickhouse clickhouse-client --query 'SELECT version()'"
-
-# Check retention settings
-ssh homelab "docker exec signoz-query-service env | grep RETENTION"
 ```
 
 ### HDD Diagnostics
@@ -255,8 +220,7 @@ ssh homelab "docker system prune -af"
    - [Watchdog Management](#watchdog-management)
    - [Container Diagnostics](#container-diagnostics)
    - [Uptime Kuma Config-as-Code](#uptime-kuma-config-as-code)
-   - [Garmin Sync](#garmin-sync)
-   - [SigNoz (Observability)](#signoz-observability)
+   - [Garmin Collector](#garmin-collector)
    - [HDD Diagnostics](#hdd-diagnostics)
    - [Restic Backup → Backblaze B2](#restic-backup--backblaze-b2)
    - [1Password Secrets](#1password-secrets)
@@ -324,29 +288,26 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 
 #### HomeLab — Public Services (anyone can access)
 
-| Service        | URL                                            | Purpose                                          |
-| -------------- | ---------------------------------------------- | ------------------------------------------------ |
-| Glance         | [glance.jkrumm.com](https://glance.jkrumm.com) | Home dashboard                                   |
-| Immich         | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management                                 |
-| UptimeKuma     | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page                                      |
-| ExcaliDash     | [draw.jkrumm.com](https://draw.jkrumm.com)     | Whiteboard                                       |
-| Dufs           | [public.jkrumm.com](https://public.jkrumm.com) | Public file server                               |
-| OTLP Ingestion | [otlp.jkrumm.com](https://otlp.jkrumm.com)     | OpenTelemetry trace ingestion (for browser apps) |
+| Service     | URL                                            | Purpose            |
+| ----------- | ---------------------------------------------- | ------------------ |
+| Glance      | [glance.jkrumm.com](https://glance.jkrumm.com) | Home dashboard     |
+| Immich      | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management   |
+| UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page        |
+| Dufs        | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
+| Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com)   | E-book library     |
 
 **Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
 
 #### HomeLab — Private Services (Tailscale devices only)
 
-| Service     | URL                                                  | Purpose                                               |
-| ----------- | ---------------------------------------------------- | ----------------------------------------------------- |
-| Beszel      | [beszel.jkrumm.com](https://beszel.jkrumm.com)       | System metrics                                        |
-| Dozzle      | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)       | Container logs                                        |
-| FileBrowser | [files.jkrumm.com](https://files.jkrumm.com)         | File management                                       |
-| Calibre GUI | [calibre.jkrumm.com](https://calibre.jkrumm.com)     | Book management admin                                 |
-| Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com)         | E-book library                                        |
-| SigNoz      | [signoz.jkrumm.com](https://signoz.jkrumm.com)       | Application observability (APM)                       |
-| Obsidian    | [obsidian.jkrumm.com](https://obsidian.jkrumm.com)   | Obsidian app (KasmVNC GUI + REST API + TaskNotes API) |
-| CouchDB     | [couchdb.jkrumm.com](https://couchdb.jkrumm.com)     | Obsidian LiveSync database                            |
+| Service          | URL                                              | Purpose                                                       |
+| ---------------- | ------------------------------------------------ | ------------------------------------------------------------- |
+| Beszel           | [beszel.jkrumm.com](https://beszel.jkrumm.com)   | System metrics                                                |
+| Dozzle           | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)   | Container logs                                                |
+| FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
+| Calibre GUI      | [calibre.jkrumm.com](https://calibre.jkrumm.com) | Book management admin                                         |
+| CouchDB          | [couchdb.jkrumm.com](https://couchdb.jkrumm.com) | Obsidian LiveSync database                                    |
+| Garmin Collector | [garmin.jkrumm.com](https://garmin.jkrumm.com)   | Stateless Garmin Connect HTTP layer (called by argo from VPS) |
 
 **Route:** Tailscale device → DNS A record → HomeLab TS IP (<tailscale-ip-homelab>) → `https://caddy:443` → container
 
@@ -356,23 +317,20 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 
 #### HomeLab — Internal Services (no direct web access)
 
-| Service                  | Purpose                                                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Caddy                    | Reverse proxy (custom build with `caddy-dns/cloudflare` plugin)                                                                                               |
-| Cloudflared              | CF Tunnel client (public services only)                                                                                                                       |
-| Cloudflare-DDNS          | Dynamic DNS for `homelab.jkrumm.com`                                                                                                                          |
-| Docker Socket Proxy      | Read-only Docker API proxy for monitoring                                                                                                                     |
-| Watchtower               | Auto-updates containers daily at 4AM; opted-out stacks (SigNoz, Immich, Plausible) updated manually via `/upgrade-stack`; Slack notifications at `warn` level |
-| Samba                    | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`)                                                                                                   |
-| Beszel Agent             | System metrics collector (Tailscale port binding)                                                                                                             |
-| Immich ML/Postgres/Redis | Immich supporting services                                                                                                                                    |
-| ExcaliDash Backend       | ExcaliDash API + SQLite                                                                                                                                       |
-| ClickHouse               | SigNoz datastore (traces, metrics, logs)                                                                                                                      |
-| SigNoz Query Service     | SigNoz backend API + UI                                                                                                                                       |
-| SigNoz OTel Collector    | OpenTelemetry ingestion gateway                                                                                                                               |
-| SigNoz Alert Manager     | Alert rules and notifications                                                                                                                                 |
-| Plausible                | Web analytics (shared ClickHouse + Immich Postgres)                                                                                                           |
-| CouchDB                  | Obsidian LiveSync database                                                                                                                                    |
+| Service                       | Purpose                                                                                                              |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Caddy                         | Reverse proxy (custom build with `caddy-dns/cloudflare` plugin)                                                      |
+| Cloudflared                   | CF Tunnel client (public services only)                                                                              |
+| Docker Socket Proxy           | Read-only Docker API proxy for monitoring (Glance, Dozzle, Beszel, UptimeKuma)                                       |
+| Docker Socket Proxy (Watchtower) | Dedicated POST/DELETE-enabled proxy for Watchtower on isolated network                                            |
+| Docker Socket Proxy (Claude)  | Read-only Docker proxy bound to Tailscale interface — argo on VPS reads container state from here                    |
+| Watchtower                    | Auto-updates containers daily at 4AM; opted-out stacks (Immich, Caddy, garmin-collector) via `/upgrade-stack`; Slack |
+| Samba                         | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`)                                                          |
+| Beszel Agent                  | System metrics collector (Tailscale port binding)                                                                    |
+| Immich ML/Postgres/Redis      | Immich supporting services                                                                                           |
+| CouchDB                       | Obsidian LiveSync database                                                                                           |
+| Restic Backup                 | Daily 03:30 cron — pushes /sources/* to Backblaze B2 (append-only key)                                               |
+| Homelab/VPN Watchdog Logs     | Sidecars that surface watchdog log files to Dozzle                                                                   |
 
 #### VPS — Public Services
 

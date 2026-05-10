@@ -32,7 +32,7 @@
 | `/commit`               | main    | Smart git commit with conventional commits (inherited from SourceRoot)                       |
 
 **IMPORTANT:** Run `/docs` before committing changes that affect infrastructure or scripts.
-**IMPORTANT:** If you change API routes in `api/src/`, `/docs` will regenerate the Hermes API reference at `~/SourceRoot/hermes-agent/skills/homelab-api/reference.md` from the live spec — commit that file too.
+**Note:** The REST API + dashboard moved out of this repo to [`jkrumm/argo`](https://github.com/jkrumm/argo) (deployed to the VPS). API/skill changes are argo's responsibility now — homelab only owns the garmin-collector contract on the data side.
 
 ---
 
@@ -106,7 +106,7 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/couchdb/PASSWORD`        | CouchDB admin password                                  |
 | `homelab/garmin/EMAIL`            | Garmin Connect login email                              |
 | `homelab/garmin/PASSWORD`         | Garmin Connect login password                           |
-| `homelab/garmin/PUSH_URL`         | UptimeKuma push URL for garmin-sync heartbeat           |
+| `homelab/garmin/PUSH_URL`         | UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull |
 | `homelab/slack/WEBHOOK_ALERTS`    | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `homelab/slack/WATCHTOWER_URL`    | Shoutrrr-formatted Slack webhook for Watchtower         |
 
@@ -162,9 +162,9 @@ Run `make help` for all available targets.
 2. `OP_SERVICE_ACCOUNT_TOKEN` is set in the server's `~/.bashrc` (the only secret on disk)
 3. `op run --env-file=.env.tpl --` resolves all references at runtime and passes them as env vars
 4. Docker Compose `environment:` maps these into container env vars
-5. The API reads `process.env.API_SECRET` etc. at runtime
+5. Containers read the env at runtime (e.g. garmin-collector reads `GARMIN_COLLECTOR_TOKEN`, `GARMIN_EMAIL`, `GARMIN_PASSWORD`)
 
-**API is the only locally-built service** (Watchtower can't auto-update it). After code changes, use `make api-deploy` or `make api-rebuild` — both use `--no-cache` to ensure fresh builds.
+**garmin-collector is the only locally-built service** (Watchtower can't auto-update it). After code changes use `make garmin-deploy` or `make garmin-rebuild` — both use `--no-cache`.
 
 ### Raw Commands (When Needed)
 
@@ -211,24 +211,24 @@ docker events --since 1h --filter container=<name>
 
 ### Public Services (Cloudflare Tunnel → Caddy → container)
 
-| Service    | Port | URL               | Purpose             |
-| ---------- | ---- | ----------------- | ------------------- |
-| Glance     | 8080 | glance.jkrumm.com | Dashboard           |
-| Immich     | 2283 | immich.jkrumm.com | Photo management    |
-| UptimeKuma | 3010 | uptime.jkrumm.com | Service monitoring  |
-| ExcaliDash | 8084 | draw.jkrumm.com   | Whiteboard          |
-| Dufs       | 8098 | public.jkrumm.com | Public file sharing |
+| Service     | Port | URL               | Purpose             |
+| ----------- | ---- | ----------------- | ------------------- |
+| Glance      | 8080 | glance.jkrumm.com | Dashboard           |
+| Immich      | 2283 | immich.jkrumm.com | Photo management    |
+| UptimeKuma  | 3010 | uptime.jkrumm.com | Service monitoring  |
+| Dufs        | 8098 | public.jkrumm.com | Public file sharing |
+| Calibre-Web | 8083 | books.jkrumm.com  | E-book library      |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 
-| Service     | Port | URL                  | Purpose                   |
-| ----------- | ---- | -------------------- | ------------------------- |
-| Beszel      | 8090 | beszel.jkrumm.com    | System metrics            |
-| Dozzle      | 8081 | dozzle.jkrumm.com    | Container logs            |
-| FileBrowser | 80   | files.jkrumm.com     | File management           |
-| Calibre GUI | 8080 | calibre.jkrumm.com   | Book management admin     |
-| Calibre-Web | 8083 | books.jkrumm.com     | E-book library            |
-| CouchDB     | 5984 | couchdb.jkrumm.com   | CouchDB document database |
+| Service          | Port | URL                | Purpose                                                     |
+| ---------------- | ---- | ------------------ | ----------------------------------------------------------- |
+| Beszel           | 8090 | beszel.jkrumm.com  | System metrics                                              |
+| Dozzle           | 8081 | dozzle.jkrumm.com  | Container logs                                              |
+| FileBrowser      | 80   | files.jkrumm.com   | File management                                             |
+| Calibre GUI      | 8080 | calibre.jkrumm.com | Book management admin                                       |
+| CouchDB          | 5984 | couchdb.jkrumm.com | CouchDB document database (Obsidian LiveSync)               |
+| Garmin Collector | 8080 | garmin.jkrumm.com  | Garmin Connect HTTP query layer (called by argo on the VPS) |
 
 > **Access:** DNS A records point to HomeLab Tailscale IP (<tailscale-ip-homelab>, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
 
@@ -245,7 +245,6 @@ docker events --since 1h --filter container=<name>
 | Beszel-Agent          | System metrics collector                                                                                     |
 | Immich ML             | Photo AI processing                                                                                          |
 | Immich Postgres/Redis | Immich databases                                                                                             |
-| Plausible             | Web analytics (shared Immich Postgres)                                                                       |
 | CouchDB               | CouchDB document database                                                                                    |
 | Garmin Sync           | Python sidecar — syncs daily Garmin health metrics to SQLite every 6h, pings UptimeKuma                      |
 
@@ -347,9 +346,8 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
-| `/home/jkrumm/homelab/packages/api/data` | `/sources/api-sqlite` | API SQLite (read live; small + WAL) |
 
-**Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser/Jellyfin/Transmission/Prowlarr/qbittorrent state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`.
+**Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser/Jellyfin/Transmission/Prowlarr/qbittorrent state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
 
 ### Two-key pattern (ransomware safety)
 
@@ -579,15 +577,15 @@ tail -100 /var/log/homelab_watchdog.log
 # 2. Commit via /commit command (only when requested), push to GitHub
 # 3. Deploy via Makefile
 make deploy          # Full stack (git pull + recreate all)
-make api-deploy      # API only (git pull + rebuild + restart)
+make garmin-deploy   # garmin-collector only (git pull + rebuild + restart)
 make caddy-reload    # Caddy only (after Caddyfile changes)
 ```
 
 ### Verification Steps
 
 ```bash
-make ps                  # Check services started
-make logs svc=api        # Watch API logs
+make ps                                # Check services started
+make logs svc=garmin-collector         # Watch garmin-collector logs
 curl -I https://glance.jkrumm.com  # Verify external access
 ```
 
@@ -708,18 +706,17 @@ When making changes that affect infrastructure or script behavior:
 
 ### Docker Operations (via Makefile)
 
-| Command                   | Purpose                                        |
-| ------------------------- | ---------------------------------------------- |
-| `make api-deploy`         | Full API deploy (git pull + rebuild + restart)       |
-| `make api-rebuild`        | Rebuild API + restart (no git pull)                  |
-| `make api-restart`        | Restart API (new env vars, no rebuild)               |
-| `make dash-deploy`        | Full dashboard deploy (git pull + rebuild + restart) |
-| `make dash-rebuild`       | Rebuild dashboard + restart (no git pull)            |
-| `make deploy`             | Full stack deploy (git pull + recreate all)           |
-| `make up`                 | Start/recreate all services                    |
-| `make restart svc=<name>` | Force-recreate a single service                |
-| `make ps`                 | Show running containers                        |
-| `make logs svc=<name>`    | Follow logs for any service                    |
+| Command                    | Purpose                                                 |
+| -------------------------- | ------------------------------------------------------- |
+| `make deploy`              | Full stack deploy (git pull + recreate all)             |
+| `make up`                  | Start/recreate all services                             |
+| `make restart svc=<name>`  | Force-recreate a single service                         |
+| `make ps`                  | Show running containers                                 |
+| `make logs svc=<name>`     | Follow logs for any service                             |
+| `make garmin-deploy`       | Full garmin-collector deploy (git pull + rebuild + restart) |
+| `make garmin-rebuild`      | Rebuild garmin-collector (no cache) + restart           |
+| `make garmin-restart`      | Restart garmin-collector (no rebuild)                   |
+| `make garmin-logs`         | Follow garmin-collector logs                            |
 
 ### System Health
 
@@ -745,7 +742,7 @@ When making changes that affect infrastructure or script behavior:
 **Update tiers:**
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `caddy` (custom build), `garmin-sync` (local build), `docker-socket-proxy-watchtower`, `watchtower` itself
+- **Opted-out** (other): `caddy` (custom build), `garmin-collector` (local build), `docker-socket-proxy-watchtower`, `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else
 
 | Command                            | Purpose                    |
@@ -792,7 +789,7 @@ git add . && git commit -m "message" && git push
 
 # 2. Deploy (picks up git changes + injects secrets)
 make deploy          # Full stack
-make api-deploy      # API only
+make garmin-deploy   # garmin-collector only
 ```
 
 ### Emergency Commands

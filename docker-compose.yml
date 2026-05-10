@@ -91,7 +91,6 @@ services:
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
       - HOMELAB_TAILSCALE_IP=${HOMELAB_TAILSCALE_IP}
-      - API_SECRET=${API_SECRET}
     labels:
       glance.parent: uptime
       glance.name: Caddy

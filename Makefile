@@ -8,9 +8,8 @@
 #
 # Usage:
 #   make help              Show all targets
-#   make api-deploy        Full API deploy (git pull + rebuild + restart)
 #   make deploy            Full stack deploy (git pull + recreate all)
-#   make logs svc=api      Follow logs for any service
+#   make logs svc=<name>   Follow logs for any service
 
 SSH := ssh homelab
 CD := cd ~/homelab
@@ -18,21 +17,11 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help api-deploy api-rebuild api-restart api-logs dash-deploy dash-rebuild deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs garmin-exec restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune
+.PHONY: help deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
 help: ## Show all targets
-	@echo ""
-	@echo "  API Operations"
-	@echo "    make api-deploy          Full deploy: git pull + rebuild (no cache) + restart"
-	@echo "    make api-rebuild         Rebuild image (no cache) + restart (no git pull)"
-	@echo "    make api-restart         Restart container only (picks up new env vars, no rebuild)"
-	@echo "    make api-logs            Follow API logs"
-	@echo ""
-	@echo "  Dashboard Operations"
-	@echo "    make dash-deploy         Full deploy: git pull + rebuild (no cache) + restart"
-	@echo "    make dash-rebuild        Rebuild image (no cache) + restart (no git pull)"
 	@echo ""
 	@echo "  Stack Operations"
 	@echo "    make deploy              Full deploy: git pull + recreate all services"
@@ -42,12 +31,11 @@ help: ## Show all targets
 	@echo "    make ps                  Show running containers"
 	@echo "    make logs svc=<name>     Follow logs for a service"
 	@echo ""
-	@echo "  Garmin Sync Operations"
+	@echo "  Garmin Collector Operations"
 	@echo "    make garmin-deploy       Full deploy: git pull + rebuild (no cache) + restart"
 	@echo "    make garmin-rebuild      Rebuild image (no cache) + restart (no git pull)"
 	@echo "    make garmin-restart      Restart container only"
-	@echo "    make garmin-logs         Follow garmin-sync logs"
-	@echo "    make garmin-exec script=<host-path>  Copy script into container, run with python, write outputs to /app/data"
+	@echo "    make garmin-logs         Follow garmin-collector logs"
 	@echo ""
 	@echo "  Infrastructure"
 	@echo "    make caddy-reload        Force-recreate Caddy (picks up Caddyfile changes)"
