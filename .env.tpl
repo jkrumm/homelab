@@ -34,7 +34,7 @@ GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
 GARMIN_SYNC_PUSH_URL=op://homelab/garmin/PUSH_URL
 
 # --- Garmin Collector (HTTP query layer — argo API on VPS reads via Tailscale) ---
-GARMIN_COLLECTOR_TOKEN=op://homelab/garmin-collector/TOKEN
+GARMIN_COLLECTOR_TOKEN=op://common/garmin-collector/TOKEN
 
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
