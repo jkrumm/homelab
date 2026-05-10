@@ -28,10 +28,13 @@ SLACK_USER_TOKEN=op://homelab/slack/USER_TOKEN
 GOOGLE_CLIENT_ID=op://homelab/google-oauth/CLIENT_ID
 GOOGLE_CLIENT_SECRET=op://homelab/google-oauth/CLIENT_SECRET
 
-# --- Garmin Sync ---
+# --- Garmin Sync (DEPRECATED — old SQLite-writing sync, removed at argo cutover) ---
 GARMIN_EMAIL=op://homelab/garmin/EMAIL
 GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
 GARMIN_SYNC_PUSH_URL=op://homelab/garmin/PUSH_URL
+
+# --- Garmin Collector (HTTP query layer — argo API on VPS reads via Tailscale) ---
+GARMIN_COLLECTOR_TOKEN=op://homelab/garmin-collector/TOKEN
 
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
