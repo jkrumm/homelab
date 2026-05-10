@@ -19,21 +19,9 @@ COUCHDB_PASSWORD=op://homelab/couchdb/PASSWORD
 DUFS_PASSWORD=op://homelab/dufs/PASSWORD
 IMMICH_API_KEY=op://homelab/immich/API_KEY
 
-# --- API ---
-API_SECRET=op://common/api/SECRET
-TICKTICK_API_KEY=op://homelab/ticktick/API_KEY
-UPTIME_KUMA_API_KEY=op://homelab/uptime-kuma/API_KEY
-SLACK_BOT_TOKEN=op://homelab/slack/BOT_TOKEN
-SLACK_USER_TOKEN=op://homelab/slack/USER_TOKEN
-GOOGLE_CLIENT_ID=op://homelab/google-oauth/CLIENT_ID
-GOOGLE_CLIENT_SECRET=op://homelab/google-oauth/CLIENT_SECRET
-
-# --- Garmin Sync (DEPRECATED — old SQLite-writing sync, removed at argo cutover) ---
+# --- Garmin Collector (HTTP query layer — argo API on VPS reads via Tailscale) ---
 GARMIN_EMAIL=op://homelab/garmin/EMAIL
 GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
-GARMIN_SYNC_PUSH_URL=op://homelab/garmin/PUSH_URL
-
-# --- Garmin Collector (HTTP query layer — argo API on VPS reads via Tailscale) ---
 GARMIN_COLLECTOR_TOKEN=op://common/garmin-collector/TOKEN
 
 # --- Restic → Backblaze B2 ---

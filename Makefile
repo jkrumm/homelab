@@ -65,28 +65,6 @@ help: ## Show all targets
 	@echo "    make restic-prune        ⚠ Run on YOUR MAC with admin key — quarterly cleanup"
 	@echo ""
 
-# ── API Operations ───────────────────────────────────────────────────────────
-
-api-deploy: ## Full deploy: git pull + rebuild API (no cache) + restart with secrets
-	$(SSH) "$(CD) && git pull && $(DC) build --no-cache api && $(DC) up -d api"
-
-api-rebuild: ## Rebuild API image (no cache) and restart with secrets
-	$(SSH) "$(CD) && $(DC) build --no-cache api && $(DC) up -d api"
-
-api-restart: ## Restart API container (no rebuild, picks up new env vars)
-	$(SSH) "$(CD) && $(DC) up -d --force-recreate api"
-
-api-logs: ## Follow API logs
-	$(SSH) "docker logs -f --tail=100 api"
-
-# ── Dashboard Operations ─────────────────────────────────────────────────────
-
-dash-deploy: ## Full deploy: git pull + rebuild dashboard (no cache) + restart with secrets
-	$(SSH) "$(CD) && git pull && $(DC) build --no-cache dashboard && $(DC) up -d dashboard"
-
-dash-rebuild: ## Rebuild dashboard image (no cache) and restart with secrets
-	$(SSH) "$(CD) && $(DC) build --no-cache dashboard && $(DC) up -d dashboard"
-
 # ── Stack Operations ─────────────────────────────────────────────────────────
 
 deploy: ## Full deploy: git pull + recreate all services with secrets
@@ -109,25 +87,19 @@ logs: ## Follow logs for a service: make logs svc=<name>
 	@[ -n "$(svc)" ] || { echo "ERROR: Specify service — make logs svc=<name>"; exit 1; }
 	$(SSH) "docker logs -f --tail=100 $(svc)"
 
-# ── Garmin Sync Operations ───────────────────────────────────────────────────
+# ── Garmin Collector Operations ──────────────────────────────────────────────
 
-garmin-deploy: ## Full deploy: git pull + rebuild garmin-sync (no cache) + restart
-	$(SSH) "$(CD) && git pull && $(DC) build --no-cache garmin-sync && $(DC) up -d garmin-sync"
+garmin-deploy: ## Full deploy: git pull + rebuild garmin-collector (no cache) + restart
+	$(SSH) "$(CD) && git pull && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector"
 
-garmin-rebuild: ## Rebuild garmin-sync image (no cache) and restart with secrets
-	$(SSH) "$(CD) && $(DC) build --no-cache garmin-sync && $(DC) up -d garmin-sync"
+garmin-rebuild: ## Rebuild garmin-collector image (no cache) and restart with secrets
+	$(SSH) "$(CD) && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector"
 
-garmin-restart: ## Restart garmin-sync container (no rebuild)
-	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-sync"
+garmin-restart: ## Restart garmin-collector container (no rebuild)
+	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
 
-garmin-logs: ## Follow garmin-sync logs
-	$(SSH) "docker logs -f --tail=100 garmin-sync"
-
-garmin-exec: ## Run an ad-hoc Python script inside garmin-sync (uses existing tokens). Usage: make garmin-exec script=path/to/script.py
-	@[ -n "$(script)" ] || { echo "ERROR: Specify script — make garmin-exec script=path/to/script.py"; exit 1; }
-	@[ -f "$(script)" ] || { echo "ERROR: Script not found: $(script)"; exit 1; }
-	scp "$(script)" homelab:/tmp/garmin-exec.py
-	$(SSH) "docker cp /tmp/garmin-exec.py garmin-sync:/app/garmin-exec.py && docker exec garmin-sync python /app/garmin-exec.py && rm -f /tmp/garmin-exec.py"
+garmin-logs: ## Follow garmin-collector logs
+	$(SSH) "docker logs -f --tail=100 garmin-collector"
 
 # ── Infrastructure ───────────────────────────────────────────────────────────
 
