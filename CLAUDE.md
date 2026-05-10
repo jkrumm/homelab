@@ -234,19 +234,23 @@ docker events --since 1h --filter container=<name>
 
 ### Internal Services
 
-| Service               | Purpose                                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Caddy                 | Reverse proxy for all services (HTTP :80 + HTTPS :443, custom build with cloudflare DNS plugin)              |
-| docker-socket-proxy   | Secure Docker API proxy (read-only TCP)                                                                      |
-| Cloudflared           | Tunnel to Cloudflare (public services only)                                                                  |
-| Watchtower            | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; Slack notifications |
-| Samba                 | SMB3 file shares (encryption preferred)                                                                      |
-| Calibre               | E-book management GUI                                                                                        |
-| Beszel-Agent          | System metrics collector                                                                                     |
-| Immich ML             | Photo AI processing                                                                                          |
-| Immich Postgres/Redis | Immich databases                                                                                             |
-| CouchDB               | CouchDB document database                                                                                    |
-| Garmin Sync           | Python sidecar — syncs daily Garmin health metrics to SQLite every 6h, pings UptimeKuma                      |
+| Service                       | Purpose                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Caddy                         | Reverse proxy (HTTP :80 + HTTPS :443, custom build with cloudflare DNS plugin)                         |
+| docker-socket-proxy           | Read-only Docker API proxy (Glance, Dozzle, Beszel-Agent, UptimeKuma)                                  |
+| docker-socket-proxy-watchtower| Dedicated POST/DELETE-enabled proxy on isolated network for Watchtower                                 |
+| docker-socket-proxy-claude    | Read-only Docker proxy bound to Tailscale `:2376` — argo on the VPS reads container state from here    |
+| Cloudflared                   | Tunnel to Cloudflare (public services only)                                                            |
+| Watchtower                    | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; Slack notifs  |
+| Samba                         | SMB3 file shares (encryption preferred)                                                                |
+| Calibre                       | E-book management GUI                                                                                  |
+| Beszel-Agent                  | System metrics collector                                                                               |
+| Immich ML                     | Photo AI processing                                                                                    |
+| Immich Postgres/Redis         | Immich databases                                                                                       |
+| CouchDB                       | Document DB (Obsidian LiveSync)                                                                        |
+| Restic Backup                 | Daily 03:30 cron — pushes /sources/* to Backblaze B2 (append-only key)                                 |
+| Garmin Collector              | FastAPI sidecar — exposes /daily-metrics + /activities to argo on the VPS via Tailscale                |
+| Watchdog Log Sidecars         | dozzle-watchdog-logs / homelab-watchdog-logs — surface watchdog log files to Dozzle                    |
 
 ### Network Topology
 
