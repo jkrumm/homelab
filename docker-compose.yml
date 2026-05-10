@@ -246,7 +246,6 @@ services:
       - /home/jkrumm/ssd/SSD/Dev:/sources/Dev:ro
       - /mnt/hdd/fuji/RAWs:/sources/Fuji-RAWs:ro
       - /mnt/hdd/backups:/sources/hermes-backup:ro
-      - /home/jkrumm/homelab/packages/api/data:/sources/api-sqlite:ro
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
     labels:

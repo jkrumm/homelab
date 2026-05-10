@@ -142,22 +142,16 @@ Run `make help` for all available targets.
 
 | Command                   | Purpose                                                  |
 | ------------------------- | -------------------------------------------------------- |
-| `make api-deploy`         | Full API deploy: git pull + rebuild (no cache) + restart       |
-| `make api-rebuild`        | Rebuild API image (no cache) + restart (no git pull)           |
-| `make api-restart`        | Restart API only (picks up new env vars, no rebuild)           |
-| `make api-logs`           | Follow API logs                                                |
-| `make dash-deploy`        | Full dashboard deploy: git pull + rebuild (no cache) + restart |
-| `make dash-rebuild`       | Rebuild dashboard image (no cache) + restart (no git pull)     |
 | `make deploy`             | Full stack deploy: git pull + recreate all services             |
 | `make up`                 | Start/recreate all services                              |
 | `make restart svc=<name>` | Force-recreate a single service                          |
 | `make down`               | Stop all services                                        |
 | `make ps`                 | Show running containers                                  |
 | `make logs svc=<name>`    | Follow logs for any service                              |
-| `make garmin-deploy`      | Full garmin-sync deploy (git pull + rebuild + restart)   |
-| `make garmin-rebuild`     | Rebuild garmin-sync (no cache) + restart (no git pull)   |
-| `make garmin-restart`     | Restart garmin-sync (picks up new env vars)              |
-| `make garmin-logs`        | Follow garmin-sync logs                                  |
+| `make garmin-deploy`      | Full garmin-collector deploy (git pull + rebuild + restart) |
+| `make garmin-rebuild`     | Rebuild garmin-collector (no cache) + restart (no git pull) |
+| `make garmin-restart`     | Restart garmin-collector (picks up new env vars)         |
+| `make garmin-logs`        | Follow garmin-collector logs                             |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync`            | Apply all Uptime Kuma monitors (public + private)        |
 | `make uk-dry-run`         | Preview Uptime Kuma monitor changes                      |
@@ -425,40 +419,23 @@ restic diff <older-id> <newer-id>
 
 ## Repository Structure
 
-This is a **Bun workspace monorepo** (`packages/api` + `packages/dashboard`).
+Pure infrastructure repo (Docker Compose + ops). The application stack (api + dashboard) lives in [`jkrumm/argo`](https://github.com/jkrumm/argo) on the VPS, deployed via RollHook.
 
 ```
 homelab/
-├── package.json             # Workspace root (scripts: lint, format, format:check)
-├── .oxlintrc.json           # Lint rules (oxlint)
-├── .oxfmtrc.json            # Format config (oxfmt)
-├── packages/
-│   ├── api/                 # Elysia/Bun API (port 4000)
-│   │   ├── src/
-│   │   │   ├── index.ts     # App entry, auth guard, plugin registration
-│   │   │   ├── db/          # Drizzle ORM + SQLite (schema, connection)
-│   │   │   ├── routes/      # CRUD routes (workouts, workout-sets, daily-metrics, weight-log, user-profile)
-│   │   │   └── clients/     # External API clients (google, slack, ticktick, uptime-kuma)
-│   │   └── Dockerfile       # Alpine + Bun (build context = repo root)
-│   ├── garmin-sync/         # Python sidecar — Garmin Connect → SQLite daily sync
-│   │   ├── sync.py          # Main sync loop (6h interval, 7-day backfill, UptimeKuma push)
-│   │   ├── requirements.txt # garminconnect library
-│   │   └── Dockerfile       # python:3.13-alpine
-│   └── dashboard/           # Refine v5 dashboard (port 5173 dev / nginx prod)
-│       ├── src/
-│       │   ├── App.tsx      # Refine, router, theme toggle, sidebar
-│       │   ├── providers/   # Eden Treaty client + Refine DataProvider
-│       │   └── pages/       # Dashboard pages (strength-tracker/)
-│       ├── CLAUDE.md        # Dashboard-specific conventions — read before adding pages
-│       └── Dockerfile       # Multi-stage: bun build → nginx:alpine
-├── docker-compose.yml       # Service orchestration (30 containers incl. api + dashboard)
-├── Caddyfile                # Reverse proxy routing (public + private + dashboard)
+├── docker-compose.yml       # Service orchestration (~30 containers, infra + collectors)
+├── Caddyfile                # Reverse proxy routing (public + private + garmin/argo collectors)
 ├── .env.tpl                 # 1Password secret references (op:// URIs)
 ├── setup.sh                 # Initial server setup (idempotent)
+├── packages/
+│   └── garmin-collector/    # Python FastAPI — stateless HTTP query layer over Garmin Connect.
+│       ├── server.py        #   Owns OAuth tokens. Argo API on VPS pulls /daily-metrics
+│       ├── requirements.txt #   + /activities via https://garmin.jkrumm.com (Tailscale-only).
+│       └── Dockerfile       #   Bearer-authed via op://common/garmin-collector/TOKEN.
 ├── scripts/                 # Operational scripts
 │   └── homelab_watchdog.sh  # Self-healing health monitor (cron)
 ├── config/                  # App configs + extends
-│   ├── glance.yml           # Dashboard config
+│   ├── glance.yml           # Glance dashboard config
 │   ├── hwaccel.ml.yml       # Immich ML GPU acceleration
 │   └── hwaccel.transcoding.yml
 ├── docs/                    # Detailed documentation
@@ -471,51 +448,15 @@ homelab/
     └── monitors.yaml
 ```
 
-### Local Development (Monorepo)
+### Argo (api + dashboard) — separate repo
 
-```bash
-# Install all workspace deps
-bun install
+`jkrumm/argo` lives on the VPS at `https://argo.jkrumm.com` (Tailscale-only, DNS-only A record → VPS Tailscale IP). RollHook manages zero-downtime deploys on push to master. The argo API queries homelab over Tailscale:
 
-# API dev server (port 4000)
-cd packages/api && bun run start
+- `https://garmin.jkrumm.com` → garmin-collector (this repo)
+- `http://${HOMELAB_TAILSCALE_IP}:2376` → docker-socket-proxy-claude (this repo)
+- `https://uptime.jkrumm.com` → uptime-kuma (this repo, via socket.io)
 
-# Dashboard dev server (port 5173)
-cd packages/dashboard && bun run dev
-
-# Lint (zero warnings/errors expected)
-bun run lint
-
-# Format check
-bun run format:check
-
-# Auto-format
-bun run format
-
-# Typecheck
-cd packages/api && bun tsc --noEmit
-cd packages/dashboard && bun tsc --noEmit
-
-# Dashboard production build
-cd packages/dashboard && bun run build
-```
-
-### Deploying API + Dashboard
-
-```bash
-# After pushing to GitHub:
-make api-deploy      # Rebuild + restart API only
-make deploy          # Full stack (git pull + recreate all — includes dashboard)
-
-# Dashboard-only rebuild (after dashboard code changes):
-ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d --build dashboard"
-```
-
-Dashboard is served at `dashboard.jkrumm.com` — Tailscale-only (private, no Cloudflare tunnel).
-
-### Adding a New Dashboard Page
-
-See `packages/dashboard/CLAUDE.md` for the end-to-end workflow: schema → routes → data provider → Refine resource → page component → route.
+See `~/SourceRoot/argo/` and the VPS-side `apps/argo/compose.yml`.
 
 ---
 
