@@ -390,6 +390,28 @@ groups:
             interval: 161
             cloudflare_bypass: true
 
+          # Argo nested folder — dashboard + API on VPS, Tailscale-only via
+          # Traefik. Single host argo.jkrumm.com (dashboard at /, API at /api,
+          # Traefik strips the /api prefix). DNS is grey-cloud → VPS Tailscale
+          # IP, so probes work from homelab UK over Tailscale (no CF bypass).
+          # Per uptime-kuma-monitors rule: parent folder provides "Argo" scope,
+          # children drop the prefix.
+          - name: Argo
+            type: group
+            interval: 200
+            monitors:
+              - name: Dashboard - HTTP
+                type: http
+                url: https://argo.jkrumm.com/
+                interval: 145
+                accepted_statuscodes: ['200-299']
+
+              - name: API - HTTP
+                type: keyword
+                url: https://argo.jkrumm.com/api/health
+                keyword: '"status":"ok"'
+                interval: 150
+
   # ============================================
   # FreePlanningPoker - VPS application stack
   # ============================================
