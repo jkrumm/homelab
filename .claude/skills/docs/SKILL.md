@@ -87,9 +87,9 @@ When running this skill, I will check:
 5. Watchdog Management
 6. Container Diagnostics
 7. Uptime Kuma Config-as-Code
-8. SigNoz (Observability)
+8. Garmin Collector
 9. HDD Diagnostics
-10. Database Backup
+10. Restic Backup
 11. 1Password Secrets
 12. Emergency Commands
 
@@ -154,10 +154,10 @@ Scan and identify changes:
 
 ### Multi-Component Stack Check
 
-✅ SigNoz: 4 services, already in /upgrade-stack
 ✅ Immich: 4 services, already in /upgrade-stack
-⚠️ NEW: Plausible detected (3 services with watchtower opted-out)
-→ Prompt: Add Plausible to /upgrade-stack?
+✅ Caddy: 1 service (custom build), already in /upgrade-stack
+⚠️ NEW: <stack-name> detected (N services with watchtower opted-out)
+→ Prompt: Add <stack-name> to /upgrade-stack?
 
 ### Outdated Documentation
 

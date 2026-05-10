@@ -745,9 +745,9 @@ When making changes that affect infrastructure or script behavior:
 
 **Update tiers:**
 
-- **Opted-out** (manual via `/upgrade-stack`): `immich_server`, `immich_ml`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `caddy` (custom build), `garmin-collector` (local build), `docker-socket-proxy-watchtower`, `watchtower` itself
-- **Auto-update** (global, daily 4AM): everything else
+- **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
+- **Opted-out** (other): `garmin-collector` (local build), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Auto-update** (global, daily 4AM): everything else (incl. `caddy` — was opted-out historically, now Watchtower-managed)
 
 | Command                            | Purpose                    |
 | ---------------------------------- | -------------------------- |

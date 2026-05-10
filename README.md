@@ -107,6 +107,8 @@ ssh homelab "docker exec -it <container> sh"
 ssh homelab "docker inspect <container> | grep -A 20 NetworkSettings"
 ```
 
+### Uptime Kuma Config-as-Code
+
 ```bash
 # NOTE: sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
 
@@ -248,9 +250,7 @@ ssh homelab "docker system prune -af"
 17. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
 18. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
 19. [Setup Immich](#setup-immich)
-20. [Setup ExcaliDash](#setup-excalidash)
-21. [Setup Public Files (Dufs)](#setup-public-files-dufs)
-22. [Setup Obsidian (Always-On)](#setup-obsidian-always-on)
+20. [Setup Public Files (Dufs)](#setup-public-files-dufs)
 
 ---
 
@@ -276,7 +276,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  MariaDB:  Vercel → port 33306 (direct, Hetzner FW allows)          │
 │                                                                      │
-│  11 containers: FPP, Analytics, Snow-Finder, Plausible, MariaDB, ... │
+│  20+ containers: Argo, FPP, BunEmailApi, Umami, HyperDX, MariaDB, …  │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Cross-Machine Links                           │
 │  Dozzle hub (HomeLab) ←→ Dozzle agent (VPS)  via Tailscale          │
@@ -332,16 +332,20 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Restic Backup                 | Daily 03:30 cron — pushes /sources/* to Backblaze B2 (append-only key)                                               |
 | Homelab/VPN Watchdog Logs     | Sidecars that surface watchdog log files to Dozzle                                                                   |
 
-#### VPS — Public Services
+#### VPS — Public Services (monitored from here)
 
 | Service       | URL                                                          | Purpose                             |
 | ------------- | ------------------------------------------------------------ | ----------------------------------- |
+| Argo          | [argo.jkrumm.com](https://argo.jkrumm.com)                   | Personal dashboard + REST API (Tailscale-only) |
 | FPP Server    | [fpp-server.jkrumm.com](https://fpp-server.jkrumm.com)       | Free Planning Poker API             |
 | FPP Analytics | [fpp-analytics.jkrumm.com](https://fpp-analytics.jkrumm.com) | Analytics dashboard                 |
-| Snow Finder   | [snow-finder.jkrumm.com](https://snow-finder.jkrumm.com)     | Snow conditions app                 |
 | Photos        | [photos.jkrumm.com](https://photos.jkrumm.com)               | Photo gallery                       |
-| Plausible     | [plausible.jkrumm.com](https://plausible.jkrumm.com)         | Privacy-friendly analytics          |
-| MariaDB       | `5.75.178.196:33306`                                         | Database (direct access for Vercel) |
+| BunEmailApi   | [bun-email-api.jkrumm.com](https://bun-email-api.jkrumm.com) | Bun email API                       |
+| RollHook      | [rollhook.jkrumm.com](https://rollhook.jkrumm.com)           | Zero-downtime deploy webhook + registry |
+| HyperDX       | [hyperdx.jkrumm.com](https://hyperdx.jkrumm.com)             | OTel observability (Tailscale-only) |
+| Umami         | [umami.jkrumm.com](https://umami.jkrumm.com)                 | Privacy-friendly analytics          |
+
+> Full VPS inventory + ops live in [`~/SourceRoot/vps`](https://github.com/jkrumm/vps). This list is here only because Uptime Kuma probes them from homelab.
 
 #### Tailscale Devices
 
@@ -470,21 +474,19 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 
 ### Service Classification
 
-| Service     | Access              | Domain               |
-| ----------- | ------------------- | -------------------- |
-| Glance      | Public (Cloudflare) | glance.jkrumm.com    |
-| Immich      | Public (Cloudflare) | immich.jkrumm.com    |
-| UptimeKuma  | Public (Cloudflare) | uptime.jkrumm.com    |
-| ExcaliDash  | Public (Cloudflare) | draw.jkrumm.com      |
-| Dufs        | Public (Cloudflare) | public.jkrumm.com    |
-| Beszel      | Private (Tailscale) | beszel.jkrumm.com    |
-| Dozzle      | Private (Tailscale) | dozzle.jkrumm.com    |
-| FileBrowser | Private (Tailscale) | files.jkrumm.com     |
-| Calibre GUI | Private (Tailscale) | calibre.jkrumm.com   |
-| Calibre-Web | Private (Tailscale) | books.jkrumm.com     |
-| SigNoz      | Private (Tailscale) | signoz.jkrumm.com    |
-| Obsidian    | Private (Tailscale) | obsidian.jkrumm.com  |
-| CouchDB     | Private (Tailscale) | couchdb.jkrumm.com   |
+| Service          | Access              | Domain             |
+| ---------------- | ------------------- | ------------------ |
+| Glance           | Public (Cloudflare) | glance.jkrumm.com  |
+| Immich           | Public (Cloudflare) | immich.jkrumm.com  |
+| UptimeKuma       | Public (Cloudflare) | uptime.jkrumm.com  |
+| Dufs             | Public (Cloudflare) | public.jkrumm.com  |
+| Calibre-Web      | Public (Cloudflare) | books.jkrumm.com   |
+| Beszel           | Private (Tailscale) | beszel.jkrumm.com  |
+| Dozzle           | Private (Tailscale) | dozzle.jkrumm.com  |
+| FileBrowser      | Private (Tailscale) | files.jkrumm.com   |
+| Calibre GUI      | Private (Tailscale) | calibre.jkrumm.com |
+| CouchDB          | Private (Tailscale) | couchdb.jkrumm.com |
+| Garmin Collector | Private (Tailscale) | garmin.jkrumm.com  |
 
 ### Tailscale IPs
 
@@ -947,7 +949,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
 
    | Priority | Interval | Timeout | Retries | Notes                                           |
    | -------- | -------- | ------- | ------- | ----------------------------------------------- |
-   | Critical | 60-70s   | 90s     | 3       | FPP, Photos, Plausible                          |
+   | Critical | 60-70s   | 90s     | 3       | FPP, Photos, Argo                               |
    | Standard | 120-190s | 120s    | 5       | Docker containers, HTTP monitors                |
    | Group    | 200-215s | 120s    | 3       | 3x child interval prevents "Child inaccessible" |
 
@@ -961,7 +963,7 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    Monitors hitting VPS services through Cloudflare tunnels need a WAF bypass to avoid ECONNRESET errors from bot protection.
    - **Header:** `X-Uptime-Monitor` with secret value (stored in 1Password → HomeLab)
    - **Cloudflare rule:** Security → WAF → Custom rules → Skip bot protection when header matches
-   - **Affected monitors:** FPP-Frontend, FPP-Server, FPP-Analytics, Photos, Plausible
+   - **Affected monitors:** FPP-Frontend, FPP-Server, FPP-Analytics, Photos, BunEmailApi
 
 6. **Migrating from HDD?** If upgrading from HDD storage:
 
@@ -1586,49 +1588,6 @@ To enable acceleration in future, replace the stub files with the appropriate de
    - Use Immich's albums, tags, and metadata for organization
    - Enable "Watch for Changes" in library settings for automatic updates when files are added/removed
 
-## Setup ExcaliDash
-
-[ExcaliDash](https://github.com/ZimengXiong/ExcaliDash) is a self-hosted Excalidraw dashboard with persistent storage. It provides a web-based whiteboard for creating diagrams, sketches, and visual documentation with automatic saving.
-
-### Initial Setup
-
-1. Create the data directory:
-
-   ```bash
-   mkdir -p /home/jkrumm/ssd/SSD/Dokumente/Anderes/excalidash
-   ```
-
-2. Start the containers:
-
-   ```bash
-   op run --env-file=.env.tpl -- docker compose up -d excalidash-backend excalidash-frontend
-   ```
-
-3. Access ExcaliDash at `https://draw.jkrumm.com`
-
-### Architecture
-
-- **Backend**: Node.js API with SQLite database (Prisma ORM) for storing diagrams
-- **Frontend**: Excalidraw-based web UI served via nginx
-- **Storage**: SQLite database at `/home/jkrumm/ssd/SSD/Dokumente/Anderes/excalidash/dev.db` (backed up via restic — Dokumente source)
-
-### Workflow
-
-1. Create/edit diagrams at `https://draw.jkrumm.com`
-2. Diagrams are automatically saved to the SQLite database
-3. Export PNG/SVG to `~/ssd/SSD/Public/diagrams/` for embedding
-4. Embed in GitHub/Notion/Linear via `https://public.jkrumm.com/diagrams/[file].png`
-
-### Features
-
-- Persistent storage - diagrams saved automatically to SQLite
-- Dashboard view for managing multiple diagrams
-- Excalidraw editor with full whiteboard capabilities
-- Health checks for reliability monitoring
-- Automatic updates via Watchtower
-- Monitoring via Glance dashboard
-- Secure HTTPS access through Cloudflare tunnel
-
 ## Setup Public Files (Dufs)
 
 [Dufs](https://github.com/sigoden/dufs) is a lightweight file server for hosting public static files with optional authentication for uploads.
@@ -1700,78 +1659,3 @@ The Dufs container is configured with the following optimizations:
 | `--enable-cors`                     | Allows cross-origin requests (required for GitHub/Notion embeds) |
 | `--hidden .DS_Store,.git,Thumbs.db` | Hides OS/git clutter from directory listings                     |
 
-## Setup Obsidian (Always-On)
-
-[LinuxServer Obsidian](https://docs.linuxserver.io/images/docker-obsidian/) runs Obsidian in a Docker container via KasmVNC, providing an always-on instance with plugins that expose HTTP APIs on the Tailscale network.
-
-### Architecture
-
-```
-obsidian.jkrumm.com/*           → KasmVNC GUI (HTTP :3000, auth required)
-obsidian.jkrumm.com/rest-api/*  → Local REST API plugin (HTTPS :27124, path-stripped)
-obsidian.jkrumm.com/tasks-api/* → TaskNotes HTTP API (:8087, path-stripped)
-couchdb.jkrumm.com              → CouchDB (Obsidian LiveSync, :5984)
-```
-
-Caddy handles path-based routing with `handle_path` (strips prefix before proxying). The Local REST API plugin uses a self-signed cert, so Caddy has `tls_insecure_skip_verify` for that upstream.
-
-### Prerequisites
-
-- CouchDB service already running (see `docker-compose.yml`)
-- iGPU drivers installed (shared with Immich)
-- `OBSIDIAN_GUI_PASSWORD` and `COUCHDB_PASSWORD` in 1Password
-
-### Initial Setup
-
-1. Create the data directory:
-
-   ```bash
-   mkdir -p /home/jkrumm/ssd/obsidian
-   ```
-
-2. Start the container:
-
-   ```bash
-   op run --env-file=.env.tpl -- docker compose up -d obsidian
-   ```
-
-3. Access at `https://obsidian.jkrumm.com` — KasmVNC login (user: `jkrumm`, password from 1Password)
-
-4. Create vault at: Computer → config → vault (maps to `/config/vault`, persisted on SSD)
-
-### Plugin Configuration
-
-#### Obsidian LiveSync
-
-- **CouchDB URI:** `http://couchdb:5984` (internal Docker DNS, no TLS needed)
-- **Username:** `jkrumm`
-- **Password:** COUCHDB_PASSWORD from 1Password
-- **Database:** `obsidian` (auto-created by plugin)
-
-#### Local REST API
-
-- **Bind address:** `0.0.0.0` (required — default `127.0.0.1` blocks Caddy)
-- **Port:** `27124` (default)
-- **Test:** `curl -k https://obsidian.jkrumm.com/rest-api/`
-
-#### TaskNotes
-
-- **HTTP API port:** `8087`
-- **Test:** `curl -k https://obsidian.jkrumm.com/tasks-api/api/health`
-
-### Storage
-
-| Path (host)                     | Path (container)    | Purpose                         |
-| ------------------------------- | ------------------- | ------------------------------- |
-| `/home/jkrumm/ssd/obsidian`     | `/config`           | Obsidian data + vault + plugins |
-| `/home/jkrumm/ssd/couchdb/data` | `/opt/couchdb/data` | CouchDB database                |
-
-### Monitoring
-
-UptimeKuma monitors:
-
-- **Obsidian - Docker:** Container running check
-- **Obsidian - HTTP:** KasmVNC GUI (accepts 401 as healthy)
-- **Obsidian REST API - HTTP:** Keyword check for `"status":"OK"`
-- **Obsidian Tasks API - HTTP:** Keyword check for `"status":"ok"`
-- **CouchDB - Docker/HTTP:** Container + `/_up` endpoint

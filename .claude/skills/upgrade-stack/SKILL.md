@@ -19,7 +19,7 @@ context: fork
 1. Identifies all manually-managed containers from docker-compose.yml
 2. Researches latest stable versions and release notes for each
 3. Analyzes breaking changes and migration requirements
-4. **Checks shared database compatibility** (Postgres → Immich + Plausible)
+4. **Checks shared database compatibility** (Postgres → Immich)
 5. Generates upgrade plan with tested version combinations
 6. Provides upgrade order based on dependencies
 7. Creates backup commands before upgrade
@@ -92,7 +92,7 @@ context: fork
 /upgrade-stack caddy
 
 # Upgrade specific database (checks all dependents)
-/upgrade-stack postgres      # Checks Immich + Plausible compatibility
+/upgrade-stack postgres      # Checks Immich compatibility
 /upgrade-stack redis         # Checks Immich compatibility
 
 # Upgrade specific application stack
