@@ -10,6 +10,7 @@ docker-compose.yml
 setup.sh
 dozzle
 caddy
-PRD.md
 README.md
 CLAUDE.md
+CLAUDE.local.md
+sc-queue.md
