@@ -2,6 +2,21 @@ import dayjs from 'dayjs'
 import { VX } from '../../charts'
 import type { DatePreset } from './types'
 
+/**
+ * Hard floor on visible data. Anything before this date is dropped from the
+ * page so charts and moving averages start from a known-clean baseline.
+ * Earlier history is still fetched (it warms up MAs) but never rendered.
+ */
+export const VISIBLE_DATE_MIN = '2026-04-15'
+
+/**
+ * Most charts hide today until 22:00 local time — daily aggregates (steps,
+ * intensity minutes, body battery, stress, ACWR) build up throughout the day,
+ * so a partial reading reads as a misleading dip. Fitness Trends (VO2/RHR/HRV)
+ * and Sleep Quality lock in overnight, so they keep today.
+ */
+export const HIDE_TODAY_BEFORE_HOUR = 22
+
 export const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
   { value: '7d', label: '7D' },
   { value: '30d', label: '30D' },

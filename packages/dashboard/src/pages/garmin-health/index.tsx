@@ -15,7 +15,13 @@ import {
   SleepBreakdownChart,
   StressLevelsChart,
 } from './visx-charts'
-import { DATE_PRESET_OPTIONS, getDateRange } from './constants'
+import dayjs from 'dayjs'
+import {
+  DATE_PRESET_OPTIONS,
+  HIDE_TODAY_BEFORE_HOUR,
+  VISIBLE_DATE_MIN,
+  getDateRange,
+} from './constants'
 import { HeroStats } from './stats'
 import type { DailyMetric, DatePreset, GarminActivity } from './types'
 
@@ -186,7 +192,6 @@ export default function GarminHealthPage() {
     ],
   })
 
-  const metrics = (result.data as DailyMetric[] | undefined) ?? []
   const isLoading = query.isLoading
 
   const { result: activitiesResult } = useList<GarminActivity>({
@@ -198,20 +203,45 @@ export default function GarminHealthPage() {
       { field: 'date', operator: 'lte', value: dateTo },
     ],
   })
-  const activities = (activitiesResult.data as GarminActivity[] | undefined) ?? []
+
+  const today = useMemo(() => dayjs().format('YYYY-MM-DD'), [])
+  const hideToday = useMemo(() => dayjs().hour() < HIDE_TODAY_BEFORE_HOUR, [])
+
+  // Visible window — drops noise before 2026-04-15 (see VISIBLE_DATE_MIN).
+  const metrics = useMemo(
+    () =>
+      ((result.data as DailyMetric[] | undefined) ?? []).filter(
+        (m) => m.date >= VISIBLE_DATE_MIN,
+      ),
+    [result.data],
+  )
+  // Same window, but also strips today's partial aggregates before 22:00.
+  const metricsExclToday = useMemo(
+    () => (hideToday ? metrics.filter((m) => m.date !== today) : metrics),
+    [metrics, hideToday, today],
+  )
+  const activities = useMemo(
+    () =>
+      ((activitiesResult.data as GarminActivity[] | undefined) ?? []).filter(
+        (a) => a.date >= VISIBLE_DATE_MIN && (!hideToday || a.date !== today),
+      ),
+    [activitiesResult.data, hideToday, today],
+  )
+
+  const visibleDateFrom = dateFrom < VISIBLE_DATE_MIN ? VISIBLE_DATE_MIN : dateFrom
   const hasActivities = activities.length > 0
 
   const hasHeartData = metrics.some((m) => m.resting_hr !== null || m.hrv_last_night_avg !== null)
-  const hasLoadData = metrics.some(
+  const hasLoadData = metricsExclToday.some(
     (m) => m.moderate_intensity_min !== null || m.vigorous_intensity_min !== null,
   )
   const hasSleepData = metrics.some((m) => m.sleep_score !== null)
-  const hasRecoveryData = metrics.some(
+  const hasRecoveryData = metricsExclToday.some(
     (m) => m.sleep_score !== null || m.hrv_last_night_avg !== null,
   )
-  const hasBodyBattery = metrics.some((m) => m.bb_highest !== null)
-  const hasStressData = metrics.some((m) => m.avg_stress !== null)
-  const hasActivityData = metrics.some((m) => m.steps !== null)
+  const hasBodyBattery = metricsExclToday.some((m) => m.bb_highest !== null)
+  const hasStressData = metricsExclToday.some((m) => m.avg_stress !== null)
+  const hasActivityData = metricsExclToday.some((m) => m.steps !== null)
 
   return (
     <HoverContext.Provider value={hoverCtx}>
@@ -266,7 +296,7 @@ export default function GarminHealthPage() {
         </div>
 
         {/* Hero: 3 composite cards */}
-        <HeroStats data={metrics} isLoading={isLoading} />
+        <HeroStats data={metricsExclToday} isLoading={isLoading} />
 
         {/* Recorded workouts — sits at the top above the daily-aggregate views */}
         {hasActivities && (
@@ -274,7 +304,7 @@ export default function GarminHealthPage() {
             <Col xs={24}>
               <ActivityStackChart
                 activities={activities}
-                dateFrom={dateFrom}
+                dateFrom={visibleDateFrom}
                 dateTo={dateTo}
               />
             </Col>
@@ -288,7 +318,7 @@ export default function GarminHealthPage() {
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               {hasActivityData && (
                 <Col xs={24} lg={12}>
-                  <ActivityBarChart data={metrics} />
+                  <ActivityBarChart data={metricsExclToday} />
                 </Col>
               )}
               {hasHeartData && (
@@ -306,10 +336,10 @@ export default function GarminHealthPage() {
             <SectionTitle title="Training Load" />
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               <Col xs={24} lg={12}>
-                <ACWRThresholdChart data={metrics} />
+                <ACWRThresholdChart data={metricsExclToday} />
               </Col>
               <Col xs={24} lg={12}>
-                <DivergenceThresholdChart data={metrics} />
+                <DivergenceThresholdChart data={metricsExclToday} />
               </Col>
             </Row>
           </>
@@ -322,7 +352,7 @@ export default function GarminHealthPage() {
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               {hasRecoveryData && (
                 <Col xs={24} lg={12}>
-                  <RecoveryThresholdChart data={metrics} />
+                  <RecoveryThresholdChart data={metricsExclToday} />
                 </Col>
               )}
               {hasSleepData && (
@@ -341,12 +371,12 @@ export default function GarminHealthPage() {
             <Row gutter={[16, 16]} style={{ marginBottom: 8 }}>
               {hasBodyBattery && (
                 <Col xs={24} lg={12}>
-                  <BodyBatteryRangeChart data={metrics} />
+                  <BodyBatteryRangeChart data={metricsExclToday} />
                 </Col>
               )}
               {hasStressData && (
                 <Col xs={24} lg={12}>
-                  <StressLevelsChart data={metrics} />
+                  <StressLevelsChart data={metricsExclToday} />
                 </Col>
               )}
             </Row>

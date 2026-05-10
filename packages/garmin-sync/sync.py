@@ -29,6 +29,10 @@ DB_PATH = os.environ.get("DB_PATH", "/app/data/homelab.db")
 TOKEN_DIR = os.environ.get("TOKEN_DIR", "/app/tokens")
 SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "14400"))  # 4 hours
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "30"))  # control-flag poll cadence
+# Daily "wrap-up" sync hour (local time, 0-23). Set to -1 to disable.
+# Default 22 (10pm) — by then today's daily aggregates are essentially final,
+# so the dashboard can show today's row instead of waiting for the next 4h tick.
+EVENING_SYNC_HOUR = int(os.environ.get("EVENING_SYNC_HOUR", "22"))
 BACKFILL_DAYS = int(os.environ.get("BACKFILL_DAYS", "7"))
 # When the activities table is empty, fetch this many days back. Single API call so cheap.
 ACTIVITIES_INITIAL_BACKFILL_DAYS = int(os.environ.get("ACTIVITIES_INITIAL_BACKFILL_DAYS", "60"))
@@ -416,6 +420,18 @@ def should_run_now() -> tuple[bool, str]:
     elapsed = (datetime.now(timezone.utc) - last).total_seconds()
     if elapsed >= SYNC_INTERVAL:
         return True, f"scheduled (elapsed={int(elapsed)}s)"
+
+    # Evening wrap-up sync: trigger once per day after EVENING_SYNC_HOUR if the
+    # last completed sync was earlier than that hour today (i.e. we haven't yet
+    # captured today's near-final aggregates).
+    if 0 <= EVENING_SYNC_HOUR <= 23:
+        now_local = datetime.now().astimezone()
+        last_local = last.astimezone(now_local.tzinfo)
+        threshold_today = now_local.replace(
+            hour=EVENING_SYNC_HOUR, minute=0, second=0, microsecond=0
+        )
+        if now_local >= threshold_today and last_local < threshold_today:
+            return True, f"evening-wrap (>{EVENING_SYNC_HOUR:02d}:00 local)"
 
     return False, ""
 
