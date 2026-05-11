@@ -36,6 +36,55 @@
 
 ---
 
+## Repository Boundary — homelab vs homelab-private
+
+This repo is **public**. `~/SourceRoot/homelab-private/` is a separate, private repo on the
+same physical server.
+
+| Owns | This repo (homelab) | homelab-private |
+|-|-|-|
+| Public/Tailscale-only services | yes | no |
+| VPN-routed containers (torrent stack + media) | no | yes |
+| Restic backup orchestration | yes — defines what's backed up | excluded by name (its state is in restic excludes) |
+| Tailscale ACL source of truth | references only | **owns** `config/tailscale-acl.jsonc` + sync tooling |
+
+**Hard rules for agents editing this repo:**
+
+- **Do not describe homelab-private containers as part of this stack.** Service tables,
+  architecture overviews, compose files, README — these must not list homelab-private
+  containers as if they belonged here. Refer to them collectively as the
+  "homelab-private stack" or "homelab-private container state".
+- **Allowed cross-references** (integration points the homelab stack legitimately
+  reaches into):
+  - `.env.tpl` — API tokens for homelab-private services consumed by homelab tools
+    (e.g. Glance widgets reaching into the media stack).
+  - `restic-excludes.txt` — path-level excludes (`/mnt/hdd/qbittorrent`, etc.) so
+    homelab-private state is not backed up by the homelab restic job.
+  - `scripts/homelab_watchdog.sh` — invokes homelab-private's `vpn-cycle.sh` as part
+    of post-Docker-restart recovery.
+- These exceptions exist because the integrations are real; new mentions must fall in
+  one of these categories or stay out of this repo.
+- Tailscale ACL changes go through `homelab-private` make targets — see below.
+
+### Tailscale ACL
+
+The whole-tailnet ACL is owned by homelab-private (`config/tailscale-acl.jsonc`).
+To change it:
+
+```bash
+# from local Mac (not via SSH, not on the server):
+cd ~/SourceRoot/homelab-private
+make tailscale-acl-diff   # preview vs live
+make tailscale-acl-push   # validate + apply
+```
+
+Auth: OAuth credentials in `op://Private/Tailscale` (CLIENT_ID, CLIENT_SECRET, TAILNET).
+Why it lives there: the ACL grants port access between homelab, homelab-private (which
+shares the same Tailscale node), VPS, and personal devices — homelab-private has the
+strictest visibility, so the source of truth lives in the more restricted repo.
+
+---
+
 ## SSH Access
 
 ### Connection Methods
@@ -351,7 +400,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
 
-**Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser/Jellyfin/Transmission/Prowlarr/qbittorrent state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
+**Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
 
 ### Two-key pattern (ransomware safety)
 
