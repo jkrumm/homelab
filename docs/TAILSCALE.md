@@ -123,7 +123,7 @@ tailscale ip -4  # → <tailscale-ip-homelab>
 ssh jkrumm@5.75.178.196
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --ssh --advertise-tags=tag:vps
-tailscale ip -4  # → <tailscale-ip-sds>
+tailscale ip -4  # → <tailscale-ip-vps>
 ```
 
 > **Learning (VPS):** Hetzner apt mirrors can 404 during `apt-get update`, causing the install script to fail mid-way. The Tailscale repo gets added successfully though. Fix: run `sudo apt-get install -y tailscale` separately after the script fails. Also, VPS package upgrades may prompt for daemon restarts - accept defaults (safe to restart containerd, Docker containers survive with restart policies).
@@ -135,7 +135,7 @@ tailscale ip -4  # → <tailscale-ip-sds>
 | Machine | Tailscale IP           | MagicDNS Name                                 | Tag         |
 | ------- | ---------------------- | --------------------------------------------- | ----------- |
 | HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net                  | tag:homelab |
-| VPS     | <tailscale-ip-sds>     | sideproject-docker-stack.dinosaur-sole.ts.net | tag:vps     |
+| VPS     | <tailscale-ip-vps>     | vps.dinosaur-sole.ts.net | tag:vps     |
 | MacBook | <tailscale-ip-macbook> | iu-mac-book                                   | (personal)  |
 | iPhone  | <tailscale-ip-iphone>  | iphone-15                                     | (personal)  |
 
@@ -143,13 +143,13 @@ tailscale ip -4  # → <tailscale-ip-sds>
 
 - `tailscale status` on each machine shows all 4 devices
 - `tailscale ping homelab` from MacBook → pong via DERP(nue) ~130ms (direct connection establishes over time)
-- `tailscale ping sideproject-docker-stack` from MacBook → pong via DERP(nue) ~100ms
+- `tailscale ping vps` from MacBook → pong via DERP(nue) ~100ms
 - All 26 HomeLab containers still running, all services accessible via Cloudflare
 - SSH via Tailscale IPs works for both machines
 
 **Also completed (from Phase 8, done early):**
 
-- `~/.ssh/config` created with `homelab` → `<tailscale-ip-homelab>`, `vps` → `<tailscale-ip-sds>`, plus `homelab-direct` and `vps-direct` fallbacks
+- `~/.ssh/config` created with `homelab` → `<tailscale-ip-homelab>`, `vps` → `<tailscale-ip-vps>`, plus `homelab-direct` and `vps-direct` fallbacks
 - `~/.zshrc` aliases updated: `homelab` → `ssh homelab`, `vps` → `ssh vps`
 - Host keys accepted for both Tailscale IPs
 - `ssh homelab` and `ssh vps` verified working through Tailscale
@@ -403,7 +403,7 @@ The VPS already has Caddy and Tailscale (from Phase 1). Minimal changes needed.
 
 ### 6a. Expand VPS Caddyfile
 
-**File:** `~/sideproject-docker-stack/Caddyfile`
+**File:** `~/vps/Caddyfile`
 
 Use the same custom Caddy image with Cloudflare DNS plugin. Update Dockerfile and Caddyfile:
 
@@ -465,13 +465,13 @@ Both Dozzle (log scraping) and Beszel (infra metrics) on HomeLab connect to agen
 Currently in HomeLab `docker-compose.yml`:
 
 ```yaml
-DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007 # public VPS IP
+DOZZLE_REMOTE_AGENT: ${VPS_TAILSCALE_IP}:7007 # VPS Tailscale IP
 ```
 
 **Docker DNS caveat:** Dozzle runs on a Docker bridge network and cannot resolve MagicDNS names (`vps.dinosaur-sole.ts.net`) because Docker uses its own DNS resolver. Two options:
 
 **Option A (recommended): Use raw Tailscale IP in 1Password:**
-Replace `SIDEPROJECT_DOCKER_STACK_IP` in 1Password with the VPS Tailscale IP (`100.x.y.z`). No docker-compose change needed - the env var already works.
+Store the VPS Tailscale IP (`100.x.y.z`) in 1Password as `VPS_TAILSCALE_IP`; docker-compose interpolates it directly.
 
 **Option B: Add MagicDNS to Dozzle container:**
 
@@ -506,7 +506,7 @@ This works because the VPS has Tailscale installed natively, so `beszel.jkrumm.c
 
 **Done (via Docker port binding):**
 
-- VPS dozzle-agent: `<tailscale-ip-sds>:7007:7007` (Tailscale IP only)
+- VPS dozzle-agent: `<tailscale-ip-vps>:7007:7007` (Tailscale IP only)
 - HomeLab beszel-agent: `<tailscale-ip-homelab>:45876:45876` (Tailscale IP only)
 
 **Remaining (needs interactive sudo for UFW):**
@@ -562,7 +562,7 @@ alias vps="ssh vps"
 Zed supports SSH remote development. With Tailscale SSH:
 
 - Open Zed → `Open Remote` → select `homelab` or `vps`
-- Edit `~/homelab/` and `~/sideproject-docker-stack/` directly on the servers
+- Edit `~/homelab/` and `~/vps/` directly on the servers
 - Git operations (commit, push) happen on the server
 - Docker compose operations happen on the server (no more push → pull workflow)
 
@@ -573,7 +573,7 @@ After verifying Zed remote works:
 ```bash
 # Archive or remove local copies
 rm -rf ~/SourceRoot/homelab
-rm -rf ~/SourceRoot/sideproject-docker-stack
+rm -rf ~/SourceRoot/vps
 ```
 
 ---
@@ -598,7 +598,7 @@ Document the plan, decisions, and step-by-step migration journey:
 
 - `~/homelab/CLAUDE.md` - SSH patterns (Tailscale hostnames), service URLs, workflow (direct edit vs push/pull), Caddy as reverse proxy
 - `~/homelab/README.md` - Connection methods, service access URLs, Caddy config docs, Tailscale setup section
-- `~/sideproject-docker-stack/README.md` - Updated access patterns, Caddy routing docs
+- `~/vps/README.md` - Updated access patterns, Caddy routing docs
 - `~/.claude/CLAUDE.md` - Update SSH aliases section
 
 ### Key documentation changes:
@@ -750,7 +750,7 @@ Full VPS hardening completed:
 
 SSH rule removed. Emergency access via Hetzner web console.
 
-**VPS setup.sh** — created in sideproject-docker-stack repo:
+**VPS setup.sh** — created in the vps repo:
 
 - Auto-fixes Hetzner ARM64 apt mirror (`mirror.hetzner.com` → `ports.ubuntu.com`)
 - SSH hardening drop-in (`/etc/ssh/sshd_config.d/99-hardening.conf`): PermitRootLogin no, PasswordAuth no, MaxAuthTries 3, X11/Agent/TcpForwarding disabled

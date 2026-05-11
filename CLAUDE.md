@@ -7,8 +7,8 @@
 - **Location:** Remote (dad's house) - physical access limited
 - **Network:** Dual routing — Cloudflare tunnel for public services, Tailscale for private services, Caddy as reverse proxy
 - **Repository Workflow:** Edit locally, push to GitHub, pull on server via SSH
-- **VPS:** Hetzner Cloud ARM64 (Ubuntu 22.04) at `5.75.178.196` - runs sideproject-docker-stack
-- **VPS Repo (local):** `/Users/johannes.krumm/SourceRoot/sideproject-docker-stack/`
+- **VPS:** Hetzner Cloud ARM64 (Ubuntu 22.04) - runs the VPS Docker stack
+- **VPS Repo (local):** `/Users/johannes.krumm/SourceRoot/vps/`
 
 ### Local Tools Available (MacBook)
 
@@ -47,7 +47,7 @@ ssh homelab
 
 # VPS - via Tailscale (primary)
 ssh vps
-# resolves to: jkrumm@<tailscale-ip-sds> (via ~/.ssh/config)
+# resolves to: jkrumm@<tailscale-ip-vps> (via ~/.ssh/config)
 
 # Direct SSH is blocked on both machines:
 # ssh homelab-direct  # BLOCKED — UFW denies SSH from non-Tailscale IPs

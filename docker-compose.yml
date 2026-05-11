@@ -324,7 +324,7 @@ services:
       DOZZLE_ADDR: :8081
       DOZZLE_AUTH_PROVIDER: simple
       DOZZLE_AUTH_TTL: 87600h
-      DOZZLE_REMOTE_AGENT: ${SIDEPROJECT_DOCKER_STACK_IP}:7007,${VPS_TAILSCALE_IP}:7007
+      DOZZLE_REMOTE_AGENT: ${VPS_TAILSCALE_IP}:7007
       DOCKER_HOST: tcp://docker-socket-proxy:2375
     volumes:
       - ./dozzle:/data

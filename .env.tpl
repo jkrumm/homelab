@@ -66,4 +66,3 @@ UPTIME_KUMA_PUSH_TOKEN=op://homelab/uptime-kuma/PUSH_TOKEN
 # --- Network config ---
 HOMELAB_TAILSCALE_IP=op://homelab/config/HOMELAB_TAILSCALE_IP
 VPS_TAILSCALE_IP=op://homelab/config/VPS_TAILSCALE_IP
-SIDEPROJECT_DOCKER_STACK_IP=op://homelab/config/SIDEPROJECT_DOCKER_STACK_IP

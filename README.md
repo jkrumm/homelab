@@ -271,7 +271,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 │  Watchdog: Self-healing monitor (cron, 10min)                        │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        VPS (Hetzner ARM64, Ubuntu 22.04)             │
-│                     Tailscale IP: <tailscale-ip-sds>                    │
+│                     Tailscale IP: <tailscale-ip-vps>                    │
 │                                                                      │
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  MariaDB:  Vercel → port 33306 (direct, Hetzner FW allows)          │
@@ -352,7 +352,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Device  | Tailscale IP           | SSH           |
 | ------- | ---------------------- | ------------- |
 | HomeLab | <tailscale-ip-homelab> | `ssh homelab` |
-| VPS     | <tailscale-ip-sds>     | `ssh vps`     |
+| VPS     | <tailscale-ip-vps>     | `ssh vps`     |
 | MacBook | <tailscale-ip-macbook> | —             |
 | iPhone  | <tailscale-ip-iphone>  | —             |
 
@@ -495,7 +495,7 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 | MacBook | <tailscale-ip-macbook> | iu-mac-book                                   |
 | iPhone  | <tailscale-ip-iphone>  | iphone-15                                     |
 | HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net                  |
-| VPS     | <tailscale-ip-sds>     | sideproject-docker-stack.dinosaur-sole.ts.net |
+| VPS     | <tailscale-ip-vps>     | vps.dinosaur-sole.ts.net                      |
 
 ---
 
