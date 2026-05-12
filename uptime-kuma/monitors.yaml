@@ -281,7 +281,9 @@ groups:
         monitors:
           # Push monitors
           # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
-          # After creating: copy push URL → 1Password homelab/garmin/PUSH_URL
+          # After creating: copy push URL → 1Password common/garmin-collector/PUSH_URL
+          # (lives in `common/` so the VPS service account can read it; argo on
+          # VPS resolves it as GARMIN_HEARTBEAT_URL via apps/argo/.env.tpl).
           # Heartbeat is pushed by argo's garmin-sync cron after each successful
           # collector pull + DB upsert (see argo packages/api/src/cron/garmin-sync.ts).
           - name: Garmin Collector - Push

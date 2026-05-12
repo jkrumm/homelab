@@ -155,7 +155,7 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/couchdb/PASSWORD`        | CouchDB admin password                                  |
 | `homelab/garmin/EMAIL`            | Garmin Connect login email                              |
 | `homelab/garmin/PASSWORD`         | Garmin Connect login password                           |
-| `homelab/garmin/PUSH_URL`         | UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull |
+| `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
 | `homelab/slack/WEBHOOK_ALERTS`    | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `homelab/slack/WATCHTOWER_URL`    | Shoutrrr-formatted Slack webhook for Watchtower         |
 
