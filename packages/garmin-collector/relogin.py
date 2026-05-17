@@ -29,6 +29,16 @@ def prompt_mfa() -> str:
 
 
 os.makedirs(TOKEN_DIR, exist_ok=True)
+
+# Wipe any existing token file — garminconnect.login() tries cached tokens
+# first and raises immediately on 401 instead of falling through to fresh
+# email/password + MFA. This script is only ever invoked when re-auth is
+# needed, so removing the stale tokens is the point.
+stale = os.path.join(TOKEN_DIR, "garmin_tokens.json")
+if os.path.exists(stale):
+    os.remove(stale)
+    print(f"Removed stale {stale}", flush=True)
+
 print(f"Logging in as {email} (tokens -> {TOKEN_DIR})", flush=True)
 client = Garmin(email, password, prompt_mfa=prompt_mfa)
 client.login(tokenstore=TOKEN_DIR)
