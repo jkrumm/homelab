@@ -8,7 +8,7 @@ RUN apk add --no-cache curl gcc musl-dev libffi-dev openssl-dev \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py .
+COPY server.py relogin.py ./
 
 RUN mkdir -p /app/tokens && chown -R app:app /app
 

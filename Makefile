@@ -17,7 +17,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
+.PHONY: help deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,7 @@ help: ## Show all targets
 	@echo "    make garmin-deploy       Full deploy: git pull + rebuild (no cache) + restart"
 	@echo "    make garmin-rebuild      Rebuild image (no cache) + restart (no git pull)"
 	@echo "    make garmin-restart      Restart container only"
+	@echo "    make garmin-relogin      Interactive MFA re-login (writes fresh tokens + restarts)"
 	@echo "    make garmin-logs         Follow garmin-collector logs"
 	@echo ""
 	@echo "  Infrastructure"
@@ -84,6 +85,10 @@ garmin-rebuild: ## Rebuild garmin-collector image (no cache) and restart with se
 	$(SSH) "$(CD) && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector"
 
 garmin-restart: ## Restart garmin-collector container (no rebuild)
+	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
+
+garmin-relogin: ## Interactive MFA re-login — writes fresh tokens then restarts the live container
+	ssh -t homelab "$(CD) && $(DC) run --rm garmin-collector python relogin.py"
 	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
 
 garmin-logs: ## Follow garmin-collector logs

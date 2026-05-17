@@ -200,6 +200,7 @@ Run `make help` for all available targets.
 | `make garmin-deploy`      | Full garmin-collector deploy (git pull + rebuild + restart) |
 | `make garmin-rebuild`     | Rebuild garmin-collector (no cache) + restart (no git pull) |
 | `make garmin-restart`     | Restart garmin-collector (picks up new env vars)         |
+| `make garmin-relogin`     | Interactive MFA re-login — runs one-shot container, writes fresh tokens, restarts |
 | `make garmin-logs`        | Follow garmin-collector logs                             |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync`            | Apply all Uptime Kuma monitors (public + private)        |
@@ -481,8 +482,9 @@ homelab/
 ├── packages/
 │   └── garmin-collector/    # Python FastAPI — stateless HTTP query layer over Garmin Connect.
 │       ├── server.py        #   Owns OAuth tokens. Argo API on VPS pulls /daily-metrics
-│       ├── requirements.txt #   + /activities via https://garmin.jkrumm.com (Tailscale-only).
-│       └── Dockerfile       #   Bearer-authed via op://common/garmin-collector/TOKEN.
+│       ├── relogin.py       #   + /activities via https://garmin.jkrumm.com (Tailscale-only).
+│       ├── requirements.txt #   Bearer-authed via op://common/garmin-collector/TOKEN.
+│       └── Dockerfile       #   relogin.py = interactive MFA re-auth (make garmin-relogin).
 ├── scripts/                 # Operational scripts
 │   └── homelab_watchdog.sh  # Self-healing health monitor (cron)
 ├── config/                  # App configs + extends
@@ -769,6 +771,7 @@ When making changes that affect infrastructure or script behavior:
 | `make garmin-deploy`       | Full garmin-collector deploy (git pull + rebuild + restart) |
 | `make garmin-rebuild`      | Rebuild garmin-collector (no cache) + restart           |
 | `make garmin-restart`      | Restart garmin-collector (no rebuild)                   |
+| `make garmin-relogin`      | Interactive MFA re-login — fresh tokens + restart       |
 | `make garmin-logs`         | Follow garmin-collector logs                            |
 
 ### System Health
