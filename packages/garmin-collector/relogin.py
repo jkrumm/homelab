@@ -42,4 +42,11 @@ if os.path.exists(stale):
 print(f"Logging in as {email} (tokens -> {TOKEN_DIR})", flush=True)
 client = Garmin(email, password, prompt_mfa=prompt_mfa)
 client.login(tokenstore=TOKEN_DIR)
+
+# This one-shot runs as root (so it can delete the prior owner's stale file);
+# the live container runs as 'app' and needs read access to the new token.
+new_file = os.path.join(TOKEN_DIR, "garmin_tokens.json")
+if os.path.exists(new_file):
+    os.chmod(new_file, 0o644)
+
 print("Login OK — tokens persisted", flush=True)

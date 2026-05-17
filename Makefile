@@ -88,7 +88,7 @@ garmin-restart: ## Restart garmin-collector container (no rebuild)
 	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
 
 garmin-relogin: ## Interactive MFA re-login — writes fresh tokens then restarts the live container
-	ssh -t homelab "$(CD) && $(DC) run --rm garmin-collector python relogin.py"
+	ssh -t homelab "$(CD) && $(DC) run --rm --user 0:0 garmin-collector python relogin.py"
 	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
 
 garmin-logs: ## Follow garmin-collector logs
