@@ -12,7 +12,6 @@ context: fork
 - Checking all manually-managed containers for updates
 - Planning database upgrades that affect multiple applications
 - Verifying compatibility for shared infrastructure (Postgres)
-- Rebuilding Caddy after a new Caddy 2.x release
 
 **What this skill does:**
 
@@ -35,31 +34,20 @@ context: fork
 
 ## Manually-Managed Containers
 
-### Special Tier: Custom Builds
-
-#### caddy
-
-- **Type**: Custom local build (Dockerfile, NOT a registry image)
-- **Base images**: `caddy:2-builder` + `caddy:2`
-- **Why manual**: Requires `docker compose build` — Watchtower cannot rebuild from Dockerfiles
-- **Plugin**: `caddy-dns/cloudflare` (required for DNS-01 ACME challenge)
-- **Upgrade**: Rebuild from latest `caddy:2` base image when a new Caddy 2.x release is worth taking
-- **Version source**: https://github.com/caddyserver/caddy/releases
-- **Upgrade command**:
-  ```bash
-  ssh homelab "cd ~/homelab && docker compose build caddy && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy"
-  ```
-- **No rollback complexity**: Caddy is stateless (config in Caddyfile, certs in caddy_data volume)
+The only Watchtower-excluded containers are the four Immich-stack services below
+(`com.centurylinklabs.watchtower.enable: "false"`). Everything else — including
+Caddy (`caddybuilds/caddy-cloudflare:latest`) — is Watchtower-managed and out of
+scope for this skill.
 
 ### Database Tier (Shared Infrastructure)
 
 #### immich_redis
 
-- **Current**: `docker.io/redis:7.4-alpine` (SHA-pinned)
+- **Current**: `docker.io/valkey/valkey:9` (SHA-pinned)
 - **Why pinned**: Digest-pinned for stability
 - **Used by**: Immich only
 - **Upgrade impact**: Only affects Immich
-- **Version source**: https://github.com/redis/redis/releases
+- **Version source**: https://github.com/valkey-io/valkey/releases
 
 #### immich_postgres
 
@@ -87,9 +75,6 @@ context: fork
 ```bash
 # Check all manually-managed containers
 /upgrade-stack --check-all
-
-# Rebuild Caddy (new Caddy 2.x release)
-/upgrade-stack caddy
 
 # Upgrade specific database (checks all dependents)
 /upgrade-stack postgres      # Checks Immich compatibility
@@ -120,9 +105,8 @@ immich_postgres   ◄──────────  Immich (Server + ML)
 
 ## Upgrade Order (Recommended)
 
-1. **caddy** (zero risk, stateless, independent)
-2. **immich_redis** (low risk, only affects Immich)
-3. **immich + immich_postgres** (medium risk, schema migrations required)
+1. **immich_redis** (low risk, only affects Immich)
+2. **immich + immich_postgres** (medium risk, schema migrations required)
 
 **Never upgrade in this order:**
 
@@ -133,16 +117,10 @@ immich_postgres   ◄──────────  Immich (Server + ML)
 
 ## Container-Specific Notes
 
-### caddy
-
-- **No image tag** — always rebuilds from `caddy:2` and `caddy:2-builder` latest
-- **No backup needed** — stateless; Caddyfile is in git, certs survive in `caddy_data` volume
-- **Check**: `docker logs caddy --tail=20` after rebuild to confirm TLS + routing intact
-
 ### immich_redis
 
-- **Migration path**: Redis 7.4 LTS is current; watch for Immich adopting Valkey
-- **Rollback**: Easy (stop container, revert image, restart — Redis is ephemeral cache)
+- **Migration path**: Already migrated from Redis to Valkey 9 (digest-pinned). Bump the SHA to match the upstream Immich release for digest hygiene.
+- **Rollback**: Easy (stop container, revert image, restart — the cache is ephemeral)
 
 ### immich_postgres
 
@@ -197,7 +175,7 @@ immich_postgres   ◄──────────  Immich (Server + ML)
 - User reviews plan
 - User backs up data
 - For registry images: User updates docker-compose.yml versions (and SHA hashes if needed)
-- For caddy: `docker compose build caddy && op run --env-file=.env.tpl -- docker compose up -d --force-recreate caddy`
+- For rolling `release` tags: `op run --env-file=.env.tpl -- docker compose pull [container]` then `... up -d [container]`
 - For others: `op run --env-file=.env.tpl -- docker compose up -d [container]`
 - User verifies health for ALL affected applications
 
