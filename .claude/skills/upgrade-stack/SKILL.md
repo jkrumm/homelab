@@ -175,8 +175,7 @@ immich_postgres   ◄──────────  Immich (Server + ML)
 - User reviews plan
 - User backs up data
 - For registry images: User updates docker-compose.yml versions (and SHA hashes if needed)
-- For rolling `release` tags: `op run --env-file=.env.tpl -- docker compose pull [container]` then `... up -d [container]`
-- For others: `op run --env-file=.env.tpl -- docker compose up -d [container]`
+- For the Immich stack (rolling `release` tags): `make immich-upgrade` — git pull + `docker compose pull` + recreate. Raw `docker` is hook-blocked; always go through the make target.
 - User verifies health for ALL affected applications
 
 ### 7. Verification

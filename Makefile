@@ -17,7 +17,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
+.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +30,9 @@ help: ## Show all targets
 	@echo "    make down                Stop all services"
 	@echo "    make ps                  Show running containers"
 	@echo "    make logs svc=<name>     Follow logs for a service"
+	@echo ""
+	@echo "  Immich Stack (manually-managed — Watchtower-excluded)"
+	@echo "    make immich-upgrade      git pull + pull release images + recreate Immich stack"
 	@echo ""
 	@echo "  Garmin Collector Operations"
 	@echo "    make garmin-deploy       Full deploy: git pull + rebuild (no cache) + restart"
@@ -76,6 +79,14 @@ ps: ## Show running containers
 logs: ## Follow logs for a service: make logs svc=<name>
 	@[ -n "$(svc)" ] || { echo "ERROR: Specify service — make logs svc=<name>"; exit 1; }
 	$(SSH) "docker logs -f --tail=100 $(svc)"
+
+# ── Immich Stack (manually-managed, Watchtower-excluded) ─────────────────────
+# Immich server/ML use the rolling `release` tag, so a plain `up -d` won't advance
+# them — pull first. postgres/valkey are digest-pinned; `pull` honours new pins.
+# See .claude/skills/upgrade-stack for the full upgrade analysis workflow.
+
+immich-upgrade: ## Upgrade Immich stack: git pull + pull release images + recreate
+	$(SSH) "$(CD) && git pull && $(DC) pull immich-server immich-machine-learning immich_redis immich_postgres && $(DC) up -d immich-server immich-machine-learning immich_redis immich_postgres"
 
 # ── Garmin Collector Operations ──────────────────────────────────────────────
 
