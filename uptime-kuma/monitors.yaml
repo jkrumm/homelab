@@ -273,17 +273,20 @@ groups:
     interval: 250
     monitors:
       # Garmin heartbeat — pushed by argo's garmin-sync cron (VPS) after each
-      # successful collector pull. Goes down when Garmin OAuth tokens expire;
-      # recovery is a local `make garmin-relogin` (interactive MFA) from the Mac.
+      # successful collector pull. Goes down when Garmin OAuth tokens expire.
+      # Recovery is automated: homelab's garmin-auto-relogin cron refreshes the
+      # token proactively (every 4d) and reactively (within ~2h of an early death)
+      # via Gmail-fetched MFA. The 12h interval gives that auto-recovery room to
+      # heal silently before paging; a genuinely-stuck recovery (>12h) still alerts.
       # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
       # Push URL → 1Password common/garmin-collector/PUSH_URL (in `common/` so the
       # VPS service account can read it; argo resolves it as GARMIN_HEARTBEAT_URL).
       - name: Garmin Collector - Push
         type: push
-        interval: 28800 # 8h — sync runs every 6h + buffer
+        interval: 43200 # 12h — argo sync runs every 6h; extra cycle = silent auto-recovery room
         timeout: 48
-        retry_interval: 28800
-        resend_interval: 1 # re-alert Slack every down beat (~8h) — token expiry rots for days otherwise
+        retry_interval: 43200
+        resend_interval: 1 # re-alert Slack every down beat (~12h) once recovery is genuinely stuck
 
       # Weekly manual 1Password export backup, run locally from the Mac.
       # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)

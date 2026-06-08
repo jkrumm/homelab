@@ -578,6 +578,9 @@ services:
       - GARMIN_PASSWORD=${GARMIN_PASSWORD}
       - GARMIN_COLLECTOR_TOKEN=${GARMIN_COLLECTOR_TOKEN}
       - TOKEN_DIR=/app/tokens
+      # Used only by relogin_auto.py (the `docker compose run` sibling) to fetch the
+      # MFA code from Gmail via argo. Empty in the live server (server.py ignores it).
+      - ARGO_API_TOKEN=${ARGO_API_TOKEN}
     volumes:
       - /home/jkrumm/ssd/garmin-tokens:/app/tokens
     deploy:

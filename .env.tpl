@@ -23,6 +23,8 @@ IMMICH_API_KEY=op://homelab/immich/API_KEY
 GARMIN_EMAIL=op://homelab/garmin/EMAIL
 GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
 GARMIN_COLLECTOR_TOKEN=op://common/garmin-collector/TOKEN
+# Bearer for argo's Gmail endpoint — relogin_auto.py reads the Garmin MFA code from it.
+ARGO_API_TOKEN=op://common/api/SECRET
 
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)

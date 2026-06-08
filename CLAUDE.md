@@ -201,6 +201,7 @@ Run `make help` for all available targets.
 | `make garmin-rebuild`     | Rebuild garmin-collector (no cache) + restart (no git pull) |
 | `make garmin-restart`     | Restart garmin-collector (picks up new env vars)         |
 | `make garmin-relogin`     | Interactive MFA re-login — runs one-shot container, writes fresh tokens, restarts |
+| `make garmin-relogin-auto`| Force the automated MFA re-login (code fetched from Gmail via argo) + restart |
 | `make garmin-logs`        | Follow garmin-collector logs                             |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync`            | Apply all Uptime Kuma monitors (public + private)        |
@@ -215,6 +216,8 @@ Run `make help` for all available targets.
 5. Containers read the env at runtime (e.g. garmin-collector reads `GARMIN_COLLECTOR_TOKEN`, `GARMIN_EMAIL`, `GARMIN_PASSWORD`)
 
 **garmin-collector is the only locally-built service** (Watchtower can't auto-update it). After code changes use `make garmin-deploy` or `make garmin-rebuild` — both use `--no-cache`.
+
+**Automated MFA re-login.** Garmin invalidates the refresh token every ~1-2 weeks; re-auth then needs an emailed 6-digit MFA code. `scripts/garmin-auto-relogin.sh` automates it end-to-end: `relogin_auto.py` (a `docker compose run` sibling) triggers a fresh login and fetches the code from the "Ihr Sicherheitscode" email via argo's Gmail endpoint (`ARGO_API_TOKEN` = `op://common/api/SECRET`), stashing/restoring the current token so a failed run never leaves the collector token-less. The wrapper is **hybrid**: proactive (refresh every 4d, before the token can expire → container stays healthy, no UptimeKuma/watchdog noise) + reactive (if already unhealthy, reauth within ~2h, but ≥6h between attempts so a Garmin 429 can't storm). A homelab crontab entry runs it every 2h; `make garmin-relogin-auto` forces a run. The UptimeKuma "Garmin Collector - Push" interval is widened to 12h so this auto-recovery heals silently before paging. `make garmin-relogin` (interactive, MFA from phone/email) remains the manual fallback.
 
 ### Raw Commands (When Needed)
 
@@ -483,8 +486,9 @@ homelab/
 │   └── garmin-collector/    # Python FastAPI — stateless HTTP query layer over Garmin Connect.
 │       ├── server.py        #   Owns OAuth tokens. Argo API on VPS pulls /daily-metrics
 │       ├── relogin.py       #   + /activities via https://garmin.jkrumm.com (Tailscale-only).
-│       ├── requirements.txt #   Bearer-authed via op://common/garmin-collector/TOKEN.
-│       └── Dockerfile       #   relogin.py = interactive MFA re-auth (make garmin-relogin).
+│       ├── relogin_auto.py  #   Bearer-authed via op://common/garmin-collector/TOKEN.
+│       ├── requirements.txt #   relogin.py = interactive MFA; relogin_auto.py = MFA fetched
+│       └── Dockerfile       #   from Gmail via argo (driven by scripts/garmin-auto-relogin.sh).
 ├── scripts/                 # Operational scripts
 │   └── homelab_watchdog.sh  # Self-healing health monitor (cron)
 ├── config/                  # App configs + extends
@@ -772,6 +776,7 @@ When making changes that affect infrastructure or script behavior:
 | `make garmin-rebuild`      | Rebuild garmin-collector (no cache) + restart           |
 | `make garmin-restart`      | Restart garmin-collector (no rebuild)                   |
 | `make garmin-relogin`      | Interactive MFA re-login — fresh tokens + restart       |
+| `make garmin-relogin-auto` | Force automated MFA re-login (code from Gmail via argo) + restart |
 | `make garmin-logs`         | Follow garmin-collector logs                            |
 
 ### System Health
