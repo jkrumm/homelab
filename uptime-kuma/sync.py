@@ -129,6 +129,13 @@ def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict,
     # Method
     params["method"] = monitor.get("method", defaults.get("method", "GET"))
 
+    # Resend notification every N consecutive down checks (0 = notify once, no resend).
+    # Keeps a continuously-down monitor nagging instead of firing a single alert that
+    # gets missed while the outage persists for days.
+    params["resendInterval"] = monitor.get(
+        "resend_interval", defaults.get("resend_interval", 0)
+    )
+
     # Headers
     headers = {}
     if monitor.get("cloudflare_bypass") and cloudflare_header:
@@ -302,6 +309,8 @@ def export_monitors(api: UptimeKumaApi, output_path: str):
             result["timeout"] = m["timeout"]
         if m.get("maxretries"):
             result["maxretries"] = m["maxretries"]
+        if m.get("resendInterval"):
+            result["resend_interval"] = m["resendInterval"]
         if m.get("dns_resolve_type") == "AAAA":
             result["ip_family"] = 6
         return result

@@ -291,6 +291,7 @@ groups:
             interval: 28800 # 8h — sync runs every 6h + buffer
             timeout: 48
             retry_interval: 28800
+            resend_interval: 1 # re-alert Slack every down beat (~8h) — token expiry rots for days otherwise
 
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
