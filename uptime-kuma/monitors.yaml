@@ -309,6 +309,14 @@ groups:
         timeout: 48
         retry_interval: 360
 
+      # Watchdog — every 30 min from the watchdog cron (watchdog-slack.py → watchdog-poll.py).
+      # Push URL → 1Password hermes/uptime-kuma/watchdog-push-url
+      - name: Hermes Watchdog - Push
+        type: push
+        interval: 2100 # 35 min — 30 min cron + buffer
+        timeout: 48
+        retry_interval: 2100
+
       # Daily backup → /mnt/hdd/backups/hermes/ from hermes-backup.sh at 03:00.
       # Push URL → 1Password hermes/uptime-kuma/backup-push-url
       - name: Hermes Backup - Push
