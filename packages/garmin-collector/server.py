@@ -6,8 +6,8 @@ on its own cron schedule and upserts into its SQLite. This service holds the OAu
 tokens, never the data.
 
 Endpoints (all bearer-authed except /health):
-  GET /health                         → {"status":"ok"}
-  GET /status                         → {"login_at": iso, "token_dir": str}
+  GET /health                         → {"status":"ok"} (503 when Garmin auth is down)
+  GET /status                         → {"login_at": iso, "auth_ok": bool, ...}
   GET /daily-metrics?from=&to=        → [{"date": "...", "steps": ..., ...}]
   GET /activities?from=&to=           → [{"activity_id": ..., ...}]
 
@@ -19,6 +19,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -46,9 +47,12 @@ if not GARMIN_EMAIL or not GARMIN_PASSWORD:
 if not BEARER_TOKEN:
     raise SystemExit("GARMIN_COLLECTOR_TOKEN must be set")
 
-# Single global Garmin client. garminconnect persists OAuth tokens to TOKEN_DIR
-# and silently refreshes them on use. A login is only fetched on cold start (and
-# again if Garmin invalidates the refresh token, which is rare).
+# Single global Garmin client. garminconnect persists OAuth tokens to TOKEN_DIR.
+# Garmin invalidates the refresh token periodically (every ~1-2 weeks) and re-auth
+# then requires an MFA code — there is no silent recovery. When that happens every
+# data query 401s until someone runs `make garmin-relogin`. The auth-health probe
+# below surfaces that state on /health so the container goes unhealthy instead of
+# rotting green.
 _client: Garmin | None = None
 _login_at: str | None = None
 _lock = threading.Lock()
@@ -66,6 +70,39 @@ def get_client() -> Garmin:
             _login_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             log.info("Garmin login successful")
         return _client
+
+
+# ── Auth-health probe ────────────────────────────────────────────────────────
+# A liveness-only healthcheck (just "is the process up?") reports healthy while
+# every real query 401s on an expired token — the container looks green but is
+# dead. This background thread validates the session on a slow cadence (one cheap
+# authenticated call per HEALTH_PROBE_INTERVAL) and /health reports the result.
+# Throttled to one Garmin call per interval so it can't hammer the API or trip
+# rate limits; /health itself just reads the cached flag (never blocks on Garmin).
+
+HEALTH_PROBE_INTERVAL = int(os.environ.get("HEALTH_PROBE_INTERVAL", "900"))
+_auth_ok = True  # optimistic until first probe; compose start_period covers cold start
+_auth_detail = "probe pending"
+
+
+def _auth_probe_once() -> None:
+    global _auth_ok, _auth_detail
+    try:
+        client = get_client()
+        client.get_stats(date.today().isoformat())
+        _auth_ok, _auth_detail = True, "ok"
+    except Exception as e:
+        _auth_ok, _auth_detail = False, str(e)[:300]
+        log.warning("auth probe failed: %s", e)
+
+
+def _auth_probe_loop() -> None:
+    while True:
+        _auth_probe_once()
+        time.sleep(HEALTH_PROBE_INTERVAL)
+
+
+threading.Thread(target=_auth_probe_loop, name="auth-probe", daemon=True).start()
 
 
 # ── FastAPI app ─────────────────────────────────────────────────────────────
@@ -227,7 +264,11 @@ def fetch_activities(client: Garmin, start: str, end: str) -> list[dict]:
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # Reflects Garmin auth, not just process liveness — 503 makes Docker mark the
+    # container unhealthy when the token has expired (see auth-health probe above).
+    if _auth_ok:
+        return {"status": "ok"}
+    raise HTTPException(status_code=503, detail=f"garmin auth down: {_auth_detail}")
 
 
 @app.get("/status", dependencies=[Depends(require_bearer)])
@@ -236,6 +277,8 @@ def status():
     return {
         "login_at": _login_at,
         "logged_in": _client is not None,
+        "auth_ok": _auth_ok,
+        "auth_detail": _auth_detail,
         "token_dir": TOKEN_DIR,
     }
 
