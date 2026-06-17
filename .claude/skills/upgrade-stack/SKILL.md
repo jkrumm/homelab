@@ -34,10 +34,11 @@ context: fork
 
 ## Manually-Managed Containers
 
-The only Watchtower-excluded containers are the four Immich-stack services below
-(`com.centurylinklabs.watchtower.enable: "false"`). Everything else — including
-Caddy (`caddybuilds/caddy-cloudflare:latest`) — is Watchtower-managed and out of
-scope for this skill.
+Two stacks pin images and opt out of Watchtower (`com.centurylinklabs.watchtower.enable: "false"`):
+the four **Immich-stack** services and the two **Karakeep sidecars** (`karakeep-chrome`,
+`karakeep-meili`). Everything else — including Caddy (`caddybuilds/caddy-cloudflare:latest`)
+and the Karakeep **web app** itself (`karakeep:release`, a floating tag that Watchtower
+updates) — is Watchtower-managed and out of scope for this skill.
 
 ### Database Tier (Shared Infrastructure)
 
@@ -68,6 +69,56 @@ scope for this skill.
 - **Depends on**: immich_postgres, immich_redis
 - **Version source**: https://github.com/immich-app/immich/releases
 
+### Karakeep Tier
+
+Karakeep is a three-container stack. Only the **two sidecars are pinned and
+Watchtower-excluded** — the web app floats on `release` and Watchtower updates it.
+
+#### karakeep (web app) — NOT in scope (Watchtower-managed)
+
+- **Image**: `ghcr.io/karakeep-app/karakeep:release` (floating tag, auto-updated 04:00)
+- Listed for context only: the app release is what **drives** which Meili/Chrome versions
+  the sidecars must match. Read its release notes when a sidecar bump is needed.
+- **Version source**: https://github.com/karakeep-app/karakeep/releases
+
+#### karakeep-meili
+
+- **Current**: `getmeili/meilisearch:v1.41.0`
+- **Why pinned**: Karakeep's search integration is tested against a specific Meilisearch
+  version, and Meili does **not** auto-migrate its on-disk index across some version
+  boundaries (can require a dump + import). Upstream Karakeep's own compose pins it.
+- **Used by**: Karakeep only.
+- **Index is rebuildable**: the Meili volume (`/mnt/hdd/karakeep/meili`) is a derived index
+  over Karakeep's source-of-truth SQLite DB — intentionally NOT restic-backed-up. The safe
+  upgrade path is usually stop → wipe the meili volume → start the new version → trigger a
+  Karakeep re-index, rather than fighting an in-place Meili migration.
+- **Version source**: https://github.com/meilisearch/meilisearch/releases
+
+#### karakeep-chrome
+
+- **Current**: `gcr.io/zenika-hub/alpine-chrome:124`
+- **Why pinned**: tracks a Chromium major; crawl + screenshot behaviour shifts across
+  majors, so bumps are deliberate. Stateless → trivial rollback.
+- **Used by**: Karakeep only (crawl + screenshots).
+- **Version source**: https://hub.docker.com/r/zenika/alpine-chrome/tags
+
+**How to investigate a Karakeep bump (before changing pins):**
+
+1. Open the Karakeep release you're on/targeting and read its `docker/docker-compose.yml`
+   at that git tag — it pins the **exact Meili + Chrome versions that release was tested
+   against**. Match our two pins to those values.
+2. If upstream moved Meili, read the Meilisearch release notes between the two versions for
+   "dumpless upgrade" support; if an in-place migration isn't supported, plan the
+   wipe-and-reindex path (the index is rebuildable, so this is low-risk).
+3. The usual trigger is the **reverse** of Immich: Watchtower lands an app update first,
+   then you reconcile the sidecar pins to the new release's tested versions.
+
+**Rollback:**
+
+- **App**: `release` is floating — to roll back, pin `karakeep` to the prior image digest.
+- **Meili / Chrome**: revert the pin; Meili re-indexes from SQLite, Chrome is stateless.
+- **Data**: Karakeep SQLite + crawled assets (`/mnt/hdd/karakeep/data`) are restic-backed-up.
+
 ---
 
 ## Usage
@@ -82,6 +133,7 @@ scope for this skill.
 
 # Upgrade specific application stack
 /upgrade-stack immich        # Checks Immich components + Postgres + Redis
+/upgrade-stack karakeep      # Reconciles pinned Meili/Chrome sidecars to the app release
 # Check single container
 /upgrade-stack immich_redis
 /upgrade-stack immich_postgres
@@ -97,9 +149,14 @@ DATABASE TIER                  APPLICATION TIER
 immich_redis      ◄──────────  Immich (Server + ML)
 
 immich_postgres   ◄──────────  Immich (Server + ML)
+
+karakeep-meili    ◄──────────  Karakeep (web app — Watchtower-managed)
+karakeep-chrome   ◄──────────  Karakeep (web app — Watchtower-managed)
 ```
 
-**Key insight**: Upgrading Postgres affects Immich. Always verify before upgrading.
+**Key insight**: Upgrading Postgres affects Immich; the Karakeep coupling runs the other
+way — the **app** auto-updates and you reconcile its pinned sidecars to match. Always verify
+before upgrading.
 
 ---
 

@@ -283,6 +283,7 @@ docker events --since 1h --filter container=<name>
 | Calibre GUI      | 8080 | calibre.jkrumm.com | Book management admin                                       |
 | CouchDB          | 5984 | couchdb.jkrumm.com | CouchDB document database (Obsidian LiveSync)               |
 | Garmin Collector | 8080 | garmin.jkrumm.com  | Garmin Connect HTTP query layer (called by argo on the VPS) |
+| Karakeep         | 3000 | karakeep.jkrumm.com | Read-later / bookmark everything-bucket (AI auto-tagging via IU endpoint) |
 
 > **Access:** DNS A records point to HomeLab Tailscale IP (<tailscale-ip-homelab>, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
 
@@ -404,6 +405,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
+| `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable) |
 
 **Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
 
@@ -805,7 +807,7 @@ When making changes that affect infrastructure or script behavior:
 **Update tiers:**
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `garmin-collector` (local build), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Opted-out** (other): `garmin-collector` (local build), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else (incl. `caddy` — was opted-out historically, now Watchtower-managed)
 
 | Command                            | Purpose                    |

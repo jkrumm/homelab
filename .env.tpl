@@ -26,6 +26,13 @@ GARMIN_COLLECTOR_TOKEN=op://common/garmin-collector/TOKEN
 # Bearer for argo's Gmail endpoint — relogin_auto.py reads the Garmin MFA code from it.
 ARGO_API_TOKEN=op://common/api/SECRET
 
+# --- Karakeep (read-later, Tailscale-only — AI tagging via IU unified endpoint) ---
+KARAKEEP_NEXTAUTH_SECRET=op://homelab/karakeep/NEXTAUTH_SECRET
+KARAKEEP_MEILI_MASTER_KEY=op://homelab/karakeep/MEILI_MASTER_KEY
+# IU unified OpenAI-compatible endpoint — same creds modelpick/audio-proxy use
+KARAKEEP_OPENAI_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
+KARAKEEP_OPENAI_API_KEY=op://common/anthropic/API_KEY
+
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
 RESTIC_PASSWORD=op://homelab/restic/PASSWORD

@@ -74,6 +74,14 @@ http://garmin.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
+# Karakeep (private, Tailscale only — read-later / bookmark everything-bucket)
+karakeep.jkrumm.com {
+	reverse_proxy karakeep:3000
+}
+http://karakeep.jkrumm.com {
+	redir https://{host}{uri} permanent
+}
+
 
 # Private service overrides — loaded from homelab-private (not tracked here)
 import /etc/caddy/private/*.caddy

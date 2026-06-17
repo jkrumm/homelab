@@ -245,6 +245,7 @@ services:
       - /home/jkrumm/ssd/SSD/Dev:/sources/Dev:ro
       - /mnt/hdd/fuji/RAWs:/sources/Fuji-RAWs:ro
       - /mnt/hdd/backups:/sources/hermes-backup:ro
+      - /mnt/hdd/karakeep/data:/sources/Karakeep:ro
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
     labels:
@@ -628,6 +629,102 @@ services:
     labels:
       glance.hide: true
 
+  # Karakeep (read-later / bookmark "everything bucket"; formerly Hoarder).
+  # Tailscale-only at karakeep.jkrumm.com. web ⇄ meili (search) ⇄ chrome (crawl)
+  # over the private karakeep-internal bridge; Caddy reaches web via the cloudflared bridge.
+  # AI auto-tagging via the IU unified OpenAI-compatible endpoint (op://common/anthropic).
+  karakeep:
+    image: ghcr.io/karakeep-app/karakeep:release
+    container_name: karakeep
+    restart: unless-stopped
+    environment:
+      NEXTAUTH_SECRET: ${KARAKEEP_NEXTAUTH_SECRET}
+      # Must equal the external host or sign-out/redirects break behind the proxy.
+      NEXTAUTH_URL: https://karakeep.jkrumm.com
+      DATA_DIR: /data
+      MEILI_ADDR: http://karakeep-meili:7700
+      MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
+      BROWSER_WEB_URL: http://karakeep-chrome:9222
+      DISABLE_NEW_RELEASE_CHECK: "true"
+      # DISABLE_SIGNUPS: "true"   # flip on AFTER creating the single admin account, then redeploy
+      # AI tagging via the IU unified endpoint. IU serves none of OpenAI's default model
+      # ids, so the two models we use are pinned to IU-served ids (text = modelpick's
+      # committed cheap/classification tier). INFERENCE_OUTPUT_SCHEMA=json forces
+      # json_object mode: the IU/DeepSeek path doesn't guarantee OpenAI's json_schema
+      # "structured" outputs (Karakeep's default), which would otherwise break tagging.
+      OPENAI_BASE_URL: ${KARAKEEP_OPENAI_BASE_URL}
+      OPENAI_API_KEY: ${KARAKEEP_OPENAI_API_KEY}
+      INFERENCE_TEXT_MODEL: DeepSeek-V4-Flash
+      INFERENCE_OUTPUT_SCHEMA: json
+      INFERENCE_IMAGE_MODEL: gemini-3-flash-preview  # only fires for image-asset bookmarks
+      INFERENCE_ENABLE_AUTO_TAGGING: "true"
+      INFERENCE_ENABLE_AUTO_SUMMARIZATION: "false"
+      # Semantic/vector search left OFF for v1 — Karakeep defaults EMBEDDING_ENABLE_AUTO_INDEXING
+      # to false and vector search isn't wired into the main search UI; Meili keyword search
+      # works without it. To enable later: EMBEDDING_TEXT_MODEL (an IU embed id) +
+      # EMBEDDING_DIMENSIONS to match + EMBEDDING_ENABLE_AUTO_INDEXING=true, then reindex.
+    volumes:
+      - /mnt/hdd/karakeep/data:/data
+    networks:
+      - cloudflared
+      - karakeep-internal
+    depends_on:
+      - karakeep-meili
+      - karakeep-chrome
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    labels:
+      glance.name: Karakeep
+      glance.icon: si:karakeep
+      glance.url: https://karakeep.jkrumm.com
+      glance.hide: false
+
+  # Headless Chrome for crawling + screenshots. Needs egress (karakeep-internal is a
+  # plain bridge). Pinned tag — Watchtower must not bump it.
+  karakeep-chrome:
+    image: gcr.io/zenika-hub/alpine-chrome:124
+    container_name: karakeep-chrome
+    restart: unless-stopped
+    command:
+      - --no-sandbox
+      - --disable-gpu
+      - --disable-dev-shm-usage
+      - --remote-debugging-address=0.0.0.0
+      - --remote-debugging-port=9222
+      - --hide-scrollbars
+    networks:
+      - karakeep-internal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    labels:
+      glance.hide: true
+      com.centurylinklabs.watchtower.enable: 'false' # upstream-pinned tag
+
+  # Meilisearch — Karakeep's full-text search index (rebuildable from the SQLite DB,
+  # so not backed up). Pinned tag — Watchtower must not bump it.
+  karakeep-meili:
+    image: getmeili/meilisearch:v1.41.0
+    container_name: karakeep-meili
+    restart: unless-stopped
+    environment:
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
+    volumes:
+      - /mnt/hdd/karakeep/meili:/meili_data
+    networks:
+      - karakeep-internal
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    labels:
+      glance.hide: true
+      com.centurylinklabs.watchtower.enable: 'false' # upstream-pinned tag
+
 volumes:
   model-cache:
   caddy_data:
@@ -650,3 +747,5 @@ networks:
     driver: bridge # Bound to host Tailscale IP, not internal
   watchtower-egress:
     driver: bridge # Internet access for Slack notifications (Watchtower)
+  karakeep-internal:
+    driver: bridge # Karakeep web ⇄ meili ⇄ chrome; chrome needs egress to crawl pages
