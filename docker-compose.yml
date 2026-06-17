@@ -646,23 +646,27 @@ services:
       MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
       BROWSER_WEB_URL: http://karakeep-chrome:9222
       DISABLE_NEW_RELEASE_CHECK: "true"
-      # DISABLE_SIGNUPS: "true"   # flip on AFTER creating the single admin account, then redeploy
-      # AI tagging via the IU unified endpoint. IU serves none of OpenAI's default model
-      # ids, so the two models we use are pinned to IU-served ids (text = modelpick's
-      # committed cheap/classification tier). INFERENCE_OUTPUT_SCHEMA=json forces
-      # json_object mode: the IU/DeepSeek path doesn't guarantee OpenAI's json_schema
-      # "structured" outputs (Karakeep's default), which would otherwise break tagging.
+      DISABLE_SIGNUPS: "true"   # admin account created; signups now closed
+      # AI via the IU unified OpenAI-compatible endpoint. Model ids are IU-served and
+      # probe-verified callable (text = modelpick's committed cheap/classification tier).
+      # INFERENCE_OUTPUT_SCHEMA=json forces json_object mode: the IU/DeepSeek path doesn't
+      # guarantee OpenAI's json_schema "structured" outputs (Karakeep's default), which
+      # would otherwise silently break tagging.
       OPENAI_BASE_URL: ${KARAKEEP_OPENAI_BASE_URL}
       OPENAI_API_KEY: ${KARAKEEP_OPENAI_API_KEY}
       INFERENCE_TEXT_MODEL: DeepSeek-V4-Flash
       INFERENCE_OUTPUT_SCHEMA: json
-      INFERENCE_IMAGE_MODEL: gemini-3-flash-preview  # only fires for image-asset bookmarks
+      INFERENCE_IMAGE_MODEL: gemini-3.5-flash  # vision tagging; only fires for image-asset bookmarks
       INFERENCE_ENABLE_AUTO_TAGGING: "true"
       INFERENCE_ENABLE_AUTO_SUMMARIZATION: "false"
-      # Semantic/vector search left OFF for v1 — Karakeep defaults EMBEDDING_ENABLE_AUTO_INDEXING
-      # to false and vector search isn't wired into the main search UI; Meili keyword search
-      # works without it. To enable later: EMBEDDING_TEXT_MODEL (an IU embed id) +
-      # EMBEDDING_DIMENSIONS to match + EMBEDDING_ENABLE_AUTO_INDEXING=true, then reindex.
+      # Semantic embeddings ON — powers similar-bookmark discovery + richer tagging context.
+      # text-embedding-3-small at its native 1536 dims (IU-served, probe-verified callable;
+      # cheapest embedder). NOT Matryoshka-truncated to 512: Karakeep's EMBEDDING_DIMENSIONS
+      # sets the Meili index to the model's *output* dim, so 512 is only safe if Karakeep also
+      # forwards `dimensions` to the API (unverified) — and the storage win is irrelevant here.
+      # Auto-indexing embeds new bookmarks; reindex existing ones via Admin Settings > Background Jobs.
+      EMBEDDING_TEXT_MODEL: text-embedding-3-small
+      EMBEDDING_ENABLE_AUTO_INDEXING: "true"
     volumes:
       - /mnt/hdd/karakeep/data:/data
     networks:
