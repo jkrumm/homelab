@@ -450,6 +450,15 @@ groups:
             keyword: '"ok":true'
             interval: 150
 
+          # Research Gateway — agentic HTTP research API on VPS, public via the
+          # Cloudflare tunnel (orange-cloud) → Traefik. /health → {"status":"ok"}.
+          - name: Research Gateway - HTTP
+            type: keyword
+            url: https://research.jkrumm.com/health
+            keyword: '{"status":"ok"}'
+            cloudflare_bypass: true
+            interval: 155
+
   # ============================================
   # FreePlanningPoker - VPS application stack
   # ============================================
