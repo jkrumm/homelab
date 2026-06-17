@@ -659,14 +659,13 @@ services:
       INFERENCE_IMAGE_MODEL: gemini-3.5-flash  # vision tagging; only fires for image-asset bookmarks
       INFERENCE_ENABLE_AUTO_TAGGING: "true"
       INFERENCE_ENABLE_AUTO_SUMMARIZATION: "false"
-      # Semantic embeddings ON — powers similar-bookmark discovery + richer tagging context.
-      # text-embedding-3-small at its native 1536 dims (IU-served, probe-verified callable;
-      # cheapest embedder). NOT Matryoshka-truncated to 512: Karakeep's EMBEDDING_DIMENSIONS
-      # sets the Meili index to the model's *output* dim, so 512 is only safe if Karakeep also
-      # forwards `dimensions` to the API (unverified) — and the storage win is irrelevant here.
-      # Auto-indexing embeds new bookmarks; reindex existing ones via Admin Settings > Background Jobs.
+      # Embedding model for semantic / similar-bookmark search. NOTE: the embeddings subsystem
+      # is NOT active in the running release (karakeep 0.32.0) — no embedding worker starts and
+      # no vector index is created; it lives in karakeep's main branch, not yet released. This
+      # var IS recognized (and equals the default), so it's staged for when :release ships the
+      # feature — at which point text-embedding-3-small (IU-served, probe-verified callable,
+      # 1536 native dims) is used. Tagging is the active AI feature today.
       EMBEDDING_TEXT_MODEL: text-embedding-3-small
-      EMBEDDING_ENABLE_AUTO_INDEXING: "true"
     volumes:
       - /mnt/hdd/karakeep/data:/data
     networks:
