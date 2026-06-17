@@ -145,7 +145,6 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/cloudflare-tunnel/TOKEN` | Cloudflare tunnel authentication                        |
 | `homelab/postgres/PASSWORD`       | Immich PostgreSQL                                       |
 | `homelab/samba/PASSWORD`          | Samba file share auth                                   |
-| `homelab/calibre/PASSWORD`        | Calibre GUI access                                      |
 | `homelab/restic/PASSWORD`         | Restic repo password (NEVER changes after init)         |
 | `homelab/restic/HEARTBEAT_URL`    | UptimeKuma push URL for restic backup heartbeat         |
 | `common/backblaze-s3/*`           | B2 append-only key — shared by homelab restic + VPS pg-dump (no delete perms) |
@@ -271,7 +270,6 @@ docker events --since 1h --filter container=<name>
 | Immich      | 2283 | immich.jkrumm.com | Photo management    |
 | UptimeKuma  | 3010 | uptime.jkrumm.com | Service monitoring  |
 | Dufs        | 8098 | public.jkrumm.com | Public file sharing |
-| Calibre-Web | 8083 | books.jkrumm.com  | E-book library      |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 
@@ -280,7 +278,6 @@ docker events --since 1h --filter container=<name>
 | Beszel           | 8090 | beszel.jkrumm.com  | System metrics                                              |
 | Dozzle           | 8081 | dozzle.jkrumm.com  | Container logs                                              |
 | FileBrowser      | 80   | files.jkrumm.com   | File management                                             |
-| Calibre GUI      | 8080 | calibre.jkrumm.com | Book management admin                                       |
 | CouchDB          | 5984 | couchdb.jkrumm.com | CouchDB document database (Obsidian LiveSync)               |
 | Garmin Collector | 8080 | garmin.jkrumm.com  | Garmin Connect HTTP query layer (called by argo on the VPS) |
 | Karakeep         | 3000 | karakeep.jkrumm.com | Read-later / bookmark everything-bucket (AI auto-tagging via IU endpoint) |
@@ -298,7 +295,6 @@ docker events --since 1h --filter container=<name>
 | Cloudflared                   | Tunnel to Cloudflare (public services only)                                                            |
 | Watchtower                    | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; Slack notifs  |
 | Samba                         | SMB3 file shares (encryption preferred)                                                                |
-| Calibre                       | E-book management GUI                                                                                  |
 | Beszel-Agent                  | System metrics collector                                                                               |
 | Immich ML                     | Photo AI processing                                                                                    |
 | Immich Postgres/Redis         | Immich databases                                                                                       |
@@ -695,7 +691,6 @@ Services with memory limits to prevent runaway resource usage:
 | ------------- | ----- | -------- |
 | Immich Server | 4G    | -        |
 | Immich ML     | 4G    | -        |
-| Calibre       | 2G    | -        |
 | UptimeKuma    | 1G    | 512M     |
 
 ### Log Rotation

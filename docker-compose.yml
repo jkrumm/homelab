@@ -355,50 +355,6 @@ services:
       glance.hide: true
       com.centurylinklabs.watchtower.enable: 'false'
 
-  calibre:
-    image: lscr.io/linuxserver/calibre:latest
-    container_name: calibre
-    security_opt:
-      - seccomp=unconfined
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Berlin
-      - CUSTOM_USER=jkrumm
-      - PASSWORD=${CALIBRE_PASSWORD}
-    volumes:
-      - /home/jkrumm/ssd/SSD/Bücher/calibre/config:/config
-      - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/library
-    networks:
-      - cloudflared
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-    labels:
-      glance.hide: true
-
-  calibre-web:
-    image: lscr.io/linuxserver/calibre-web:latest
-    container_name: calibre-web
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Berlin
-      - DOCKER_MODS=linuxserver/mods:universal-calibre|linuxserver/mods:calibre-web-calibre
-    volumes:
-      - /home/jkrumm/ssd/SSD/Bücher/calibre-web/config:/config
-      - /home/jkrumm/ssd/SSD/Bücher/calibre/library:/books
-    networks:
-      - cloudflared
-    restart: unless-stopped
-    labels:
-      glance.name: Calibre Web
-      glance.icon: si:calibreweb
-      glance.url: https://books.jkrumm.com
-      glance.hide: false
-
   immich-server:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:release

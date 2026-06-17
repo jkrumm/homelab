@@ -14,7 +14,6 @@ CLOUDFLARE_TUNNEL_ID=op://homelab/config/CLOUDFLARE_TUNNEL_ID
 # --- Infrastructure ---
 POSTGRES_DB_PASSWORD=op://homelab/postgres/PASSWORD
 SAMBA_PASSWORD=op://homelab/samba/PASSWORD
-CALIBRE_PASSWORD=op://homelab/calibre/PASSWORD
 COUCHDB_PASSWORD=op://homelab/couchdb/PASSWORD
 DUFS_PASSWORD=op://homelab/dufs/PASSWORD
 IMMICH_API_KEY=op://homelab/immich/API_KEY

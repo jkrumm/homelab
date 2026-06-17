@@ -248,9 +248,8 @@ ssh homelab "docker system prune -af"
 15. [Setup UptimeKuma](#setup-uptimekuma)
 16. [Setup Restic Backup](#setup-restic-backup)
 17. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
-18. [Setup Calibre and Calibre-Web](#setup-calibre-and-calibre-web)
-19. [Setup Immich](#setup-immich)
-20. [Setup Public Files (Dufs)](#setup-public-files-dufs)
+18. [Setup Immich](#setup-immich)
+19. [Setup Public Files (Dufs)](#setup-public-files-dufs)
 
 ---
 
@@ -266,7 +265,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
 │  Private:  Tailscale device → caddy:443 (HTTPS, Let's Encrypt) → app │
 │                                                                      │
-│  26 containers: Glance, Immich, Calibre, ...                         │
+│  24 containers: Glance, Immich, ...                                   │
 │  Storage: Internal SSD + Encrypted external HDD                      │
 │  Watchdog: Self-healing monitor (cron, 10min)                        │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -294,7 +293,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Immich      | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management   |
 | UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page        |
 | Dufs        | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
-| Calibre-Web | [books.jkrumm.com](https://books.jkrumm.com)   | E-book library     |
 
 **Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
 
@@ -305,7 +303,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Beszel           | [beszel.jkrumm.com](https://beszel.jkrumm.com)   | System metrics                                                |
 | Dozzle           | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)   | Container logs                                                |
 | FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
-| Calibre GUI      | [calibre.jkrumm.com](https://calibre.jkrumm.com) | Book management admin                                         |
 | CouchDB          | [couchdb.jkrumm.com](https://couchdb.jkrumm.com) | Obsidian LiveSync database                                    |
 | Garmin Collector | [garmin.jkrumm.com](https://garmin.jkrumm.com)   | Stateless Garmin Connect HTTP layer (called by argo from VPS) |
 
@@ -480,11 +477,9 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 | Immich           | Public (Cloudflare) | immich.jkrumm.com  |
 | UptimeKuma       | Public (Cloudflare) | uptime.jkrumm.com  |
 | Dufs             | Public (Cloudflare) | public.jkrumm.com  |
-| Calibre-Web      | Public (Cloudflare) | books.jkrumm.com   |
 | Beszel           | Private (Tailscale) | beszel.jkrumm.com  |
 | Dozzle           | Private (Tailscale) | dozzle.jkrumm.com  |
 | FileBrowser      | Private (Tailscale) | files.jkrumm.com   |
-| Calibre GUI      | Private (Tailscale) | calibre.jkrumm.com |
 | CouchDB          | Private (Tailscale) | couchdb.jkrumm.com |
 | Garmin Collector | Private (Tailscale) | garmin.jkrumm.com  |
 
@@ -1340,167 +1335,6 @@ You can monitor the backup process by:
    ```bash
     sudo cat /var/lib/homelab_watchdog/state
    ```
-
-## Setup Calibre and Calibre-Web
-
-### Directory Structure
-
-1. Create the base directory structure:
-
-   ```bash
-   # Create main directories
-   mkdir -p /home/jkrumm/ssd/SSD/Bücher/{calibre,calibre-web}/{config,library}
-
-   # Create incoming folder for automatic book imports
-   mkdir -p /home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming
-   ```
-
-2. Final directory layout:
-
-   ```bash
-   /home/jkrumm/ssd/SSD/Bücher/
-   ├── calibre/
-   │   ├── config/     # Calibre configuration
-   │   └── library/    # Calibre book library
-   │       └── incoming/   # Drop your books here for automatic import
-   └── calibre-web/
-       └── config/     # Calibre-Web configuration
-   ```
-
-3. Directory mappings in containers:
-   - Calibre sees:
-     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre/config`
-     - `/library` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
-   - Calibre-Web sees:
-     - `/config` → `/home/jkrumm/ssd/SSD/Bücher/calibre-web/config`
-     - `/books` → `/home/jkrumm/ssd/SSD/Bücher/calibre/library`
-
-### Calibre Setup
-
-1. Access Calibre at `https://calibre.jkrumm.com`
-2. Login with:
-   - Username: jkrumm
-   - Password: Set in `CALIBRE_PASSWORD` environment variable
-3. During initial setup:
-   - When prompted for library location, set it to: `/library`
-   - This maps to `/home/jkrumm/ssd/SSD/Bücher/calibre/library` on your host system
-   - Do not use the default `/config/Calibre Library` path
-4. Managing Books:
-   - Using Auto-Add folder:
-     - In Calibre, go to Preferences > Adding books
-     - Enable "Automatically add books" and set the folder to `/library/incoming`
-     - Now any books you place in `/home/jkrumm/ssd/SSD/Bücher/calibre/library/incoming` will be automatically
-       imported
-     - Calibre will move the books to the appropriate location in the library after import
-   - After adding books:
-     - Calibre will automatically fetch metadata
-     - You can edit metadata by selecting a book and clicking "Edit metadata"
-     - Configure metadata download sources in Preferences > Metadata download
-     - Books will be available in both Calibre and Calibre-Web
-
-### Calibre-Web Setup
-
-1. Access Calibre-Web at `https://books.jkrumm.com`
-2. Initial setup:
-   - Default login: admin/admin123
-   - Change the admin password immediately
-   - Set library path to: `/books`
-   - This will use the same library that you manage with Calibre
-3. Configure Calibre Binaries:
-   - Go to Admin > Basic Configuration > External Binaries
-   - Set "Path to Calibre Binaries" to: `/usr/bin`
-   - Save the settings
-   - Features enabled by binaries:
-     - Ebook format conversion
-     - Metadata embedding
-     - Email sending with conversion
-     - Enhanced cover generation
-4. Additional Configuration:
-   - Set up user accounts and permissions under Admin > Users
-   - Calibre-Web uses the metadata that was fetched by Calibre
-   - No additional metadata configuration needed as this is handled by Calibre
-5. Test Format Conversion:
-   - Select any book
-   - Click on "Convert" button
-   - Choose a different format
-   - If conversion works, the binaries are correctly configured
-
-### Kobo Sync Setup
-
-With Cloudflare tunnels, Kobo sync now works seamlessly as Cloudflare provides IPv4 connectivity while maintaining the IPv6-only home connection.
-
-#### Calibre-Web Configuration
-
-1. Enable Kobo Sync in Admin Settings:
-   - Go to Admin > Configuration > Edit Basic Configuration
-   - Expand "Feature Configuration"
-   - Enable "Kobo sync"
-   - Enable "Proxy unknown requests to Kobo Store"
-   - Set "Server External Port" to match Calibre-Web's port (8083)
-
-2. Configure User Settings:
-   - Go to your user profile
-   - Enable "Sync only books in selected shelves with Kobo" (recommended)
-   - Create and configure shelves for syncing:
-     - Click "Create a Shelf"
-     - Name your shelf (e.g., "Fantasy", "Science", etc.)
-     - Check "Sync this shelf with Kobo device"
-   - Click "Create/View" under "Kobo Sync Token"
-   - Copy the generated API endpoint URL
-
-#### Kobo Device Configuration
-
-1. Connect Kobo to Computer:
-   - Connect via USB
-   - Enable connection on Kobo screen
-   - Access Kobo's root directory
-
-2. Edit Configuration File:
-
-   ```bash
-   # Navigate to the hidden .kobo folder
-   cd .kobo/Kobo/
-   # Backup original config
-   cp "Kobo eReader.conf" "Kobo eReader.conf.backup"
-   # Edit the config file
-   vim "Kobo eReader.conf"
-   ```
-
-3. Update API Endpoint:
-   - Find the [OneStoreServices] section
-   - Replace or add the api_endpoint line:
-
-   ```ini
-   api_endpoint=https://books.jkrumm.com/kobo/YOURTOKEN
-   ```
-
-   - Use the Cloudflare tunnel domain for reliable access
-   - Replace YOURTOKEN with your actual token from Calibre-Web
-
-4. Sync Your Device:
-   - Safely eject the Kobo
-   - On the Kobo home screen, tap the Sync icon
-   - First sync may take longer as it builds the database
-
-#### Known Limitations
-
-1. Store Integration:
-   - Book covers in Kobo Store may show as generic white pages
-   - Overdrive section might have missing covers
-   - These are known limitations of the sync implementation
-
-For more detailed information about Kobo sync setup and troubleshooting, refer
-to [JC Palmer's comprehensive guide](https://jccpalmer.com/posts/setting-up-kobo-sync-with-calibre-web/).
-
-### Features
-
-- Calibre provides full library management capabilities
-- Calibre-Web offers a user-friendly interface for browsing and reading
-- Both services share the same library folder
-- Automatic updates via Watchtower
-- Monitoring via Glance dashboard
-- Secure HTTPS access through Cloudflare tunnels
-- All configurations and library are backed up via restic (Bilder/Bücher SSD sources)
 
 ## Setup Immich
 
