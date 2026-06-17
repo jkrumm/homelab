@@ -152,25 +152,6 @@ groups:
             headers:
               Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
 
-      # --- Media subgroup ---
-      - name: Media
-        type: group
-        interval: 210
-        monitors:
-          - name: Calibre - Docker
-            type: docker
-            docker_container: calibre
-            interval: 164
-            timeout: 120
-            maxretries: 5
-
-          - name: Calibre Web - Docker
-            type: docker
-            docker_container: calibre-web
-            interval: 167
-            timeout: 120
-            maxretries: 5
-
       # --- Files subgroup ---
       - name: Files
         type: group
@@ -458,6 +439,16 @@ groups:
                 url: https://argo.jkrumm.com/api/health
                 keyword: '"status":"ok"'
                 interval: 150
+
+          # Audio Gateway — OpenAI-compatible STT + Gemini TTS on VPS, Tailscale-
+          # only via Traefik. DNS is grey-cloud → VPS Tailscale IP, so the homelab
+          # UK probe reaches it over Tailscale (no CF bypass). /health returns
+          # {"ok":true} when healthy, 503 while draining.
+          - name: Audio Gateway - HTTP
+            type: keyword
+            url: https://audio-gateway.jkrumm.com/health
+            keyword: '"ok":true'
+            interval: 150
 
   # ============================================
   # FreePlanningPoker - VPS application stack
