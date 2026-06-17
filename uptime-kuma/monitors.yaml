@@ -263,6 +263,40 @@ groups:
             interval: 200
             accepted_statuscodes: ['200-299']
 
+      # --- Karakeep subgroup (read-later; web + chrome crawler + meili search) ---
+      - name: Karakeep
+        type: group
+        interval: 248
+        monitors:
+          - name: Karakeep - Docker
+            type: docker
+            docker_container: karakeep
+            interval: 202
+            timeout: 120
+            maxretries: 5
+
+          - name: Karakeep Chrome - Docker
+            type: docker
+            docker_container: karakeep-chrome
+            interval: 205
+            timeout: 120
+            maxretries: 5
+
+          - name: Karakeep Meili - Docker
+            type: docker
+            docker_container: karakeep-meili
+            interval: 208
+            timeout: 120
+            maxretries: 5
+
+          # Reachable over the cloudflared bridge that UK shares with Karakeep — no
+          # Cloudflare/Tailscale hop, like CouchDB. Health endpoint is unauthenticated.
+          - name: Karakeep - HTTP
+            type: http
+            url: http://karakeep:3000/api/health
+            interval: 211
+            accepted_statuscodes: ['200-299']
+
   # ============================================
   # Local — heartbeats kept alive by a manual/local operation on the Mac, NOT by
   # HomeLab server infrastructure. Grouped separately so a miss here does NOT
