@@ -310,6 +310,15 @@ groups:
         interval: 691200 # 8 days — weekly manual + buffer
         retry_interval: 691200
 
+      # Weekly secrets-cache seed-freshness heartbeat, pushed from the Mac mini
+      # (dotfiles/scripts/secrets-freshness-check.sh, weekly LaunchAgent). A
+      # miss/down means "the mini's secret cache is stale — run make secrets-seed".
+      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 can't create push monitors on UK 2.x)
+      - name: MacMini Secret Seed - Push
+        type: push
+        interval: 691200 # 8 days — weekly + buffer
+        retry_interval: 691200
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
