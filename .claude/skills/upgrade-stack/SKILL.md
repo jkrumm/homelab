@@ -64,10 +64,31 @@ updates) — is Watchtower-managed and out of scope for this skill.
 
 #### immich-server + immich-machine-learning
 
-- **Current**: `ghcr.io/immich-app/immich-server:release` / `immich-machine-learning:release-openvino`
+- **Current**: `ghcr.io/immich-app/immich-server:v3.0.3` / `immich-machine-learning:v3.0.3-openvino`
 - **Why pinned**: Database migrations (postgres schema changes between versions)
 - **Depends on**: immich_postgres, immich_redis
 - **Version source**: https://github.com/immich-app/immich/releases
+- **Tags are explicit, not floating.** `make immich-upgrade` only pulls whatever the
+  compose file names, so upgrading means **editing both tags in `docker-compose.yml`
+  first** (server + ML must match), then running the target. This is deliberate: the
+  old `release` tag would have jumped 2.7.5 → 3.0.3 silently, and the compose now
+  records the running version.
+- **Rollback is a restore, not a re-pin.** Immich downgrades are unsupported and schema
+  migrations are irreversible — an older server refuses a newer-migrated DB. Reverting
+  means: stop the stack, wipe `Bilder/immich/postgres`, bring up a clean stack on the
+  old tag, restore a dump (see CLAUDE.md → "Immich database"). Take a verified dump
+  **before** every major bump.
+- **Never touch the media mount during an upgrade.** The v3 data-loss reports
+  (immich#29445) were all caused by a changed `UPLOAD_LOCATION` — Immich reads an empty
+  dir as a fresh install. We run the legacy `/usr/src/app/upload` container path while
+  upstream uses `/data`; that difference is fine and must be left alone. After any
+  upgrade, confirm the log line `Successfully verified system mount folder checks`.
+- **Check upstream's compose at both tags before editing ours.** Diffing
+  `immich/releases/download/<tag>/docker-compose.yml` for the old and new version is the
+  fastest way to see real structural changes (v2.7.5 → v3.0.3 turned out to be a valkey
+  digest bump and nothing else). Also grep our compose for a custom `command`/`healthcheck`
+  on `immich_postgres` — leftovers there break v3.0.1+, since both are now baked into
+  the image.
 
 ### Karakeep Tier
 
@@ -227,12 +248,26 @@ before upgrading.
 - Upgrade order (databases after checking all dependents)
 - Rollback procedure
 
+**Check for an app's own built-in backup before claiming a backup gap.** Many apps
+(Immich, Karakeep) dump their own DB on a schedule into a directory that is already a
+restic source. Immich writes `upload/backups/immich-db-backup-*.sql.gz` nightly and keeps
+14 — that, not the PGDATA dir, is the real backup. Seeing a live data directory inside a
+restic source proves nothing either way: a raw copy of a running PGDATA is never
+restorable, and its presence says nothing about whether a proper dump exists one
+directory over. Look for the dumps before reporting on backup posture.
+
+**Verify a backup, never infer one.** A file existing is not a backup. Confirm: it
+decompresses (`gzip -t`), it is complete (`pg_dump`'s trailing "dump complete" marker),
+it is offsite (`restic ls latest <path>`), and its contents match the live DB (row counts
+per table). Take a fresh verified dump immediately before any major bump — and state
+plainly what was checked versus what is assumed.
+
 ### 6. Upgrade Execution (manual)
 
 - User reviews plan
 - User backs up data
 - For registry images: User updates docker-compose.yml versions (and SHA hashes if needed)
-- For the Immich stack (rolling `release` tags): `make immich-upgrade` — git pull + `docker compose pull` + recreate. Raw `docker` is hook-blocked; always go through the make target.
+- For the Immich stack (explicitly version-pinned): edit **both** image tags in `docker-compose.yml` (server + ML must match), commit and push, then `make immich-upgrade` — git pull + `docker compose pull` + recreate. The target pulls only what the compose names, so without the tag edit it is a no-op. Raw `docker` is hook-blocked; always go through the make target.
 - User verifies health for ALL affected applications
 
 ### 7. Verification

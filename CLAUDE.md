@@ -196,7 +196,7 @@ Run `make help` for all available targets.
 | `make down`               | Stop all services                                        |
 | `make ps`                 | Show running containers                                  |
 | `make logs svc=<name>`    | Follow logs for any service                              |
-| `make immich-upgrade`     | Upgrade Immich stack (git pull + pull release images + recreate) — Watchtower-excluded, see `/upgrade-stack immich` |
+| `make immich-upgrade`     | Upgrade Immich stack (git pull + pull pinned images + recreate) — tags are explicit, so bump `immich-server` + `immich-machine-learning` in `docker-compose.yml` first, else it's a no-op. Watchtower-excluded, see `/upgrade-stack immich` |
 | `make garmin-deploy`      | Full garmin-collector deploy (git pull + rebuild + restart) |
 | `make garmin-rebuild`     | Rebuild garmin-collector (no cache) + restart (no git pull) |
 | `make garmin-restart`     | Restart garmin-collector (picks up new env vars)         |
@@ -802,7 +802,7 @@ When making changes that affect infrastructure or script behavior:
 | `make restart svc=<name>`  | Force-recreate a single service                         |
 | `make ps`                  | Show running containers                                 |
 | `make logs svc=<name>`     | Follow logs for any service                             |
-| `make immich-upgrade`      | Upgrade Immich stack (git pull + pull release images + recreate) |
+| `make immich-upgrade`      | Upgrade Immich stack (bump tags in `docker-compose.yml` first, then git pull + pull pinned images + recreate) |
 | `make garmin-deploy`       | Full garmin-collector deploy (git pull + rebuild + restart) |
 | `make garmin-rebuild`      | Rebuild garmin-collector (no cache) + restart           |
 | `make garmin-restart`      | Restart garmin-collector (no rebuild)                   |

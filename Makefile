@@ -32,7 +32,8 @@ help: ## Show all targets
 	@echo "    make logs svc=<name>     Follow logs for a service"
 	@echo ""
 	@echo "  Immich Stack (manually-managed — Watchtower-excluded)"
-	@echo "    make immich-upgrade      git pull + pull release images + recreate Immich stack"
+	@echo "    make immich-upgrade      git pull + pull pinned images + recreate Immich stack"
+	@echo "                             (bump the image tags in docker-compose.yml first)"
 	@echo ""
 	@echo "  Garmin Collector Operations"
 	@echo "    make garmin-deploy       Full deploy: git pull + rebuild (no cache) + restart"
@@ -85,7 +86,11 @@ logs: ## Follow logs for a service: make logs svc=<name>
 # them — pull first. postgres/valkey are digest-pinned; `pull` honours new pins.
 # See .claude/skills/upgrade-stack for the full upgrade analysis workflow.
 
-immich-upgrade: ## Upgrade Immich stack: git pull + pull release images + recreate
+# Image tags are explicitly pinned (e.g. immich-server:v3.0.3), so this pulls only what
+# docker-compose.yml names — bump both tags (server + ML) there first or it's a no-op.
+# Take a verified DB dump before major bumps: downgrades are unsupported and migrations
+# are irreversible. See CLAUDE.md "Immich database" + /upgrade-stack immich.
+immich-upgrade: ## Upgrade Immich stack: git pull + pull pinned images + recreate (bump tags in docker-compose.yml first)
 	$(SSH) "$(CD) && git pull && $(DC) pull immich-server immich-machine-learning immich_redis immich_postgres && $(DC) up -d immich-server immich-machine-learning immich_redis immich_postgres"
 
 # ── Garmin Collector Operations ──────────────────────────────────────────────
