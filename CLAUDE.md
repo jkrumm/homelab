@@ -389,6 +389,13 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 **Container:** `mazzolino/restic` — see `restic-backup` service in `docker-compose.yml`
 **Excludes:** `restic-excludes.txt` at repo root
 
+> ⚠ **Editing the excludes file requires `make restic-deploy`.** It is bind-mounted as a
+> single file (`./restic-excludes.txt:/excludes.txt:ro`), so Docker binds the *inode* — and
+> `git pull` replaces the file rather than editing in place. After a pull the host file is
+> new but the container still reads the old inode, so exclude changes silently do nothing
+> until the container is recreated. Verify with:
+> `docker exec restic-backup tail -3 /excludes.txt`
+
 ### Sources backed up
 
 | Path | Mounts as | Note |
