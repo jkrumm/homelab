@@ -393,7 +393,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 
 | Path | Mounts as | Note |
 | - | - | - |
-| `/home/jkrumm/ssd/SSD/Bilder` | `/sources/Bilder` | All photos incl. Immich subfolder |
+| `/home/jkrumm/ssd/SSD/Bilder` | `/sources/Bilder` | All photos incl. Immich subfolder — originals + Immich's nightly DB dumps (see below) |
 | `/home/jkrumm/ssd/SSD/Dokumente` | `/sources/Dokumente` | Includes `Obsidian/` sync target |
 | `/home/jkrumm/ssd/SSD/Bücher` | `/sources/Buecher` | |
 | `/home/jkrumm/ssd/SSD/Videos` | `/sources/Videos` | |
@@ -403,7 +403,32 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
 | `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable) |
 
-**Skipped intentionally:** Immich Postgres state, CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
+**Skipped intentionally:** Immich raw Postgres data dir (`Bilder/immich/postgres` — excluded; a filesystem copy of a live PGDATA is not restorable, see "Immich database" below), CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
+
+### Immich database — how it's actually backed up
+
+The Immich DB is **not** covered by copying its data directory (that dir is excluded).
+It is covered by **Immich's built-in automatic database backup**, which is enabled by
+default and needs no cron of ours:
+
+- Immich runs `pg_dump` nightly at 02:00 and writes
+  `immich-db-backup-<ts>-v<immich>-pg<ver>.sql.gz` to `upload/backups/`.
+- Retention: last 14 dumps (Administration → Settings → Backup).
+- That path sits inside the restic-backed `Bilder` tree and is deliberately **not**
+  excluded → every dump goes offsite to B2 with the nightly 03:30 restic run.
+
+**Why this matters:** the photo originals are recoverable on their own, but the DB is
+what holds albums, folder structure, sharing/partner permissions, people/face names,
+favorites and metadata edits — none of which can be reconstructed from the image files.
+The dumps are the only thing protecting that.
+
+**Restore / rollback.** Immich downgrades are unsupported and schema migrations are
+irreversible, so reverting a version means restoring a dump, not re-pinning an image:
+either Administration → Maintenance → Restore database backup (v3+, creates a restore
+point first), or the CLI path — stop the stack, wipe `Bilder/immich/postgres`, bring up
+a clean stack on the dump's Immich version, then pipe the dump into `psql`. The dump
+filename records the Immich + Postgres version it came from. Restoring needs the
+VectorChord-enabled Postgres image (the one pinned in `docker-compose.yml`).
 
 ### Two-key pattern (ransomware safety)
 

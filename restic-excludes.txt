@@ -45,3 +45,9 @@
 **/immich/profile/**
 **/immich/library/preview/**
 **/immich/library/thumb/**
+
+# Immich Postgres live data directory — a raw copy of a running PGDATA is not a
+# restorable backup (torn pages, no consistency guarantee). The real DB backup is
+# Immich's built-in nightly pg_dump → upload/backups/immich-db-backup-*.sql.gz,
+# which IS backed up (that path is deliberately not excluded).
+**/immich/postgres/**
