@@ -468,6 +468,41 @@ groups:
             cloudflare_bypass: true
             interval: 155
 
+          # Image CDN (imgproxy) — TWO monitors on purpose, they fail differently.
+          #
+          # Do NOT probe imgproxy's /health: it is liveness only (verified — it
+          # emits no OTLP spans and answers in 1.6ms). An imgproxy that cannot
+          # reach B2 still reports healthy while every image 404s, so /health
+          # would be a green light over a dead service.
+          #
+          # Both URLs render a real 12KB probe object, so a 200 means the whole
+          # path worked. Source: vps/apps/imgproxy/, docs/image-cdn.md.
+
+          # Public edge path — DNS → Cloudflare → tunnel → Traefik → imgproxy.
+          # Renditions carry a 1-year TTL, so after the first check this is
+          # answered from the CF edge. That is intentional: this monitor watches
+          # the PUBLIC path (DNS, tunnel, CF), not the origin. It will stay green
+          # through an origin outage — which is exactly what the Origin monitor
+          # below is for. Do not "fix" this one by cache-busting; losing the edge
+          # signal would hide a tunnel or DNS failure.
+          - name: ImageCDN - HTTP
+            type: http
+            url: https://img.jkrumm.com/rs:fit:100/misc/monitor-probe.jpg
+            interval: 165
+            cloudflare_bypass: true
+
+          # Origin path — grey-cloud A record → VPS Tailscale IP → Traefik,
+          # bypassing Cloudflare entirely, so EVERY check does a real B2 fetch
+          # plus a real libvips render. This is the monitor that actually proves
+          # the image pipeline works: it goes red on an expired/revoked B2 key,
+          # an unreachable bucket, or a broken imgproxy, none of which the edge
+          # monitor or a /health probe would catch.
+          # Reached over Tailscale from homelab, so no CF bypass header.
+          - name: ImageCDN Origin - HTTP
+            type: http
+            url: https://img-origin.jkrumm.com/rs:fit:100/misc/monitor-probe.jpg
+            interval: 175
+
   # ============================================
   # FreePlanningPoker - VPS application stack
   # ============================================
