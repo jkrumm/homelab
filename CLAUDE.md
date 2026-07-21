@@ -274,8 +274,7 @@ docker events --since 1h --filter container=<name>
 | Immich      | 2283 | immich.jkrumm.com | Photo management    |
 | UptimeKuma  | 3010 | uptime.jkrumm.com | Service monitoring  |
 | Dufs        | 8098 | public.jkrumm.com | Public file sharing |
-| Image Share | 7720 | images.jkrumm.com | Personal photo library admin (indexer, shares, uploads) |
-| Image Share | 7720 | share.jkrumm.com  | Public share-link gallery (bare `/<slug>` → `/s/<slug>`, same container) |
+| Image Share | 7720 | share.jkrumm.com  | Personal photo library — public share links (bare `/<slug>` → `/s/<slug>`), admin UI under `/admin`, API under `/api` |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 

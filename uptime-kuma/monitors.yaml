@@ -278,8 +278,9 @@ groups:
             interval: 211
             accepted_statuscodes: ['200-299']
 
-      # --- Image Share subgroup (personal photo library — admin API/UI at
-      # images.jkrumm.com, public share links at share.jkrumm.com) ---
+      # --- Image Share subgroup (personal photo library — single public host
+      # share.jkrumm.com: share links at the root, admin UI under /admin, API
+      # under /api) ---
       - name: Image Share
         type: group
         interval: 246
@@ -293,15 +294,8 @@ groups:
 
           - name: Image Share - HTTP
             type: http
-            url: https://images.jkrumm.com/health
-            interval: 216
-            cloudflare_bypass: true
-            accepted_statuscodes: ['200-299']
-
-          - name: Image Share Shares - HTTP
-            type: http
             url: https://share.jkrumm.com/health
-            interval: 219
+            interval: 216
             cloudflare_bypass: true
             accepted_statuscodes: ['200-299']
 

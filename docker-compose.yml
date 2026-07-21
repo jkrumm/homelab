@@ -687,8 +687,9 @@ services:
   # image-share — personal photo library indexer, admin API, and public share
   # links over the existing Bilder/Fuji-RAW tree. Source is a sibling clone
   # (not packages/) — Watchtower can't auto-update a local build, use
-  # `make image-share-deploy`. Admin UI + API at images.jkrumm.com; friendly
-  # share links at share.jkrumm.com (Caddy rewrites bare paths to /s/*).
+  # `make image-share-deploy`. Single public host share.jkrumm.com: friendly
+  # share links at the root (Caddy rewrites bare paths to /s/*), admin UI under
+  # /admin, API under /api.
   image-share:
     build:
       context: /home/jkrumm/image-share
@@ -742,7 +743,7 @@ services:
     labels:
       glance.name: Image Share
       glance.icon: si:unsplash
-      glance.url: https://images.jkrumm.com
+      glance.url: https://share.jkrumm.com/admin
       glance.hide: false
       com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
 

@@ -22,15 +22,21 @@ public.jkrumm.com, http://public.jkrumm.com {
 	reverse_proxy dufs:5000
 }
 
-images.jkrumm.com, http://images.jkrumm.com {
-	reverse_proxy image-share:7720
-}
-
-# Friendly public share links — bare `/<slug>` maps to the app's `/s/<slug>`
-# surface. /health is passed through unrewritten for the container healthcheck
-# and Uptime Kuma monitor.
+# Single public host for image-share — friend share slugs at the root, the admin
+# SPA under /admin, and the API under /api. Bare `/<slug>` maps to the app's
+# `/s/<slug>` surface; every reserved prefix is passed through unrewritten before
+# the catch-all rewrite. /health backs the container healthcheck + Uptime Kuma.
 share.jkrumm.com, http://share.jkrumm.com {
 	handle /health {
+		reverse_proxy image-share:7720
+	}
+	handle /api/* {
+		reverse_proxy image-share:7720
+	}
+	handle /openapi* {
+		reverse_proxy image-share:7720
+	}
+	handle /admin* {
 		reverse_proxy image-share:7720
 	}
 	# Share-page asset URLs (img/file/zip/unlock) are already /s/-prefixed in

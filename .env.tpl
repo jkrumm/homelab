@@ -32,7 +32,7 @@ KARAKEEP_MEILI_MASTER_KEY=op://homelab/karakeep/MEILI_MASTER_KEY
 KARAKEEP_OPENAI_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 KARAKEEP_OPENAI_API_KEY=op://common/anthropic/API_KEY
 
-# --- Image Share (personal photo library — public, images.jkrumm.com + share.jkrumm.com) ---
+# --- Image Share (personal photo library — public, single host share.jkrumm.com) ---
 IMAGE_SHARE_API_SECRET=op://homelab/image-share/API_SECRET
 # B2 coordinates reused from the shared bucket item + the prefix-scoped write key
 # (bucket `jkrumm`, prefix `img/`, write/no-delete — same key the `/img` skill uses).

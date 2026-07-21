@@ -293,8 +293,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Immich      | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management   |
 | UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page        |
 | Dufs        | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
-| Image Share | [images.jkrumm.com](https://images.jkrumm.com) | Personal photo library admin (indexer, shares, uploads) |
-| Image Share (links) | [share.jkrumm.com](https://share.jkrumm.com) | Public share-link gallery (bare `/<slug>` → `/s/<slug>`) |
+| Image Share | [share.jkrumm.com](https://share.jkrumm.com) | Personal photo library — public share links (bare `/<slug>` → `/s/<slug>`), admin UI under `/admin`, API under `/api` |
 
 **Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
 
