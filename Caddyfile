@@ -33,6 +33,11 @@ share.jkrumm.com, http://share.jkrumm.com {
 	handle /health {
 		reverse_proxy image-share:7720
 	}
+	# Share-page asset URLs (img/file/zip/unlock) are already /s/-prefixed in
+	# the rendered HTML — pass them through untouched so they don't become /s/s/*.
+	handle /s/* {
+		reverse_proxy image-share:7720
+	}
 	handle {
 		rewrite * /s{uri}
 		reverse_proxy image-share:7720

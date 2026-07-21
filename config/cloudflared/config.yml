@@ -1,3 +1,11 @@
+# NOTE (2026-07-21): this LOCAL ingress is effectively DEAD CONFIG. The tunnel
+# is remotely managed — cloudflared logs "Updated to new configuration" with a
+# per-hostname ingress pushed from the Cloudflare dashboard/API, which OVERRIDES
+# this file. Adding a public hostname therefore requires BOTH the DNS CNAME and
+# a remote-ingress update (PUT /accounts/{acct}/cfd_tunnel/{tunnel}/configurations
+# with op://common/cloudflare/MANAGE_API_TOKEN — the DNS_API_TOKEN is not
+# authorized for tunnel config). See the /cloudflare skill's HomeLab workflow.
+# The wildcard below only applies if the remote config is ever deleted.
 ingress:
   # Route all jkrumm.com traffic through Caddy — Caddy handles per-service routing
   - hostname: '*.jkrumm.com'
