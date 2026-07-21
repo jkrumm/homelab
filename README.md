@@ -293,6 +293,8 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Immich      | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management   |
 | UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page        |
 | Dufs        | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
+| Image Share | [images.jkrumm.com](https://images.jkrumm.com) | Personal photo library admin (indexer, shares, uploads) |
+| Image Share (links) | [share.jkrumm.com](https://share.jkrumm.com) | Public share-link gallery (bare `/<slug>` → `/s/<slug>`) |
 
 **Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
 
@@ -321,7 +323,7 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Docker Socket Proxy           | Read-only Docker API proxy for monitoring (Glance, Dozzle, Beszel, UptimeKuma)                                       |
 | Docker Socket Proxy (Watchtower) | Dedicated POST/DELETE-enabled proxy for Watchtower on isolated network                                            |
 | Docker Socket Proxy (Claude)  | Read-only Docker proxy bound to Tailscale interface — argo on VPS reads container state from here                    |
-| Watchtower                    | Auto-updates containers daily at 4AM; opted-out stacks (Immich, Caddy, garmin-collector) via `/upgrade-stack`; Slack |
+| Watchtower                    | Auto-updates containers daily at 4AM; opted-out stacks (Immich via `/upgrade-stack`; Caddy; local builds garmin-collector + image-share via their `make *-deploy` targets); Slack |
 | Samba                         | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`)                                                          |
 | Beszel Agent                  | System metrics collector (Tailscale port binding)                                                                    |
 | Immich ML/Postgres/Redis      | Immich supporting services                                                                                           |

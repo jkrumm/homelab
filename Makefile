@@ -17,7 +17,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
+.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +42,11 @@ help: ## Show all targets
 	@echo "    make garmin-relogin      Interactive MFA re-login (writes fresh tokens + restarts)"
 	@echo "    make garmin-relogin-auto Force automated MFA re-login (code fetched from Gmail via argo)"
 	@echo "    make garmin-logs         Follow garmin-collector logs"
+	@echo ""
+	@echo "  Image Share (personal photo library — local build)"
+	@echo "    make image-share-deploy  Full deploy: git pull homelab + image-share, rebuild (no cache) + restart"
+	@echo "    make image-share-restart Restart container only (no rebuild)"
+	@echo "    make image-share-logs    Follow image-share logs"
 	@echo ""
 	@echo "  Infrastructure"
 	@echo "    make caddy-reload        Force-recreate Caddy (picks up Caddyfile changes)"
@@ -113,6 +118,17 @@ garmin-relogin-auto: ## Force the automated MFA re-login (fetches the code from 
 
 garmin-logs: ## Follow garmin-collector logs
 	$(SSH) "docker logs -f --tail=100 garmin-collector"
+
+# ── Image Share (locally-built — source is a sibling clone, not packages/) ──
+
+image-share-deploy: ## Full deploy: git pull homelab + image-share, rebuild (no cache) + restart
+	$(SSH) "$(CD) && git pull && cd ~/image-share && git pull && $(CD) && $(DC) build --no-cache image-share && $(DC) up -d image-share"
+
+image-share-restart: ## Restart image-share container (picks up new env vars, no rebuild)
+	$(SSH) "$(CD) && $(DC) up -d --force-recreate image-share"
+
+image-share-logs: ## Follow image-share logs
+	$(SSH) "docker logs -f --tail=100 image-share"
 
 # ── Infrastructure ───────────────────────────────────────────────────────────
 

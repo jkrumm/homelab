@@ -278,6 +278,33 @@ groups:
             interval: 211
             accepted_statuscodes: ['200-299']
 
+      # --- Image Share subgroup (personal photo library — admin API/UI at
+      # images.jkrumm.com, public share links at share.jkrumm.com) ---
+      - name: Image Share
+        type: group
+        interval: 246
+        monitors:
+          - name: Image Share - Docker
+            type: docker
+            docker_container: image-share
+            interval: 213
+            timeout: 120
+            maxretries: 5
+
+          - name: Image Share - HTTP
+            type: http
+            url: https://images.jkrumm.com/health
+            interval: 216
+            cloudflare_bypass: true
+            accepted_statuscodes: ['200-299']
+
+          - name: Image Share Shares - HTTP
+            type: http
+            url: https://share.jkrumm.com/health
+            interval: 219
+            cloudflare_bypass: true
+            accepted_statuscodes: ['200-299']
+
   # ============================================
   # Local — heartbeats kept alive by a manual/local operation on the Mac, NOT by
   # HomeLab server infrastructure. Grouped separately so a miss here does NOT

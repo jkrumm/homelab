@@ -155,6 +155,7 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/garmin/EMAIL`            | Garmin Connect login email                              |
 | `homelab/garmin/PASSWORD`         | Garmin Connect login password                           |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
+| `homelab/image-share/API_SECRET`  | Bearer secret for image-share's admin `/api/*` surface (also the SPA login token) |
 | `homelab/slack/WEBHOOK_ALERTS`    | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `homelab/slack/WATCHTOWER_URL`    | Shoutrrr-formatted Slack webhook for Watchtower         |
 
@@ -203,6 +204,9 @@ Run `make help` for all available targets.
 | `make garmin-relogin`     | Interactive MFA re-login — runs one-shot container, writes fresh tokens, restarts |
 | `make garmin-relogin-auto`| Force the automated MFA re-login (code fetched from Gmail via argo) + restart |
 | `make garmin-logs`        | Follow garmin-collector logs                             |
+| `make image-share-deploy` | Full image-share deploy (git pull homelab + image-share, rebuild --no-cache + restart) |
+| `make image-share-restart`| Restart image-share (picks up new env vars, no rebuild)  |
+| `make image-share-logs`   | Follow image-share logs                                  |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync`            | Apply all Uptime Kuma monitors (public + private)        |
 | `make uk-dry-run`         | Preview Uptime Kuma monitor changes                      |
@@ -215,7 +219,7 @@ Run `make help` for all available targets.
 4. Docker Compose `environment:` maps these into container env vars
 5. Containers read the env at runtime (e.g. garmin-collector reads `GARMIN_COLLECTOR_TOKEN`, `GARMIN_EMAIL`, `GARMIN_PASSWORD`)
 
-**garmin-collector is the only locally-built service** (Watchtower can't auto-update it). After code changes use `make garmin-deploy` or `make garmin-rebuild` — both use `--no-cache`.
+**garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
 
 **Automated MFA re-login.** Garmin invalidates the refresh token every ~1-2 weeks; re-auth then needs an emailed 6-digit MFA code. `scripts/garmin-auto-relogin.sh` automates it end-to-end: `relogin_auto.py` (a `docker compose run` sibling) triggers a fresh login and fetches the code from the "Ihr Sicherheitscode" email via argo's Gmail endpoint (`ARGO_API_TOKEN` = `op://common/api/SECRET`), stashing/restoring the current token so a failed run never leaves the collector token-less. The wrapper is **hybrid**: proactive (refresh every 4d, before the token can expire → container stays healthy, no UptimeKuma/watchdog noise) + reactive (if already unhealthy, reauth within ~2h, but ≥6h between attempts so a Garmin 429 can't storm). A homelab crontab entry runs it every 2h; `make garmin-relogin-auto` forces a run. The UptimeKuma "Garmin Collector - Push" interval is widened to 12h so this auto-recovery heals silently before paging. `make garmin-relogin` (interactive, MFA from phone/email) remains the manual fallback.
 
@@ -270,6 +274,8 @@ docker events --since 1h --filter container=<name>
 | Immich      | 2283 | immich.jkrumm.com | Photo management    |
 | UptimeKuma  | 3010 | uptime.jkrumm.com | Service monitoring  |
 | Dufs        | 8098 | public.jkrumm.com | Public file sharing |
+| Image Share | 7720 | images.jkrumm.com | Personal photo library admin (indexer, shares, uploads) |
+| Image Share | 7720 | share.jkrumm.com  | Public share-link gallery (bare `/<slug>` → `/s/<slug>`, same container) |
 
 ### Private Services (Tailscale → Caddy HTTPS :443 → container)
 
@@ -357,17 +363,23 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 ├── ssd/
 │   ├── SSD/
 │   │   ├── Bilder/       # Photos (incl. Immich subfolder)
+│   │   │   ├── Uploads/    # image-share ingest area (UPLOADS_DIR)
+│   │   │   └── B2-Mirror/  # image-share reverse-backup of B2 img/ (B2_MIRROR_DIR)
 │   │   ├── Bücher/       # Calibre library
 │   │   ├── Dokumente/    # Documents — includes Obsidian/ vault sync target
 │   │   ├── Videos/       # Personal videos
 │   │   ├── Public/       # Dufs public files
-│   │   └── Dev/          # Static dev files
+│   │   └── Dev/
+│   │       └── image-share/  # nightly sqlite VACUUM INTO snapshots (SNAPSHOT_DIR, restic-covered)
 │   ├── couchdb/          # CouchDB data (Obsidian LiveSync)
 │   ├── garmin-tokens/    # Garmin Connect OAuth tokens
-│   └── uptime-kuma/      # UptimeKuma data
+│   ├── uptime-kuma/      # UptimeKuma data
+│   └── image-share/      # sqlite DB + renditions cache (DATA_DIR, rebuildable — not backed up)
 
 /mnt/hdd/
-├── fuji/                 # Fuji RAW + Videos archive
+├── fuji/
+│   ├── RAWs/             # Fuji RAW archive (image-share RAWS_ROOT, read-only)
+│   └── Videos/           # Fuji video archive (not restic-covered, not indexed)
 ├── restic/cache/         # Restic local cache (~200 MB metadata)
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
@@ -834,7 +846,7 @@ When making changes that affect infrastructure or script behavior:
 **Update tiers:**
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `garmin-collector` (local build), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Opted-out** (other): `garmin-collector`, `image-share` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else (incl. `caddy` — was opted-out historically, now Watchtower-managed)
 
 | Command                            | Purpose                    |

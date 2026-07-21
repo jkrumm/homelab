@@ -22,6 +22,23 @@ public.jkrumm.com, http://public.jkrumm.com {
 	reverse_proxy dufs:5000
 }
 
+images.jkrumm.com, http://images.jkrumm.com {
+	reverse_proxy image-share:7720
+}
+
+# Friendly public share links — bare `/<slug>` maps to the app's `/s/<slug>`
+# surface. /health is passed through unrewritten for the container healthcheck
+# and Uptime Kuma monitor.
+share.jkrumm.com, http://share.jkrumm.com {
+	handle /health {
+		reverse_proxy image-share:7720
+	}
+	handle {
+		rewrite * /s{uri}
+		reverse_proxy image-share:7720
+	}
+}
+
 # === PRIVATE SERVICES (Tailscale only, HTTPS enforced) ===
 # HTTP requests are permanently redirected to HTTPS
 

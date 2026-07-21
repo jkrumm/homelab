@@ -32,6 +32,16 @@ KARAKEEP_MEILI_MASTER_KEY=op://homelab/karakeep/MEILI_MASTER_KEY
 KARAKEEP_OPENAI_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 KARAKEEP_OPENAI_API_KEY=op://common/anthropic/API_KEY
 
+# --- Image Share (personal photo library — public, images.jkrumm.com + share.jkrumm.com) ---
+IMAGE_SHARE_API_SECRET=op://homelab/image-share/API_SECRET
+# B2 coordinates reused from the shared bucket item + the prefix-scoped write key
+# (bucket `jkrumm`, prefix `img/`, write/no-delete — same key the `/img` skill uses).
+IMAGE_SHARE_B2_ENDPOINT=op://common/backblaze-s3/ENDPOINT
+IMAGE_SHARE_B2_REGION=op://common/backblaze-s3/REGION
+IMAGE_SHARE_B2_BUCKET=op://common/backblaze-s3/BUCKET
+IMAGE_SHARE_B2_KEY_ID=op://common/b2-images-write/B2_KEY_ID
+IMAGE_SHARE_B2_APP_KEY=op://common/b2-images-write/B2_APP_KEY
+
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
 RESTIC_PASSWORD=op://homelab/restic/PASSWORD
