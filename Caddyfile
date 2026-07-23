@@ -44,6 +44,13 @@ share.jkrumm.com, http://share.jkrumm.com {
 	handle /s/* {
 		reverse_proxy image-share:7720
 	}
+	# The bare root is the visitor landing page (remembered-shares switcher) —
+	# proxy it straight through. `handle /` matches ONLY the exact path `/`
+	# (Caddy path matchers are exact unless suffixed with `*`), so it is tried
+	# before the catch-all and every other `/<slug>` still gets rewritten below.
+	handle / {
+		reverse_proxy image-share:7720
+	}
 	handle {
 		rewrite * /s{uri}
 		reverse_proxy image-share:7720
