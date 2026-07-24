@@ -34,13 +34,14 @@ KARAKEEP_OPENAI_API_KEY=op://common/anthropic/API_KEY
 
 # --- Image Share (personal photo library — public, single host share.jkrumm.com) ---
 IMAGE_SHARE_API_SECRET=op://homelab/image-share/API_SECRET
-# B2 coordinates reused from the shared bucket item + the prefix-scoped write key
-# (bucket `jkrumm`, prefix `img/`, write/no-delete — same key the `/img` skill uses).
+# B2 coordinates reused from the shared bucket item + the service's own scoped key
+# (`image-share-b2`: bucket `jkrumm`, prefix `img/`, list/read/write/DELETE — the sole
+# delete-capable key wired into automation; see vps/docs/image-cdn.md key inventory).
 IMAGE_SHARE_B2_ENDPOINT=op://common/backblaze-s3/ENDPOINT
 IMAGE_SHARE_B2_REGION=op://common/backblaze-s3/REGION
 IMAGE_SHARE_B2_BUCKET=op://common/backblaze-s3/BUCKET
-IMAGE_SHARE_B2_KEY_ID=op://common/b2-images-write/B2_KEY_ID
-IMAGE_SHARE_B2_APP_KEY=op://common/b2-images-write/B2_APP_KEY
+IMAGE_SHARE_B2_KEY_ID=op://homelab/image-share/B2_KEY_ID
+IMAGE_SHARE_B2_APP_KEY=op://homelab/image-share/B2_APP_KEY
 
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
