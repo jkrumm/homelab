@@ -339,6 +339,10 @@ groups:
         type: push
         interval: 691200 # 8 days — weekly + buffer
         retry_interval: 691200
+        # 0, or time-to-DOWN is interval + 3 × retry_interval = 32 days. The
+        # LaunchAgent behind this monitor was dead for 11 days in July 2026 and
+        # the monitor never went red — the 8 days above is the whole intent.
+        maxretries: 0
 
       # Remote-dev readiness on the Mac mini — one composite heartbeat covering
       # herdr (the workspace server agents live in), sshd, tailscaled and
