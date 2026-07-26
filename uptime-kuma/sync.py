@@ -307,7 +307,9 @@ def export_monitors(api: UptimeKumaApi, output_path: str):
             result["interval"] = m["interval"]
         if m.get("timeout"):
             result["timeout"] = m["timeout"]
-        if m.get("maxretries"):
+        # 0 is meaningful (alert on the first miss) and falsy — test for None,
+        # or an exported monitor round-trips back to the default of 3.
+        if m.get("maxretries") is not None:
             result["maxretries"] = m["maxretries"]
         if m.get("resendInterval"):
             result["resend_interval"] = m["resendInterval"]
