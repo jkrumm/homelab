@@ -340,6 +340,22 @@ groups:
         interval: 691200 # 8 days — weekly + buffer
         retry_interval: 691200
 
+      # Remote-dev readiness on the Mac mini — one composite heartbeat covering
+      # herdr (the workspace server agents live in), sshd, tailscaled and
+      # mosh-server. Pushed by dotfiles/scripts/devhost-health-check.sh via the
+      # com.jkrumm.devhost-health LaunchAgent every 5 min (`make
+      # devhost-health-setup`). The failing component is named in the push msg.
+      #
+      # Push, not probe: the ACL grants tag:homelab → tag:vps but NOT
+      # tag:homelab → tag:mac, so Kuma cannot reach the mini at all. Opening an
+      # inbound grant purely for monitoring would be new attack surface for a
+      # check the mini can just as well report on itself.
+      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 can't create push monitors on UK 2.x)
+      - name: MacMini Dev Host - Push
+        type: push
+        interval: 600 # 10 min — must exceed the agent's 300s cadence so one skipped run doesn't page
+        retry_interval: 600
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
