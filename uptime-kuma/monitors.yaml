@@ -351,10 +351,20 @@ groups:
       # inbound grant purely for monitoring would be new attack surface for a
       # check the mini can just as well report on itself.
       # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 can't create push monitors on UK 2.x)
+      #
+      # maxretries: 0 is load-bearing. A push monitor runs the normal failure
+      # path, so time-to-DOWN is `interval + maxretries × retry_interval`. With
+      # the file-level default of 3 this would alert after 40 min, not the 10
+      # the interval implies. NOTE the same arithmetic applies to every other
+      # push monitor here — none override maxretries, so each alerts 4× later
+      # than its comment claims (the two 691200s ones are effectively 32-day).
+      # Left alone deliberately: changing them shifts live alerting behaviour
+      # and is a separate decision.
       - name: MacMini Dev Host - Push
         type: push
         interval: 600 # 10 min — must exceed the agent's 300s cadence so one skipped run doesn't page
         retry_interval: 600
+        maxretries: 0
 
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
