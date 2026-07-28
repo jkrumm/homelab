@@ -129,7 +129,7 @@ groups:
             maxretries: 5
 
           # Push monitors
-          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
           - name: HomeLab Watchdog - Push
             type: push
             interval: 700 # Cron runs every 10 min (600s) + buffer for execution
@@ -314,7 +314,7 @@ groups:
       # token proactively (every 4d) and reactively (within ~2h of an early death)
       # via Gmail-fetched MFA. The 12h interval gives that auto-recovery room to
       # heal silently before paging; a genuinely-stuck recovery (>12h) still alerts.
-      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+      # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
       # Push URL → 1Password common/garmin-collector/PUSH_URL (in `common/` so the
       # VPS service account can read it; argo resolves it as GARMIN_HEARTBEAT_URL).
       - name: Garmin Collector - Push
@@ -325,7 +325,7 @@ groups:
         resend_interval: 1 # re-alert Slack every down beat (~12h) once recovery is genuinely stuck
 
       # Weekly manual 1Password export backup, run locally from the Mac.
-      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+      # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
       - name: 1Password Backup - Push
         type: push
         interval: 691200 # 8 days — weekly manual + buffer
@@ -334,7 +334,7 @@ groups:
       # Weekly secrets-cache seed-freshness heartbeat, pushed from the Mac mini
       # (dotfiles/scripts/secrets-freshness-check.sh, weekly LaunchAgent). A
       # miss/down means "the mini's secret cache is stale — run make secrets-seed".
-      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 can't create push monitors on UK 2.x)
+      # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
       - name: MacMini Secret Seed - Push
         type: push
         interval: 691200 # 8 days — weekly + buffer
@@ -354,7 +354,7 @@ groups:
       # tag:homelab → tag:mac, so Kuma cannot reach the mini at all. Opening an
       # inbound grant purely for monitoring would be new attack surface for a
       # check the mini can just as well report on itself.
-      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 can't create push monitors on UK 2.x)
+      # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
       #
       # maxretries: 0 is load-bearing. A push monitor runs the normal failure
       # path, so time-to-DOWN is `interval + maxretries × retry_interval`. With
@@ -389,7 +389,8 @@ groups:
       # hardening lives in a .env that launchd does not load on its own, so a
       # mis-started bridge passes every liveness probe with its DNS-rebinding
       # guard silently gone — this monitor is the only thing that sees that.
-      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 can't create push monitors on UK 2.x)
+      # Created BY uk-sync (id=205, 2026-07-28) — the first push monitor here that
+      # was not made by hand, and the one that disproved the note repeated above.
       - name: MacMini Collie - Push
         type: push
         interval: 600 # 10 min — same 300s agent cadence, one skipped run must not page
@@ -477,7 +478,7 @@ groups:
         type: group
         interval: 205
         monitors:
-          # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 doesn't support UK 2.x push creation)
+          # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
           # After creating: copy push URL → 1Password vps/config/UPTIME_KUMA_PUSH_URL
           - name: Postgres - Backup - Push
             type: push

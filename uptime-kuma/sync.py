@@ -98,8 +98,13 @@ def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict,
     # 'active' parameter not supported for push monitors in uptime-kuma-api
     if monitor_type != MonitorType.PUSH:
         params["active"] = monitor.get("active", True)
-    # Note: Push monitors must be created manually in UI due to library/server version mismatch
-    # (uptime-kuma-api 1.2.1 doesn't support Uptime Kuma 2.x push monitor creation)
+    # Push monitors CAN be created from here — proven 2026-07-28, when this
+    # created "MacMini Collie - Push" (id=205) against uptime-kuma:2 with
+    # uptime-kuma-api 1.2.1, the exact pairing the old comment said could not.
+    # That claim sat here and in seven monitors.yaml comments long enough to be
+    # believed and reasoned from, so: only `active` is genuinely unsupported for
+    # push (handled above). The push token is retrievable too —
+    # api.get_monitor(id)["pushToken"] — so create-and-wire needs no browser.
 
     # URL
     if "url" in monitor:
