@@ -370,6 +370,32 @@ groups:
         retry_interval: 600
         maxretries: 0
 
+      # Collie — the phone control surface for the herd on the Mac mini
+      # (dotfiles: `make collie-setup`). Its OWN monitor rather than a sixth
+      # component of the composite above, because it does not fail with the
+      # other five: it is opt-in per machine and can be absent, down or
+      # mis-hardened while herdr/sshd/tailscaled/mosh are all perfectly fine.
+      # Folding it in would mark the dev host DOWN and implicate four healthy
+      # components — the same reasoning that keeps the composite composite,
+      # pointed the other way.
+      #
+      # Driven by the SAME agent and script as the monitor above
+      # (devhost-health-check.sh, com.jkrumm.devhost-health, every 300s) —
+      # one scheduler, two push targets. A second LaunchAgent would be
+      # duplication; only the URL differs.
+      #
+      # What it asserts is deliberately more than liveness: the bridge answers
+      # 200 on loopback AND a spoofed Host header still returns 403. Collie's
+      # hardening lives in a .env that launchd does not load on its own, so a
+      # mis-started bridge passes every liveness probe with its DNS-rebinding
+      # guard silently gone — this monitor is the only thing that sees that.
+      # NOTE: Created manually in UI (uptime-kuma-api 1.2.1 can't create push monitors on UK 2.x)
+      - name: MacMini Collie - Push
+        type: push
+        interval: 600 # 10 min — same 300s agent cadence, one skipped run must not page
+        retry_interval: 600
+        maxretries: 0
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
