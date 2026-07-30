@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM python:3.13-alpine
 
 WORKDIR /app
@@ -6,7 +7,12 @@ RUN apk add --no-cache curl gcc musl-dev libffi-dev openssl-dev \
   && addgroup -S app && adduser -S app -G app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Cache mount instead of --no-cache-dir: pip's download + built-wheel cache lives
+# outside the image (no size penalty) and survives `docker compose build --no-cache`,
+# which is how this service is always rebuilt — so the C extensions above are not
+# recompiled from source on every deploy.
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install -r requirements.txt
 
 COPY server.py relogin.py relogin_auto.py ./
 

@@ -1,0 +1,24 @@
+# Build context is THIS directory, not the repo root
+# (docker-compose.yml: `context: packages/garmin-collector`), so the repo-root
+# .dockerignore never applies here and this file is the only thing bounding the
+# upload.
+#
+# The Dockerfile COPYs exactly: requirements.txt, server.py, relogin.py,
+# relogin_auto.py. Nothing below is referenced by either COPY.
+
+# Compiled bytecode — host-generated, and macOS/linux mismatched anyway.
+__pycache__
+**/__pycache__
+*.py[cod]
+
+# Local virtualenvs, never used in the image (pip installs into the image).
+.venv
+venv
+
+# Secrets. Garmin credentials arrive at runtime via env_file, never at build.
+.env
+.env.*
+
+# Noise
+.DS_Store
+*.log

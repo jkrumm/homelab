@@ -368,6 +368,14 @@ services:
       file: config/hwaccel.transcoding.yml
       service: quicksync
     volumes:
+      # DO NOT change this to :/data to "match upstream" (upstream moved to
+      # ${UPLOAD_LOCATION}:/data). The DB stores absolute asset paths under
+      # /usr/src/app/upload. detectMediaLocation() picks between /data (always
+      # present, the image declares VOLUME /data) and /usr/src/app/upload; today
+      # both exist and it tie-breaks to ours. Drop this mount and it resolves to
+      # /data, onBootstrap sees a changed location, its guard passes, and it runs
+      # migrateFilePaths() — a bulk rewrite of every asset path row.
+      # See server/src/services/storage.service.ts and docs/src/pages/errors.md.
       - /home/jkrumm/ssd/SSD/Bilder/immich/upload:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
       # External library - read-only mount for Fuji photos
@@ -378,6 +386,9 @@ services:
       - cloudflared
       - immich
     environment:
+      # Inert here: upstream treats UPLOAD_LOCATION as a *host* path, and the
+      # server reads IMMICH_MEDIA_LOCATION. Kept anyway — deleting it buys
+      # nothing and costs a server recreate.
       - UPLOAD_LOCATION=/usr/src/app/upload
       - DB_USERNAME=postgres
       - DB_PASSWORD=${POSTGRES_DB_PASSWORD}
@@ -385,6 +396,15 @@ services:
       - DB_HOSTNAME=immich_postgres
       - REDIS_HOSTNAME=immich_redis
       - TZ=Europe/Berlin
+    # Bare list form, matching upstream v3.0.3 — not drift. It only means
+    # "started", so this races postgres on a cold `compose up`; immich-server
+    # retries its DB connection, which is upstream's own posture. Upgrading to
+    # `condition: service_healthy` on both is a real improvement *over* upstream
+    # (both dependencies do have working healthchecks — see immich_postgres
+    # below), but it recreates immich_server and makes it fail closed if postgres
+    # ever reports a checksum failure. Note it would not help after a host
+    # reboot: the daemon's restart policy starts containers without re-evaluating
+    # depends_on conditions.
     depends_on:
       - immich_redis
       - immich_postgres
@@ -434,6 +454,18 @@ services:
       com.centurylinklabs.watchtower.enable: 'false' # digest-pinned, managed by /upgrade-stack immich
 
   immich_postgres:
+    # NOTE: no `healthcheck:` key here on purpose — this service IS health-probed.
+    # The image ships its own: CMD-SHELL /usr/local/bin/healthcheck.sh
+    # (interval 300s, start_period 300s, start_interval 5s), and compose inherits
+    # an image HEALTHCHECK unless you set `disable: true`. That script runs
+    # pg_isready AND asserts SUM(checksum_failures)=0 — the counterpart to
+    # POSTGRES_INITDB_ARGS: '--data-checksums' below. A hand-rolled `pg_isready`
+    # would override it and silently discard corruption detection. Do not add one.
+    #
+    # Avoid editing anything inside this block at all: any change here (even a
+    # label) alters the service config hash and recreates the one container whose
+    # state you least want recreated. That also rules out adding upstream's
+    # cosmetic `healthcheck: {disable: false}` — a pure no-op at recreate cost.
     container_name: immich_postgres
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
     restart: unless-stopped
