@@ -452,6 +452,21 @@ groups:
             interval: 131
             cloudflare_bypass: true
 
+          # /health only proves the process is up. /ready also pings the Docker
+          # daemon and returns 503 when it is unreachable — the fault that hid
+          # for 16h behind a 200 from /health while every deploy failed. This is
+          # that missing alert; polling it also drives RollHook's own stderr
+          # logging of the outage.
+          # Keyword, not plain http: the dashboard SPA answers unknown routes
+          # with 200 + HTML, so a plain http monitor would sit green if /ready
+          # ever vanished (e.g. a rollback to <1.19.0).
+          - name: RollHook - Ready - HTTP
+            type: keyword
+            url: https://rollhook.jkrumm.com/ready
+            keyword: '"docker":"ok"'
+            interval: 134
+            cloudflare_bypass: true
+
       # --- Monitoring subgroup ---
       - name: Monitoring
         type: group
