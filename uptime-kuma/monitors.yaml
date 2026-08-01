@@ -437,6 +437,36 @@ groups:
         retry_interval: 240
         maxretries: 0
 
+      # A SECOND push monitor, and the duplication is the point.
+      #
+      # The one above is silence-means-down: a home-line outage severs the push
+      # and the gap IS the alert. That signal cannot also carry "the watchdog
+      # latched itself out of service" or "its ledger is unreadable", because
+      # those happen on a HEALTHY line — where the monitor above is green, and
+      # correctly so. Folding the watchdog's state into its message would mean
+      # either lying about the line to raise the alarm, or staying silent about
+      # a watchdog that has stopped being able to help.
+      #
+      # So this one reports the watchdog itself. Down means it has taken itself
+      # out of service (two actions without a clean window) or run out of ladder
+      # and wants a human. Silence means the agent is gone. A blocked rung and
+      # every shadow-mode evaluation are both UP — otherwise the multi-week
+      # shadow run this thing ships in would page continuously and be turned off.
+      #
+      # 600 with 2 retries → ~30 min to DOWN, deliberately slacker than the line
+      # monitor. Nothing here is time-critical: a latched watchdog is a state
+      # that persists until a human clears it, and paging fast about it would
+      # only compete with the line alert during the outage that caused it.
+      #
+      # Push URL → 1Password common/linewatch/WATCHDOG_PUSH_URL, and on the mini
+      # at ~/.config/uptime-kuma/linewatch-watchdog-push-url (chmod 600). Same
+      # plain-file rule: a monitor must not depend on the thing it monitors.
+      - name: Home Line - Watchdog
+        type: push
+        interval: 600
+        retry_interval: 600
+        maxretries: 2
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
