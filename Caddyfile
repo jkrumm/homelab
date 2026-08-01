@@ -81,14 +81,6 @@ http://files.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
-# CouchDB (private, Tailscale only — Obsidian LiveSync)
-couchdb.jkrumm.com {
-	reverse_proxy couchdb:5984
-}
-http://couchdb.jkrumm.com {
-	redir https://{host}{uri} permanent
-}
-
 # Garmin Collector (private, Tailscale only — stateless HTTP query layer
 # over Garmin Connect for the argo API on VPS). Bearer-authed at the app level.
 garmin.jkrumm.com {

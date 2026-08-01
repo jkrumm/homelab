@@ -37,7 +37,7 @@ If you add a new monitor type that isn't in the table, add a row here in the sam
 Top-level groups (`groups[].name`) and subgroups (`type: group`) **never** carry a type suffix. They name a category, not a check:
 
 - `HomeLab`, `Local`, `VPS`, `FreePlanningPoker`, `Hermes Agent`, `Websites` — top-level
-- `Networking`, `Monitoring`, `Infra`, `Services`, `Files`, `Media`, `Immich`, `CouchDB`, `Infrastructure` — subgroups
+- `Networking`, `Monitoring`, `Infra`, `Services`, `Files`, `Media`, `Immich`, `Infrastructure` — subgroups
 
 `Local` holds push heartbeats kept alive by a manual/local operation (not HomeLab
 server health), so a miss there doesn't make HomeLab look offline.

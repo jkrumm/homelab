@@ -304,7 +304,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Beszel           | [beszel.jkrumm.com](https://beszel.jkrumm.com)   | System metrics                                                |
 | Dozzle           | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)   | Container logs                                                |
 | FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
-| CouchDB          | [couchdb.jkrumm.com](https://couchdb.jkrumm.com) | Obsidian LiveSync database                                    |
 | Garmin Collector | [garmin.jkrumm.com](https://garmin.jkrumm.com)   | Stateless Garmin Connect HTTP layer (called by argo from VPS) |
 
 **Route:** Tailscale device → DNS A record → HomeLab TS IP (<tailscale-ip-homelab>) → `https://caddy:443` → container
@@ -326,7 +325,6 @@ Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
 | Samba                         | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`)                                                          |
 | Beszel Agent                  | System metrics collector (Tailscale port binding)                                                                    |
 | Immich ML/Postgres/Redis      | Immich supporting services                                                                                           |
-| CouchDB                       | Obsidian LiveSync database                                                                                           |
 | Restic Backup                 | Daily 03:30 cron — pushes /sources/* to Backblaze B2 (append-only key)                                               |
 | Homelab/VPN Watchdog Logs     | Sidecars that surface watchdog log files to Dozzle                                                                   |
 
@@ -481,7 +479,6 @@ Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy se
 | Beszel           | Private (Tailscale) | beszel.jkrumm.com  |
 | Dozzle           | Private (Tailscale) | dozzle.jkrumm.com  |
 | FileBrowser      | Private (Tailscale) | files.jkrumm.com   |
-| CouchDB          | Private (Tailscale) | couchdb.jkrumm.com |
 | Garmin Collector | Private (Tailscale) | garmin.jkrumm.com  |
 
 ### Tailscale IPs
@@ -515,8 +512,6 @@ The following secrets are required to run the HomeLab:
 | `DB_ROOT_PW`            | MySQL root password           | `your-secure-password`          |
 | `POSTGRES_DB_PASSWORD`  | Immich Postgres password      | `your-secure-postgres-password` |
 | `DUFS_PASSWORD`         | Dufs public file server auth  | `your-secure-dufs-password`     |
-| `COUCHDB_PASSWORD`      | CouchDB admin password        | `your-secure-couchdb-password`  |
-| `OBSIDIAN_GUI_PASSWORD` | Obsidian KasmVNC GUI password | `your-secure-obsidian-password` |
 
 ## Setup Guide
 

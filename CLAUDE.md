@@ -151,7 +151,6 @@ ssh -t homelab "docker logs -f <service>"
 | `Private/Backblaze B2/MASTER_*`   | B2 master key — manual use only, `make restic-prune`/`init` from Mac |
 | `homelab/dufs/PASSWORD`           | Public file server auth                                 |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
-| `homelab/couchdb/PASSWORD`        | CouchDB admin password                                  |
 | `homelab/garmin/EMAIL`            | Garmin Connect login email                              |
 | `homelab/garmin/PASSWORD`         | Garmin Connect login password                           |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
@@ -283,7 +282,6 @@ docker events --since 1h --filter container=<name>
 | Beszel           | 8090 | beszel.jkrumm.com  | System metrics                                              |
 | Dozzle           | 8081 | dozzle.jkrumm.com  | Container logs                                              |
 | FileBrowser      | 80   | files.jkrumm.com   | File management                                             |
-| CouchDB          | 5984 | couchdb.jkrumm.com | CouchDB document database (Obsidian LiveSync)               |
 | Garmin Collector | 8080 | garmin.jkrumm.com  | Garmin Connect HTTP query layer (called by argo on the VPS) |
 | Karakeep         | 3000 | karakeep.jkrumm.com | Read-later / bookmark everything-bucket (AI auto-tagging via IU endpoint) |
 
@@ -303,7 +301,6 @@ docker events --since 1h --filter container=<name>
 | Beszel-Agent                  | System metrics collector                                                                               |
 | Immich ML                     | Photo AI processing                                                                                    |
 | Immich Postgres/Redis         | Immich databases                                                                                       |
-| CouchDB                       | Document DB (Obsidian LiveSync)                                                                        |
 | Restic Backup                 | Daily 03:30 cron — pushes /sources/* to Backblaze B2 (append-only key)                                 |
 | Garmin Collector              | FastAPI sidecar — exposes /daily-metrics + /activities to argo on the VPS via Tailscale                |
 | Watchdog Log Sidecars         | dozzle-watchdog-logs / homelab-watchdog-logs — surface watchdog log files to Dozzle                    |
@@ -370,7 +367,6 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 │   │   ├── Public/       # Dufs public files
 │   │   └── Dev/
 │   │       └── image-share/  # nightly sqlite VACUUM INTO snapshots (SNAPSHOT_DIR, restic-covered)
-│   ├── couchdb/          # CouchDB data (Obsidian LiveSync)
 │   ├── garmin-tokens/    # Garmin Connect OAuth tokens
 │   ├── uptime-kuma/      # UptimeKuma data
 │   └── image-share/      # sqlite DB + renditions cache (DATA_DIR, rebuildable — not backed up)
@@ -421,7 +417,7 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
 | `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable) |
 
-**Skipped intentionally:** Immich raw Postgres data dir (`Bilder/immich/postgres` — excluded; a filesystem copy of a live PGDATA is not restorable, see "Immich database" below), CouchDB (Obsidian backed up directly), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
+**Skipped intentionally:** Immich raw Postgres data dir (`Bilder/immich/postgres` — excluded; a filesystem copy of a live PGDATA is not restorable, see "Immich database" below), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
 
 ### Immich database — how it's actually backed up
 

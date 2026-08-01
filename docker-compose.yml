@@ -523,33 +523,6 @@ services:
       glance.url: https://public.jkrumm.com
       glance.hide: false
 
-  couchdb:
-    image: couchdb:3
-    container_name: couchdb
-    restart: unless-stopped
-    environment:
-      - COUCHDB_USER=jkrumm
-      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
-    volumes:
-      - /home/jkrumm/ssd/couchdb/data:/opt/couchdb/data
-      - ./config/couchdb/local.ini:/opt/couchdb/etc/local.d/local.ini
-    networks:
-      - cloudflared
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:5984/_up']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    labels:
-      glance.name: CouchDB
-      glance.icon: si:couchbase
-      glance.url: https://couchdb.jkrumm.com
-      glance.hide: false
-
   # garmin-collector — stateless HTTP query layer over Garmin Connect.
   # Replaces garmin-sync's role as the Garmin source of truth: holds OAuth tokens,
   # serves /daily-metrics + /activities to argo API on VPS over Tailscale.
