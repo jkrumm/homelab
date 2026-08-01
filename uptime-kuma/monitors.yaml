@@ -397,6 +397,46 @@ groups:
         retry_interval: 600
         maxretries: 0
 
+      # The home internet line, as measured by linewatch on the Mac mini
+      # (~/SourceRoot/linewatch, collector/heartbeat.ts under the
+      # com.jkrumm.linewatch-heartbeat LaunchAgent, every 60s).
+      #
+      # This is the one monitor here that cannot be a probe even in principle.
+      # The homelab sits on a different WAN, so Kuma is blind to this line — and
+      # that inversion is what makes the monitor work rather than a compromise
+      # it settles for: a home-line outage severs the push, Kuma sees the missed
+      # heartbeat, and the notification leaves the homelab over a WAN the outage
+      # does not touch. The push failing IS the signal.
+      #
+      # Two failure classes, kept distinguishable inside one monitor rather than
+      # split across two that would both fire on the commonest cause:
+      #   - silence          → the line (or the mini) is gone
+      #   - an explicit DOWN → linewatch stopped measuring while the line works:
+      #                        a dead collector, an unreachable API, or the mini
+      #                        failed over to Wi-Fi and is no longer measuring
+      #                        THIS line at all. The push msg says which.
+      # The second class is the one worth having. `GET /api/status` reports
+      # `up: true` whenever no cycle is being ingested — the outage state machine
+      # has nothing to open a row from — so a collector that died at 02:00 reads
+      # as a perfectly healthy line. linewatch's heartbeat-verdict.ts checks
+      # sample freshness for exactly that reason, and its test suite asserts it.
+      #
+      # interval 240 + maxretries 0 → time-to-DOWN is 4 min, four heartbeats of
+      # margin. Not a round number: the longest self-recovery in linewatch's
+      # record is 90s (outage id 1 — 3 cycles, IPv4 back 14–16s after showtime
+      # with no intervention), and 240s is 2.7× that, the same threshold the
+      # watchdog spec derives from the same measurement. Shorter pages on blips
+      # the line fixes itself.
+      #
+      # Push URL → 1Password common/linewatch/PUSH_URL, and on the mini at
+      # ~/.config/uptime-kuma/linewatch-push-url (chmod 600). A plain file, not
+      # the secrets cache: a monitor must not depend on the thing it monitors.
+      - name: Home Line - Push
+        type: push
+        interval: 240
+        retry_interval: 240
+        maxretries: 0
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
