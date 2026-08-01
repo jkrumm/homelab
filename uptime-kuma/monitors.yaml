@@ -226,24 +226,6 @@ groups:
             headers:
               Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
 
-      # --- CouchDB subgroup ---
-      - name: CouchDB
-        type: group
-        interval: 245
-        monitors:
-          - name: CouchDB - Docker
-            type: docker
-            docker_container: couchdb
-            interval: 195
-            timeout: 120
-            maxretries: 5
-
-          - name: CouchDB - HTTP
-            type: http
-            url: http://couchdb:5984/_up
-            interval: 200
-            accepted_statuscodes: ['200-299']
-
       # --- Karakeep subgroup (read-later; web + chrome crawler + meili search) ---
       - name: Karakeep
         type: group
@@ -271,7 +253,7 @@ groups:
             maxretries: 5
 
           # Reachable over the cloudflared bridge that UK shares with Karakeep — no
-          # Cloudflare/Tailscale hop, like CouchDB. Health endpoint is unauthenticated.
+          # Cloudflare/Tailscale hop, like Dozzle. Health endpoint is unauthenticated.
           - name: Karakeep - HTTP
             type: http
             url: http://karakeep:3000/api/health
@@ -396,6 +378,48 @@ groups:
         interval: 600 # 10 min — same 300s agent cadence, one skipped run must not page
         retry_interval: 600
         maxretries: 0
+
+      # The brain vault's continuous sync (dotfiles/brain/brain-sync.sh under
+      # com.jkrumm.brain-sync, every 300s on the mini). It pulls, pushes when
+      # ahead, and never commits — the mini is the vault's source of truth and
+      # the MacBook is a writing mirror; GitHub is the only thing between them.
+      #
+      # ONLY the mini heartbeats this. The MacBook runs the same agent but gets
+      # no monitor deliberately: it is a laptop, so a lid-closed night is a
+      # normal state, and a monitor for it would page on nothing. That also
+      # rules out one shared monitor for both machines — a healthy mini would
+      # mask a MacBook that stopped reaching GitHub entirely.
+      #
+      # What a DOWN here means is narrow and useful: the mini stopped
+      # reconciling. Not that the vault is lost (git holds it) and not that the
+      # MacBook is broken (invisible from here) — just that edits are no longer
+      # crossing, and the two checkouts are drifting.
+      #
+      # Push URL on the mini at ~/.config/uptime-kuma/brain-sync-push-url
+      # (chmod 600). A plain file, same convention as the Home Line monitor
+      # below — the agent reads it, and its absence is a silent no-op, not an
+      # error.
+      - name: Brain Sync - Push
+        type: push
+        interval: 600 # 10 min — same 300s agent cadence, one skipped run must not page
+        retry_interval: 600
+        maxretries: 0 # see the arithmetic above — the default 3 would alert at 40 min, not 10
+
+      # The nightly leftover-dirt sweep (dotfiles/brain/brain-backup.sh under
+      # com.jkrumm.brain-backup, 03:30 on the mini). Separate from the monitor
+      # above because it fails independently: brain-sync can be reconciling
+      # perfectly while the sweep silently stops committing what direct
+      # Obsidian edits left behind, and that loss is invisible until someone
+      # looks at `git status` days later.
+      #
+      # Push URL on the mini at ~/.config/uptime-kuma/brain-backup-push-url
+      # (chmod 600).
+      - name: Brain Backup - Push
+        type: push
+        interval: 90000 # 25h — nightly 03:30 sweep + buffer, same shape as Restic Backup - Push
+        timeout: 48
+        retry_interval: 90000
+        maxretries: 0 # unlike the older push monitors, this one does not inherit the 4×-late default
 
       # The home internet line, as measured by linewatch on the Mac mini
       # (~/SourceRoot/linewatch, collector/heartbeat.ts under the
