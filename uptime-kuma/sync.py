@@ -54,6 +54,8 @@ EXIT_UNRESOLVED_ENV = 2
 # invocation: on 2026-08-01 a broken `op run` plus a hand-run sync substituted ""
 # into 6 live monitors (empty hostnames, empty bearer tokens) and took them down
 # for ~17h. Warnings scrolled past; only an abort would have stopped it.
+# Regression suite: `make test` (tests/test_uptime_kuma_sync_guard.py) —
+# stubs the Uptime Kuma API entirely, no network, no server required.
 def load_config(config_path: str, unresolved: set) -> dict:
     """Load and parse YAML config with environment variable substitution.
 

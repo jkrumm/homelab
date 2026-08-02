@@ -20,7 +20,7 @@ OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local
+.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -65,6 +65,9 @@ help: ## Show all targets
 	@echo "    make restic-stats        Show repo size + dedup stats"
 	@echo "    make restic-check        Verify repo integrity (read structure only)"
 	@echo "    make restic-prune        ⚠ Run on YOUR MAC with admin key — quarterly cleanup"
+	@echo ""
+	@echo "  Tests (local Mac, no server needed)"
+	@echo "    make test                Run the local regression suite (uptime-kuma sync guard)"
 	@echo ""
 
 # ── Stack Operations ─────────────────────────────────────────────────────────
@@ -150,6 +153,15 @@ uk-dry-run: ## git pull + preview all monitor changes (no apply)
 
 uk-export: ## Export current Uptime Kuma monitors to YAML
 	$(SSH) "$(CD) && $(SYNC_BASE) --export"
+
+# ── Tests (local Mac — no SSH, no server, no network) ────────────────────────
+# uptime-kuma/.venv only exists on the homelab server (sync.py runs there
+# only); the hermes-agent venv already has pyyaml, so it doubles as the
+# standalone runner for this repo's tests too. See tests/test_uptime_kuma_sync_guard.py.
+TEST_PYTHON := $(HOME)/.hermes/hermes-agent/venv/bin/python3
+
+test: ## Run the local regression suite (uptime-kuma sync guard) — no network, no server
+	$(TEST_PYTHON) tests/test_uptime_kuma_sync_guard.py
 
 # ── Restic Backup ────────────────────────────────────────────────────────────
 # Backup runs daily at 03:30 inside container (BACKUP_CRON env).
