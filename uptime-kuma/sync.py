@@ -24,6 +24,8 @@ Requirements:
 
 Environment variables (via 1Password):
     UPTIME_KUMA_PASSWORD: Admin password (required)
+    Plus every ${VAR} referenced in monitors.yaml — all are required; the script
+    exits 2 without touching a monitor if any is missing.
 
 Hardcoded defaults (homelab-specific):
     URL: http://localhost:3010
@@ -41,17 +43,35 @@ import yaml
 from uptime_kuma_api import UptimeKumaApi, MonitorType
 
 
-def load_config(config_path: str) -> dict:
-    """Load and parse YAML config with environment variable substitution."""
+# Distinct from the generic exit 1 (bad password, Kuma unreachable) so a wrapper
+# can tell "the environment never loaded" apart from "the server is down".
+EXIT_UNRESOLVED_ENV = 2
+
+
+# `make uk-sync` / `uk-dry-run` / `uk-export` are the supported entrypoints — they
+# wrap every invocation in `op run --env-file=.env.tpl`. Nothing but the Makefile
+# enforces that, so the unresolved-var guard below is the backstop for a bare
+# invocation: on 2026-08-01 a broken `op run` plus a hand-run sync substituted ""
+# into 6 live monitors (empty hostnames, empty bearer tokens) and took them down
+# for ~17h. Warnings scrolled past; only an abort would have stopped it.
+def load_config(config_path: str, unresolved: set) -> dict:
+    """Load and parse YAML config with environment variable substitution.
+
+    Unresolved ${VAR} names are collected into `unresolved` instead of being
+    reported and substituted anyway — the caller aborts on any, across every
+    config file, before a single mutating API call.
+    """
     with open(config_path) as f:
         content = f.read()
 
     # Substitute environment variables: ${VAR_NAME}
     def replace_env(match):
         var_name = match.group(1)
+        # Unset and set-to-empty are treated alike: no var here is legitimately
+        # empty, and an empty one is exactly as destructive as a missing one.
         value = os.environ.get(var_name, "")
         if not value:
-            print(f"Warning: Environment variable {var_name} is not set")
+            unresolved.add(var_name)
         return value
 
     content = re.sub(r"\$\{([^}]+)\}", replace_env, content)
@@ -366,9 +386,13 @@ def main():
         if args.export:
             export_monitors(api, args.config + ".exported")
         else:
-            config = load_config(args.config)
+            # Collected across BOTH config files and checked once, below — a
+            # per-file check would let the public config pass while the private
+            # one still writes empty values.
+            unresolved = set()
+            config = load_config(args.config, unresolved)
             if args.extra_config and Path(args.extra_config).exists():
-                extra = load_config(args.extra_config)
+                extra = load_config(args.extra_config, unresolved)
                 # Merge groups: append monitors into matching groups, add new groups
                 main_by_name = {g["name"]: g for g in config.get("groups", [])}
                 for group in extra.get("groups", []):
@@ -380,6 +404,26 @@ def main():
                     else:
                         config.setdefault("groups", []).append(group)
                 print(f"Merged extra config from {args.extra_config}")
+
+            # Abort before anything mutating — including under --dry-run, which is
+            # the pre-flight and so has to catch this too. SystemExit is not an
+            # Exception, so the handler below can't swallow it; `finally` still
+            # disconnects cleanly.
+            if unresolved:
+                print(
+                    "\nError: unresolved environment variables in the monitor config:",
+                    file=sys.stderr,
+                )
+                for var_name in sorted(unresolved):
+                    print(f"  - {var_name}", file=sys.stderr)
+                print(
+                    "\nEvery ${VAR} would have been written to live monitors as an empty\n"
+                    "string. Nothing was changed. Run via `make uk-sync` (or `make\n"
+                    "uk-dry-run`), which wraps this in `op run --env-file=.env.tpl`.",
+                    file=sys.stderr,
+                )
+                sys.exit(EXIT_UNRESOLVED_ENV)
+
             sync_monitors(api, config, dry_run=args.dry_run, delete_orphans=args.delete_orphans)
 
     except Exception as e:
