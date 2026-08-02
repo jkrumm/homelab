@@ -13,11 +13,14 @@
 
 SSH := ssh homelab
 CD := cd ~/homelab
+# $(OP) always runs INSIDE $(SSH) "..." — i.e. on the homelab server, which has
+# OP_SERVICE_ACCOUNT_TOKEN. The local machine's `op` is never invoked by it.
+# The only targets that touch a LOCAL `op` are restic-prune/restic-init below.
 OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init
+.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -175,16 +178,33 @@ restic-check: ## Verify repo metadata integrity (no data download)
 # ⚠ Runs LOCALLY on your Mac with the MASTER B2 key (op://Private/Backblaze B2).
 # Shared backup key in common/backblaze-s3 has no delete perms by design.
 # Run quarterly to reclaim space from forgotten snapshots.
-restic-prune: ## ⚠ Run from Mac with master key — quarterly prune
+restic-prune: _check-op-local ## ⚠ Run from Mac with master key — quarterly prune
 	@echo "Pruning B2 restic repo with master key — this can take a while..."
-	@AWS_ACCESS_KEY_ID="$$(op read 'op://Private/Backblaze B2/MASTER_KEY_ID' --account tkrumm)" \
-	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm)" \
-	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
+	@AWS_ACCESS_KEY_ID="$$(op read 'op://Private/Backblaze B2/MASTER_KEY_ID' --account tkrumm </dev/null)" \
+	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm </dev/null)" \
+	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm </dev/null)" \
 	 restic -r $(RESTIC_REPO) prune
 
-restic-init: ## ⚠ Run ONCE from Mac with master key — initialise repo
+restic-init: _check-op-local ## ⚠ Run ONCE from Mac with master key — initialise repo
 	@echo "Initialising restic repo at $(RESTIC_REPO)"
-	@AWS_ACCESS_KEY_ID="$$(op read 'op://Private/Backblaze B2/MASTER_KEY_ID' --account tkrumm)" \
-	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm)" \
-	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
+	@AWS_ACCESS_KEY_ID="$$(op read 'op://Private/Backblaze B2/MASTER_KEY_ID' --account tkrumm </dev/null)" \
+	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm </dev/null)" \
+	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm </dev/null)" \
 	 restic -r $(RESTIC_REPO) init
+
+# The two targets above are the only ones that read 1Password on THIS machine, and
+# they read op://Private/* — which the Mac mini's secrets cache refuses
+# unconditionally by design, while a bare `op` there hangs on a biometric prompt
+# nobody can answer. Fail fast and name the right machine instead. Same shape as
+# dotfiles/scripts/tailscale-acl-sync.sh; `secrets-run` is deliberately NOT offered
+# as a fallback, because op://Private/* will never be in the cache.
+_check-op-local:
+	@[ "$$(cat "$${SECRETS_BACKEND_FILE:-$$HOME/.config/secrets/backend}" 2>/dev/null)" != "cache" ] || { \
+		echo ""; \
+		echo "  ERROR: this is the headless dev host — run it on the MacBook."; \
+		echo "  The B2 master key is op://Private/*, refused by the mini's secrets cache by"; \
+		echo "  design, and 'op signin' here would hang on a biometric prompt."; \
+		echo ""; \
+		exit 1; \
+	}
+	@command -v op >/dev/null 2>&1 || { echo "ERROR: op CLI not found"; exit 1; }
