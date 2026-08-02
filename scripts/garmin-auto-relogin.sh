@@ -19,6 +19,28 @@ PROACTIVE_DAYS="${PROACTIVE_DAYS:-4}"
 REATTEMPT_BACKOFF_H="${REATTEMPT_BACKOFF_H:-6}"
 CONTAINER=garmin-collector
 
+# ── Uptime Kuma push heartbeat ────────────────────────────────────────────────
+# Standalone (not sourced from homelab-private/scripts/lib.sh) — this is a
+# public-repo cron and shouldn't take a runtime dependency on the private repo.
+# Push URL read from a plain file, not .env.tpl/op run: this cron runs under
+# `op run --env-file=.env.tpl`, which resolves the WHOLE template before exec —
+# one unresolvable ref (e.g. a 1Password field that doesn't exist yet) aborts
+# every homelab cron, not just this one. A file is created independently of
+# any 1Password write, so the monitor can be deployed without touching the
+# template. Missing/empty file = silent no-op (an undeployed monitor must not
+# break the job), timeout-bounded so a hung ping cannot make a cron run
+# overlap the next. Called only on a clean run below — never unconditionally —
+# so a missing heartbeat is what alerts.
+GARMIN_RELOGIN_PUSH_URL_FILE="${HOME}/.config/uptime-kuma/garmin-relogin-push-url"
+heartbeat() {
+  local url
+  [ -r "$GARMIN_RELOGIN_PUSH_URL_FILE" ] || return
+  url="$(cat "$GARMIN_RELOGIN_PUSH_URL_FILE" 2>/dev/null | tr -d '[:space:]')"
+  [ -z "$url" ] && return
+  curl -fsS --max-time 10 "$url" > /dev/null 2>&1 \
+    || echo "$(date -Iseconds) warning: heartbeat ping failed (Uptime Kuma unreachable?)" >&2
+}
+
 REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 STATE_DIR="${HOME}/.local/state/garmin-relogin"
 mkdir -p "$STATE_DIR"
@@ -49,6 +71,7 @@ fi
 
 if [ -z "$reason" ]; then
   echo "$(date -Iseconds) skip (health=$health, last success ${success_age_d}d ago)"
+  heartbeat
   exit 0
 fi
 
@@ -60,6 +83,7 @@ if docker compose run --rm --user 0:0 "$CONTAINER" python relogin_auto.py \
    && docker compose up -d --force-recreate "$CONTAINER"; then
   echo "$now" > "$SUCCESS_FILE"
   echo "$(date -Iseconds) reauth OK"
+  heartbeat
 else
   echo "$(date -Iseconds) reauth FAILED — retry after ${REATTEMPT_BACKOFF_H}h backoff" >&2
   exit 1

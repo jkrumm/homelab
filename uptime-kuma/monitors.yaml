@@ -142,6 +142,35 @@ groups:
             timeout: 48
             retry_interval: 90000
 
+          # garmin-auto-relogin.sh (homelab/scripts, op-wrapped cron every 2h).
+          # Pings on EVERY run — both the no-op skip path (token still fresh)
+          # and a successful reauth — so this is a liveness check on the cron
+          # itself, not on whether a reauth happened. Deliberately separate
+          # from "Garmin Collector - Push" (Local group, further down): that
+          # one tracks whether the OAuth token is fresh (and its own comment
+          # optimistically assumes this cron "automatically" recovers it);
+          # this one is what actually proves the recovery cron is still
+          # running. On 2026-08-01 a deleted 1Password item broke `op run`
+          # wholesale for all four op-wrapped homelab crons at once — this
+          # job included — and none but vpn-watchdog had a heartbeat, so the
+          # outage went unnoticed ~17h.
+          #
+          # interval = 2× the 2h cron cadence (7200s), maxretries: 0 — one
+          # skipped run must not page, same doubling used for Garmin
+          # Collector - Push's 6h source cadence. Time-to-DOWN = 14400s = 4h.
+          #
+          # Push URL on the homelab server at
+          # ~/.config/uptime-kuma/garmin-relogin-push-url (chmod 600) — not
+          # .env.tpl, deliberately: op run resolves the whole template before
+          # exec, so one unresolvable ref there would abort every homelab
+          # cron, the exact 2026-08-01 incident described above.
+          - name: Garmin Auto-Relogin - Push
+            type: push
+            interval: 14400
+            timeout: 48
+            retry_interval: 14400
+            maxretries: 0
+
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
             type: http
