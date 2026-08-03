@@ -710,14 +710,29 @@ groups:
             keyword: '"ok":true'
             interval: 150
 
-          # Research Gateway — agentic HTTP research API on VPS, public via the
-          # Cloudflare tunnel (orange-cloud) → Traefik. /health → {"status":"ok"}.
+          # Research Gateway — agentic HTTP research API on VPS, Tailscale-only:
+          # grey-cloud, DNS-only A record → VPS Tailscale IP → Traefik, NOT
+          # behind the Cloudflare tunnel. /health → {"status":"ok"}.
           - name: Research Gateway - HTTP
             type: keyword
             url: https://research.jkrumm.com/health
             keyword: '{"status":"ok"}'
             cloudflare_bypass: true
             interval: 155
+
+          # Research Gateway's lightpanda JS-rendering sidecar — a SEPARATE
+          # monitor on purpose, not a field on the entry above. The renderer
+          # is an optional step in the gateway's fetch chain (fetching
+          # degrades to Tavily Extract when it's down, research still works),
+          # so it deliberately isn't folded into /health — /health gates the
+          # Docker healthcheck and rollhook's rollout gate, and a broken
+          # renderer must not block deploys of an otherwise-healthy gateway.
+          - name: Research Gateway - Renderer - HTTP
+            type: keyword
+            url: https://research.jkrumm.com/health/render
+            keyword: '"renderer":"ok"'
+            cloudflare_bypass: true
+            interval: 160
 
   # ============================================
   # FreePlanningPoker - VPS application stack
