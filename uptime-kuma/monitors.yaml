@@ -408,6 +408,32 @@ groups:
         retry_interval: 600
         maxretries: 0
 
+      # Upstream drift on the Mac mini (dotfiles: `make drift-check-setup`) —
+      # commit-pinned herdr plugins, the xcaddy/caddy-dns modules compiled into
+      # caddy, brew-upgrade recency, pending macOS updates. It reports and never
+      # upgrades; the argument for that restraint is in scripts/drift-check.sh.
+      #
+      # The FIRST MacMini monitor here with its own scheduler rather than riding
+      # the 300s devhost-health agent, and the reason is the one that agent
+      # already records for itself: every check in drift-check is a NETWORK call,
+      # and devhost-health deliberately refuses to touch GitHub because at 300s
+      # with maxretries 0 a provider outage would page as "dev host down". Drift
+      # moves in days, so it gets com.jkrumm.drift-check, daily at 09:40.
+      #
+      # It is NOT a nag: a newly-drifted pin is named in the msg but the monitor
+      # stays UP until it has been drifted 14 days. That threshold exists because
+      # the 1Password backup monitor spent long stretches red as a reminder,
+      # which is how you train yourself to ignore a monitor. A GitHub outage
+      # degrades to "skipped" in the msg and never to DOWN.
+      #
+      # interval 172800 (2d) must exceed the agent's daily cadence so one missed
+      # run — a sleeping laptop, a slow morning — does not page on its own.
+      - name: MacMini Drift - Push
+        type: push
+        interval: 172800 # 2 days — must exceed the agent's daily cadence
+        retry_interval: 172800
+        maxretries: 0
+
       # The brain vault's continuous sync (dotfiles/brain/brain-sync.sh under
       # com.jkrumm.brain-sync, every 300s on the mini). It pulls, pushes when
       # ahead, and never commits — the mini is the vault's source of truth and
