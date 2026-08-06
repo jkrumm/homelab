@@ -28,7 +28,7 @@ context: fork
 
 - Execute the upgrade (you review and apply manually)
 - Upgrade containers auto-updated by Watchtower (containers without `com.centurylinklabs.watchtower.enable: "false"`)
-- Modify files without explicit approval
+- Upgrade a stack without checking its release notes for breaking changes first
 
 ---
 

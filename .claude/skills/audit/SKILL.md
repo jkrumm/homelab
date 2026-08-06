@@ -16,7 +16,7 @@ Run a full health audit of the homelab server across 8 sequential phases, then o
 
 ## Instructions
 
-Run all 8 audit phases first to gather data. After all phases complete, produce the structured report. Then for each WARN/CRITICAL finding, propose the specific fix and ask for confirmation before executing.
+Run all 8 audit phases first to gather data. After all phases complete, produce the structured report. Then, for each WARN/CRITICAL finding: auto-fix reversible remediations (container restart, dangling-image prune, log rotation, re-pull, service reload) and report what was done; confirm first only for irreversible or outward-facing changes (volume deletion, data-destroying prune, cert/DNS/tunnel changes, anything touching backups or a public endpoint).
 
 ### Phase 1: System Resources
 
@@ -250,7 +250,7 @@ Private: <state / no log accessible>
 
 ## Repair Actions
 
-For each CRITICAL and WARN finding, propose the fix and ask for confirmation before running.
+For each CRITICAL and WARN finding: auto-fix reversible remediations (container restart, dangling-image prune, log rotation, re-pull, service reload) and report what was done; confirm first only for irreversible or outward-facing changes (volume deletion, data-destroying prune, cert/DNS/tunnel changes, anything touching backups or a public endpoint).
 
 | Finding                                | Proposed Fix                                                                                                                                                                        |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

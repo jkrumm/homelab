@@ -46,7 +46,7 @@ same physical server.
 | Public/Tailscale-only services | yes | no |
 | VPN-routed containers (torrent stack + media) | no | yes |
 | Restic backup orchestration | yes — defines what's backed up | excluded by name (its state is in restic excludes) |
-| Tailscale ACL source of truth | references only | **owns** `config/tailscale-acl.jsonc` + sync tooling |
+| Tailscale ACL source of truth | no | no — moved to `dotfiles-private` 2026-07-27 |
 
 **Hard rules for agents editing this repo:**
 
@@ -64,24 +64,14 @@ same physical server.
     of post-Docker-restart recovery.
 - These exceptions exist because the integrations are real; new mentions must fall in
   one of these categories or stay out of this repo.
-- Tailscale ACL changes go through `homelab-private` make targets — see below.
+- Tailscale ACL changes go through `dotfiles` make targets — see below.
 
 ### Tailscale ACL
 
-The whole-tailnet ACL is owned by homelab-private (`config/tailscale-acl.jsonc`).
-To change it:
-
-```bash
-# from local Mac (not via SSH, not on the server):
-cd ~/SourceRoot/homelab-private
-make tailscale-acl-diff   # preview vs live
-make tailscale-acl-push   # validate + apply
-```
-
-Auth: OAuth credentials in `op://Private/Tailscale` (CLIENT_ID, CLIENT_SECRET, TAILNET).
-Why it lives there: the ACL grants port access between homelab, homelab-private (which
-shares the same Tailscale node), VPS, and personal devices — homelab-private has the
-strictest visibility, so the source of truth lives in the more restricted repo.
+Moved out of both homelab repos on 2026-07-27. The whole-tailnet ACL now lives at
+`~/SourceRoot/dotfiles-private/tailscale-acl.jsonc`, driven by
+`make tailscale-acl-{diff,pull,push}` **in the `dotfiles` repo** (MacBook-only, biometric
+`op`). Full model: `dotfiles/CLAUDE.md` → "Tailnet ACL — as code".
 
 ---
 
@@ -747,18 +737,13 @@ Services with JSON file logging and rotation configured:
 
 ### Always Do
 
-- **Read before modify:** Check current state before making changes
-- **Confirm destructive operations:** Ask before `docker compose down`, reboots, or data deletion
-- **Use Makefile targets:** Prefer `make` commands over raw docker compose — they handle `op run` wrapping and SSH automatically
+- **Confirm irreversible/outward-facing operations:** Ask before reboots, volume/data deletion, or Cloudflare tunnel changes
 - **Test incrementally:** Apply changes one service at a time when possible
 - **Verify after changes:** Check service health after any modification
 - **Reference README.md:** For detailed setup procedures, not this file
-- **Run `/docs` before commits:** Update documentation when changing infrastructure or scripts
 
 ### Never Do
 
-- **Commit without `/commit`:** Wait for explicit commit request
-- **Expose secrets:** Never log, echo, or include secrets in output
 - **Skip SSH:** Always execute server commands via SSH, not locally
 - **Force reboot remotely:** Physical access is limited - reboots are risky
 - **Modify watchdog credentials:** `/root/.homelab-watchdog-credentials` is sensitive
@@ -785,56 +770,10 @@ When making changes that affect infrastructure or script behavior:
 - Removing containers with volumes (`docker compose down -v`)
 - Modifying encrypted HDD mount configuration
 - Changing Cloudflare tunnel settings
-- Any operation affecting all services simultaneously
 
 ---
 
 ## Quick Reference Card
-
-### SSH Access
-
-| Command              | Purpose                                               |
-| -------------------- | ----------------------------------------------------- |
-| `ssh homelab`        | HomeLab via Tailscale (<tailscale-ip-homelab>)        |
-| `ssh vps`            | VPS via Tailscale (<tailscale-ip-vps>)                |
-| `ssh homelab-direct` | BLOCKED — UFW denies non-Tailscale SSH                |
-| `ssh vps-direct`     | BLOCKED — Hetzner FW blocks port 22 (use web console) |
-
-### Docker Operations (via Makefile)
-
-| Command                    | Purpose                                                 |
-| -------------------------- | ------------------------------------------------------- |
-| `make deploy`              | Full stack deploy (git pull + recreate all)             |
-| `make up`                  | Start/recreate all services                             |
-| `make restart svc=<name>`  | Force-recreate a single service                         |
-| `make ps`                  | Show running containers                                 |
-| `make logs svc=<name>`     | Follow logs for any service                             |
-| `make immich-upgrade`      | Upgrade Immich stack (bump tags in `docker-compose.yml` first, then git pull + pull pinned images + recreate) |
-| `make garmin-deploy`       | Full garmin-collector deploy (git pull + rebuild + restart) |
-| `make garmin-rebuild`      | Rebuild garmin-collector (no cache) + restart           |
-| `make garmin-restart`      | Restart garmin-collector (no rebuild)                   |
-| `make garmin-relogin`      | Interactive MFA re-login — fresh tokens + restart       |
-| `make garmin-relogin-auto` | Force automated MFA re-login (code from Gmail via argo) + restart |
-| `make garmin-logs`         | Follow garmin-collector logs                            |
-
-### System Health
-
-| Command                            | Purpose                  |
-| ---------------------------------- | ------------------------ |
-| `df -h && free -h && uptime`       | Check resources          |
-| `docker stats --no-stream`         | Container resource usage |
-| `docker system df`                 | Docker disk usage        |
-| `mount \| grep hdd && ls /mnt/hdd` | Mount status             |
-| `dmesg \| tail -50`                | Kernel logs (HDD issues) |
-
-### Watchdog Management
-
-| Command                                                          | Purpose                     |
-| ---------------------------------------------------------------- | --------------------------- |
-| `cat /var/lib/homelab_watchdog/state`                            | View escalation state (0-4) |
-| `tail -f /var/log/homelab_watchdog.log`                          | View watchdog logs          |
-| `sudo rm /var/lib/homelab_watchdog/manual_intervention_required` | Resume auto-recovery        |
-| `echo 0 \| sudo tee /var/lib/homelab_watchdog/state`             | Reset to healthy            |
 
 ### Container Updates (Watchtower)
 
@@ -850,46 +789,9 @@ When making changes that affect infrastructure or script behavior:
 
 ### Uptime Kuma Config-as-Code
 
-> **IMPORTANT:** sync.py runs ON THE HOMELAB SERVER (connects to localhost:3010). The Makefile handles SSH.
-
-| Command           | Purpose                               |
-| ----------------- | ------------------------------------- |
-| `make uk-dry-run` | Preview monitor changes               |
-| `make uk-sync`    | Apply all monitors (public + private) |
-| `make uk-export`  | Export current monitors to YAML       |
-
-### Restic Backup (Homelab → Backblaze B2)
-
-> **Two-key model:** automation uses an append-only B2 key (no delete) from `op://common/backblaze-s3`. `restic-prune` and `restic-init` run from your Mac with the master key from `op://Private/Backblaze B2`. See "Backups" section above.
-
-| Command                | Purpose                                           |
-| ---------------------- | ------------------------------------------------- |
-| `make restic-deploy`   | Deploy/refresh `restic-backup` container          |
-| `make restic-run`      | Trigger an unscheduled backup now                 |
-| `make restic-snapshots`| List snapshots in B2                              |
-| `make restic-stats`    | Repo size + dedup ratio                           |
-| `make restic-check`    | Verify metadata integrity                         |
-| `make restic-logs`     | Follow restic-backup logs                         |
-| `make restic-prune`    | ⚠ Quarterly prune (Mac, admin key)                |
-| `make restic-init`     | ⚠ One-time repo init (Mac, admin key)             |
-
-### HDD Operations
-
-| Command                                      | Purpose                     |
-| -------------------------------------------- | --------------------------- |
-| `sudo cryptsetup status encrypted_partition` | Check LUKS status           |
-| `mount \| grep hdd && ls /mnt/hdd`           | Verify mounted + readable   |
-
-### Git Workflow (Local Edit → Remote Deploy)
-
-```bash
-# 1. Edit locally, commit, push
-git add . && git commit -m "message" && git push
-
-# 2. Deploy (picks up git changes + injects secrets)
-make deploy          # Full stack
-make garmin-deploy   # garmin-collector only
-```
+| Command           | Purpose                         |
+| ----------------- | -------------------------------- |
+| `make uk-export`  | Export current monitors to YAML |
 
 ### Emergency Commands
 
