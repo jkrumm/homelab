@@ -145,6 +145,7 @@ ssh -t homelab "docker logs -f <service>"
 | `homelab/garmin/PASSWORD`         | Garmin Connect login password                           |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
 | `homelab/image-share/API_SECRET`  | Bearer secret for image-share's admin `/api/*` surface (also the SPA login token) |
+| `homelab/image-share/KUMA_PUSH_URL` | UptimeKuma push URL — reverse-backup cron (+ manual trigger) heartbeat. **Not yet created** — see note below |
 | `homelab/slack/WEBHOOK_ALERTS`    | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `homelab/slack/WATCHTOWER_URL`    | Shoutrrr-formatted Slack webhook for Watchtower         |
 
@@ -209,6 +210,10 @@ Run `make help` for all available targets.
 5. Containers read the env at runtime (e.g. garmin-collector reads `GARMIN_COLLECTOR_TOKEN`, `GARMIN_EMAIL`, `GARMIN_PASSWORD`)
 
 **garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
+
+**Image Share Reverse-Backup - Push is staged but deliberately not live.** The monitor is declared in `monitors.yaml` and the compose service reads `UPTIME_KUMA_PUSH_URL=${IMAGE_SHARE_KUMA_PUSH_URL}`, but the `.env.tpl` line is **commented out** because `op://homelab/image-share/KUMA_PUSH_URL` does not exist yet. Leave it commented until it does: `OP := op run --env-file=.env.tpl --` wraps *every* target here, `op run` exits 1 on an unresolvable ref, and `uk-sync` git-pulls before it runs — so an uncommented ref to a missing field bricks `deploy`, `up`, `restart`, `uk-sync` and both image-share targets at once, with no way left to create the monitor that mints the token. Unset, compose expands the var to empty and image-share's `env.ts` defaults it to `''` (heartbeat dormant, service healthy). Enable in this order: `make uk-sync` → read the monitor's `pushToken` → write `https://uptime.jkrumm.com/api/push/<token>` into that 1Password field (biometric, MacBook-only) → uncomment the `.env.tpl` line → `make image-share-restart`.
+
+This is the general shape, not a one-off: **a new `op://` ref in `.env.tpl` and the 1Password field it names must land in that order, or the pull breaks the server.**
 
 **Automated MFA re-login.** Garmin invalidates the refresh token every ~1-2 weeks; re-auth then needs an emailed 6-digit MFA code. `scripts/garmin-auto-relogin.sh` automates it end-to-end: `relogin_auto.py` (a `docker compose run` sibling) triggers a fresh login and fetches the code from the "Ihr Sicherheitscode" email via argo's Gmail endpoint (`ARGO_API_TOKEN` = `op://common/api/SECRET`), stashing/restoring the current token so a failed run never leaves the collector token-less. The wrapper is **hybrid**: proactive (refresh every 4d, before the token can expire → container stays healthy, no UptimeKuma/watchdog noise) + reactive (if already unhealthy, reauth within ~2h, but ≥6h between attempts so a Garmin 429 can't storm). A homelab crontab entry runs it every 2h; `make garmin-relogin-auto` forces a run. The UptimeKuma "Garmin Collector - Push" interval is widened to 12h so this auto-recovery heals silently before paging. `make garmin-relogin` (interactive, MFA from phone/email) remains the manual fallback.
 

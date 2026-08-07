@@ -310,6 +310,22 @@ groups:
             cloudflare_bypass: true
             accepted_statuscodes: ['200-299']
 
+          # Reverse-backup B2 → HomeLab (image-share cron/reverse-backup.ts, daily
+          # 06:00 + the manual POST /api/backup/reverse-run trigger) pings this on
+          # every completed run. DOWN means the nightly pull-back of B2-only changes
+          # has stopped — not that share.jkrumm.com itself is unreachable, which the
+          # HTTP monitor above already covers independently.
+          #
+          # interval = 25h — daily cron + buffer, same sizing as Restic Backup - Push.
+          # maxretries: 0 — a push monitor's time-to-DOWN is interval + maxretries ×
+          # retry_interval, so any nonzero value here silently multiplies the delay.
+          - name: Image Share Reverse-Backup - Push
+            type: push
+            interval: 90000
+            timeout: 48
+            retry_interval: 90000
+            maxretries: 0
+
   # ============================================
   # Local — heartbeats kept alive by a manual/local operation on the Mac, NOT by
   # HomeLab server infrastructure. Grouped separately so a miss here does NOT
