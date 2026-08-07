@@ -30,7 +30,11 @@ share.jkrumm.com, http://share.jkrumm.com {
 	handle /health {
 		reverse_proxy image-share:7720
 	}
-	handle /api/* {
+	# Named matcher: `/api/*` alone does not match the bare `/api` path, which is
+	# the agent-facing discovery endpoint (documented "start here" hop) — without
+	# the bare form it falls through to the catch-all /s/* rewrite below.
+	@api path /api /api/*
+	handle @api {
 		reverse_proxy image-share:7720
 	}
 	handle /openapi* {
