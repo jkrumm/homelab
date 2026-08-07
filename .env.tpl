@@ -42,18 +42,13 @@ IMAGE_SHARE_B2_BUCKET=op://common/backblaze-s3/BUCKET
 IMAGE_SHARE_B2_KEY_ID=op://homelab/image-share/B2_KEY_ID
 IMAGE_SHARE_B2_APP_KEY=op://homelab/image-share/B2_APP_KEY
 # UptimeKuma push URL — reverse-backup (nightly 06:00 + manual admin trigger) heartbeat.
-# COMMENTED OUT UNTIL THE 1PASSWORD FIELD EXISTS, and it must stay that way until then:
-# `op run` exits 1 on an unresolvable ref, and OP wraps EVERY target in this Makefile —
-# including uk-sync, which git-pulls before it runs. An uncommented ref to a missing
-# field therefore bricks `make deploy`, `make up`, `make restart`, `make uk-sync` and
-# both image-share targets the moment this file lands on the server, with no way to
-# create the monitor that would produce the token. Left unset, compose expands the var
-# to empty and image-share's env.ts defaults UPTIME_KUMA_PUSH_URL to '' (heartbeat
-# dormant, service healthy) — so this is safe to ship ahead of the human pass.
-# Enable in this order: make uk-sync -> read the monitor's pushToken -> write
-# https://uptime.jkrumm.com/api/push/<token> to op://homelab/image-share/KUMA_PUSH_URL
-# -> uncomment the line below -> make image-share-restart.
-#IMAGE_SHARE_KUMA_PUSH_URL=op://homelab/image-share/KUMA_PUSH_URL
+# ORDERING TRAP when adding any new op:// ref here: the field must exist in 1Password
+# BEFORE this line lands on the server. `op run` exits 1 on an unresolvable ref and OP
+# wraps EVERY target in this Makefile — including uk-sync, which git-pulls before it
+# runs — so an uncommented ref to a missing field bricks deploy/up/restart/uk-sync and
+# both image-share targets at once, with no way left to create the monitor that mints
+# the token. Field created 2026-08-07; safe to keep uncommented.
+IMAGE_SHARE_KUMA_PUSH_URL=op://homelab/image-share/KUMA_PUSH_URL
 
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
