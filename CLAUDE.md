@@ -359,7 +359,8 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 ├── ssd/
 │   ├── SSD/
 │   │   ├── Bilder/       # Photos (incl. Immich subfolder)
-│   │   │   ├── Uploads/    # image-share ingest area (UPLOADS_DIR)
+│   │   │   ├── ImageShare/ # image-share ingest area (SHARE_ROOT, rw — the only
+│   │   │   │               # writable image root; Fuji/ and RAWs/ are :ro)
 │   │   │   └── B2-Mirror/  # image-share reverse-backup of B2 img/ (B2_MIRROR_DIR)
 │   │   ├── Bücher/       # Calibre library
 │   │   ├── Dokumente/    # Documents — includes Obsidian/ vault sync target

@@ -728,6 +728,12 @@ services:
       # No ClickStack/OTel receiver exists on HomeLab (only on the VPS) — empty
       # endpoint trips the no-op exporter guard in telemetry.ts.
       - OTEL_EXPORTER_OTLP_ENDPOINT=
+      # Concurrent sharp renders. Declared here, not left to the app default,
+      # because the right value is a function of THIS box: 4 cores and the
+      # memory limit below. Measured under a 40-way cold-render burst of 26MP
+      # Fuji JPEGs, the gate holds a flat 2.7-3.0 core plateau and leaves a core
+      # free; without it the same burst would OOM-kill the container.
+      - RENDITION_CONCURRENCY=3
       - TZ=Europe/Berlin
     volumes:
       - /home/jkrumm/ssd/SSD/Bilder/Fuji:/photos/fuji:ro
@@ -740,7 +746,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          # Raised from 1G after measuring the live container: sharp holds a
+          # ~900 MiB high-water mark against a 1 GiB ceiling, so the cgroup hit
+          # its limit 11k+ times in 15 minutes (workingset_refault_anon 59396,
+          # pgmajfault 24426) — continuous reclaim, though never an OOM kill and
+          # never a failed request. Not a leak: anon memory falls again after a
+          # burst. Host has ~10 GB free, so headroom is free; riding at 89% is
+          # not.
+          memory: 2G
     healthcheck:
       test: ['CMD', 'curl', '-fsS', 'http://localhost:7720/health']
       interval: 30s
