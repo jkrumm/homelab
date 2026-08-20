@@ -102,7 +102,7 @@ api.disconnect()
 Two monitor types are *not* fully managed by `sync.py`. Editing them in YAML alone won't change live state — you must touch the UI:
 
 - **`type: mysql` / `postgres` / `redis` / `mongodb` / `sqlserver`** — `sync.py` calls `[SKIP-DB]` for these once the monitor exists, so connection details (host, port, user, password, query, SSL) live only in the Kuma UI. This keeps secrets out of git. The YAML entry exists only so the monitor isn't reported as an orphan.
-- **`type: push`** — `uptime-kuma-api` 1.2.1 cannot create push monitors against Uptime Kuma 2.x. Create the monitor manually in the UI first, copy its push URL into 1Password, then add the YAML entry. Subsequent edits (interval, retry, parent) sync normally.
+- **`type: push`** — sync.py CAN create these (proven 2026-07-28: it created `MacMini Collie - Push`, id=205, against Uptime Kuma 2.x — despite an older belief that `uptime-kuma-api` 1.2.1 couldn't). After creating, fetch the push token without a browser: `api.get_monitor(id)["pushToken"]`, push URL is `http://localhost:3010/api/push/<token>` (externally `https://uptime.jkrumm.com/api/push/<token>`). Store the URL where the consuming script expects it (1Password or a chmod-600 file), never in git.
 
 When adding either type, leave a comment in `monitors.yaml` pointing to the 1Password path that holds the relevant secret/URL.
 

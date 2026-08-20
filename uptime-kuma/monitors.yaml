@@ -562,6 +562,32 @@ groups:
         retry_interval: 600
         maxretries: 2
 
+      # The meteo weather-pipeline watchdog on the Mac mini
+      # (meteo/src/meteo/watchdog/check.py under com.jkrumm.meteo.watchdog,
+      # StartInterval 900). It GETs this URL only after a fully-healthy run —
+      # a failed check suppresses the push deliberately — so DOWN collapses
+      # two conditions into one alert: the pipeline failed a check, or the
+      # watchdog itself (or the mini) is gone. Which one is in
+      # meteo/var/health.json on the mini.
+      #
+      # interval 2100 = 2× the 900s cadence + buffer, maxretries: 0 →
+      # time-to-DOWN 35 min. One skipped cycle must not page; the doubling is
+      # the same sizing as MacMini Dev Host - Push above.
+      #
+      # Push URL lives in the mini's LaunchAgent plist
+      # (~/Library/LaunchAgents/com.jkrumm.meteo.watchdog.plist,
+      # EnvironmentVariables → METEO_HEARTBEAT_URL — untracked local config,
+      # never in the public meteo repo). The watchdog also resolves
+      # op://meteo/uptime-kuma/watchdog-push-url from the mini's secrets cache
+      # when the env var is absent (see check.py), so that 1Password item is
+      # the URL's durable home once seeded.
+      - name: Meteo Watchdog - Push
+        type: push
+        interval: 2100
+        timeout: 48
+        retry_interval: 2100
+        maxretries: 0
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
