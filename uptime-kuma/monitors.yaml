@@ -612,6 +612,22 @@ groups:
         timeout: 48
         retry_interval: 2100
 
+      # WebUI — every 5 min from hermes-webui-liveness.sh. The heartbeat asserts
+      # BOTH that /health answers 200 and that the unauthenticated root redirects to
+      # the login, so this monitor going DOWN also covers "serving without a
+      # password", not just "not listening".
+      # Push, not an HTTP probe: the ACL grants tag:phone → tag:mac on :8789 and
+      # nothing else — Kuma has no grant to the mini at all, and opening an inbound
+      # one purely to knock is new attack surface for a check the mini can make about
+      # itself. Same reasoning as every other MacMini monitor in this file.
+      # Push URL → 1Password hermes/uptime-kuma/webui-push-url
+      - name: Hermes WebUI - Push
+        type: push
+        interval: 360 # 5 min agent + buffer
+        timeout: 48
+        retry_interval: 360
+        maxretries: 0 # time-to-DOWN is the interval, not interval + 3×retry
+
       # Daily backup → /mnt/hdd/backups/hermes/ from hermes-backup.sh at 03:00.
       # Push URL → 1Password hermes/uptime-kuma/backup-push-url
       - name: Hermes Backup - Push
