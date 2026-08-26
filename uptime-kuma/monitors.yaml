@@ -603,6 +603,7 @@ groups:
         interval: 360 # 5 min cron + buffer
         timeout: 48
         retry_interval: 360
+        maxretries: 0 # else time-to-DOWN is 4×360s — the file default is 3
 
       # Watchdog — every 30 min from the watchdog cron (watchdog-slack.py → watchdog-poll.py).
       # Push URL → 1Password hermes/uptime-kuma/watchdog-push-url
@@ -611,6 +612,7 @@ groups:
         interval: 2100 # 35 min — 30 min cron + buffer
         timeout: 48
         retry_interval: 2100
+        maxretries: 0 # else time-to-DOWN is 4×2100s — the file default is 3
 
       # WebUI — every 5 min from hermes-webui-liveness.sh. The heartbeat asserts
       # BOTH that /health answers 200 and that the unauthenticated root redirects to
@@ -628,12 +630,29 @@ groups:
         retry_interval: 360
         maxretries: 0 # time-to-DOWN is the interval, not interval + 3×retry
 
+      # Backend server — every 5 min from hermes-serve-liveness.sh. `hermes serve`
+      # (:9119) is the JSON-RPC/WebSocket backend Hermes Desktop connects to;
+      # separate process from the Slack gateway, which upstream expects.
+      # The heartbeat asserts /api/status reports auth_required=true, not just
+      # that the port answers: /api/status is a PUBLIC path by design (it is how a
+      # client discovers whether auth is needed), so a misconfigured auth provider
+      # answers 200 and looks healthy while exposing a socket that drives the agent.
+      # Push, same ACL reasoning as every other MacMini monitor.
+      # Push URL → 1Password hermes/uptime-kuma/serve-push-url
+      - name: Hermes Serve - Push
+        type: push
+        interval: 360 # 5 min agent + buffer
+        timeout: 48
+        retry_interval: 360
+        maxretries: 0 # time-to-DOWN is the interval, not interval + 3×retry
+
       # Daily backup → /mnt/hdd/backups/hermes/ from hermes-backup.sh at 03:00.
       # Push URL → 1Password hermes/uptime-kuma/backup-push-url
       - name: Hermes Backup - Push
         type: push
         interval: 90000 # 25h — daily cron at 03:00 + buffer
         retry_interval: 90000
+        maxretries: 0 # else time-to-DOWN is 4×25h — see the note in the Local group
 
   # ============================================
   # VPS (Hetzner) - hetzner-vps infrastructure
