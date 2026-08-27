@@ -396,7 +396,7 @@ services:
       - DB_HOSTNAME=immich_postgres
       - REDIS_HOSTNAME=immich_redis
       - TZ=Europe/Berlin
-    # Bare list form, matching upstream v3.0.3 — not drift. It only means
+    # Bare list form, matching upstream — not drift. It only means
     # "started", so this races postgres on a cold `compose up`; immich-server
     # retries its DB connection, which is upstream's own posture. Upgrading to
     # `condition: service_healthy` on both is a real improvement *over* upstream

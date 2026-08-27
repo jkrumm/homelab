@@ -64,14 +64,14 @@ updates) — is Watchtower-managed and out of scope for this skill.
 
 #### immich-server + immich-machine-learning
 
-- **Current**: `ghcr.io/immich-app/immich-server:v3.0.3` / `immich-machine-learning:v3.0.3-openvino`
+- **Current**: `ghcr.io/immich-app/immich-server:v3.1.0` / `immich-machine-learning:v3.1.0-openvino`
 - **Why pinned**: Database migrations (postgres schema changes between versions)
 - **Depends on**: immich_postgres, immich_redis
 - **Version source**: https://github.com/immich-app/immich/releases
 - **Tags are explicit, not floating.** `make immich-upgrade` only pulls whatever the
   compose file names, so upgrading means **editing both tags in `docker-compose.yml`
   first** (server + ML must match), then running the target. This is deliberate: the
-  old `release` tag would have jumped 2.7.5 → 3.0.3 silently, and the compose now
+  old `release` tag would have jumped 2.7.5 → 3.x silently, and the compose now
   records the running version.
 - **Rollback is a restore, not a re-pin.** Immich downgrades are unsupported and schema
   migrations are irreversible — an older server refuses a newer-migrated DB. Reverting
@@ -85,8 +85,8 @@ updates) — is Watchtower-managed and out of scope for this skill.
   upgrade, confirm the log line `Successfully verified system mount folder checks`.
 - **Check upstream's compose at both tags before editing ours.** Diffing
   `immich/releases/download/<tag>/docker-compose.yml` for the old and new version is the
-  fastest way to see real structural changes (v2.7.5 → v3.0.3 turned out to be a valkey
-  digest bump and nothing else). Also grep our compose for a custom `command`/`healthcheck`
+  fastest way to see real structural changes (both v2.7.5 → v3.0.3 and v3.0.3 → v3.1.0
+  turned out to be a valkey digest bump and nothing else). Also grep our compose for a custom `command`/`healthcheck`
   on `immich_postgres` — leftovers there break v3.0.1+, since both are now baked into
   the image.
 
@@ -117,11 +117,20 @@ Watchtower-excluded** — the web app floats on `release` and Watchtower updates
 
 #### karakeep-chrome
 
-- **Current**: `gcr.io/zenika-hub/alpine-chrome:124`
+- **Current**: `ghcr.io/karakeep-app/karakeep-chrome:151.0.7922.47-r1`
 - **Why pinned**: tracks a Chromium major; crawl + screenshot behaviour shifts across
   majors, so bumps are deliberate. Stateless → trivial rollback.
 - **Used by**: Karakeep only (crawl + screenshots).
-- **Version source**: https://hub.docker.com/r/zenika/alpine-chrome/tags
+- **Version source**: https://github.com/karakeep-app/karakeep/pkgs/container/karakeep-chrome
+- **Was `gcr.io/zenika-hub/alpine-chrome:124` until 2026-08-27.** That image is abandoned
+  and its manifest no longer resolves (the GCR project has billing disabled), so the
+  container was running purely off a cached layer — one `compose pull` or `image prune`
+  from losing crawling for good. Karakeep's own image replaces it: its entrypoint forwards
+  :9222 itself, so `--remote-debugging-*` must **not** be passed (it breaks the
+  forwarding), sandboxing is handled inside the image, and `init: true` is required.
+  Chrome still answers `/json/version` with **500** for a non-IP `Host` header — that is
+  Chrome's own guard, not a misconfiguration; Karakeep resolves the service name to an IP
+  before connecting.
 
 **How to investigate a Karakeep bump (before changing pins):**
 
