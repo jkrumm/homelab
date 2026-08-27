@@ -197,6 +197,8 @@ Run `make help` for all available targets.
 | `make image-share-deploy` | Full image-share deploy (git pull homelab + image-share, rebuild --no-cache + restart) |
 | `make image-share-restart`| Restart image-share (picks up new env vars, no rebuild)  |
 | `make image-share-logs`   | Follow image-share logs                                  |
+| `make docker-df`          | Docker disk usage (images, build cache, volumes) + free space on `/` |
+| `make docker-prune`       | Bounded cleanup — cap build cache at `BUILD_CACHE_MAX`, drop dangling images |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync`            | Apply all Uptime Kuma monitors (public + private)        |
 | `make uk-dry-run`         | Preview Uptime Kuma monitor changes                      |
@@ -210,6 +212,29 @@ Run `make help` for all available targets.
 5. Containers read the env at runtime (e.g. garmin-collector reads `GARMIN_COLLECTOR_TOKEN`, `GARMIN_EMAIL`, `GARMIN_PASSWORD`)
 
 **garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
+
+**`--no-cache` on every build is why the disk fills, so every build target self-prunes.**
+Each rebuild leaves a whole build-cache layer set plus a dangling image; unbounded that
+reached **108 GB of build cache (2552 entries) and 350 dangling images** by 2026-08 —
+more disk than every photo on the box. `$(PRUNE)` is appended to `garmin-deploy`,
+`garmin-rebuild` and `image-share-deploy`, so the garbage is collected by whoever makes
+it. Two deliberate choices in it:
+
+- **Bounded, not zeroed** (`--max-used-space 10GB`). Both Dockerfiles use
+  `--mount=type=cache` for their pip/bun package caches, and those mounts live *in* the
+  build cache — an uncapped `builder prune -a` deletes them too, so the next build
+  recompiles the C extensions from source, which is the exact thing those mounts exist
+  to avoid. Docker 29's flag is `--max-used-space`; `--keep-storage` is gone.
+- **`image prune -f`, never `-a`.** Dangling-only. A tagged image is never touched,
+  because some pinned tags no longer resolve upstream and the local copy is the only one
+  left — see the karakeep-chrome migration in `.claude/skills/upgrade-stack/SKILL.md`.
+
+**What no prune target can reach:** images of *decommissioned* services stay tagged
+forever (obsidian, calibre, librechat, mongo… ~25 GB as of 2026-08-27). Removing one is
+a deliberate `docker rmi <tag>` after confirming it is in neither compose file. Careful
+with the check — a locally-built image is referenced by the container as
+`homelab-image-share`, not `homelab-image-share:latest`, so a naive exact-match grep
+reports it as orphaned when it is live.
 
 **Wiring a new push monitor is fully agentic — no browser, no biometric, no human.** Done end to end for `Image Share Reverse-Backup - Push` (id=219) on 2026-08-07. Two facts make it so, and both contradict what this repo used to assume:
 

@@ -19,8 +19,26 @@ CD := cd ~/homelab
 OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
+# garmin-collector and image-share are the only locally-built services, and both are
+# rebuilt with --no-cache on every deploy — so each deploy leaves behind a full build
+# cache layer set plus a dangling image. Unbounded that reached 108 GB of build cache
+# (2552 entries, oldest 6 months) and 350 dangling images by 2026-08, i.e. more disk
+# than every photo on the box combined. $(PRUNE) is appended to every build target so
+# the garbage is collected by whoever creates it.
+#
+# Bounded, not zeroed — this is the part that matters: both Dockerfiles carry
+# `--mount=type=cache` for their pip/bun package caches, and those mounts live in the
+# same build cache. An uncapped `builder prune -a` throws them away too, so the next
+# build recompiles the C extensions from source, which is exactly what those mounts
+# exist to prevent. --max-used-space keeps the most-recently-used slice under a
+# ceiling instead. `image prune -f` is dangling-only and never touches a tagged image
+# — load-bearing, because some pinned tags no longer resolve upstream and a local
+# copy is the only one left (see karakeep-chrome in .claude/skills/upgrade-stack).
+BUILD_CACHE_MAX := 10GB
+PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
+
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test
+.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -50,6 +68,10 @@ help: ## Show all targets
 	@echo "    make image-share-deploy  Full deploy: git pull homelab + image-share, rebuild (no cache) + restart"
 	@echo "    make image-share-restart Restart container only (no rebuild)"
 	@echo "    make image-share-logs    Follow image-share logs"
+	@echo ""
+	@echo "  Docker Disk Hygiene"
+	@echo "    make docker-df           Show Docker disk usage + free space on /"
+	@echo "    make docker-prune        Bounded cleanup (build targets already do this)"
 	@echo ""
 	@echo "  Infrastructure"
 	@echo "    make caddy-reload        Force-recreate Caddy (picks up Caddyfile changes)"
@@ -107,10 +129,10 @@ immich-upgrade: ## Upgrade Immich stack: git pull + pull pinned images + recreat
 # ── Garmin Collector Operations ──────────────────────────────────────────────
 
 garmin-deploy: ## Full deploy: git pull + rebuild garmin-collector (no cache) + restart
-	$(SSH) "$(CD) && git pull && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector"
+	$(SSH) "$(CD) && git pull && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector && $(PRUNE)"
 
 garmin-rebuild: ## Rebuild garmin-collector image (no cache) and restart with secrets
-	$(SSH) "$(CD) && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector"
+	$(SSH) "$(CD) && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector && $(PRUNE)"
 
 garmin-restart: ## Restart garmin-collector container (no rebuild)
 	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
@@ -128,13 +150,25 @@ garmin-logs: ## Follow garmin-collector logs
 # ── Image Share (locally-built — source is a sibling clone, not packages/) ──
 
 image-share-deploy: ## Full deploy: git pull homelab + image-share, rebuild (no cache) + restart
-	$(SSH) "$(CD) && git pull && cd ~/image-share && git pull && $(CD) && $(DC) build --no-cache image-share && $(DC) up -d image-share"
+	$(SSH) "$(CD) && git pull && cd ~/image-share && git pull && $(CD) && $(DC) build --no-cache image-share && $(DC) up -d image-share && $(PRUNE)"
 
 image-share-restart: ## Restart image-share container (picks up new env vars, no rebuild)
 	$(SSH) "$(CD) && $(DC) up -d --force-recreate image-share"
 
 image-share-logs: ## Follow image-share logs
 	$(SSH) "docker logs -f --tail=100 image-share"
+
+# ── Docker Disk Hygiene ──────────────────────────────────────────────────────
+# The build targets above prune themselves; these are for inspecting the result and
+# for the leftovers no build target owns — images of services that were decommissioned
+# stay tagged forever, so `docker-prune` cannot reach them by design. Removing one is
+# a deliberate `docker rmi <tag>` after checking it is in neither compose file.
+
+docker-df: ## Show Docker disk usage (images, build cache, volumes) + free space
+	$(SSH) "df -h / | tail -1 && echo && docker system df"
+
+docker-prune: ## Bounded cleanup: cap build cache at $(BUILD_CACHE_MAX), drop dangling images
+	$(SSH) "$(PRUNE)"
 
 # ── Infrastructure ───────────────────────────────────────────────────────────
 
