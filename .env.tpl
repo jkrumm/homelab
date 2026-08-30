@@ -77,6 +77,8 @@ TRAKT_CLIENT_ID=op://homelab/torrent-app/TRAKT_CLIENT_ID
 JELLYFIN_API_KEY=op://homelab/jellyfin/API_KEY
 JELLYFIN_URL=http://jellyfin:8096
 JELLYFIN_USER_ID=op://homelab/config/JELLYFIN_USER_ID
+AUDIOBOOKSHELF_API_KEY=op://homelab/audiobookshelf/API_KEY
+AUDIOBOOKSHELF_URL=http://audiobookshelf
 
 # --- Notification URLs (contain push tokens in path) ---
 VPN_WATCHDOG_PUSH_URL=op://homelab/config/VPN_WATCHDOG_PUSH_URL
