@@ -450,6 +450,18 @@ groups:
         retry_interval: 172800
         maxretries: 0
 
+      # meteo dead-man's switch (com.jkrumm.meteo.watchdog on the mini, checks
+      # the forecast/blend pipeline is producing fresh output). Grace matches the
+      # 30 min the watchdog's own StartInterval expects: interval + maxretries ×
+      # retry_interval = 900 + 1 × 900 = 1800s.
+      # Push URL -> 1Password op://meteo/uptime-kuma/watchdog-push-url
+      # (dotfiles-private/headless.refs; src/meteo/watchdog/check.py resolve_heartbeat_url).
+      - name: meteo-watchdog
+        type: push
+        interval: 900 # 15 min
+        retry_interval: 900
+        maxretries: 1
+
       # The brain vault's continuous sync (dotfiles/brain/brain-sync.sh under
       # com.jkrumm.brain-sync, every 300s on the mini). It pulls, pushes when
       # ahead, and never commits — the mini is the vault's source of truth and
