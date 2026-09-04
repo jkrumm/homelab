@@ -372,8 +372,8 @@ groups:
         maxretries: 0
 
       # Remote-dev readiness on the Mac mini — one composite heartbeat covering
-      # herdr (the workspace server agents live in), sshd, tailscaled and
-      # mosh-server. Pushed by dotfiles/scripts/devhost-health-check.sh via the
+      # herdr (the workspace server agents live in), sshd, tailscaled, the
+      # boot path and the always-on services. Pushed by dotfiles/scripts/devhost-health-check.sh via the
       # com.jkrumm.devhost-health LaunchAgent every 5 min (`make
       # devhost-health-setup`). The failing component is named in the push msg.
       #
@@ -401,7 +401,7 @@ groups:
       # (dotfiles: `make collie-setup`). Its OWN monitor rather than a sixth
       # component of the composite above, because it does not fail with the
       # other five: it is opt-in per machine and can be absent, down or
-      # mis-hardened while herdr/sshd/tailscaled/mosh are all perfectly fine.
+      # mis-hardened while herdr/sshd/tailscaled are all perfectly fine.
       # Folding it in would mark the dev host DOWN and implicate four healthy
       # components — the same reasoning that keeps the composite composite,
       # pointed the other way.
