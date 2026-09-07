@@ -27,6 +27,15 @@ settings:
   cloudflare_bypass_header:
     X-Uptime-Monitor: '${UPTIME_MONITOR_TOKEN}'
 
+  # The complete set of notification providers, by name. sync.py attaches ALL
+  # live providers to every leaf and none to any group, so this list is the
+  # alert fan-out as code: sync aborts before touching a monitor when the live
+  # set differs (a provider added in the UI would silently double every alert;
+  # one deleted would silently mute them). Providers themselves are UI-managed —
+  # the webhook lives in 1Password (common/slack/WEBHOOK_ALERTS), not here.
+  notifications:
+    - Slack - Alerts
+
 groups:
   # ============================================
   # HomeLab - Local Docker container monitoring

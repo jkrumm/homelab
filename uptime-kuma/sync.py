@@ -46,6 +46,10 @@ from uptime_kuma_api import UptimeKumaApi, MonitorType
 # Distinct from the generic exit 1 (bad password, Kuma unreachable) so a wrapper
 # can tell "the environment never loaded" apart from "the server is down".
 EXIT_UNRESOLVED_ENV = 2
+# The live notification providers differ from `settings.notifications` — a
+# provider added in the UI would be attached to every leaf on the next sync
+# (double alerts), one deleted would detach silently (no alerts). Abort instead.
+EXIT_NOTIFICATIONS_DRIFT = 3
 
 
 # `make uk-sync` / `uk-dry-run` / `uk-export` are the supported entrypoints — they
@@ -185,7 +189,27 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
     cloudflare_header = config.get("settings", {}).get("cloudflare_bypass_header", {})
 
     # Get all notification IDs to auto-enable on new monitors
-    notification_ids = [n["id"] for n in api.get_notifications()]
+    notifications = api.get_notifications()
+    notification_ids = [n["id"] for n in notifications]
+
+    # `settings.notifications` is the declared provider set; the live set must
+    # match exactly, because every provider below is attached to every leaf.
+    declared = config.get("settings", {}).get("notifications")
+    if declared is not None:
+        live_names = sorted(n["name"] for n in notifications)
+        if live_names != sorted(declared):
+            print(
+                "\nError: live notification providers differ from settings.notifications:",
+                file=sys.stderr,
+            )
+            print(f"  declared: {sorted(declared)}", file=sys.stderr)
+            print(f"  live:     {live_names}", file=sys.stderr)
+            print(
+                "Nothing was changed. Reconcile in the Uptime Kuma UI (providers are\n"
+                "UI-managed) or update settings.notifications, then re-run.",
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_NOTIFICATIONS_DRIFT)
 
     # Get existing monitors
     existing = {m["name"]: m for m in api.get_monitors()}
@@ -220,6 +244,11 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             monitor_id = existing[name]["id"]
             if dry_run:
                 print(f"  [UPDATE] {name} (id={monitor_id})")
+                # A real run converges this; surface it in the pre-flight so a
+                # UI-side detach/attach is visible before it is silently fixed.
+                live_ids = sorted(existing[name].get("notificationIDList") or [])
+                if live_ids != sorted(monitor_notifications):
+                    print(f"  [NOTIFY-DRIFT] {name}: live={live_ids} expected={sorted(monitor_notifications)}")
             else:
                 try:
                     params["notificationIDList"] = monitor_notifications

@@ -2,7 +2,7 @@
 # /// script
 # dependencies = ["pyyaml"]
 # ///
-"""Regression suite for the unresolved-`${VAR}` guard in `uptime-kuma/sync.py`.
+"""Regression suite for the guards in `uptime-kuma/sync.py`.
 
 On 2026-08-01 a deleted 1Password item broke `op run` wholesale; a later bare
 `sync.py` invocation (no `op run` wrapper) substituted every `${VAR}` in
@@ -23,6 +23,12 @@ the guard to abort assert the call log is empty for the API-touching methods
 — a runtime tripwire, not code inspection. All config fixtures are temp YAML
 files; the real `monitors.yaml` is only ever opened read-only, for the
 non-env-literal grep in group 8.
+
+Group 9 pins the second guard: `settings.notifications` declares the complete
+provider set, and sync aborts (exit `EXIT_NOTIFICATIONS_DRIFT` = 3) before any
+mutation when the live set differs — sync attaches every live provider to
+every leaf, so one added in the UI doubles every alert and one deleted mutes
+them, both silently.
 
 Run (`uptime-kuma/.venv` only exists on the homelab server, since sync.py is
 documented to run there; the PEP 723 header above declares pyyaml, so uv
@@ -57,7 +63,7 @@ PRIVATE_MONITORS_YAML = (
 # MonitorType` binds to this instead of touching pip/network.
 # =============================================================================
 
-FAKE_KUMA_STATE = {"calls": [], "login_fail": False}
+FAKE_KUMA_STATE = {"calls": [], "login_fail": False, "notifications": []}
 
 # Calls sync.py only makes once it is actually mutating/reading live monitor
 # state (inside sync_monitors() or export_monitors()) — never on the
@@ -75,6 +81,7 @@ API_TOUCHING_METHODS = {
 def reset_fake_kuma():
     FAKE_KUMA_STATE["calls"] = []
     FAKE_KUMA_STATE["login_fail"] = False
+    FAKE_KUMA_STATE["notifications"] = []
 
 
 def api_touching_calls():
@@ -109,7 +116,7 @@ class FakeUptimeKumaApi:
 
     def get_notifications(self):
         FAKE_KUMA_STATE["calls"].append(("get_notifications",))
-        return []
+        return list(FAKE_KUMA_STATE["notifications"])
 
     def get_monitors(self):
         FAKE_KUMA_STATE["calls"].append(("get_monitors",))
@@ -176,10 +183,11 @@ def scoped_env(set_vars=None, unset_vars=None, password="test-password"):
 
 
 def run_main(argv, *, set_vars=None, unset_vars=None, password="test-password",
-             login_fail=False):
+             login_fail=False, notifications=None):
     """Run sync.main() in-process against the fake API, capturing everything."""
     reset_fake_kuma()
     FAKE_KUMA_STATE["login_fail"] = login_fail
+    FAKE_KUMA_STATE["notifications"] = list(notifications or [])
     old_argv = sys.argv
     stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
     exit_code = 0
@@ -554,6 +562,85 @@ def test_synthetic_non_env_literal_would_abort():
 
 
 # =============================================================================
+# 9. Declared notification set — live providers must equal
+#    settings.notifications exactly, checked before any mutation.
+# =============================================================================
+
+
+NOTIFICATIONS_FIXTURE = """\
+settings:
+  defaults: {}
+  notifications:
+    - Slack - Alerts
+groups:
+  - name: TestGroup
+    monitors:
+      - name: test-monitor
+        type: http
+        url: http://example.local/
+"""
+
+MUTATING_METHODS = {"add_monitor", "edit_monitor", "delete_monitor"}
+
+
+def _mutating_calls():
+    return [c for c in FAKE_KUMA_STATE["calls"] if c[0] in MUTATING_METHODS]
+
+
+def test_notification_set_guard():
+    failures = []
+    passed = 0
+    slack = {"id": 2, "name": "Slack - Alerts"}
+    with tempfile.TemporaryDirectory() as td:
+        cfg = write_yaml(Path(td), "monitors.yaml", NOTIFICATIONS_FIXTURE)
+
+        cases = [
+            ("exact match proceeds", [slack], 0, True),
+            ("extra live provider aborts", [slack, {"id": 3, "name": "Pushover"}], 3, False),
+            ("missing live provider aborts", [], 3, False),
+            ("renamed provider aborts", [{"id": 2, "name": "Slack"}], 3, False),
+        ]
+        for label, live, want_rc, want_mutation in cases:
+            rc, out, err = run_main(["--config", cfg], notifications=live)
+            case_failures = []
+            if rc != want_rc:
+                case_failures.append(
+                    f"{label}: expected exit {want_rc}, got {rc} "
+                    f"(stdout={out!r} stderr={err!r})")
+            mutated = bool(_mutating_calls())
+            if mutated != want_mutation:
+                case_failures.append(
+                    f"{label}: mutation={mutated}, expected {want_mutation}: "
+                    f"{_mutating_calls()!r}")
+            if want_rc == 3 and "settings.notifications" not in err:
+                case_failures.append(f"{label}: drift not named on stderr: {err!r}")
+            failures.extend(case_failures)
+            passed += 0 if case_failures else 1
+
+        # --dry-run must not be more permissive than a real run.
+        rc, out, err = run_main(["--config", cfg, "--dry-run"], notifications=[])
+        if rc != 3:
+            failures.append(f"--dry-run did not abort on drift: rc={rc} stderr={err!r}")
+        else:
+            passed += 1
+
+    return len(cases) + 1, passed, failures
+
+
+def test_real_config_declares_notifications():
+    """The real monitors.yaml must carry the block — a guard that only runs
+    when declared is no guard if the declaration goes missing."""
+    failures = []
+    import yaml
+    with open(MAIN_MONITORS_YAML) as f:
+        declared = yaml.safe_load(f).get("settings", {}).get("notifications")
+    if not declared:
+        failures.append("uptime-kuma/monitors.yaml has no settings.notifications")
+    total = 1
+    return total, (total if not failures else 0), failures
+
+
+# =============================================================================
 
 GROUPS = [
     ("1. unset variable aborts", test_unset_variable_aborts),
@@ -565,6 +652,8 @@ GROUPS = [
     ("7. exit 2 distinct from other failures", test_exit_code_distinct_from_other_failures),
     ("8a. real configs — no stray literals", test_real_configs_have_no_stray_literals),
     ("8b. synthetic non-env literal documented", test_synthetic_non_env_literal_would_abort),
+    ("9a. notification set guard", test_notification_set_guard),
+    ("9b. real config declares notifications", test_real_config_declares_notifications),
 ]
 
 

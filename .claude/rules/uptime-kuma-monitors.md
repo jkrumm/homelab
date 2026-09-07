@@ -114,11 +114,13 @@ After editing `monitors.yaml`:
 2. Run `make uk-dry-run`. Pipe through this filter — empty output means safe to apply:
 
    ```bash
-   make uk-dry-run 2>&1 | grep -E "ORPHANS|CREATE|ERROR"
+   make uk-dry-run 2>&1 | grep -E "ORPHANS|CREATE|ERROR|NOTIFY-DRIFT"
    ```
 
    - `[CREATE]` on a name you didn't add → drift (likely a UI rename); reconcile YAML before syncing.
    - `[ORPHANS]` → live monitor missing from YAML; either re-add it or pass `--delete-orphans` deliberately.
    - `[ERROR]` → param shape mismatch; fix YAML, never let sync swallow it.
+   - `[NOTIFY-DRIFT]` → a leaf's live providers differ from the declared set (UI edit); a real run converges it.
+   - Exit 3 before any output → the live provider *set* differs from `settings.notifications`; fix in the UI or the YAML first.
 
 3. Apply with `make uk-sync` (which `git pull`s on homelab first).
