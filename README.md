@@ -1235,7 +1235,15 @@ cat /var/lib/homelab_watchdog/state
 
 #### Setting up the Watchdog Cron
 
+<<<<<<< Updated upstream
 1. Edit root's crontab:
+=======
+The watchdog is installed in **root's crontab** (`sudo crontab -l`) — not the
+`jkrumm` crontab that holds the `op run`-wrapped service crons, not `/etc/cron.d`,
+and not a systemd timer. The line as installed — by hand, not by `setup.sh`,
+which writes a different one (no `.profile`, output to
+`/var/log/homelab_watchdog.log`), so a fresh box diverges here:
+>>>>>>> Stashed changes
 
    ```bash
    sudo crontab -e

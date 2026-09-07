@@ -456,6 +456,11 @@ default and needs no cron of ours:
 - Retention: last 14 dumps (Administration → Settings → Backup).
 - That path sits inside the restic-backed `Bilder` tree and is deliberately **not**
   excluded → every dump goes offsite to B2 with the nightly 03:30 restic run.
+- **Immich pushes nothing**, so `scripts/immich-backup-check.sh` (jkrumm crontab,
+  04:00) proves the newest dump is <26h old, gzip-valid and carries pg_dump's
+  "dump complete" trailer, then pings `Immich Backup - Push` (id=228). Push URL
+  in `~/.config/uptime-kuma/immich-backup-push-url` (chmod 600) — the plain-file
+  convention, never `.env.tpl`.
 
 **Why this matters:** the photo originals are recoverable on their own, but the DB is
 what holds albums, folder structure, sharing/partner permissions, people/face names,

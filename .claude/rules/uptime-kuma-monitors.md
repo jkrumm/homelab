@@ -102,7 +102,7 @@ api.disconnect()
 Two monitor types are *not* fully managed by `sync.py`. Editing them in YAML alone won't change live state — you must touch the UI:
 
 - **`type: mysql` / `postgres` / `redis` / `mongodb` / `sqlserver`** — `sync.py` calls `[SKIP-DB]` for these once the monitor exists, so connection details (host, port, user, password, query, SSL) live only in the Kuma UI. This keeps secrets out of git. The YAML entry exists only so the monitor isn't reported as an orphan.
-- **`type: push`** — sync.py CAN create these (proven 2026-07-28: it created `MacMini Collie - Push`, id=205, against Uptime Kuma 2.x — despite an older belief that `uptime-kuma-api` 1.2.1 couldn't). After creating, fetch the push token without a browser: `api.get_monitor(id)["pushToken"]`, push URL is `http://localhost:3010/api/push/<token>` (externally `https://uptime.jkrumm.com/api/push/<token>`). Store the URL where the consuming script expects it (1Password or a chmod-600 file), never in git.
+- **`type: push`** — always `maxretries: 0` (time-to-DOWN is `interval + maxretries × retry_interval`, so the file default of 3 makes every push alert 4× later than its interval claims). sync.py CAN create these (proven 2026-07-28: it created `MacMini Collie - Push`, id=205, against Uptime Kuma 2.x — despite an older belief that `uptime-kuma-api` 1.2.1 couldn't). After creating, fetch the push token without a browser: `api.get_monitor(id)["pushToken"]`, push URL is `http://localhost:3010/api/push/<token>` (externally `https://uptime.jkrumm.com/api/push/<token>`). Store the URL where the consuming script expects it (1Password or a chmod-600 file), never in git.
 
 When adding either type, leave a comment in `monitors.yaml` pointing to the 1Password path that holds the relevant secret/URL.
 
@@ -114,13 +114,11 @@ After editing `monitors.yaml`:
 2. Run `make uk-dry-run`. Pipe through this filter — empty output means safe to apply:
 
    ```bash
-   make uk-dry-run 2>&1 | grep -E "ORPHANS|CREATE|ERROR|NOTIFY-DRIFT"
+   make uk-dry-run 2>&1 | grep -E "ORPHANS|CREATE|ERROR"
    ```
 
    - `[CREATE]` on a name you didn't add → drift (likely a UI rename); reconcile YAML before syncing.
    - `[ORPHANS]` → live monitor missing from YAML; either re-add it or pass `--delete-orphans` deliberately.
    - `[ERROR]` → param shape mismatch; fix YAML, never let sync swallow it.
-   - `[NOTIFY-DRIFT]` → a leaf's live providers differ from the declared set (UI edit); a real run converges it.
-   - Exit 3 before any output → the live provider *set* differs from `settings.notifications`; fix in the UI or the YAML first.
 
 3. Apply with `make uk-sync` (which `git pull`s on homelab first).

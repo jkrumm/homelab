@@ -150,12 +150,14 @@ groups:
             interval: 700 # Cron runs every 10 min (600s) + buffer for execution
             timeout: 48
             retry_interval: 700
+            maxretries: 0 # time-to-DOWN is the interval — see the arithmetic in the Local group
 
           - name: Restic Backup - Push
             type: push
             interval: 90000 # 25h — daily 03:30 backup cron + buffer
             timeout: 48
             retry_interval: 90000
+            maxretries: 0 # else time-to-DOWN is 4×25h
 
           # garmin-auto-relogin.sh (homelab/scripts, op-wrapped cron every 2h).
           # Pings on EVERY run — both the no-op skip path (token still fresh)
@@ -270,6 +272,26 @@ groups:
             headers:
               Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
 
+          # Immich's built-in nightly pg_dump (02:00, Administration → Settings →
+          # Backup) is the ONLY copy of albums, people, sharing and metadata edits
+          # (see CLAUDE.md "Immich database"). Immich itself pushes nothing, so
+          # scripts/immich-backup-check.sh (jkrumm crontab, daily 04:00) verifies
+          # the newest dump is <26h old, gzip-valid and carries pg_dump's "dump
+          # complete" trailer, and pings this only then. DOWN = last night's dump
+          # is missing or truncated, i.e. the DB is unprotected since the last good
+          # one — restic still ships whatever is there.
+          #
+          # interval 25h + maxretries 0, same sizing as Restic Backup - Push.
+          # Push URL on the homelab server at ~/.config/uptime-kuma/immich-backup-push-url
+          # (chmod 600) — a plain file, not .env.tpl, so no op:// ordering trap and no
+          # `op run` dependency for a cron that only reads a directory listing.
+          - name: Immich Backup - Push
+            type: push
+            interval: 90000
+            timeout: 48
+            retry_interval: 90000
+            maxretries: 0
+
       # --- Karakeep subgroup (read-later; web + chrome crawler + meili search) ---
       - name: Karakeep
         type: group
@@ -364,6 +386,7 @@ groups:
         interval: 43200 # 12h — argo sync runs every 6h; extra cycle = silent auto-recovery room
         timeout: 48
         retry_interval: 43200
+        maxretries: 0 # else time-to-DOWN is 4×12h = 2 days of silent token death
         resend_interval: 1 # re-alert Slack every down beat (~12h) once recovery is genuinely stuck
 
       # Weekly manual 1Password export backup, run locally from the Mac.
@@ -372,6 +395,7 @@ groups:
         type: push
         interval: 691200 # 8 days — weekly manual + buffer
         retry_interval: 691200
+        maxretries: 0 # else time-to-DOWN is 32 days, not the 8 the interval implies
 
       # Weekly secrets-cache seed-freshness heartbeat, pushed from the Mac mini
       # (dotfiles/scripts/secrets-freshness-check.sh, weekly LaunchAgent). A
@@ -401,11 +425,12 @@ groups:
       # maxretries: 0 is load-bearing. A push monitor runs the normal failure
       # path, so time-to-DOWN is `interval + maxretries × retry_interval`. With
       # the file-level default of 3 this would alert after 40 min, not the 10
-      # the interval implies. NOTE the same arithmetic applies to every other
-      # push monitor here — none override maxretries, so each alerts 4× later
-      # than its comment claims (the two 691200s ones are effectively 32-day).
-      # Left alone deliberately: changing them shifts live alerting behaviour
-      # and is a separate decision.
+      # the interval implies. The same arithmetic applies to EVERY push monitor
+      # in this file, so since 2026-09-07 all of them set maxretries: 0 and the
+      # interval alone is the time-to-DOWN (the one exception, Home Line -
+      # Watchdog, says why inline). A new push monitor without it alerts 4×
+      # later than its comment claims — the retry path only makes sense for
+      # probes, where a retry is a second request.
       - name: MacMini Dev Host - Push
         type: push
         interval: 600 # 10 min — must exceed the agent's 300s cadence so one skipped run doesn't page
@@ -629,37 +654,8 @@ groups:
         retry_interval: 2100
         maxretries: 0 # else time-to-DOWN is 4×2100s — the file default is 3
 
-      # WebUI — every 5 min from hermes-webui-liveness.sh. The heartbeat asserts
-      # BOTH that /health answers 200 and that the unauthenticated root redirects to
-      # the login, so this monitor going DOWN also covers "serving without a
-      # password", not just "not listening".
-      # Push, not an HTTP probe: the ACL grants tag:phone → tag:mac on :8789 and
-      # nothing else — Kuma has no grant to the mini at all, and opening an inbound
-      # one purely to knock is new attack surface for a check the mini can make about
-      # itself. Same reasoning as every other MacMini monitor in this file.
-      # Push URL → 1Password hermes/uptime-kuma/webui-push-url
-      - name: Hermes WebUI - Push
-        type: push
-        interval: 360 # 5 min agent + buffer
-        timeout: 48
-        retry_interval: 360
-        maxretries: 0 # time-to-DOWN is the interval, not interval + 3×retry
-
-      # Backend server — every 5 min from hermes-serve-liveness.sh. `hermes serve`
-      # (:9119) is the JSON-RPC/WebSocket backend Hermes Desktop connects to;
-      # separate process from the Slack gateway, which upstream expects.
-      # The heartbeat asserts /api/status reports auth_required=true, not just
-      # that the port answers: /api/status is a PUBLIC path by design (it is how a
-      # client discovers whether auth is needed), so a misconfigured auth provider
-      # answers 200 and looks healthy while exposing a socket that drives the agent.
-      # Push, same ACL reasoning as every other MacMini monitor.
-      # Push URL → 1Password hermes/uptime-kuma/serve-push-url
-      - name: Hermes Serve - Push
-        type: push
-        interval: 360 # 5 min agent + buffer
-        timeout: 48
-        retry_interval: 360
-        maxretries: 0 # time-to-DOWN is the interval, not interval + 3×retry
+      # Hermes WebUI - Push and Hermes Serve - Push were removed 2026-09-07 with
+      # the WebUI/serve teardown; the Slack gateway above is the whole surface.
 
       # Daily backup → /mnt/hdd/backups/hermes/ from hermes-backup.sh at 03:00.
       # Push URL → 1Password hermes/uptime-kuma/backup-push-url
@@ -740,6 +736,7 @@ groups:
             type: push
             interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
             retry_interval: 90000
+            maxretries: 0 # else time-to-DOWN is 4×25h
 
           # Liveness — VPS cron runs SELECT 1 every minute via scripts/health-pg.sh.
           # Push URL → op://vps/config/UPTIME_KUMA_POSTGRES_PUSH_URL
@@ -748,6 +745,7 @@ groups:
             interval: 120 # 2 min — cron runs every 60s + buffer
             timeout: 48
             retry_interval: 120
+            maxretries: 0 # 2 min to DOWN, not 8
 
           # Image CDN (imgproxy) — TWO monitors on purpose, they fail differently.
           #
@@ -818,6 +816,16 @@ groups:
                 keyword: '"status":"ok"'
                 interval: 150
 
+              # Hermes integration health as argo sees it — the public,
+              # unauthenticated variant of /api/hermes/health. Declared
+              # 2026-09-07 ahead of the endpoint's deploy; it is DOWN (404)
+              # until argo ships it.
+              - name: Hermes - HTTP
+                type: keyword
+                url: https://argo.jkrumm.com/api/hermes/health/public
+                keyword: '"degraded":false'
+                interval: 160
+
           # Audio Gateway — OpenAI-compatible STT + Gemini TTS on VPS, Tailscale-
           # only via Traefik. DNS is grey-cloud → VPS Tailscale IP, so the homelab
           # UK probe reaches it over Tailscale (no CF bypass). /health returns
@@ -827,6 +835,15 @@ groups:
             url: https://audio-gateway.jkrumm.com/health
             keyword: '"ok":true'
             interval: 150
+
+          # Image Gen Gateway — image generation API on VPS, Tailscale-only via
+          # Traefik like Audio Gateway (grey-cloud → VPS Tailscale IP, no CF
+          # bypass). /health → {"status":"ok"}.
+          - name: Image Gen Gateway - HTTP
+            type: keyword
+            url: https://image-gateway.jkrumm.com/health
+            keyword: '"status":"ok"'
+            interval: 165
 
           # Research Gateway — agentic HTTP research API on VPS, Tailscale-only:
           # grey-cloud, DNS-only A record → VPS Tailscale IP → Traefik, NOT
@@ -851,6 +868,18 @@ groups:
             keyword: '"renderer":"ok"'
             cloudflare_bypass: true
             interval: 160
+
+          # Tavily plan budget — /health/tavily reports the plan's usage and flips
+          # "overPlan" to true once the monthly credits are exhausted (requests
+          # then fail or bill pay-as-you-go). A quota check, not a liveness one:
+          # the gateway is healthy while research silently stops working. Every
+          # 30 min is plenty — the counter moves per research call, not per second.
+          - name: Research Gateway - Tavily Plan - HTTP
+            type: keyword
+            url: https://research.jkrumm.com/health/tavily
+            keyword: '"overPlan":false'
+            cloudflare_bypass: true
+            interval: 1800
 
   # ============================================
   # FreePlanningPoker - VPS application stack
@@ -893,11 +922,13 @@ groups:
         type: push
         interval: 90000 # 25h — daily cron at 03:30 UTC + buffer
         retry_interval: 90000
+        maxretries: 0 # else time-to-DOWN is 4×25h
 
       - name: FPP - Analytics Readmodel - Push
         type: push
         interval: 650
         retry_interval: 650
+        maxretries: 0 # ~11 min to DOWN, not 43
 
   # ============================================
   # Websites - External website monitoring
@@ -909,6 +940,16 @@ groups:
         type: http
         url: https://photos.jkrumm.com/
         ip_family: 6
+        cloudflare_bypass: true
+
+      # Meteo — the public weather/wave site. nginx edge on the VPS (vps/apps/meteo)
+      # behind the cloudflared tunnel, tiles proxied from the Mac mini. Probing the
+      # root, not nginx's local /health, so a 200 means the whole public path served
+      # the app shell.
+      - name: Meteo - HTTP
+        type: http
+        url: https://meteo.jkrumm.com/
+        interval: 170
         cloudflare_bypass: true
 
       - name: Photos - Uptime
