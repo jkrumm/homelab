@@ -2,6 +2,12 @@
 # Sync with: ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
 # IMPORTANT: sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
 #
+# GROUP monitors get NO notification providers (sync.py attaches them to leaves
+# only). Uptime Kuma marks a group DOWN whenever any child is DOWN, so a notified
+# group restates every child alert: one HomeLab reboot on 2026-07-28 produced 57
+# Slack messages, and 190 of the 715 monitor alerts in the 2026-06→09 window were
+# groups repeating a child. Groups are the dashboard tree; leaves are the alarm.
+#
 # Secrets are referenced via environment variables (loaded from 1Password)
 # - UPTIME_MONITOR_TOKEN: Cloudflare WAF bypass token
 # - BETTERSTACK_API_KEY: BetterStack API key

@@ -191,10 +191,19 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
     existing = {m["name"]: m for m in api.get_monitors()}
     processed_names = set()
 
-    def process_monitor(monitor: dict, parent_id: int = None):
-        """Process a single monitor (create or update)."""
+    def process_monitor(monitor: dict, parent_id: int = None, notify: bool = True):
+        """Process a single monitor (create or update).
+
+        `notify=False` detaches every notification provider. Used for GROUP
+        monitors: Uptime Kuma marks a group DOWN whenever any child is DOWN, so
+        a notified group turns one real incident into N+1 Slack messages — a
+        HomeLab reboot on 2026-07-28 produced 57. Groups earn their keep in the
+        dashboard tree, not in the alert stream; the child that actually failed
+        is the one that names the fault.
+        """
         name = monitor["name"]
         processed_names.add(name)
+        monitor_notifications = notification_ids if notify else []
 
         # DB monitors: skip update once they exist — preserves UI-managed
         # connection details (password, host, query). See DB_MONITOR_TYPES.
@@ -205,13 +214,15 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
         params = build_monitor_params(monitor, defaults, cloudflare_header, parent_id)
 
         if name in existing:
-            # Update existing monitor (also ensures all notification providers are attached)
+            # Update existing monitor (also converges the notification providers —
+            # attaching them on leaves, DETACHING them on groups, so flipping
+            # `notify` in config actually takes effect on an existing monitor)
             monitor_id = existing[name]["id"]
             if dry_run:
                 print(f"  [UPDATE] {name} (id={monitor_id})")
             else:
                 try:
-                    params["notificationIDList"] = notification_ids
+                    params["notificationIDList"] = monitor_notifications
                     api.edit_monitor(monitor_id, **params)
                     print(f"  [UPDATED] {name}")
                 except Exception as e:
@@ -224,7 +235,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                 try:
                     # 'active' not supported on add_monitor, only edit_monitor
                     create_params = {k: v for k, v in params.items() if k != "active"}
-                    create_params["notificationIDList"] = notification_ids
+                    create_params["notificationIDList"] = monitor_notifications
                     result = api.add_monitor(**create_params)
                     print(f"  [CREATED] {name} (id={result['monitorID']})")
                     return result["monitorID"]
@@ -240,7 +251,9 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             "type": "group",
             "interval": group.get("interval", 200),
         }
-        group_id = process_monitor(group_config, parent_id)
+        # notify=False: see process_monitor — a group DOWN is a restatement of a
+        # child DOWN, never new information.
+        group_id = process_monitor(group_config, parent_id, notify=False)
 
         # Process child monitors
         for monitor in group.get("monitors", []):
