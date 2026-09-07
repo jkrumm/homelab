@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# /// script
+# dependencies = ["pyyaml"]
+# ///
 """Regression suite for the unresolved-`${VAR}` guard in `uptime-kuma/sync.py`.
 
 On 2026-08-01 a deleted 1Password item broke `op run` wholesale; a later bare
@@ -21,12 +24,11 @@ the guard to abort assert the call log is empty for the API-touching methods
 files; the real `monitors.yaml` is only ever opened read-only, for the
 non-env-literal grep in group 8.
 
-Run (system `python3` on this Mac lacks pyyaml; `uptime-kuma/.venv` only
-exists on the homelab server itself, since sync.py is documented to run
-there — the hermes-agent venv is the closest local interpreter that already
-has pyyaml, so it doubles as the standalone runner here):
+Run (`uptime-kuma/.venv` only exists on the homelab server, since sync.py is
+documented to run there; the PEP 723 header above declares pyyaml, so uv
+builds a throwaway env):
 
-    ~/.hermes/hermes-agent/venv/bin/python3 tests/test_uptime_kuma_sync_guard.py
+    uv run tests/test_uptime_kuma_sync_guard.py      # = make test
 
 Exit status is 0 only when every case matches.
 """

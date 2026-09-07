@@ -190,12 +190,10 @@ uk-export: ## Export current Uptime Kuma monitors to YAML
 
 # ── Tests (local Mac — no SSH, no server, no network) ────────────────────────
 # uptime-kuma/.venv only exists on the homelab server (sync.py runs there
-# only); the hermes-agent venv already has pyyaml, so it doubles as the
-# standalone runner for this repo's tests too. See tests/test_uptime_kuma_sync_guard.py.
-TEST_PYTHON := $(HOME)/.hermes/hermes-agent/venv/bin/python3
-
+# only). The suite declares its one dependency (pyyaml) inline (PEP 723), so
+# `uv run` builds a throwaway env for it — no repo venv, no borrowed one.
 test: ## Run the local regression suite (uptime-kuma sync guard) — no network, no server
-	$(TEST_PYTHON) tests/test_uptime_kuma_sync_guard.py
+	uv run tests/test_uptime_kuma_sync_guard.py
 
 # ── Restic Backup ────────────────────────────────────────────────────────────
 # Backup runs daily at 03:30 inside container (BACKUP_CRON env).
