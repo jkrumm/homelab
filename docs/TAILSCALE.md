@@ -71,7 +71,7 @@ dns:
 
 FPP (Next.js on Vercel), Analytics, Snow-Finder, Email API, Plausible, Photos - all public. Tailscale only needed for SSH + agent connections.
 
-> **Note on MariaDB:** The FPP Next.js app on Vercel connects to MariaDB on `5.75.178.196:33306`. Since Vercel is NOT on our tailnet, MariaDB must keep its public port binding. Consider firewall rules to restrict access to Vercel's IP ranges for extra security.
+> **Note on MariaDB:** The FPP Next.js app on Vercel connects to MariaDB on `<vps-public-ipv4>:33306`. Since Vercel is NOT on our tailnet, MariaDB must keep its public port binding. Consider firewall rules to restrict access to Vercel's IP ranges for extra security.
 
 ---
 
@@ -120,7 +120,7 @@ tailscale ip -4  # → <tailscale-ip-homelab>
 **VPS** (Ubuntu 22.04 ARM64 / Hetzner):
 
 ```bash
-ssh jkrumm@5.75.178.196
+ssh jkrumm@<vps-public-ipv4>
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --ssh --advertise-tags=tag:vps
 tailscale ip -4  # → <tailscale-ip-vps>
@@ -541,7 +541,7 @@ Host homelab-direct
     User jkrumm
 
 Host vps-direct
-    HostName 5.75.178.196
+    HostName <vps-public-ipv4>
     User jkrumm
 ```
 
@@ -816,4 +816,4 @@ All checks passed:
 - **HomeLab is remote** - test one service at a time, always verify before proceeding
 - **Rollback per service**: Switch DNS record back to orange cloud (proxied) to restore Cloudflare access
 - **Rollback Caddy**: If Caddy fails, revert cloudflared to route directly to containers (current setup)
-- **SSH fallback**: Keep `homelab.jkrumm.com` (IPv6) and `5.75.178.196` (IPv4) as backup SSH access until Tailscale is proven stable
+- **SSH fallback**: Keep `homelab.jkrumm.com` (IPv6) and `<vps-public-ipv4>` (IPv4) as backup SSH access until Tailscale is proven stable

@@ -508,7 +508,7 @@ The following secrets are required to run the HomeLab:
 | ----------------------- | ----------------------------- | ------------------------------- |
 | `CLOUDFLARE_TOKEN`      | Cloudflare tunnel token       | `tunnel-token-from-dashboard`   |
 | `CLOUDFLARE_API_TOKEN`  | Cloudflare API token for DDNS | `api-token-for-dns-updates`     |
-| `DB_HOST`               | MySQL server host for backups | `5.75.178.196`                  |
+| `DB_HOST`               | MySQL server host for backups | `<vps-public-ipv4>`                  |
 | `DB_ROOT_PW`            | MySQL root password           | `your-secure-password`          |
 | `POSTGRES_DB_PASSWORD`  | Immich Postgres password      | `your-secure-postgres-password` |
 | `DUFS_PASSWORD`         | Dufs public file server auth  | `your-secure-dufs-password`     |
@@ -1233,32 +1233,31 @@ echo "$(date +%Y-%m-%d):0" > /var/lib/homelab_watchdog/reboot_tracker
 cat /var/lib/homelab_watchdog/state
 ```
 
-#### Setting up the Watchdog Cron
+#### Where the Watchdog Cron Lives
 
-<<<<<<< Updated upstream
-1. Edit root's crontab:
-=======
 The watchdog is installed in **root's crontab** (`sudo crontab -l`) — not the
 `jkrumm` crontab that holds the `op run`-wrapped service crons, not `/etc/cron.d`,
 and not a systemd timer. The line as installed — by hand, not by `setup.sh`,
 which writes a different one (no `.profile`, output to
 `/var/log/homelab_watchdog.log`), so a fresh box diverges here:
->>>>>>> Stashed changes
 
-   ```bash
-   sudo crontab -e
-   ```
+```bash
+*/10 * * * * . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
+```
 
-2. Add the following line so the self-healing watchdog runs every 10 minutes:
+Root, because the script restarts containers, remounts the HDD and can reboot;
+`.profile` first so it sees the same PATH as an interactive root shell. Verify it
+is firing without sudo — cron logs each run to the journal:
 
-   ```bash
-    */10 * * * * /home/jkrumm/homelab/scripts/homelab_watchdog.sh
-   ```
+```bash
+ssh homelab "journalctl -u cron --since '30 min ago' --no-pager | grep homelab_watchdog"
+ssh homelab "tail -3 /var/log/homelab_watchdog.log"
+```
 
 #### WatchDog Automation Details
 
 - **Location**: Script runs from `/home/jkrumm/homelab/scripts/homelab_watchdog.sh`
-- **Frequency**: Every 10 minutes (configured in crontab)
+- **Frequency**: Every 10 minutes (root crontab, above)
 - **Logging**: All operations are logged to `/var/log/homelab_watchdog.log`
 - **Locking**: Built-in file locking prevents overlapping executions
 - **State Management**: Persistent state tracking with graduated escalation (0-4)
