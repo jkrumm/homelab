@@ -3,31 +3,23 @@
 ## Project Context
 
 - **Type:** Infrastructure as Code (Docker Compose)
-- **Server:** Ubuntu Server 24.04
-- **Location:** Remote (dad's house) - physical access limited
-- **Network:** Dual routing — Cloudflare tunnel for public services, Tailscale for private services, Caddy as reverse proxy
-- **Repository Workflow:** Edit locally, push to GitHub, pull on server via SSH
-- **VPS:** Hetzner Cloud ARM64 (Ubuntu 22.04) - runs the VPS Docker stack
-- **VPS Repo (local):** `/Users/johannes.krumm/SourceRoot/vps/`
-
-### Local Tools Available (MacBook)
-
-| Tool                 | Purpose                                                                      |
-| -------------------- | ---------------------------------------------------------------------------- |
-| Tailscale CLI        | `/Applications/Tailscale.app/Contents/MacOS/Tailscale` - mesh VPN management |
-| Cloudflare CLI       | DNS and tunnel management                                                    |
-| Zed                  | SSH remote development (supports `Open Remote` with SSH hosts)               |
-| 1Password CLI (`op`) | Secrets management via `op run --env-file=.env.tpl`                          |
+- **Server:** Ubuntu Server 24.04, remote (dad's house) — physical access limited
+- **Network:** Dual routing — Cloudflare tunnel for public services, Tailscale for private
+  services, Caddy as the single reverse-proxy layer for both
+- **Repository workflow:** Edit locally, push to GitHub, pull on server via SSH
+- **VPS:** Hetzner Cloud ARM64 (Ubuntu 22.04) — runs the separate VPS Docker stack, repo at
+  `~/SourceRoot/vps` (own README/CLAUDE.md — this repo only documents the Tailscale/Caddy
+  integration points it reaches into)
 
 ---
 
 ## Skills Available
 
 | Skill                   | Context | Purpose                                                                                      |
-| ----------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| ----------------------- | ------- | ---------------------------------------------------------------------------------------------- |
 | `/audit`                | main    | Full health audit + repair — containers, resources, storage, updates, errors                 |
 | `/cloudflare`           | main    | Cloudflare DNS records + tunnel ingress config operations. Global skill at `~/.claude/skills/cloudflare/` (sourced from dotfiles), shared with VPS |
-| `/docs`                 | main    | Documentation maintenance — audit and update README.md, CLAUDE.md, docs/, skill files        |
+| `/docs`                 | main    | Documentation maintenance — one owning doc per fact (README/CLAUDE.md/docs/), never restate  |
 | `/upgrade-stack <name>` | fork    | Upgrade assistant for manually-managed containers with dependency + breaking change analysis |
 | `/commit`               | main    | Smart git commit with conventional commits (inherited from SourceRoot)                       |
 
@@ -77,47 +69,25 @@ Moved out of both homelab repos on 2026-07-27. The whole-tailnet ACL now lives a
 
 ## SSH Access
 
-### Connection Methods
-
 ```bash
-# HomeLab - via Tailscale (primary)
-ssh homelab
-# resolves to: jkrumm@<tailscale-ip-homelab> (via ~/.ssh/config)
+ssh homelab   # jkrumm@<tailscale-ip-homelab>, via Tailscale (primary) — ~/.ssh/config
+ssh vps       # jkrumm@<tailscale-ip-vps>, via Tailscale (primary)
 
-# VPS - via Tailscale (primary)
-ssh vps
-# resolves to: jkrumm@<tailscale-ip-vps> (via ~/.ssh/config)
-
-# Direct SSH is blocked on both machines:
-# ssh homelab-direct  # BLOCKED — UFW denies SSH from non-Tailscale IPs
-# ssh vps-direct      # BLOCKED — Hetzner Cloud Firewall blocks port 22 (use web console)
+# Direct SSH is blocked on both machines — Tailscale is the only path:
+#   homelab-direct — blocked by UFW (SSH restricted to Tailscale CGNAT range)
+#   vps-direct     — blocked by Hetzner Cloud Firewall (SSH rule removed)
+# Emergency access: Hetzner web console (VPS), physical access (HomeLab)
 ```
 
-> **SSH config:** `~/.ssh/config` defines all hosts. Shell aliases `homelab` → `ssh homelab`, `vps` → `ssh vps` in `~/.zshrc`.
-
-### Samba (file access via Tailscale)
-
 ```bash
-# Direct (preferred) — Finder → Cmd+K:
-# smb://samba.jkrumm.com
-
-# SSH tunnel (fallback):
-ssh -L 1445:localhost:445 homelab
-# Then: smb://localhost:1445
-```
-
-### Claude Code SSH Patterns
-
-```bash
-# Single command execution
+# Common patterns
 ssh homelab "docker compose ps"
-
-# Multi-command execution
 ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d"
-
-# Interactive session (when needed for debugging)
-ssh -t homelab "docker logs -f <service>"
+ssh -t homelab "docker logs -f <service>"   # interactive, needed for a follow that expects a TTY
 ```
+
+**Samba** (file access via Tailscale): direct — Finder → `Cmd+K` → `smb://samba.jkrumm.com`;
+fallback tunnel — `ssh -L 1445:localhost:445 homelab` → `smb://localhost:1445`.
 
 ---
 
@@ -141,24 +111,19 @@ ssh -t homelab "docker logs -f <service>"
 | `Private/Backblaze B2/MASTER_*`   | B2 master key — manual use only, `make restic-prune`/`init` from Mac |
 | `homelab/dufs/PASSWORD`           | Public file server auth                                 |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
-| `homelab/garmin/EMAIL`            | Garmin Connect login email                              |
-| `homelab/garmin/PASSWORD`         | Garmin Connect login password                           |
+| `homelab/garmin/EMAIL`, `homelab/garmin/PASSWORD` | Garmin Connect login                    |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
 | `homelab/image-share/API_SECRET`  | Bearer secret for image-share's admin `/api/*` surface (also the SPA login token) |
 | `homelab/image-share/KUMA_PUSH_URL` | UptimeKuma push URL — reverse-backup cron (+ manual trigger) heartbeat (monitor id=219) |
-| `homelab/slack/WEBHOOK_ALERTS`    | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
-| `homelab/slack/WATCHTOWER_URL`    | Shoutrrr-formatted Slack webhook for Watchtower         |
+| `common/slack/WEBHOOK_ALERTS`     | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
+| `common/slack/WATCHTOWER_URL`     | Shoutrrr-formatted Slack webhook for Watchtower         |
+| `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
 
 ### Essential Commands
 
 ```bash
-# Run docker compose with secrets
 op run --env-file=.env.tpl -- docker compose up -d
-
-# Read a specific secret
 op read "op://homelab/postgres/PASSWORD"
-
-# Run any command with secrets
 op run --env-file=.env.tpl -- env | grep POSTGRES
 ```
 
@@ -175,33 +140,24 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 
 ### Makefile Commands (Preferred)
 
-**Always use `make` targets instead of raw docker compose commands.** The Makefile wraps every command with `op run --env-file=.env.tpl --` and executes via SSH, so secrets are always injected correctly and you can't accidentally forget the `op` prefix.
-
-Run `make help` for all available targets.
+**Always use `make` targets instead of raw docker compose commands.** The Makefile wraps every command with `op run --env-file=.env.tpl --` and executes via SSH, so secrets are always injected correctly and you can't accidentally forget the `op` prefix. Run `make help` for the full, live list.
 
 | Command                   | Purpose                                                  |
 | ------------------------- | -------------------------------------------------------- |
 | `make deploy`             | Full stack deploy: git pull + recreate all services             |
-| `make up`                 | Start/recreate all services                              |
+| `make up` / `make down`   | Start/recreate — stop all services                       |
 | `make restart svc=<name>` | Force-recreate a single service                          |
-| `make down`               | Stop all services                                        |
-| `make ps`                 | Show running containers                                  |
-| `make logs svc=<name>`    | Follow logs for any service                              |
+| `make ps` / `make logs svc=<name>` | Show running containers — follow logs           |
 | `make immich-upgrade`     | Upgrade Immich stack (git pull + pull pinned images + recreate) — tags are explicit, so bump `immich-server` + `immich-machine-learning` in `docker-compose.yml` first, else it's a no-op. Watchtower-excluded, see `/upgrade-stack immich` |
-| `make garmin-deploy`      | Full garmin-collector deploy (git pull + rebuild + restart) |
-| `make garmin-rebuild`     | Rebuild garmin-collector (no cache) + restart (no git pull) |
-| `make garmin-restart`     | Restart garmin-collector (picks up new env vars)         |
-| `make garmin-relogin`     | Interactive MFA re-login — runs one-shot container, writes fresh tokens, restarts |
-| `make garmin-relogin-auto`| Force the automated MFA re-login (code fetched from Gmail via argo) + restart |
-| `make garmin-logs`        | Follow garmin-collector logs                             |
-| `make image-share-deploy` | Full image-share deploy (git pull homelab + image-share, rebuild --no-cache + restart) |
-| `make image-share-restart`| Restart image-share (picks up new env vars, no rebuild)  |
-| `make image-share-logs`   | Follow image-share logs                                  |
-| `make docker-df`          | Docker disk usage (images, build cache, volumes) + free space on `/` |
-| `make docker-prune`       | Bounded cleanup — cap build cache at `BUILD_CACHE_MAX`, drop dangling images |
+| `make garmin-deploy` / `-rebuild` / `-restart` | Full deploy — rebuild only (no pull) — restart (env vars only) |
+| `make garmin-relogin`     | Interactive MFA re-login — writes fresh tokens, restarts |
+| `make garmin-relogin-auto`| Force the automated MFA re-login (see `docs/decisions.md`) |
+| `make garmin-logs`        | Follow garmin-collector logs                              |
+| `make image-share-deploy` / `-restart` / `-logs` | Same shape as garmin, for image-share |
+| `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
-| `make uk-sync`            | Apply all Uptime Kuma monitors (public + private)        |
-| `make uk-dry-run`         | Preview Uptime Kuma monitor changes                      |
+| `make uk-sync` / `uk-dry-run` / `uk-export` | Apply / preview / export Uptime Kuma monitors (see below) |
+| `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` — local, no network, no server |
 
 ### How Secrets Work
 
@@ -209,54 +165,16 @@ Run `make help` for all available targets.
 2. `OP_SERVICE_ACCOUNT_TOKEN` is set in the server's `~/.bashrc` (the only secret on disk)
 3. `op run --env-file=.env.tpl --` resolves all references at runtime and passes them as env vars
 4. Docker Compose `environment:` maps these into container env vars
-5. Containers read the env at runtime (e.g. garmin-collector reads `GARMIN_COLLECTOR_TOKEN`, `GARMIN_EMAIL`, `GARMIN_PASSWORD`)
 
-**garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
-
-**`--no-cache` on every build is why the disk fills, so every build target self-prunes.**
-Each rebuild leaves a whole build-cache layer set plus a dangling image; unbounded that
-reached **108 GB of build cache (2552 entries) and 350 dangling images** by 2026-08 —
-more disk than every photo on the box. `$(PRUNE)` is appended to `garmin-deploy`,
-`garmin-rebuild` and `image-share-deploy`, so the garbage is collected by whoever makes
-it. Two deliberate choices in it:
-
-- **Bounded, not zeroed** (`--max-used-space 10GB`). Both Dockerfiles use
-  `--mount=type=cache` for their pip/bun package caches, and those mounts live *in* the
-  build cache — an uncapped `builder prune -a` deletes them too, so the next build
-  recompiles the C extensions from source, which is the exact thing those mounts exist
-  to avoid. Docker 29's flag is `--max-used-space`; `--keep-storage` is gone.
-- **`image prune -f`, never `-a`.** Dangling-only. A tagged image is never touched,
-  because some pinned tags no longer resolve upstream and the local copy is the only one
-  left — see the karakeep-chrome migration in `.claude/skills/upgrade-stack/SKILL.md`.
-
-**What no prune target can reach:** images of *decommissioned* services stay tagged
-forever (obsidian, calibre, librechat, mongo… ~25 GB as of 2026-08-27). Removing one is
-a deliberate `docker rmi <tag>` after confirming it is in neither compose file. Careful
-with the check — a locally-built image is referenced by the container as
-`homelab-image-share`, not `homelab-image-share:latest`, so a naive exact-match grep
-reports it as orphaned when it is live.
-
-**Wiring a new push monitor is fully agentic — no browser, no biometric, no human.** Done end to end for `Image Share Reverse-Backup - Push` (id=219) on 2026-08-07. Two facts make it so, and both contradict what this repo used to assume:
-
-- **`make uk-sync` creates push monitors declaratively and the `pushToken` is readable in the same session** — `api.get_monitor(<id>)["pushToken"]`, via the snippet in the global CLAUDE.md. Only `active` is genuinely unsupported for push monitors.
-- **HomeLab's 1Password credential is a *service account* with write access to the `homelab` vault** — `op item create` / `op item edit` both work non-interactively over ssh. So the field can be written from an agent; it is *not* biometric-gated like `op://Private/*` on the Macs. (`op` over ssh needs `< /dev/null`, otherwise it tries to parse stdin as JSON and dies with `invalid JSON in piped input`.)
-
-Match the item's existing convention when writing: on `homelab/image-share`, secrets are `CONCEALED`, so a push URL goes in as `KUMA_PUSH_URL[concealed]=…`.
-
-**The one hard ordering constraint: the 1Password field must exist BEFORE the `op://` ref lands on the server.** `OP := op run --env-file=.env.tpl --` wraps *every* target here, `op run` exits 1 on an unresolvable ref, and `uk-sync` git-pulls before it runs — so a ref to a missing field bricks `deploy`, `up`, `restart`, `uk-sync` and both image-share targets at once, with no way left to create the monitor that mints the token. The safe sequence is: ship the `.env.tpl` line **commented out** → `make uk-sync` → read the `pushToken` → write the field → uncomment → `make image-share-restart`. Commenting out is not caution for its own sake: unset, compose expands the var to empty and image-share's `env.ts` defaults it to `''`, so the service stays healthy with the heartbeat dormant.
-
-**Automated MFA re-login.** Garmin invalidates the refresh token every ~1-2 weeks; re-auth then needs an emailed 6-digit MFA code. `scripts/garmin-auto-relogin.sh` automates it end-to-end: `relogin_auto.py` (a `docker compose run` sibling) triggers a fresh login and fetches the code from the "Ihr Sicherheitscode" email via argo's Gmail endpoint (`ARGO_API_TOKEN` = `op://common/api/SECRET`), stashing/restoring the current token so a failed run never leaves the collector token-less. The wrapper is **hybrid**: proactive (refresh every 4d, before the token can expire → container stays healthy, no UptimeKuma/watchdog noise) + reactive (if already unhealthy, reauth within ~2h, but ≥6h between attempts so a Garmin 429 can't storm). A homelab crontab entry runs it every 2h; `make garmin-relogin-auto` forces a run. The UptimeKuma "Garmin Collector - Push" interval is widened to 12h so this auto-recovery heals silently before paging. `make garmin-relogin` (interactive, MFA from phone/email) remains the manual fallback.
+**Locally-built services, build-cache pruning, agentic push-monitor wiring, and the Garmin
+MFA automation are documented in `docs/decisions.md`** — durable rationale, kept out of
+this file to stay dense.
 
 ### Raw Commands (When Needed)
 
-For operations not covered by the Makefile, use the `op run` prefix on the server:
-
 ```bash
-# General pattern (via SSH)
 ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose <command>"
-
-# Read-only commands don't need op prefix
-ssh homelab "docker compose ps"
+ssh homelab "docker compose ps"          # read-only, no op prefix needed
 ssh homelab "docker compose logs -f <service>"
 ```
 
@@ -270,65 +188,18 @@ ssh homelab "docker compose logs -f <service>"
 5. cloudflared (depends on caddy + public services - starts last)
 ```
 
-### Troubleshooting Commands
+### Container Updates (Watchtower)
 
-```bash
-# Check container health
-docker inspect --format='{{.State.Health.Status}}' <container>
-
-# View container resource usage
-docker stats --no-stream
-
-# Execute command in container
-docker exec -it <container> sh
-
-# View recent container events
-docker events --since 1h --filter container=<name>
-```
+- **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
+- **Opted-out** (other): `garmin-collector`, `image-share` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Auto-update** (global, daily 4AM): everything else, including `caddy`
 
 ---
 
 ## Services Reference
 
-### Public Services (Cloudflare Tunnel → Caddy → container)
-
-| Service     | Port | URL               | Purpose             |
-| ----------- | ---- | ----------------- | ------------------- |
-| Glance      | 8080 | glance.jkrumm.com | Dashboard           |
-| Immich      | 2283 | immich.jkrumm.com | Photo management    |
-| UptimeKuma  | 3010 | uptime.jkrumm.com | Service monitoring  |
-| Dufs        | 8098 | public.jkrumm.com | Public file sharing |
-| Image Share | 7720 | share.jkrumm.com  | Personal photo library — public share links (bare `/<slug>` → `/s/<slug>`), admin UI under `/admin`, API under `/api` |
-
-### Private Services (Tailscale → Caddy HTTPS :443 → container)
-
-| Service          | Port | URL                | Purpose                                                     |
-| ---------------- | ---- | ------------------ | ----------------------------------------------------------- |
-| Beszel           | 8090 | beszel.jkrumm.com  | System metrics                                              |
-| Dozzle           | 8081 | dozzle.jkrumm.com  | Container logs                                              |
-| FileBrowser      | 80   | files.jkrumm.com   | File management                                             |
-| Garmin Collector | 8080 | garmin.jkrumm.com  | Garmin Connect HTTP query layer (called by argo on the VPS) |
-| Karakeep         | 3000 | karakeep.jkrumm.com | Read-later / bookmark everything-bucket (AI auto-tagging via IU endpoint) |
-
-> **Access:** DNS A records point to HomeLab Tailscale IP (<tailscale-ip-homelab>, DNS-only/grey cloud). Only reachable from Tailscale devices. Caddy serves HTTPS with Let's Encrypt certs via DNS-01 challenge.
-
-### Internal Services
-
-| Service                       | Purpose                                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Caddy                         | Reverse proxy (HTTP :80 + HTTPS :443, custom build with cloudflare DNS plugin)                         |
-| docker-socket-proxy           | Read-only Docker API proxy (Glance, Dozzle, Beszel-Agent, UptimeKuma)                                  |
-| docker-socket-proxy-watchtower| Dedicated POST/DELETE-enabled proxy on isolated network for Watchtower                                 |
-| docker-socket-proxy-claude    | Read-only Docker proxy bound to Tailscale `:2376` — argo on the VPS reads container state from here    |
-| Cloudflared                   | Tunnel to Cloudflare (public services only)                                                            |
-| Watchtower                    | Auto-updates all containers daily at 4AM; opted-out stacks updated via `/upgrade-stack`; Slack notifs  |
-| Samba                         | SMB3 file shares (encryption preferred)                                                                |
-| Beszel-Agent                  | System metrics collector                                                                               |
-| Immich ML                     | Photo AI processing                                                                                    |
-| Immich Postgres/Redis         | Immich databases                                                                                       |
-| Restic Backup                 | Daily 03:30 cron — pushes /sources/* to Backblaze B2 (append-only key)                                 |
-| Garmin Collector              | FastAPI sidecar — exposes /daily-metrics + /activities to argo on the VPS via Tailscale                |
-| Watchdog Log Sidecars         | dozzle-watchdog-logs / homelab-watchdog-logs — surface watchdog log files to Dozzle                    |
+**Full service table (public/private/internal, URLs, ports): README → Service Access
+Cheatsheet.** This file only carries the operating facts an agent needs beyond that table.
 
 ### Network Topology
 
@@ -337,32 +208,33 @@ Public:  Internet → Cloudflare CDN (orange cloud) → CF Tunnel → cloudflare
 Private: Tailscale device → HomeLab TS IP (<tailscale-ip-homelab>) → https://caddy:443 → container
 ```
 
-**Key:** Caddy is the single routing layer. The `Caddyfile` is the source of truth for all service routing. Each site block has both HTTPS (Tailscale) and `http://` (cloudflared) variants.
+**Caddy is the single routing layer** — the `Caddyfile` is the source of truth for all
+service routing. Each site block has both an `https://` (Tailscale) and an `http://`
+(cloudflared) variant — Caddy defaults new site blocks to HTTPS-only, so the `http://`
+variant needs adding explicitly. The global `auto_https disable_redirects` setting keeps
+HTTPS cert provisioning working while dropping the HTTP→HTTPS redirect that would
+otherwise 301 cloudflared's plain-HTTP connection. TLS comes from Let's Encrypt via the
+Cloudflare DNS-01 challenge (`caddy-dns/cloudflare`, baked into the prebuilt
+`caddybuilds/caddy-cloudflare` image — there is no `caddy/Dockerfile` in this repo).
+Private-service DNS is a grey-cloud (DNS-only) Cloudflare A record pointing at the
+HomeLab Tailscale IP. Full rationale: `docs/decisions.md`.
 
-Docker bridge networks: `cloudflared`, `immich`, `beszel`, `socket-proxy`
+8 Docker bridge networks (`docker-compose.yml` → `networks:`): `cloudflared`, `immich`,
+`beszel`, `socket-proxy`, `socket-proxy-watchtower`, `socket-proxy-claude`,
+`watchtower-egress`, `karakeep-internal`.
 
-### Tailscale
-
-**Tailnet:** `dinosaur-sole.ts.net` | **Migration plan:** `docs/TAILSCALE.md`
-
-| Machine | Tailscale IP             | SSH Host      |
-| ------- | ------------------------ | ------------- |
-| HomeLab | `<tailscale-ip-homelab>` | `ssh homelab` |
-| VPS     | `<tailscale-ip-vps>`     | `ssh vps`     |
-| MacBook | `<tailscale-ip-macbook>` | -             |
-| iPhone  | `<tailscale-ip-iphone>`  | -             |
-
-**Migration status:** Phase 1-11 done (Tailscale, Caddy, security hardening complete). Phase 8 Zed remote dev pending. See `docs/TAILSCALE.md`.
+**Tailnet:** `dinosaur-sole.ts.net`. Device IPs are placeholders in every tracked file —
+resolve the real ones via `tailscale status` or the admin console, never hardcode them here.
 
 ### Docker Socket Security
 
-Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via `docker-socket-proxy` instead of direct socket mount:
-
-- **Proxy URL:** `tcp://docker-socket-proxy:2375`
-- **Read-only:** Only CONTAINERS, IMAGES, INFO, NETWORKS, VOLUMES enabled
-- **Write disabled:** POST, BUILD, EXEC, etc. all blocked
-- **Internal network:** socket-proxy network has no external access
-- **Exception:** Watchtower uses a dedicated `docker-socket-proxy-watchtower` (POST=1, DELETE=1) on an isolated network
+Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
+`docker-socket-proxy` (`tcp://docker-socket-proxy:2375`) instead of a direct socket mount —
+read-only (CONTAINERS, IMAGES, INFO, NETWORKS, VOLUMES; POST/BUILD/EXEC blocked), on an
+internal network with no external access. **Exceptions:** Watchtower gets a dedicated
+`docker-socket-proxy-watchtower` (POST=1, DELETE=1) on its own isolated network; argo on
+the VPS reads container state through `docker-socket-proxy-claude`, bound to the HomeLab
+Tailscale IP on `:2376` (read-only, same restrictions).
 
 ---
 
@@ -407,137 +279,12 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 └── backups/              # FPP MySQL hourly dump (restic source)
 ```
 
-### Storage Usage Patterns
-
-- **SSD:** Databases, frequently accessed files, application configs
-- **HDD:** Media files, backups, archives, large datasets
-
 ---
 
-## Backups (Restic → Backblaze B2)
+## Backups
 
-**Repo:** `s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic`
-**Schedule:** Daily 03:30 (container cron, `BACKUP_CRON` env)
-**Retention (forget, automated):** `keep-daily 14, keep-weekly 8, keep-monthly 12, keep-yearly 5`
-**Container:** `mazzolino/restic` — see `restic-backup` service in `docker-compose.yml`
-**Excludes:** `restic-excludes.txt` at repo root
-
-> ⚠ **Editing the excludes file requires `make restic-deploy`.** It is bind-mounted as a
-> single file (`./restic-excludes.txt:/excludes.txt:ro`), so Docker binds the *inode* — and
-> `git pull` replaces the file rather than editing in place. After a pull the host file is
-> new but the container still reads the old inode, so exclude changes silently do nothing
-> until the container is recreated. Verify with:
-> `docker exec restic-backup tail -3 /excludes.txt`
-
-### Sources backed up
-
-| Path | Mounts as | Note |
-| - | - | - |
-| `/home/jkrumm/ssd/SSD/Bilder` | `/sources/Bilder` | All photos incl. Immich subfolder — originals + Immich's nightly DB dumps (see below) |
-| `/home/jkrumm/ssd/SSD/Dokumente` | `/sources/Dokumente` | Includes `Obsidian/` sync target |
-| `/home/jkrumm/ssd/SSD/Bücher` | `/sources/Buecher` | |
-| `/home/jkrumm/ssd/SSD/Videos` | `/sources/Videos` | |
-| `/home/jkrumm/ssd/SSD/Public` | `/sources/Public` | Dufs files |
-| `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
-| `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
-| `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
-| `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable) |
-
-**Skipped intentionally:** Immich raw Postgres data dir (`Bilder/immich/postgres` — excluded; a filesystem copy of a live PGDATA is not restorable, see "Immich database" below), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
-
-### Immich database — how it's actually backed up
-
-The Immich DB is **not** covered by copying its data directory (that dir is excluded).
-It is covered by **Immich's built-in automatic database backup**, which is enabled by
-default and needs no cron of ours:
-
-- Immich runs `pg_dump` nightly at 02:00 and writes
-  `immich-db-backup-<ts>-v<immich>-pg<ver>.sql.gz` to `upload/backups/`.
-- Retention: last 14 dumps (Administration → Settings → Backup).
-- That path sits inside the restic-backed `Bilder` tree and is deliberately **not**
-  excluded → every dump goes offsite to B2 with the nightly 03:30 restic run.
-- **Immich pushes nothing**, so `scripts/immich-backup-check.sh` (jkrumm crontab,
-  04:00) proves the newest dump is <26h old, gzip-valid and carries pg_dump's
-  "dump complete" trailer, then pings `Immich Backup - Push` (id=228). Push URL
-  in `~/.config/uptime-kuma/immich-backup-push-url` (chmod 600) — the plain-file
-  convention, never `.env.tpl`.
-
-**Why this matters:** the photo originals are recoverable on their own, but the DB is
-what holds albums, folder structure, sharing/partner permissions, people/face names,
-favorites and metadata edits — none of which can be reconstructed from the image files.
-The dumps are the only thing protecting that.
-
-**Restore / rollback.** Immich downgrades are unsupported and schema migrations are
-irreversible, so reverting a version means restoring a dump, not re-pinning an image:
-either Administration → Maintenance → Restore database backup (v3+, creates a restore
-point first), or the CLI path — stop the stack, wipe `Bilder/immich/postgres`, bring up
-a clean stack on the dump's Immich version, then pipe the dump into `psql`. The dump
-filename records the Immich + Postgres version it came from. Restoring needs the
-VectorChord-enabled Postgres image (the one pinned in `docker-compose.yml`).
-
-### Two-key pattern (ransomware safety)
-
-| Key | Permissions | Storage | Used by |
-| - | - | - | - |
-| `common/backblaze-s3` | `listAllBucketNames, listBuckets, readBuckets, listFiles, readFiles, writeFiles` — bucket `jkrumm` (no prefix scope) | 1Password + injected via `op run` | Daily restic backup (homelab) AND daily Postgres dump (VPS). Append-only — no delete perms |
-| `Private/Backblaze B2` (`MASTER_KEY_ID` + `MASTER_APP_KEY` fields) | Master (full access) | 1Password ONLY, never automated | `make restic-prune` and `restic-init` from your Mac |
-
-**Why two keys:** the shared automation key can never delete from B2. Even with the restic password leaked, an attacker cannot wipe the offsite repo. Pruning is a deliberate human action with the master key. Single shared automation key (no per-host prefix scoping) — append-only already protects integrity, prefix scoping would only marginally limit a junk-upload cost attack.
-
-### Operations
-
-| Command | What it does | Where |
-| - | - | - |
-| `make restic-init` | One-time repo init (only runs once) | Mac (admin key) |
-| `make restic-deploy` | Deploy/refresh container | Mac → SSH |
-| `make restic-run` | Trigger unscheduled backup now | Mac → SSH |
-| `make restic-snapshots` | List snapshots | Mac → SSH (container key) |
-| `make restic-stats` | Repo size + dedup ratio | Mac → SSH (container key) |
-| `make restic-check` | Verify metadata integrity | Mac → SSH (container key) |
-| `make restic-prune` | ⚠ Quarterly: reclaim space from forgotten snapshots | Mac (admin key) |
-| `make restic-logs` | Tail container logs | Mac → SSH |
-
-**Restore drill (run from Mac — proves offsite recoverability):**
-
-The append-only key (`op://common/backblaze-s3`) has read perms (`listFiles, readFiles`), so restores work from any machine with restic + the repo password. This is the real DR drill — recovering from the laptop without touching homelab.
-
-```bash
-# Build env (one-shot; do not export to shell history)
-export RR="s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic"
-
-# List snapshots from Mac
-RESTIC_REPOSITORY="$RR" \
-  RESTIC_PASSWORD="$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
-  AWS_ACCESS_KEY_ID="$(op read 'op://common/backblaze-s3/ACCESS_KEY_ID' --account tkrumm)" \
-  AWS_SECRET_ACCESS_KEY="$(op read 'op://common/backblaze-s3/SECRET_ACCESS_KEY' --account tkrumm)" \
-  restic snapshots --compact
-
-# Restore specific files from a snapshot (use --include for a subset, or omit to restore the whole snapshot)
-RESTIC_REPOSITORY="$RR" \
-  RESTIC_PASSWORD="$(op read 'op://homelab/restic/PASSWORD' --account tkrumm)" \
-  AWS_ACCESS_KEY_ID="$(op read 'op://common/backblaze-s3/ACCESS_KEY_ID' --account tkrumm)" \
-  AWS_SECRET_ACCESS_KEY="$(op read 'op://common/backblaze-s3/SECRET_ACCESS_KEY' --account tkrumm)" \
-  restic restore <snapshot-id|latest> \
-    --target /tmp/restic-drill \
-    --include /sources/Dokumente/<path>
-
-# Verify restored vs source (run on homelab side via SSH for the source)
-shasum -a 256 /tmp/restic-drill/sources/Dokumente/<path>
-ssh homelab "sha256sum /home/jkrumm/ssd/SSD/Dokumente/<path>"
-# Hashes must match exactly.
-
-# Compare two snapshots (point-in-time diff for "previous versions")
-restic diff <older-id> <newer-id>
-```
-
-**Validated 2026-05-04** with snapshot `49918079` (234 GiB / 82,274 files): three test files (text, JSON, SQLite binary) restored from B2 to Mac and SHA-256 matched the homelab originals exactly. `restic check` reported no errors. Restore of all 3 small files completed in <1 second.
-
-`restic diff <id1> <id2>` and `restic ls <id> <path>` both work the same way — useful for finding when a file was deleted or modified.
-
-### Heartbeat monitoring
-
-- Container `POST_COMMANDS_SUCCESS`/`POST_COMMANDS_FAILURE` push to `${RESTIC_HEARTBEAT_URL}` (UptimeKuma).
-- Monitor: `Restic Backup - Push` in `uptime-kuma/monitors.yaml` (HomeLab → Backups subgroup, 25h interval).
+Restic → Backblaze B2, daily 03:30, two-key ransomware-safe pattern, Mac-side restore
+drill. Full design + operations + restore commands: **`docs/backups.md`**.
 
 ---
 
@@ -547,7 +294,7 @@ Pure infrastructure repo (Docker Compose + ops). The application stack (api + da
 
 ```
 homelab/
-├── docker-compose.yml       # Service orchestration (~30 containers, infra + collectors)
+├── docker-compose.yml       # Service orchestration (25 services, infra + collectors)
 ├── Caddyfile                # Reverse proxy routing (public + private + garmin/argo collectors)
 ├── .env.tpl                 # 1Password secret references (op:// URIs)
 ├── setup.sh                 # Initial server setup (idempotent)
@@ -556,23 +303,25 @@ homelab/
 │       ├── server.py        #   Owns OAuth tokens. Argo API on VPS pulls /daily-metrics
 │       ├── relogin.py       #   + /activities via https://garmin.jkrumm.com (Tailscale-only).
 │       ├── relogin_auto.py  #   Bearer-authed via op://common/garmin-collector/TOKEN.
-│       ├── requirements.txt #   relogin.py = interactive MFA; relogin_auto.py = MFA fetched
-│       └── Dockerfile       #   from Gmail via argo (driven by scripts/garmin-auto-relogin.sh).
+│       └── Dockerfile       #   relogin.py = interactive MFA; relogin_auto.py = MFA fetched
+│                             #   from Gmail via argo (driven by scripts/garmin-auto-relogin.sh).
 ├── scripts/                 # Operational scripts
-│   └── homelab_watchdog.sh  # Self-healing health monitor (cron)
+│   └── homelab_watchdog.sh  # Self-healing health monitor (root crontab, every 10 min)
 ├── config/                  # App configs + extends
 │   ├── glance.yml           # Glance dashboard config
-│   ├── hwaccel.ml.yml       # Immich ML GPU acceleration
-│   └── hwaccel.transcoding.yml
+│   └── hwaccel.{ml,transcoding}.yml  # Immich GPU acceleration stubs (not active)
 ├── docs/                    # Detailed documentation
-│   ├── TAILSCALE.md         # Migration plan + learnings
+│   ├── backups.md           # Restic design + restore drill
+│   ├── decisions.md         # Durable rationale (build-cache, push monitors, Garmin MFA, Tailscale/Caddy)
 │   └── watchdog-behaviors.md
-├── caddy/Dockerfile         # Custom Caddy build (cloudflare DNS plugin)
-├── dozzle/                  # Dozzle auth + TLS certs
 └── uptime-kuma/             # Monitor config-as-code
     ├── sync.py
     └── monitors.yaml
 ```
+
+**Caddy uses the prebuilt `caddybuilds/caddy-cloudflare` image** — there is no `caddy/`
+directory in this repo. `dozzle/` is a root-owned bind mount (`.gitignore`d, holds
+`users.yml` + runtime state) that exists only on the server, never checked in.
 
 ### Argo (api + dashboard) — separate repo
 
@@ -586,32 +335,16 @@ See `~/SourceRoot/argo/` and the VPS-side `apps/argo/compose.yml`.
 
 ---
 
-## Available Scripts
-
-### Quick Reference
-
-| Script                        | Location       | Purpose                     |
-| ----------------------------- | -------------- | --------------------------- |
-| `homelab_watchdog.sh`         | `scripts/`     | Self-healing health monitor |
-| `sync.py`                     | `uptime-kuma/` | Config-as-code monitor sync |
-| `setup.sh`                    | root           | Initial server setup        |
-
-### Uptime Kuma Config-as-Code
+## Uptime Kuma Config-as-Code
 
 Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script.
-**IMPORTANT:** sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
+**`sync.py` must run ON THE HOMELAB SERVER** — it connects to `localhost:3010`. Never run
+locally or on VPS.
 
 ```bash
-# Preview changes (dry run)
+# Preview / apply (public + private merged) / export
 ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
-
-# Apply changes (public monitors only)
-ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
-
-# Apply changes (public + private monitors merged)
 ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --extra-config ../homelab-private/uptime-kuma/monitors.yaml"
-
-# Export current monitors to YAML
 ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
 ```
 
@@ -625,138 +358,67 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   homelab after a dry-run shows *only* the monitors you mean to drop.
 - **`--export` flattens to top-level groups only** — a monitor nested in a subgroup
   never appears in the `.exported` file; read it with `api.get_monitor(<id>)`.
-
-### HDD Diagnostics
-
-```bash
-# Inspect mount + LUKS state directly
-mount | grep hdd
-sudo cryptsetup status encrypted_partition
-sudo dmesg | tail -50
-```
+- **Every push monitor has `maxretries: 0`** except `Home Line - Watchdog` (2,
+  deliberate) — a retry turns a 10-minute time-to-DOWN into 40. Wiring a brand-new
+  push monitor end to end is fully agentic; see `docs/decisions.md`.
 
 ---
 
 ## Watchdog & Self-Healing
 
-The `scripts/homelab_watchdog.sh` script runs via cron every 10 minutes and provides multi-level self-healing.
+`scripts/homelab_watchdog.sh` runs every 10 minutes from **root's crontab** (not
+`jkrumm`'s, not `/etc/cron.d`, not a systemd timer):
 
-**Detailed behavior documentation:** See `docs/watchdog-behaviors.md` for failure scenarios and recovery paths.
-
-### Escalation Levels
-
-| Level | Trigger            | Action                            |
-| ----- | ------------------ | --------------------------------- |
-| 0     | Healthy            | No action                         |
-| 1     | First failure      | Wait for recovery, Docker restart |
-| 2     | Persistent failure | Network interface restart         |
-| 3     | Continued failure  | Aggressive Docker cleanup         |
-| 4     | Critical           | System reboot (max 3/day)         |
-
-### Auto-Recovery After Manual Intervention
-
-The watchdog auto-clears the `manual_intervention_required` flag when the system becomes healthy:
-
-- Even with flag set, health checks still run every 10 minutes
-- If all checks pass → flag is auto-cleared → normal operation resumes
-- This allows self-healing after long outages (e.g., ISP down for hours)
-
-### Key Files
-
-| File                                                     | Purpose                                               |
-| -------------------------------------------------------- | ----------------------------------------------------- |
-| `/var/lib/homelab_watchdog/state`                        | Current escalation level                              |
-| `/var/lib/homelab_watchdog/manual_intervention_required` | Blocks aggressive recovery (auto-clears when healthy) |
-| `/var/lib/homelab_watchdog/reboot_tracker`               | Daily reboot count                                    |
-| `/var/log/homelab_watchdog.log`                          | Watchdog logs                                         |
-| `/root/.homelab-watchdog-credentials`                    | Slack webhook/BetterStack/UptimeKuma tokens           |
-
-### Manual Intervention
-
-```bash
-# Check if manual intervention required
-ls /var/lib/homelab_watchdog/manual_intervention_required
-
-# Clear flag to resume auto-recovery (usually not needed - auto-clears when healthy)
-sudo rm /var/lib/homelab_watchdog/manual_intervention_required
-
-# View watchdog state
-cat /var/lib/homelab_watchdog/state
-
-# Reset state to healthy
-echo 0 | sudo tee /var/lib/homelab_watchdog/state
-
-# View recent watchdog logs
-tail -100 /var/log/homelab_watchdog.log
+```
+*/10 * * * * . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
 ```
 
-### Health Checks Performed
+Root, because the script restarts containers, remounts the HDD and can reboot. Verify
+it's firing without sudo: `ssh homelab "journalctl -u cron --since '30 min ago' --no-pager | grep homelab_watchdog"`.
 
-1. Mount integrity (`/mnt/hdd` accessible and writable)
-2. Internet connectivity (ping 8.8.8.8, 1.1.1.1, 9.9.9.9)
-3. External monitor (BetterStack API)
-4. Internal monitor (UptimeKuma status page)
-5. Docker health (key containers running)
-6. Tailscale health (`tailscale status` + retry → restarts `tailscaled` independently, own state file)
+Full failure scenarios, escalation states (0-4), config values and log files:
+**`docs/watchdog-behaviors.md`**. One fact worth surfacing here: the watchdog
+**auto-clears** `manual_intervention_required` once health checks pass again — a long
+outage does not need manual SSH to resume, only genuinely unrecoverable states
+(HDD disconnected, LUKS locked, 3 reboots/day) stay stuck until a human intervenes.
+
+```bash
+# Manual clear (rarely needed — auto-clears when healthy)
+ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"
+```
 
 ---
 
 ## Change Management Workflow
 
-### Pre-Change Checklist
-
-1. [ ] Pull latest changes locally: `git pull`
-2. [ ] Review current server state: `make ps`
-3. [ ] Check Glance dashboard for service health
-
-### Git Workflow
-
 ```bash
-# 1. Edit locally (this machine)
-# 2. Commit via /commit command (only when requested), push to GitHub
-# 3. Deploy via Makefile
+# 1. Edit locally, commit via /commit (only when requested), push to GitHub
+# 2. Deploy
 make deploy          # Full stack (git pull + recreate all)
 make garmin-deploy   # garmin-collector only (git pull + rebuild + restart)
 make caddy-reload    # Caddy only (after Caddyfile changes)
-```
-
-### Verification Steps
-
-```bash
-make ps                                # Check services started
-make logs svc=garmin-collector         # Watch garmin-collector logs
-curl -I https://glance.jkrumm.com  # Verify external access
+# 3. Verify
+make ps
+curl -I https://glance.jkrumm.com
 ```
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
-
 | Issue                  | Diagnosis         | Solution                              |
 | ---------------------- | ----------------- | ------------------------------------- |
 | Service not accessible | Check cloudflared | `docker logs cloudflared`             |
 | Container crash loop   | Check logs        | `docker logs --tail=100 <container>`  |
 | HDD not mounted        | Check encryption  | `sudo cryptsetup status encrypted_partition && mount \| grep hdd` |
-| Immich ML slow         | Check GPU         | `docker logs immich_machine_learning` |
-
-### Diagnostic Commands
+| Immich ML slow         | Check GPU         | Not active on this server (CPU-mode only) — `docker logs immich_machine_learning` |
 
 ```bash
-# System resources
-ssh homelab "df -h && free -h && uptime"
-
-# Docker disk usage
-ssh homelab "docker system df"
-
-# Network connectivity
-ssh homelab "ping -c 3 8.8.8.8 && curl -I https://google.com"
-
-# Check mount status
+ssh homelab "df -h && free -h && uptime"          # system resources
+ssh homelab "docker system df"                    # docker disk usage
+ssh homelab "docker inspect --format='{{.State.Health.Status}}' <container>"
+ssh homelab "docker stats --no-stream"
 ssh homelab "mount | grep hdd && ls /mnt/hdd"
-
-# View dmesg for hardware issues
 ssh homelab "dmesg | tail -50"
 ```
 
@@ -766,8 +428,6 @@ ssh homelab "dmesg | tail -50"
 
 ### Memory Limits
 
-Services with memory limits to prevent runaway resource usage:
-
 | Service       | Limit | Reserved |
 | ------------- | ----- | -------- |
 | Immich Server | 4G    | -        |
@@ -775,8 +435,6 @@ Services with memory limits to prevent runaway resource usage:
 | UptimeKuma    | 1G    | 512M     |
 
 ### Log Rotation
-
-Services with JSON file logging and rotation configured:
 
 | Service             | Max Size | Max Files |
 | ------------------- | -------- | --------- |
@@ -792,29 +450,20 @@ Services with JSON file logging and rotation configured:
 - **Confirm irreversible/outward-facing operations:** Ask before reboots, volume/data deletion, or Cloudflare tunnel changes
 - **Test incrementally:** Apply changes one service at a time when possible
 - **Verify after changes:** Check service health after any modification
-- **Reference README.md:** For detailed setup procedures, not this file
+- **Reference README.md:** For setup procedures and the service table, not this file
 
 ### Never Do
 
-- **Skip SSH:** Always execute server commands via SSH, not locally
+- **Bypass the Makefile for server operations** — every target already wraps `op run` and SSH correctly; raw `docker compose` on the server risks a missing secret. (Local, read-only tooling — `make test`, `make help` — is meant to run locally.)
 - **Force reboot remotely:** Physical access is limited - reboots are risky
-- **Modify watchdog credentials:** `/root/.homelab-watchdog-credentials` is sensitive
+- **Modify watchdog credentials** without checking `docs/watchdog-behaviors.md` first
 - **Delete data without confirmation:** Especially on `/mnt/hdd`
 
 ### Documentation Workflow
 
-When making changes that affect infrastructure or script behavior:
-
-1. Make the code changes
-2. Run `/docs` to audit and update documentation
-3. Review changes with `git diff`
-4. Commit with `/commit` when satisfied
-
-**Documentation locations:**
-
-- `README.md` - Setup procedures, detailed guides
-- `CLAUDE.md` - Quick reference, agent instructions
-- `docs/*.md` - Detailed behavior documentation for complex scripts
+When making changes that affect infrastructure or script behavior: make the code change →
+run `/docs` to keep README/CLAUDE.md/docs/ each owning their own facts → review with
+`git diff` → commit with `/commit` when satisfied.
 
 ### Confirmation Required For
 
@@ -822,38 +471,3 @@ When making changes that affect infrastructure or script behavior:
 - Removing containers with volumes (`docker compose down -v`)
 - Modifying encrypted HDD mount configuration
 - Changing Cloudflare tunnel settings
-
----
-
-## Quick Reference Card
-
-### Container Updates (Watchtower)
-
-**Update tiers:**
-
-- **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `garmin-collector`, `image-share` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
-- **Auto-update** (global, daily 4AM): everything else (incl. `caddy` — was opted-out historically, now Watchtower-managed)
-
-| Command                            | Purpose                    |
-| ---------------------------------- | -------------------------- |
-| `docker logs watchtower --tail=50` | Watchtower recent activity |
-
-### Uptime Kuma Config-as-Code
-
-| Command           | Purpose                         |
-| ----------------- | -------------------------------- |
-| `make uk-export`  | Export current monitors to YAML |
-
-### Emergency Commands
-
-```bash
-# Restart all Docker services
-make down && make up
-
-# Clear watchdog and resume auto-recovery
-ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required && echo 0 | sudo tee /var/lib/homelab_watchdog/state"
-
-# Aggressive Docker cleanup (careful!)
-ssh homelab "docker system prune -af"
-```

@@ -150,7 +150,7 @@ Usually resolves at state 1 (simple Docker restart).
 
 **What keeps working:**
 
-- SSD-based services (UptimeKuma, Immich, Calibre, ExcaliDash)
+- SSD-based services (UptimeKuma, Immich, Karakeep)
 - Caddy, cloudflared, Glance (no HDD dependency)
 
 **Watchdog behavior:**
@@ -385,5 +385,6 @@ The watchdog sends a heartbeat to an Uptime Kuma push monitor on every completed
 
 **Configuration:**
 
-- Token stored in `/root/.homelab-watchdog-credentials`
-- Push monitor: "HomeLab Watchdog - Push" (interval: 700s)
+- Token read live via `op read 'op://homelab/uptime-kuma/PUSH_TOKEN'` (root's
+  `OP_SERVICE_ACCOUNT_TOKEN` session, `load_credentials()`) — not a credentials file
+- Push monitor: "HomeLab Watchdog - Push" (interval: 700s, `maxretries: 0`)

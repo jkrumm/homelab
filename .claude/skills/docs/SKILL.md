@@ -21,7 +21,7 @@ context: main
 2. Checks scripts/ directory for new scripts
 3. Audits config files and mount points
 4. Detects multi-component stacks with `com.centurylinklabs.watchtower.enable: "false"`
-5. Updates README.md and CLAUDE.md cheatsheets
+5. Updates the single owning doc per fact (README = onboarding/service access, CLAUDE.md = operating rules/gotchas, docs/ = runbooks/rationale) — never restates a fact in two places
 6. Synchronizes Table of Contents
 7. Updates behavior documentation in docs/
 8. Prompts to extend /upgrade-stack for new stacks

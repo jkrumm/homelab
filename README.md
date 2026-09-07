@@ -1,362 +1,110 @@
 # Homelab Setup Guide
 
-## Quick Commands Cheatsheet
+Infrastructure-as-code for two machines: a HomeLab server (Ubuntu 24.04, physical
+box at a remote location) and the VPS (Hetzner ARM64, separate repo at
+`~/SourceRoot/vps`). Docker Compose + Caddy + Cloudflare Tunnel + Tailscale, self-healing
+via a cron watchdog, monitored with Uptime Kuma (config-as-code) and backed up nightly
+to Backblaze B2 via restic.
 
-### SSH Access
-
-```bash
-# HomeLab - via Tailscale (primary)
-ssh homelab
-
-# VPS - via Tailscale (primary)
-ssh vps
-
-# Direct SSH is blocked on both machines:
-#   homelab-direct — blocked by UFW (SSH restricted to Tailscale only)
-#   vps-direct     — blocked by Hetzner Cloud Firewall (SSH rule removed)
-# Emergency access: Hetzner web console (VPS), physical access (HomeLab)
-
-# Samba file shares (via Tailscale DNS)
-# Finder → Cmd+K → smb://samba.jkrumm.com
-# Or via SSH tunnel: ssh -L 1445:localhost:445 homelab → smb://localhost:1445
-```
-
-### Docker Operations
-
-```bash
-# View all services
-docker compose ps
-
-# Start all services
-op run --env-file=.env.tpl -- docker compose up -d
-
-# Restart single service
-op run --env-file=.env.tpl -- docker compose restart <service>
-
-# View service logs (follow)
-docker compose logs -f <service>
-
-# Rebuild after config change
-op run --env-file=.env.tpl -- docker compose up -d --force-recreate <service>
-
-# Full restart (after docker-compose.yml changes)
-docker compose down && op run --env-file=.env.tpl -- docker compose up -d
-
-# Pull latest images and restart
-docker compose pull && op run --env-file=.env.tpl -- docker compose up -d
-```
-
-### Git Workflow (Edit Local → Deploy Remote)
-
-```bash
-# 1. Edit locally, commit, push
-git add . && git commit -m "message" && git push
-
-# 2. Pull and apply on server
-ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker compose up -d"
-```
-
-### System Health
-
-```bash
-# Check resources
-ssh homelab "df -h && free -h && uptime"
-
-# Docker disk usage
-ssh homelab "docker system df"
-
-# Container resource usage
-ssh homelab "docker stats --no-stream"
-
-# Mount status
-ssh homelab "mount | grep hdd && ls /mnt/hdd"
-
-# Kernel logs (HDD issues)
-ssh homelab "dmesg | tail -50"
-```
-
-### Watchdog Management
-
-```bash
-# View current escalation state (0-4)
-ssh homelab "cat /var/lib/homelab_watchdog/state"
-
-# View watchdog logs
-ssh homelab "tail -f /var/log/homelab_watchdog.log"
-
-# Clear manual intervention flag (resume auto-recovery)
-ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"
-
-# Reset state to healthy
-ssh homelab "echo 0 | sudo tee /var/lib/homelab_watchdog/state"
-
-# Check daily reboot count
-ssh homelab "cat /var/lib/homelab_watchdog/reboot_tracker"
-```
-
-### Container Diagnostics
-
-```bash
-# Container health status
-ssh homelab "docker inspect --format='{{.State.Health.Status}}' <container>"
-
-# Execute command in container
-ssh homelab "docker exec -it <container> sh"
-
-# View container network info
-ssh homelab "docker inspect <container> | grep -A 20 NetworkSettings"
-```
-
-### Uptime Kuma Config-as-Code
-
-```bash
-# NOTE: sync.py must run ON THE HOMELAB SERVER — it connects to localhost:3010. Never run locally or on VPS.
-
-# Preview changes (dry run)
-ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
-
-# Apply changes
-ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
-
-# Export current monitors to YAML
-ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
-```
-
-### Garmin Collector
-
-Stateless HTTP query layer over Garmin Connect — owns the OAuth tokens, exposes
-`/daily-metrics` and `/activities` to the argo API on the VPS via Tailscale.
-The cron schedule + write side lives in argo (not here).
-
-```bash
-# Deploy garmin-collector (git pull + rebuild + restart)
-make garmin-deploy
-
-# Rebuild without git pull
-make garmin-rebuild
-
-# Restart container (picks up new env vars)
-make garmin-restart
-
-# Follow logs
-make garmin-logs
-
-# Re-authenticate after MFA/token expiry:
-# 1. Trigger an interactive login locally (any garminconnect script that prompts MFA)
-# 2. Copy refreshed tokens to server:
-#    scp ~/.garminconnect/garmin_tokens.json homelab:~/ssd/garmin-tokens/
-# 3. Restart: make garmin-restart
-```
-
-### HDD Diagnostics
-
-```bash
-# Mount + LUKS state
-ssh homelab "mount | grep hdd && sudo cryptsetup status encrypted_partition"
-
-# Unlock encrypted partition manually
-ssh homelab "sudo cryptsetup luksOpen /dev/sdb2 encrypted_partition --key-file /root/.hdd-keyfile"
-
-# Mount HDD manually
-ssh homelab "sudo mount /dev/mapper/encrypted_partition /mnt/hdd"
-
-# Kernel events for USB / drive issues
-ssh homelab "sudo dmesg -T | tail -50"
-```
-
-### Restic Backup → Backblaze B2
-
-```bash
-# List snapshots / repo stats / metadata integrity
-make restic-snapshots
-make restic-stats
-make restic-check
-
-# Trigger an unscheduled backup
-make restic-run
-
-# Tail container logs
-make restic-logs
-```
-
-See **CLAUDE.md → Backups** for the full design (sources, retention, two-key model, Mac-side restore drill).
-
-### 1Password Secrets
-
-```bash
-# View all secrets
-op item list --vault homelab
-
-# Get specific secret
-op item list --vault homelab get CLOUDFLARE_TOKEN
-
-# Run command with secrets
-op run --env-file=.env.tpl -- env | grep POSTGRES
-```
-
-### Emergency Commands
-
-```bash
-# Restart all Docker services
-ssh homelab "cd ~/homelab && docker compose down && op run --env-file=.env.tpl -- docker compose up -d"
-
-# Clear watchdog and resume auto-recovery
-ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required && echo 0 | sudo tee /var/lib/homelab_watchdog/state"
-
-# Force container recreation
-ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d --force-recreate"
-
-# Aggressive Docker cleanup (careful!)
-ssh homelab "docker system prune -af"
-```
+**For agent-facing operating rules, gotchas and the full command reference, see
+`CLAUDE.md`.** This file is onboarding: what runs where, how to reach it, and how to set
+a fresh server up from scratch.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Commands Cheatsheet](#quick-commands-cheatsheet)
-   - [SSH Access](#ssh-access)
-   - [Docker Operations](#docker-operations)
-   - [Git Workflow](#git-workflow-edit-local--deploy-remote)
-   - [System Health](#system-health)
-   - [Watchdog Management](#watchdog-management)
-   - [Container Diagnostics](#container-diagnostics)
-   - [Uptime Kuma Config-as-Code](#uptime-kuma-config-as-code)
-   - [Garmin Collector](#garmin-collector)
-   - [HDD Diagnostics](#hdd-diagnostics)
-   - [Restic Backup → Backblaze B2](#restic-backup--backblaze-b2)
-   - [1Password Secrets](#1password-secrets)
-   - [Emergency Commands](#emergency-commands)
-2. [Infrastructure Overview](#infrastructure-overview)
-   - [Service Access Cheatsheet](#service-access-cheatsheet)
+1. [Infrastructure Overview](#infrastructure-overview)
+2. [Service Access](#service-access)
 3. [Security Hardening](#security-hardening)
 4. [Documentation](#documentation)
-5. [Docker Socket Security](#docker-socket-security)
-6. [Tailscale + Caddy Migration](#tailscale--caddy-migration)
-7. [TODOs](#todos)
-8. [1Password Secrets](#1password-secrets-1)
-9. [Setup Guide](#setup-guide)
-   - [Install Ubuntu Server](#install-ubuntu-server)
-   - [Initial Setup on Ubuntu Server](#initial-setup-on-ubuntu-server)
-   - [Connect to the Server](#connect-to-the-server)
-   - [Configure 1Password CLI](#configure-1password-cli)
-10. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
-11. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
-12. [File Access](#file-access)
-13. [Setup Beszel](#setup-beszel)
-14. [Setup Dozzle](#setup-dozzle)
-15. [Setup UptimeKuma](#setup-uptimekuma)
-16. [Setup Restic Backup](#setup-restic-backup)
-17. [Setup HomeLab self healing watchdog](#setup-homelab-self-healing-watchdog)
-18. [Setup Immich](#setup-immich)
-19. [Setup Public Files (Dufs)](#setup-public-files-dufs)
+5. [1Password Secrets](#1password-secrets)
+6. [Setup Guide](#setup-guide)
+7. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
+8. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
+9. [File Access](#file-access)
+10. [Setup Beszel](#setup-beszel)
+11. [Setup Dozzle](#setup-dozzle)
+12. [Setup UptimeKuma](#setup-uptimekuma)
+13. [Setup Restic Backup](#setup-restic-backup)
+14. [Setup HomeLab self-healing watchdog](#setup-homelab-self-healing-watchdog)
+15. [Setup Immich](#setup-immich)
+16. [Setup Public Files (Dufs)](#setup-public-files-dufs)
 
 ---
 
 ## Infrastructure Overview
 
-Two machines, connected via Tailscale mesh VPN, serving 29+ containers.
-
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                        HomeLab (Ubuntu 24.04)                       │
-│                     Tailscale IP: <tailscale-ip-homelab>                    │
-│                                                                      │
-│  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
+│                        HomeLab (Ubuntu 24.04)                        │
+│  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app    │
 │  Private:  Tailscale device → caddy:443 (HTTPS, Let's Encrypt) → app │
-│                                                                      │
-│  24 containers: Glance, Immich, ...                                   │
-│  Storage: Internal SSD + Encrypted external HDD                      │
-│  Watchdog: Self-healing monitor (cron, 10min)                        │
+│  25 containers · Storage: internal SSD + encrypted external HDD      │
+│  Watchdog: self-healing monitor (root cron, every 10 min)            │
 ├──────────────────────────────────────────────────────────────────────┤
-│                        VPS (Hetzner ARM64, Ubuntu 22.04)             │
-│                     Tailscale IP: <tailscale-ip-vps>                    │
-│                                                                      │
-│  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app   │
-│  MariaDB:  Vercel → port 33306 (direct, Hetzner FW allows)          │
-│                                                                      │
-│  20+ containers: Argo, FPP, BunEmailApi, Umami, HyperDX, MariaDB, …  │
+│                   VPS (Hetzner ARM64, Ubuntu 22.04)                  │
+│  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app    │
+│  MariaDB:  Vercel → port 33306 (direct, Hetzner FW allows)           │
+│  Argo, FPP, BunEmailApi, Umami, HyperDX, MariaDB, … — see ~/vps      │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Cross-Machine Links                           │
-│  Dozzle hub (HomeLab) ←→ Dozzle agent (VPS)  via Tailscale          │
-│  Beszel hub (HomeLab) ←→ Beszel agent (VPS)  via Tailscale          │
+│  Dozzle hub (HomeLab) ←→ Dozzle agent (VPS)  via Tailscale           │
+│  Beszel hub (HomeLab) ←→ Beszel agent (VPS)  via Tailscale           │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Service Access Cheatsheet
+## Service Access
 
-#### HomeLab — Public Services (anyone can access)
+#### HomeLab — Public (Cloudflare Tunnel → Caddy → container)
 
-| Service     | URL                                            | Purpose            |
-| ----------- | ---------------------------------------------- | ------------------ |
-| Glance      | [glance.jkrumm.com](https://glance.jkrumm.com) | Home dashboard     |
-| Immich      | [immich.jkrumm.com](https://immich.jkrumm.com) | Photo management   |
-| UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com) | Status page        |
-| Dufs        | [public.jkrumm.com](https://public.jkrumm.com) | Public file server |
-| Image Share | [share.jkrumm.com](https://share.jkrumm.com) | Personal photo library — public share links (bare `/<slug>` → `/s/<slug>`), admin UI under `/admin`, API under `/api` |
+| Service     | URL                                                | Purpose            |
+| ----------- | --------------------------------------------------- | ------------------- |
+| Glance      | [glance.jkrumm.com](https://glance.jkrumm.com)       | Home dashboard      |
+| Immich      | [immich.jkrumm.com](https://immich.jkrumm.com)       | Photo management    |
+| UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com)       | Status page         |
+| Dufs        | [public.jkrumm.com](https://public.jkrumm.com)       | Public file server  |
+| Image Share | [share.jkrumm.com](https://share.jkrumm.com)         | Personal photo library — public share links (bare `/<slug>` → `/s/<slug>`), admin UI under `/admin`, API under `/api` |
 
-**Route:** Internet → Cloudflare CDN (proxied/orange cloud) → CF Tunnel → `http://caddy:80` → container
-
-#### HomeLab — Private Services (Tailscale devices only)
+#### HomeLab — Private (Tailscale devices only, via Caddy HTTPS `:443`)
 
 | Service          | URL                                              | Purpose                                                       |
-| ---------------- | ------------------------------------------------ | ------------------------------------------------------------- |
+| ---------------- | ------------------------------------------------ | -------------------------------------------------------------- |
 | Beszel           | [beszel.jkrumm.com](https://beszel.jkrumm.com)   | System metrics                                                |
 | Dozzle           | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)   | Container logs                                                |
 | FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
 | Garmin Collector | [garmin.jkrumm.com](https://garmin.jkrumm.com)   | Stateless Garmin Connect HTTP layer (called by argo from VPS) |
+| Karakeep         | [karakeep.jkrumm.com](https://karakeep.jkrumm.com) | Read-later / bookmark bucket, AI auto-tagging via IU endpoint |
 
-**Route:** Tailscale device → DNS A record → HomeLab TS IP (<tailscale-ip-homelab>) → `https://caddy:443` → container
+DNS: grey cloud (DNS-only) A records pointing to the HomeLab Tailscale IP —
+unreachable from the public internet. TLS via Let's Encrypt (Cloudflare DNS-01
+challenge). Full network topology and the Caddy dual-http/https detail:
+`CLAUDE.md` → Network Topology.
 
-**DNS:** Grey cloud (DNS-only) A records pointing to `<tailscale-ip-homelab>`. Unreachable from public internet.
+#### HomeLab — Internal (no direct web access)
 
-**TLS:** Caddy obtains Let's Encrypt certificates via Cloudflare DNS-01 challenge.
+Caddy, Cloudflared, three docker-socket-proxy variants (monitoring / Watchtower / argo),
+Watchtower, Samba, Beszel Agent, Immich ML/Postgres/Redis, Restic Backup (daily 03:30
+cron), watchdog log sidecars. See `CLAUDE.md` → Repository Structure for the full
+compose service list.
 
-#### HomeLab — Internal Services (no direct web access)
+#### VPS — Public (monitored from here, full inventory + ops in `~/SourceRoot/vps`)
 
-| Service                       | Purpose                                                                                                              |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Caddy                         | Reverse proxy (custom build with `caddy-dns/cloudflare` plugin)                                                      |
-| Cloudflared                   | CF Tunnel client (public services only)                                                                              |
-| Docker Socket Proxy           | Read-only Docker API proxy for monitoring (Glance, Dozzle, Beszel, UptimeKuma)                                       |
-| Docker Socket Proxy (Watchtower) | Dedicated POST/DELETE-enabled proxy for Watchtower on isolated network                                            |
-| Docker Socket Proxy (Claude)  | Read-only Docker proxy bound to Tailscale interface — argo on VPS reads container state from here                    |
-| Watchtower                    | Auto-updates containers daily at 4AM; opted-out stacks (Immich via `/upgrade-stack`; Caddy; local builds garmin-collector + image-share via their `make *-deploy` targets); Slack |
-| Samba                         | SMB3 file shares (Tailscale only, `smb://samba.jkrumm.com`)                                                          |
-| Beszel Agent                  | System metrics collector (Tailscale port binding)                                                                    |
-| Immich ML/Postgres/Redis      | Immich supporting services                                                                                           |
-| Restic Backup                 | Daily 03:30 cron — pushes /sources/* to Backblaze B2 (append-only key)                                               |
-| Homelab/VPN Watchdog Logs     | Sidecars that surface watchdog log files to Dozzle                                                                   |
+Argo (`argo.jkrumm.com`, Tailscale-only), Free Planning Poker
+(`free-planning-poker.com` + `server.`/`analytics.` subdomains), Photos
+(`photos.jkrumm.com`), BunEmailApi, RollHook, HyperDX (Tailscale-only), Umami.
 
-#### VPS — Public Services (monitored from here)
+#### Tailscale devices
 
-| Service       | URL                                                          | Purpose                             |
-| ------------- | ------------------------------------------------------------ | ----------------------------------- |
-| Argo          | [argo.jkrumm.com](https://argo.jkrumm.com)                   | Personal dashboard + REST API (Tailscale-only) |
-| FPP Server    | [fpp-server.jkrumm.com](https://fpp-server.jkrumm.com)       | Free Planning Poker API             |
-| FPP Analytics | [fpp-analytics.jkrumm.com](https://fpp-analytics.jkrumm.com) | Analytics dashboard                 |
-| Photos        | [photos.jkrumm.com](https://photos.jkrumm.com)               | Photo gallery                       |
-| BunEmailApi   | [bun-email-api.jkrumm.com](https://bun-email-api.jkrumm.com) | Bun email API                       |
-| RollHook      | [rollhook.jkrumm.com](https://rollhook.jkrumm.com)           | Zero-downtime deploy webhook + registry |
-| HyperDX       | [hyperdx.jkrumm.com](https://hyperdx.jkrumm.com)             | OTel observability (Tailscale-only) |
-| Umami         | [umami.jkrumm.com](https://umami.jkrumm.com)                 | Privacy-friendly analytics          |
-
-> Full VPS inventory + ops live in [`~/SourceRoot/vps`](https://github.com/jkrumm/vps). This list is here only because Uptime Kuma probes them from homelab.
-
-#### Tailscale Devices
-
-| Device  | Tailscale IP           | SSH           |
-| ------- | ---------------------- | ------------- |
-| HomeLab | <tailscale-ip-homelab> | `ssh homelab` |
-| VPS     | <tailscale-ip-vps>     | `ssh vps`     |
-| MacBook | <tailscale-ip-macbook> | —             |
-| iPhone  | <tailscale-ip-iphone>  | —             |
+`ssh homelab` / `ssh vps` (aliases resolve via `~/.ssh/config`, Tailscale mesh,
+tailnet `dinosaur-sole.ts.net`). Device IPs are placeholders in every tracked file —
+read the real ones from `tailscale status` or the admin console.
 
 ---
 
 ## Security Hardening
 
-Both machines are hardened with identical security configurations (applied via `setup.sh` scripts):
+Both machines are hardened with identical configurations (applied via `setup.sh`):
 
 | Component               | Configuration                                                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -368,171 +116,47 @@ Both machines are hardened with identical security configurations (applied via `
 | **Docker**              | `no-new-privileges:true` on all containers (except host-network agents). Memory limits on resource-heavy services. JSON log rotation                   |
 | **Hetzner FW**          | VPS only: 2 rules — HTTPS (443) + MariaDB (33306). SSH removed (Tailscale-only access)                                                                 |
 
-**Emergency access:**
-
-- HomeLab: Physical access at remote location
-- VPS: Hetzner web console (no SSH needed)
+**Emergency access:** HomeLab — physical access at remote location. VPS — Hetzner web console (no SSH needed).
 
 ---
 
 ## Documentation
 
-Detailed behavior documentation for complex scripts is maintained in the `docs/` directory:
-
 | Document                     | Purpose                                                                            |
 | ---------------------------- | ---------------------------------------------------------------------------------- |
-| `docs/watchdog-behaviors.md` | Failure scenarios, escalation states, recovery paths for the self-healing watchdog |
+| `docs/backups.md`            | Restic → B2 design, retention, two-key model, Mac-side restore drill               |
+| `docs/decisions.md`          | Durable rationale: build-cache pruning, agentic push-monitor wiring, Garmin MFA automation, Tailscale/Caddy insights |
+| `docs/watchdog-behaviors.md` | Failure scenarios, escalation states, recovery paths for the self-healing watchdog  |
 
-**Maintaining documentation:**
-
-- Run `/docs` command (via Claude Code) after infrastructure changes
-- Update behavior docs when script logic changes
-- Keep cheatsheets in sync with actual commands
-
----
-
-## Docker Socket Security
-
-Monitoring services access the Docker API through a secure proxy instead of direct socket mounts:
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    socket-proxy network (internal)          │
-│                                                             │
-│  ┌──────────────────┐                                       │
-│  │ docker-socket-   │◄─── tcp://docker-socket-proxy:2375    │
-│  │ proxy            │                                       │
-│  │ (read-only)      │◄─── /var/run/docker.sock:ro          │
-│  └──────────────────┘                                       │
-│           ▲                                                 │
-│           │                                                 │
-│  ┌────────┴────────┬──────────────┬──────────────┐         │
-│  │                 │              │              │         │
-│  ▼                 ▼              ▼              ▼         │
-│ Glance          Dozzle     Beszel-Agent    UptimeKuma      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│ Watchtower (dedicated proxy - needs write for auto-updates) │
-│                                                             │
-│ docker-socket-proxy-watchtower (POST=1) ◄── Isolated net   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Why This Matters
-
-Direct Docker socket access (`/var/run/docker.sock`) grants full root-level control:
-
-- Container creation with host mounts
-- Privilege escalation via container escape
-- Host filesystem access
-
-The proxy (`tecnativa/docker-socket-proxy`) restricts access to read-only operations:
-
-- ✅ CONTAINERS, IMAGES, INFO, NETWORKS, VOLUMES (read)
-- ❌ POST, BUILD, EXEC, COMMIT, etc. (disabled)
-
-### Service Configuration
-
-Services connect via environment variable:
-
-```yaml
-environment:
-  DOCKER_HOST: tcp://docker-socket-proxy:2375
-networks:
-  - socket-proxy
-depends_on:
-  - docker-socket-proxy
-```
-
-**Exception:** Watchtower requires write access to pull and restart containers. It uses a dedicated `docker-socket-proxy-watchtower` (POST=1) on an isolated network — not a direct socket mount.
+Run the `/docs` skill after infrastructure changes — it keeps each fact owned by exactly
+one of README / CLAUDE.md / `docs/*.md`.
 
 ---
-
-## Tailscale + Caddy Migration
-
-Private services moved from Cloudflare tunnel to Tailscale-only access. Caddy serves as reverse proxy for all services. See `docs/TAILSCALE.md` for full migration plan and learnings.
-
-**Tailnet:** `dinosaur-sole.ts.net`
-
-### Progress
-
-| Phase | Description                                                                | Status                |
-| ----- | -------------------------------------------------------------------------- | --------------------- |
-| 1-7   | Tailscale + SSH + Caddy + routing + private services + VPS + cross-machine | Done                  |
-| 8     | SSH config + Zed remote development                                        | SSH Done, Zed Pending |
-| 9     | Documentation updates                                                      | Done                  |
-| 10    | Cleanup: ports, deps, Samba label, watchdog                                | Done                  |
-| 11    | SSH hardening + UFW + sysctl + unattended-upgrades (both machines)         | Done                  |
-
-### Service Classification
-
-| Service          | Access              | Domain             |
-| ---------------- | ------------------- | ------------------ |
-| Glance           | Public (Cloudflare) | glance.jkrumm.com  |
-| Immich           | Public (Cloudflare) | immich.jkrumm.com  |
-| UptimeKuma       | Public (Cloudflare) | uptime.jkrumm.com  |
-| Dufs             | Public (Cloudflare) | public.jkrumm.com  |
-| Beszel           | Private (Tailscale) | beszel.jkrumm.com  |
-| Dozzle           | Private (Tailscale) | dozzle.jkrumm.com  |
-| FileBrowser      | Private (Tailscale) | files.jkrumm.com   |
-| Garmin Collector | Private (Tailscale) | garmin.jkrumm.com  |
-
-### Tailscale IPs
-
-| Machine | Tailscale IP           | MagicDNS                                      |
-| ------- | ---------------------- | --------------------------------------------- |
-| MacBook | <tailscale-ip-macbook> | iu-mac-book                                   |
-| iPhone  | <tailscale-ip-iphone>  | iphone-15                                     |
-| HomeLab | <tailscale-ip-homelab> | homelab.dinosaur-sole.ts.net                  |
-| VPS     | <tailscale-ip-vps>     | vps.dinosaur-sole.ts.net                      |
-
----
-
-## TODOS
-
-- [ ] Backup my Photoflow images to HomeLab
-
-## Service Routing
-
-All services are routed through **Caddy** (custom build with `caddy-dns/cloudflare` plugin). The `Caddyfile` is the single source of truth for routing. See [Service Access Cheatsheet](#service-access-cheatsheet) above for the full list of services and how to access them.
 
 ## 1Password Secrets
 
-The following secrets are required to run the HomeLab:
+`.env.tpl` (repo root) is the full, current list of `op://` references this stack needs —
+read it rather than a hand-maintained copy here. The dense reference table (which secret
+does what) lives in `CLAUDE.md` → Key Secrets. To set up a fresh vault:
 
-| Name                    | Description                   | Example                         |
-| ----------------------- | ----------------------------- | ------------------------------- |
-| `CLOUDFLARE_TOKEN`      | Cloudflare tunnel token       | `tunnel-token-from-dashboard`   |
-| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token for DDNS | `api-token-for-dns-updates`     |
-| `DB_HOST`               | MySQL server host for backups | `<vps-public-ipv4>`                  |
-| `DB_ROOT_PW`            | MySQL root password           | `your-secure-password`          |
-| `POSTGRES_DB_PASSWORD`  | Immich Postgres password      | `your-secure-postgres-password` |
-| `DUFS_PASSWORD`         | Dufs public file server auth  | `your-secure-dufs-password`     |
+```bash
+op vault list
+op item list --vault homelab
+op item list --vault common
+```
 
 ## Setup Guide
 
 ### Install Ubuntu Server
 
-1. Download the Ubuntu Server ISO from the [official website](https://ubuntu.com/download/server).
-2. Create a bootable USB drive using [Rufus](https://rufus.ie/) or [Balena Etcher](https://www.balena.io/etcher/).
-3. Boot from the USB drive and install Ubuntu Server.
-4. Follow the on-screen instructions to complete the installation:
-   - Hostname: homelab
-   - Username: jkrumm
-   - Password: Use a strong password
-   - Partitioning: Use the entire disk and set up LVM
-   - Software selection: OpenSSH server, standard system utilities
-   - Additional packages: Install security updates automatically
-5. Reboot the server and log in using the credentials you created during the installation.
-6. Update the system using the following commands:
-   ```bash
-   sudo apt update
-   sudo apt upgrade -y
-   ```
+Flash the [Ubuntu Server ISO](https://ubuntu.com/download/server) with
+[Rufus](https://rufus.ie/)/[Balena Etcher](https://www.balena.io/etcher/), boot from it,
+and install with: hostname `homelab`, username `jkrumm`, LVM across the whole disk,
+OpenSSH server + standard utilities, automatic security updates. Reboot, log in, then:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
 
 ### Initial Setup on Ubuntu Server
 
@@ -591,9 +215,7 @@ command printed at the end of the script.
    - Get the tunnel token
    - Configure DNS records to point to the tunnel
    - Set up service routing for each subdomain to the appropriate local ports
-
 2. The tunnel token is stored in 1Password (`homelab/cloudflare-tunnel/TOKEN`)
-
 3. The docker-compose.yml includes the cloudflared service which will automatically connect using the token
 
 ### Configure 1Password CLI
@@ -634,15 +256,13 @@ Retrieve the keyfile content from your 1Password backup and save it to `/root/.h
 sudo vim /root/.hdd-keyfile
 ```
 
-Paste the keyfile content into the file. Secure the keyfile by setting the appropriate permissions:
+Paste the keyfile content into the file. Secure the keyfile:
 
 ```bash
 sudo chmod 600 /root/.hdd-keyfile
 ```
 
 #### Identify the Encrypted Partition
-
-Use `blkid` to find the UUID of your encrypted partition:
 
 ```bash
 sudo blkid
@@ -651,8 +271,6 @@ sudo blkid
 Note the UUID of the LUKS-encrypted partition (e.g., `/dev/sdb2`).
 
 #### Configure `/etc/crypttab`
-
-Edit `/etc/crypttab` to set up automatic decryption:
 
 ```bash
 sudo vim /etc/crypttab
@@ -665,8 +283,6 @@ encrypted_partition UUID=<UUID> /root/.hdd-keyfile luks
 ```
 
 #### Configure `/etc/fstab`
-
-Edit `/etc/fstab` to ensure the partition is mounted at boot:
 
 ```bash
 sudo vim /etc/fstab
@@ -685,8 +301,6 @@ sudo mkdir -p /mnt/hdd
 ```
 
 #### Reboot and Verify
-
-Reboot your system to check if everything is configured correctly:
 
 ```bash
 sudo reboot
@@ -711,138 +325,77 @@ If it doesn't mount automatically, check the system logs for errors:
 sudo journalctl -xe
 ```
 
-### Mount automatically with new systemd service
+### Mount automatically with a systemd service (belt-and-suspenders)
 
-For a more automated and reliable solution, follow the steps to create a `systemd` service:
+crypttab/fstab alone don't guarantee `/mnt/hdd` is mounted *before* `docker.service`
+starts. Add an explicit ordering unit:
 
-1. **Create a Mount Script:**
+```bash
+sudo tee /usr/local/bin/mount_hdd.sh <<'EOF'
+#!/bin/bash
+if ! mount | grep -q '/mnt/hdd'; then
+    mount /dev/mapper/encrypted_partition /mnt/hdd
+fi
+EOF
+sudo chmod +x /usr/local/bin/mount_hdd.sh
 
-   Save the following script as `/usr/local/bin/mount_hdd.sh`:
+sudo tee /etc/systemd/system/mount-hdd.service <<'EOF'
+[Unit]
+Description=Mount Encrypted HDD
+Before=docker.service
+After=systemd-cryptsetup@encrypted_partition.service
 
-   ```bash
-   #!/bin/bash
-   if ! mount | grep -q '/mnt/hdd'; then
-       mount /dev/mapper/encrypted_partition /mnt/hdd
-   fi
-   ```
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mount_hdd.sh
+RemainAfterExit=yes
 
-   Make the script executable:
+[Install]
+WantedBy=multi-user.target
+EOF
 
-   ```bash
-   sudo chmod +x /usr/local/bin/mount_hdd.sh
-   ```
-
-2. **Create a Systemd Service File:**
-
-   Create a service file at `/etc/systemd/system/mount-hdd.service`:
-
-   ```ini
-   [Unit]
-   Description=Mount Encrypted HDD
-   Before=docker.service
-   After=systemd-cryptsetup@encrypted_partition.service
-
-   [Service]
-   Type=oneshot
-   ExecStart=/usr/local/bin/mount_hdd.sh
-   RemainAfterExit=yes
-
-   [Install]
-   WantedBy=multi-user.target
-   ```
-
-3. **Enable the Systemd Service:**
-
-   Enable the service to start at boot:
-
-   ```bash
-   sudo systemctl enable mount-hdd.service
-   ```
-
-4. **Reboot and Verify:**
-
-   Reboot your system to ensure the service works:
-
-   ```bash
-   sudo reboot
-   ```
-
-   After reboot, check if the partition is mounted:
-
-   ```bash
-   mount | grep /mnt/hdd
-   ```
+sudo systemctl enable mount-hdd.service
+sudo reboot   # then: mount | grep /mnt/hdd
+```
 
 ## Mount the `TRANSFER` Partition
 
-1. Create the Mount Point
+1. Create the mount point:
 
-First, create the directory where you want to mount the `TRANSFER` partition:
+   ```bash
+   sudo mkdir -p /mnt/transfer
+   ```
 
-```bash
-sudo mkdir -p /mnt/transfer
-```
+2. Edit `/etc/fstab` to mount the `TRANSFER` partition at boot. Replace `6785-1A1C` with the UUID of your `TRANSFER` partition if it's different:
 
-2. Update `/etc/fstab`
+   ```bash
+   UUID=6785-1A1C /mnt/transfer exfat defaults,uid=1000,gid=1000 0 0
+   ```
 
-Edit your `/etc/fstab` file to ensure the `TRANSFER` partition is mounted at boot:
+3. Mount immediately without rebooting:
 
-```bash
-sudo vim /etc/fstab
-```
+   ```bash
+   sudo mount /mnt/transfer
+   ```
 
-Add the following line at the end of the file to mount the `TRANSFER` partition. Replace `6785-1A1C` with the UUID of
-your `TRANSFER` partition if it's different:
+4. Verify:
 
-```bash
-UUID=6785-1A1C /mnt/transfer exfat defaults,uid=1000,gid=1000 0 0
-```
+   ```bash
+   df -h | grep transfer
+   ```
 
-This line will mount the `TRANSFER` partition using the `exfat` filesystem with default options and set the owner to the
-user with UID 1000 and group GID 1000.
+5. Set permissions (optional):
 
-3. Mount the Partition
-
-To mount the partition immediately without rebooting, use the following command:
-
-```bash
-sudo mount /mnt/transfer
-```
-
-4. Verify the Mount
-
-Check that the partition is correctly mounted using:
-
-```bash
-df -h | grep transfer
-```
-
-This command should show the `TRANSFER` partition mounted at `/mnt/transfer`.
-
-5. Set Permissions (Optional)
-
-If you need to adjust the permissions for the mounted partition, you can do so with:
-
-```bash
-sudo chown -R 1000:1000 /mnt/transfer
-sudo chmod -R 755 /mnt/transfer
-```
-
-These commands set the owner and group to UID 1000 and GID 1000, and assign read, write, and execute permissions to the
-owner, and read and execute permissions to the group and others.
-
-### Summary
-
-By following these steps, your `TRANSFER` partition will be automatically mounted at `/mnt/transfer` upon system boot.
-You can adjust the options in `/etc/fstab` as needed to customize the mount behavior.
+   ```bash
+   sudo chown -R 1000:1000 /mnt/transfer
+   sudo chmod -R 755 /mnt/transfer
+   ```
 
 ## File Access
 
-This homelab provides multiple ways to access your files stored on the SSD (`/mnt/ssd/SSD`) and HDD (`/mnt/hdd`) partitions.
+Files on the SSD (`/mnt/ssd/SSD`) and HDD (`/mnt/hdd`) are reachable two ways.
 
 ### Filebrowser (Web Interface)
-
-Filebrowser provides a modern web interface for file management and is accessible via Cloudflare tunnel.
 
 1. Create the filebrowser directory with correct permissions:
 
@@ -858,23 +411,13 @@ Filebrowser provides a modern web interface for file management and is accessibl
    op run --env-file=.env.tpl -- docker compose up -d filebrowser
    ```
 
-   Filebrowser will automatically create `filebrowser.db` and `settings.json` files in `/mnt/hdd/filebrowser/`.
+   Filebrowser will automatically create `filebrowser.db` and `settings.json` in `/mnt/hdd/filebrowser/`.
 
-3. Access Filebrowser:
-   - URL: `https://files.jkrumm.com`
-   - Default login: `admin` / `admin`
-   - Change the default password immediately after first login
-   - The interface provides access to both SSD and HDD directories under `/srv/`
+3. Access at `https://files.jkrumm.com` — default login `admin`/`admin`, change immediately.
 
 ### Samba (SMB File Sharing)
 
-For traditional file sharing and local network access, Samba provides SMB3 protocol support with encryption.
-
-**Security configuration:**
-
-- Minimum protocol: SMB3 (blocks older, less secure SMB1/SMB2)
-- Encryption: Preferred (encrypts data in transit when supported)
-- macOS compatible with Time Machine-style features (fruit VFS module)
+SMB3-only (blocks SMB1/SMB2), encryption preferred, macOS-compatible (fruit VFS module).
 
 1. Create a specific SSD folder for Samba:
 
@@ -884,18 +427,13 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    sudo chmod -R 755 /mnt/ssd/samba
    ```
 
-2. Access Samba shares (Tailscale devices only):
+2. Access (Tailscale devices only):
    - **Direct** (preferred): Finder → `Cmd+K` → `smb://samba.jkrumm.com`
    - **SSH tunnel** (fallback): `ssh -L 1445:localhost:445 homelab` → `smb://localhost:1445`
-   - Username: jkrumm
-   - Password: Available in 1Password and 1Password secrets
-   - DNS: `samba.jkrumm.com` → `<tailscale-ip-homelab>` (Tailscale IP, DNS-only/grey cloud)
+   - Username: jkrumm, password in 1Password
    - Samba ports (139, 445) restricted to Tailscale CGNAT range via UFW
 
-### Usage Recommendations
-
-- **Filebrowser**: Best for web-based file management, uploads, and remote access via browser
-- **Samba**: Ideal for mounting network drives, bulk file operations, and integration with local applications
+**Filebrowser** is best for web-based upload/browse; **Samba** for mounting network drives and bulk operations.
 
 ## Setup Beszel
 
@@ -905,171 +443,34 @@ For traditional file sharing and local network access, Samba provides SMB3 proto
    sudo chown -R 1000:1000 /mnt/hdd/beszel
    chmod 755 /mnt/hdd/beszel
    ```
-2. Setup correct drives for SSD and HDD
-
-3. Access the Beszel server using the following credentials:
-   - Host: `https://beszel.jkrumm.com`
-   - Username: jkrumm
-   - Password: You can find the secret in 1Password and 1Password
-
-## Setup UptimeKuma
-
-1. Create a specific folder for UptimeKuma data on the SSD:
-
-   ```bash
-   sudo mkdir -p /home/jkrumm/ssd/uptime-kuma
-   sudo chown -R 1000:1000 /home/jkrumm/ssd/uptime-kuma
-   chmod -R 755 /home/jkrumm/ssd/uptime-kuma
-   ```
-
-   **Why SSD?** UptimeKuma uses SQLite with Write-Ahead Logging (WAL). With multiple monitors checking every 60s, HDD seek times cause database lock timeouts, resulting in false positive failures. SSD storage eliminates these issues by reducing write latency 10-100x.
-
-2. **Version:** Using `louislam/uptime-kuma:2` (stable 2.x). Watchtower handles auto-updates.
-
-3. **Configuration optimizations:**
-   - `SQLITE_BUSY_TIMEOUT=30000` (30s timeout for database locks)
-   - `DOCKER_HOST=tcp://docker-socket-proxy:2375` (secure Docker API access)
-   - Memory limits: 512M max, 256M reserved
-
-   **Docker monitors:** Use TCP connection type in UptimeKuma UI:
-   - Docker Host → Add new → TCP connection type
-   - Connection URL: `tcp://docker-socket-proxy:2375`
-   - This replaces direct socket access for security
-
-4. **Monitor configuration:**
-
-   | Priority | Interval | Timeout | Retries | Notes                                           |
-   | -------- | -------- | ------- | ------- | ----------------------------------------------- |
-   | Critical | 60-70s   | 90s     | 3       | FPP, Photos, Argo                               |
-   | Standard | 120-190s | 120s    | 5       | Docker containers, HTTP monitors                |
-   | Group    | 200-215s | 120s    | 3       | 3x child interval prevents "Child inaccessible" |
-
-   **Key principles:**
-   - **Stagger intervals** (60s, 65s, 70s) to avoid concurrent Cloudflare requests
-   - **Group monitors**: 3x child interval minimum (e.g., 180s if children are 60s)
-   - **HTTP Status Codes**: `200-299,304` to handle CDN/cache responses
-
-5. **Cloudflare WAF bypass for external monitors:**
-
-   Monitors hitting VPS services through Cloudflare tunnels need a WAF bypass to avoid ECONNRESET errors from bot protection.
-   - **Header:** `X-Uptime-Monitor` with secret value (stored in 1Password → HomeLab)
-   - **Cloudflare rule:** Security → WAF → Custom rules → Skip bot protection when header matches
-   - **Affected monitors:** FPP-Frontend, FPP-Server, FPP-Analytics, Photos, BunEmailApi
-
-6. **Migrating from HDD?** If upgrading from HDD storage:
-
-   ```bash
-   docker compose stop uptime-kuma
-   sudo rsync -av /mnt/hdd/uptimekuma/ /home/jkrumm/ssd/uptime-kuma/
-   sudo chown -R 1000:1000 /home/jkrumm/ssd/uptime-kuma
-   op run --env-file=.env.tpl -- docker compose up -d uptime-kuma
-   ```
-
-7. **Database maintenance (optional):**
-
-   ```bash
-   docker compose stop uptime-kuma
-   sqlite3 /home/jkrumm/ssd/uptime-kuma/kuma.db "PRAGMA optimize;"
-   sqlite3 /home/jkrumm/ssd/uptime-kuma/kuma.db "VACUUM;"
-   op run --env-file=.env.tpl -- docker compose up -d uptime-kuma
-   ```
-
-8. **Diagnostic tools:**
-
-   ```bash
-   # Tail Uptime Kuma logs for warnings/errors
-   docker logs uptime-kuma -f | grep -iE "(warn|error)"
-   ```
-
-9. **Config as Code:**
-
-   Monitors are defined in `uptime-kuma/monitors.yaml` and synced via Python script.
-   **Must run ON THE HOMELAB SERVER** — connects to localhost:3010. Never run locally or on VPS.
-
-   ```bash
-   # Preview changes (dry run)
-   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --dry-run"
-
-   # Apply changes
-   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py"
-
-   # Export current monitors to YAML
-   ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export"
-   ```
-
-   **Setup (first time only):**
-
-   ```bash
-   cd ~/homelab
-   python3 -m venv uptime-kuma/.venv
-   uptime-kuma/.venv/bin/pip install -r uptime-kuma/requirements.txt
-   ```
-
-   **Required 1Password secrets:**
-   - `UPTIME_KUMA_PASSWORD` - Admin password
-
-   **Workflow:** Edit `monitors.yaml` → commit → push → run sync on homelab
+2. Access at `https://beszel.jkrumm.com` — username jkrumm, password in 1Password.
 
 ## Setup Dozzle
 
 ### Setup certificates
 
 1. Download cert.pem and key.pem from 1Password HomeLab
-2. RSync them too the HomeLab and all VPS
-
-   ```bash
-   rsync -avz cert.pem key.pem jkrumm@{IP_OF_VPS}:/home/jkrumm/homelab
-   ```
-
-3. Validate looking into the container logs if all good
+2. Rsync them to the HomeLab and the VPS: `rsync -avz cert.pem key.pem jkrumm@<vps-tailscale-host>:/home/jkrumm/homelab`
+3. Validate by checking the container logs
 
 ### Dozzle Authentication Setup
 
-To enable authentication for Dozzle:
-
-1. Create a directory for Dozzle data:
-
-   ```bash
-   mkdir dozzle
-   ```
-
-2. Generate the password hash and create users.yml:
+1. Create the Dozzle data directory: `mkdir dozzle` (root-owned bind mount, gitignored)
+2. Generate the password hash and create `users.yml`:
 
    ```bash
-   # Generate password hash and copy the output
    docker run amir20/dozzle generate --name "Johannes Krumm" --email your@email.com --password your_password jkrumm
-
-   # Create and edit users.yml file
-   vim dozzle/users.yml
+   vim dozzle/users.yml   # paste the generated output
    ```
 
-   Paste the output from the generate command into users.yml and save the file.
-
-3. The docker-compose.yml is already configured with:
-   - Simple authentication enabled
-   - 48-hour login session
-   - Volume mount for users.yml
-
-4. After making these changes, restart Dozzle:
-   ```bash
-   docker compose up -d dozzle
-   ```
-
-You can now access Dozzle at https://dozzle.jkrumm.com and log in with username `jkrumm` and your chosen password.
+3. `docker-compose.yml` already has simple auth enabled, a 48-hour login session, and the `users.yml` volume mount.
+4. Restart: `docker compose up -d dozzle`. Access at `https://dozzle.jkrumm.com` (username `jkrumm`).
 
 ### Viewing System Logs in Dozzle
 
-Dozzle monitors Docker container logs. To view system log files (non-containerized logs) in Dozzle, we use a simple pattern:
-
-Create an Alpine container that tails the log file. The container appears in Dozzle and streams the log file content.
-
-**Currently monitored system logs:**
-
-- **HomeLab Watchdog** (`homelab-watchdog-logs` container) → `/var/log/homelab_watchdog.log`
-
-**To add additional log files:**
-
-Add a new service to `docker-compose.yml`:
+Dozzle only sees container logs. To stream a plain log file, add an Alpine sidecar that
+tails it — the container shows up in Dozzle. Currently monitored this way: HomeLab
+Watchdog (`homelab-watchdog-logs` → `/var/log/homelab_watchdog.log`).
 
 ```yaml
 dozzle-your-log:
@@ -1077,422 +478,220 @@ dozzle-your-log:
   image: alpine
   volumes:
     - /path/to/your.log:/var/log/stream.log
-  command:
-    - tail
-    - -f
-    - /var/log/stream.log
+  command: [tail, -f, /var/log/stream.log]
   network_mode: none
   restart: unless-stopped
   labels:
     glance.hide: true
 ```
 
-Then restart Docker Compose to apply:
+Then `op run --env-file=.env.tpl -- docker compose up -d`.
 
-```bash
-op run --env-file=.env.tpl -- docker compose up -d
-```
+## Setup UptimeKuma
+
+1. Create the data folder on the SSD:
+
+   ```bash
+   sudo mkdir -p /home/jkrumm/ssd/uptime-kuma
+   sudo chown -R 1000:1000 /home/jkrumm/ssd/uptime-kuma
+   chmod -R 755 /home/jkrumm/ssd/uptime-kuma
+   ```
+
+   **Why SSD, not HDD?** UptimeKuma uses SQLite with Write-Ahead Logging. With
+   multiple monitors checking every 60-250s, HDD seek times cause database lock
+   timeouts and false-positive failures; SSD cuts write latency 10-100x.
+
+2. **Version:** `louislam/uptime-kuma:2` (stable 2.x). Watchtower handles auto-updates.
+3. Config: `SQLITE_BUSY_TIMEOUT=30000`, `DOCKER_HOST=tcp://docker-socket-proxy:2375`,
+   memory limit 1G/512M reserved. **Docker monitors:** add via UI as TCP connection
+   type, URL `tcp://docker-socket-proxy:2375` — never a direct socket mount.
+4. **Cloudflare WAF bypass** for monitors hitting VPS services through the tunnel:
+   header `X-Uptime-Monitor` with a secret value (1Password → HomeLab), matched by a
+   Cloudflare WAF custom rule to skip bot protection.
+5. **Migrating from HDD?**
+   ```bash
+   docker compose stop uptime-kuma
+   sudo rsync -av /mnt/hdd/uptimekuma/ /home/jkrumm/ssd/uptime-kuma/
+   sudo chown -R 1000:1000 /home/jkrumm/ssd/uptime-kuma
+   op run --env-file=.env.tpl -- docker compose up -d uptime-kuma
+   ```
+6. **Database maintenance (optional):**
+   ```bash
+   docker compose stop uptime-kuma
+   sqlite3 /home/jkrumm/ssd/uptime-kuma/kuma.db "PRAGMA optimize;"
+   sqlite3 /home/jkrumm/ssd/uptime-kuma/kuma.db "VACUUM;"
+   op run --env-file=.env.tpl -- docker compose up -d uptime-kuma
+   ```
+7. **Diagnostics:** `docker logs uptime-kuma -f | grep -iE "(warn|error)"`
+8. **Config as code:** monitors live in `uptime-kuma/monitors.yaml`, synced via
+   `sync.py` — commands and gotchas are in `CLAUDE.md` → Uptime Kuma Config-as-Code
+   (single copy, don't duplicate here). Required secret: `homelab/uptime-kuma/PASSWORD`.
+
+   First-time venv setup:
+   ```bash
+   cd ~/homelab
+   python3 -m venv uptime-kuma/.venv
+   uptime-kuma/.venv/bin/pip install -r uptime-kuma/requirements.txt
+   ```
 
 ## Setup Restic Backup
 
-The homelab's only backup tool is `restic-backup`, a `mazzolino/restic` container that runs daily at 03:30 local and pushes content-addressed encrypted snapshots to Backblaze B2 (`s3://jkrumm/backups/homelab/restic`).
-
-The full design — sources, retention policy (`14 daily / 8 weekly / 12 monthly / 5 yearly`), two-key ransomware-safety model, Mac-side restore drill — lives in **`CLAUDE.md` → Backups**.
-
-#### Quick reference
+`restic-backup` (`mazzolino/restic`) runs daily at 03:30 local and pushes
+content-addressed encrypted snapshots of `/sources/*` to Backblaze B2. Full design
+(sources, retention, two-key model, restore drill): **`docs/backups.md`**.
 
 ```bash
-# Manage backups (all run via the make targets — secrets injected through op run)
 make restic-snapshots   # list snapshots in B2
 make restic-stats       # repo size + dedup stats
 make restic-check       # metadata integrity (no data download)
 make restic-run         # trigger an unscheduled backup
 make restic-logs        # follow container logs
-
-# Quarterly maintenance from your Mac (uses the master B2 key)
-make restic-prune
+make restic-prune       # quarterly, from your Mac, uses the master B2 key
 ```
 
-#### What the daily snapshot covers
+## Setup HomeLab self-healing watchdog
 
-`/sources/{Bilder,Dokumente,Buecher,Videos,Public,Dev,Fuji-RAWs,hermes-backup,api-sqlite}` — defined as `volumes:` in the `restic-backup` service. `restic-excludes.txt` carves out volatile state (Immich Postgres, qbittorrent caches, etc.).
-
-#### Heartbeat
-
-The container pushes UK on `POST_COMMANDS_SUCCESS` / `POST_COMMANDS_FAILURE` to `Restic - Push` (configured in `uptime-kuma/monitors.yaml`).
-
-#### Monitoring
-
-You can monitor the backup process by:
-
-1. Tailing the container logs:
-
-   ```bash
-   make restic-logs
-   ```
-
-2. Confirming snapshots are landing:
-
-   ```bash
-   make restic-snapshots
-   ```
-
-3. UptimeKuma `Restic - Push` monitor (heartbeat fires on each successful run, 25h interval).
-
-## Setup HomeLab self healing watchdog
-
-1. The watchdog script is located in the repository at `scripts/homelab_watchdog.sh`. Make it executable:
+1. Make the script executable:
 
    ```bash
    chmod +x scripts/homelab_watchdog.sh
    ```
 
-2. Create the log and state directories with proper permissions:
-
-```text
-/var/lib/ → stateful
-/var/log/ → logs
-/var/run/ → lock & pid
-```
-
-```bash
-# State + Queue
-sudo mkdir -p /var/lib/homelab_watchdog
-sudo touch /var/lib/homelab_watchdog/state
-sudo touch /var/lib/homelab_watchdog/notification_queue
-sudo chown -R root:root /var/lib/homelab_watchdog
-sudo chmod 700 /var/lib/homelab_watchdog
-
-# Log
-sudo touch /var/log/homelab_watchdog.log
-sudo chown root:root /var/log/homelab_watchdog.log
-sudo chmod 644 /var/log/homelab_watchdog.log
-
-# Lockfile wird im Skript selbst erzeugt
-# -> kein manuelles Touch nötig, nur Verzeichnis sicherstellen
-sudo mkdir -p /var/run
-```
-
-3. Create and secure the credentials file:
+2. Create the log and state directories:
 
    ```bash
-   sudo bash -c 'cat > /root/.homelab-watchdog-credentials << EOL
-   BETTERSTACK_TOKEN=""
-   PUSHOVER_USER_KEY=""
-   PUSHOVER_API_TOKEN=""
-   EOL'
+   # State + queue
+   sudo mkdir -p /var/lib/homelab_watchdog
+   sudo touch /var/lib/homelab_watchdog/state /var/lib/homelab_watchdog/notification_queue
+   sudo chown -R root:root /var/lib/homelab_watchdog
+   sudo chmod 700 /var/lib/homelab_watchdog
+
+   # Log
+   sudo touch /var/log/homelab_watchdog.log
+   sudo chown root:root /var/log/homelab_watchdog.log
+   sudo chmod 644 /var/log/homelab_watchdog.log
+
+   # Lockfile is created by the script itself — just ensure the directory exists
+   sudo mkdir -p /var/run
    ```
 
-   **Note:** Fritz!Box credentials are no longer required as the HomeLab is at a remote location and cannot restart the router.
-
-4. Secure the credentials file
+3. **Credentials:** the script reads `BETTERSTACK_TOKEN`, `common/slack/WEBHOOK_ALERTS`
+   and `homelab/uptime-kuma/PUSH_TOKEN` live via `op read` under root's
+   `OP_SERVICE_ACCOUNT_TOKEN` session — there is no credentials file to create.
+   Verify root can reach 1Password:
 
    ```bash
-   sudo chmod 600 /root/.homelab-watchdog-credentials
-   sudo chown root:root /root/.homelab-watchdog-credentials
+   sudo -i
+   op whoami
    ```
 
-5. Verify the security of the credentials file:
-
-   ```bash
-   # This should show only root can read/write the file
-   sudo ls -l /root/.homelab-watchdog-credentials
-   # Expected output: -rw------- 1 root root ...
-
-   # This should fail (permission denied) - confirming non-root users can't read it
-   cat /root/.homelab-watchdog-credentials
-   # Expected output: cat: /root/.homelab-watchdog-credentials: Permission denied
-   ```
-
-6. Test the self-healing script:
+4. Test the self-healing script:
    ```bash
    sudo ./scripts/homelab_watchdog.sh
    ```
 
-#### Check current reboot status
+### Install the cron job
+
+The watchdog runs from **root's crontab** (not `jkrumm`'s, not `/etc/cron.d`, not a
+systemd timer):
 
 ```bash
-cat /var/lib/homelab_watchdog/reboot_tracker
-```
-
-#### Resume automatic recovery (remove manual intervention flag)
-
-```bash
-rm /var/lib/homelab_watchdog/manual_intervention_required
-```
-
-#### Reset reboot counter (if needed for testing)
-
-```bash
-echo "$(date +%Y-%m-%d):0" > /var/lib/homelab_watchdog/reboot_tracker
-```
-
-#### Check current escalation state
-
-```bash
-cat /var/lib/homelab_watchdog/state
-```
-
-#### Where the Watchdog Cron Lives
-
-The watchdog is installed in **root's crontab** (`sudo crontab -l`) — not the
-`jkrumm` crontab that holds the `op run`-wrapped service crons, not `/etc/cron.d`,
-and not a systemd timer. The line as installed — by hand, not by `setup.sh`,
-which writes a different one (no `.profile`, output to
-`/var/log/homelab_watchdog.log`), so a fresh box diverges here:
-
-```bash
+sudo crontab -e
+# add:
 */10 * * * * . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
 ```
 
 Root, because the script restarts containers, remounts the HDD and can reboot;
-`.profile` first so it sees the same PATH as an interactive root shell. Verify it
-is firing without sudo — cron logs each run to the journal:
+`.profile` first so it sees the same PATH as an interactive root shell. Verify it's
+firing without sudo — cron logs each run to the journal:
 
 ```bash
 ssh homelab "journalctl -u cron --since '30 min ago' --no-pager | grep homelab_watchdog"
 ssh homelab "tail -3 /var/log/homelab_watchdog.log"
 ```
 
-#### WatchDog Automation Details
+### Quick reference
 
-- **Location**: Script runs from `/home/jkrumm/homelab/scripts/homelab_watchdog.sh`
-- **Frequency**: Every 10 minutes (root crontab, above)
-- **Logging**: All operations are logged to `/var/log/homelab_watchdog.log`
-- **Locking**: Built-in file locking prevents overlapping executions
-- **State Management**: Persistent state tracking with graduated escalation (0-4)
-- **Security**: Credentials stored in root-only accessible file
-- **Notifications**: Real-time push notifications via Slack webhook (`#alerts` channel)
-- **Reboot Protection**: Maximum 3 reboots per day, then requires manual intervention
+```bash
+cat /var/lib/homelab_watchdog/reboot_tracker              # daily reboot count
+cat /var/lib/homelab_watchdog/state                       # escalation level (0-4)
+rm /var/lib/homelab_watchdog/manual_intervention_required  # resume auto-recovery (usually auto-clears)
+tail -f /var/log/homelab_watchdog.log                      # follow logs
+```
 
-#### Recovery Strategy
-
-Since the HomeLab is at a remote location (dad's house), the watchdog uses a patient recovery approach:
-
-**Internet Failures:**
-
-- State 0-1: Wait 10 minutes for natural recovery (cannot restart router remotely)
-- State 2: Restart network interface
-- State 3+: System reboot
-
-**Mount Failures (HDD-specific logic):**
-
-- **HDD not connected:** Sets manual intervention flag, notifies you - NO reboot
-- **Encryption not unlocked:** Sets manual intervention flag, notifies you - NO reboot
-- **I/O errors detected:** Max 2 escalation attempts, then manual intervention - NO reboot
-- **Software mount issue:** Attempts to remount up to 3 times, then escalates normally
-- Distinguishes between hardware problems (requires physical access) and software issues
-- Uses USB device detection (ORICO VIA Labs adapter) to diagnose connection status
-
-**Smart Failure Detection (Added 2025-11-04):**
-
-- **Retry with exponential backoff:** Before escalating, retries external/internal monitors 3 times (0s, 5s, 10s delays)
-- **Pre-recovery verification:** Re-checks all systems before taking action to detect self-resolving issues
-- **Docker Compose intelligence:** Distinguishes between actual failures vs containers already running
-- Prevents unnecessary recovery actions from transient network hiccups or API timeouts
-
-**External Monitor Checks:**
-
-- Initial check with 3 retries (5s, 10s exponential backoff) before considering failure
-- Post-recovery: Waits up to 21 minutes (3 attempts × 7 minutes) for external monitor to update
-- Prevents unnecessary recovery actions when services are actually healthy
-- Only takes action if BetterStack still reports down after all retries
-
-#### Design Philosophy
-
-The watchdog follows a "better safe than sorry - but verify first" approach:
-
-**Multiple Layers of Validation:**
-
-- **Container existence checks:** Uses `docker ps --filter "name=X" --filter "status=running"` to verify containers are running
-- **External HTTP monitoring:** BetterStack checks actual endpoint accessibility from outside
-- **Internal service monitoring:** UptimeKuma validates service health from within the network
-- **No Docker healthchecks needed:** The combination of external monitors + container running checks provides comprehensive coverage
-
-**Why This Works:**
-
-- External monitors catch "container running but service broken" scenarios
-- Container checks catch crashed/stopped containers and Docker daemon issues
-- This dual-layer approach is sufficient - adding Docker healthchecks would be redundant overhead
-- Well-maintained container images rarely have "running but broken" states
-
-**Smart Recovery Process:**
-
-- **Multiple retries:** Transient network issues (1-2 second hiccups) won't trigger recovery
-- **Pre-action verification:** Always re-checks before restarting services
-- **Smart diagnosis:** Distinguishes between hardware issues (needs human) vs software issues (can self-heal)
-- **Graduated escalation:** Starts with minimal intervention, escalates only if needed
-
-#### Monitoring
-
-You can monitor the backup process by:
-
-1. Checking the log file:
-
-   ```bash
-   sudo tail -f /var/log/homelab_watchdog.log
-   ```
-
-2. Check current escalation state:
-
-   ```bash
-    sudo cat /var/lib/homelab_watchdog/state
-   ```
+Failure scenarios, escalation states, and recovery design: **`docs/watchdog-behaviors.md`**.
 
 ## Setup Immich
 
-[Immich](https://immich.app/) is a self-hosted photo and video backup solution designed to be a Google Photos
-alternative.
+[Immich](https://immich.app/) is a self-hosted photo and video backup solution.
 
 ### Directory Structure
 
-1. Create necessary directories for Immich:
-
-   ```bash
-   # Create immich directories
-   mkdir -p /home/jkrumm/ssd/SSD/Bilder/immich/{upload,postgres}
-   sudo chown -R 1000:1000 /home/jkrumm/ssd/SSD/Bilder/immich
-   sudo chmod -R 755 /home/jkrumm/ssd/SSD/Bilder/immich
-   ```
+```bash
+mkdir -p /home/jkrumm/ssd/SSD/Bilder/immich/{upload,postgres}
+sudo chown -R 1000:1000 /home/jkrumm/ssd/SSD/Bilder/immich
+sudo chmod -R 755 /home/jkrumm/ssd/SSD/Bilder/immich
+```
 
 ### Hardware Acceleration
 
-Hardware acceleration is **not active** on this server. Both `config/hwaccel.ml.yml` and `config/hwaccel.transcoding.yml` are stubs — required by the `extends:` directives in `docker-compose.yml` but provide no device mounts. Immich runs CPU-mode inference and transcoding.
-
-To enable acceleration in future, replace the stub files with the appropriate device config from the [official Immich hwaccel docs](https://immich.app/docs/features/ml-hardware-acceleration).
+**Not active** on this server. `config/hwaccel.ml.yml` and `config/hwaccel.transcoding.yml`
+are stubs — required by the `extends:` directives in `docker-compose.yml` but provide no
+device mounts. Immich runs CPU-mode inference and transcoding. To enable, replace the
+stubs with device config from the [official Immich hwaccel docs](https://immich.app/docs/features/ml-hardware-acceleration).
 
 ### Initial Setup
 
-1. Make sure the POSTGRES_DB_PASSWORD is set in 1Password
-
-2. **First-time setup or after PostgreSQL upgrade:** Clear the PostgreSQL data directory:
-
+1. Ensure `POSTGRES_DB_PASSWORD` is set in 1Password (`homelab/postgres/PASSWORD`).
+2. **First-time or after a PostgreSQL major upgrade:** clear the data directory:
    ```bash
-   # Only needed for fresh start or when upgrading PostgreSQL major versions
    sudo rm -rf /home/jkrumm/ssd/SSD/Bilder/immich/postgres/*
    ```
-
-3. Start the Immich services using Docker Compose:
-
+3. Start the services:
    ```bash
    op run --env-file=.env.tpl -- docker compose up -d immich-server immich-machine-learning immich_redis immich_postgres
    ```
+4. Access at `https://immich.jkrumm.com`, create the admin account on first visit.
 
-4. Access Immich at `https://immich.jkrumm.com`
+### Configuration
 
-5. On first access, you will need to create an admin account:
-   - Enter a valid email address
-   - Create a secure password
-   - Enter your name
-
-### Immich Configuration
-
-1. **Machine Learning:** Go to Administration > Machine Learning:
-   - Verify that the machine learning service is connected
-   - Enable Smart Search and People Recognition as needed
-
-2. **Hardware Acceleration:** Not active — CPU mode only. See the Hardware Acceleration section above if you want to enable it.
-
-3. **External Library Setup (Read-Only Fuji Photos):**
-
-   The Fuji photos directory (`/home/jkrumm/ssd/SSD/Bilder/Fuji`) is mounted as read-only at `/mnt/media/fuji` inside the container. To configure it:
-
-   **Step 1: Access External Libraries**
-   - Log into Immich at `https://immich.jkrumm.com`
-   - Click the gear icon (Administration) in the top right
-   - In the left sidebar, click **"External Libraries"** (or "Libraries")
-
-   **Step 2: Create External Library**
-   - Click **"Create Library"** or **"Create External Library"** button
-   - Configure the library:
-     - **Owner**: Select your user account
-     - **Import Paths**: Enter `/mnt/media/fuji` (use the container path, not the host path)
-     - **Exclusion Patterns** (optional): Add patterns to skip unwanted files:
-       - `**/.DS_Store` (Mac hidden files)
-       - `**/Thumbs.db` (Windows thumbnails)
-       - `**/@eaDir/**` (Synology metadata)
-   - Click **"Create"**
-
-   **Step 3: Scan the Library**
-   - After creation, you'll see a library card for your Fuji library
-   - Click the **"Scan Library"** button
-   - Wait for the scan to complete (progress shown in UI)
-   - Photos will appear in the Photos tab once scanning finishes
-
-   **Important Notes:**
-   - External library photos have a folder icon badge in the UI
-   - Files are read-only - cannot be modified or deleted from Immich
-   - Use Immich's albums, tags, and metadata for organization
-   - Enable "Watch for Changes" in library settings for automatic updates when files are added/removed
+- **Machine Learning:** Administration → Machine Learning — verify the ML service is
+  connected, enable Smart Search / People Recognition as needed.
+- **External Library (read-only Fuji photos):** `/home/jkrumm/ssd/SSD/Bilder/Fuji` is
+  mounted read-only at `/mnt/media/fuji`. Administration → External Libraries → Create
+  Library, import path `/mnt/media/fuji` (container path, not host path), then Scan.
+  External-library photos carry a folder-icon badge and can't be modified from Immich.
+- **Restore / rollback / DB backup mechanics:** `docs/backups.md` → Immich database.
 
 ## Setup Public Files (Dufs)
 
 [Dufs](https://github.com/sigoden/dufs) is a lightweight file server for hosting public static files with optional authentication for uploads.
 
-### Directory Setup
-
-1. Create the public files directory:
-
+1. Create the directories:
    ```bash
    mkdir -p /home/jkrumm/ssd/SSD/Public/diagrams
    mkdir -p /home/jkrumm/ssd/SSD/Public/assets
    ```
+2. Add the `DUFS_PASSWORD` secret to 1Password (`homelab/dufs/PASSWORD`).
+3. Start the container: `op run --env-file=.env.tpl -- docker compose up -d dufs`
+4. Access at `https://public.jkrumm.com`.
 
-2. Add the `DUFS_PASSWORD` secret to 1Password (`homelab/dufs/PASSWORD`)
-
-3. Start the container:
-
-   ```bash
-   op run --env-file=.env.tpl -- docker compose up -d dufs
-   ```
-
-4. Access at `https://public.jkrumm.com`
-
-### Authentication Model
-
-- **Public read**: Anyone can browse directories and download files
-- **Authenticated write**: Only `jkrumm` with password can upload, delete, or modify files
-
-To upload files with authentication:
+**Authentication model:** public read (anyone can browse/download); authenticated write
+(only `jkrumm` can upload/delete/modify).
 
 ```bash
-# Using curl with basic auth
+# Upload with basic auth
 curl -u jkrumm:PASSWORD -T file.png https://public.jkrumm.com/diagrams/project/file.png
-
-# Or use the web interface - click "Upload" and enter credentials when prompted
 ```
 
-### Usage Examples
-
-Embed images in GitHub READMEs:
-
-```markdown
-![Architecture Diagram](https://public.jkrumm.com/diagrams/architecture.png)
-```
-
-Embed in Notion/Linear:
-
-- Paste the direct URL: `https://public.jkrumm.com/diagrams/diagram.png`
-
-### Features
-
-- Lightweight file server with directory listing
-- Public read access for easy embedding
-- Authenticated uploads via HTTP Basic Auth
-- Supports drag-and-drop uploads in web interface
-- ZIP download for folders
-- Search functionality
-- Automatic updates via Watchtower
-- Files backed up via restic (Public source)
-
-### Configuration Details
-
-The Dufs container is configured with the following optimizations:
+Embed in READMEs/Notion/Linear with the direct URL, e.g.
+`![Architecture Diagram](https://public.jkrumm.com/diagrams/architecture.png)`.
 
 | Option                              | Effect                                                           |
-| ----------------------------------- | ---------------------------------------------------------------- |
+| ------------------------------------ | ------------------------------------------------------------------ |
 | `-A`                                | Allow all operations (public read + directory listing)           |
 | `--auth jkrumm:$DUFS_PASSWORD@/:rw` | Only authenticated user can write/delete                         |
 | `--enable-cors`                     | Allows cross-origin requests (required for GitHub/Notion embeds) |
 | `--hidden .DS_Store,.git,Thumbs.db` | Hides OS/git clutter from directory listings                     |
 
+Files backed up via restic (`Public` source); auto-updated via Watchtower.
