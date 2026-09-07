@@ -10,6 +10,8 @@ key.pem
 /packages/api/data/
 /packages/dashboard/node_modules/
 /packages/dashboard/dist/
+# dozzle bind mount (./dozzle:/data) — users.yml + root-owned runtime state
+/dozzle/
 node_modules/
 
 # RALPH loop state + logs
