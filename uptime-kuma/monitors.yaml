@@ -645,7 +645,12 @@ groups:
         retry_interval: 360
         maxretries: 0 # else time-to-DOWN is 4×360s — the file default is 3
 
-      # Watchdog — every 30 min from the watchdog cron (watchdog-slack.py → watchdog-poll.py).
+      # Watchdog — every 30 min. Fed by WARDEN now, not hermes: the ingest poller
+      # left hermes-agent on 2026-09-09 and runs as com.jkrumm.warden-poll
+      # (warden/scripts/watchdog-poll.py --post). The gateway cron and its
+      # watchdog-slack.py wrapper that used to ping this are both deleted; the
+      # heartbeat itself was ported unchanged, which is why this monitor keeps its
+      # identity, its history and its push token rather than being recreated.
       # Push URL → 1Password hermes/uptime-kuma/watchdog-push-url
       - name: Hermes Watchdog - Push
         type: push
@@ -664,6 +669,41 @@ groups:
         interval: 90000 # 25h — daily cron at 03:00 + buffer
         retry_interval: 90000
         maxretries: 0 # else time-to-DOWN is 4×25h — see the note in the Local group
+
+  # ============================================
+  # warden — the control plane, on the Mac Mini. Extracted from hermes-agent
+  # 2026-09-09 because a control plane cannot live inside the process it
+  # supervises: the gateway crash-looped seven times in 3m34s on 2026-09-07 while
+  # the act-loop kept ticking against a ledger that had stopped receiving signals,
+  # with no way to notice it was blind.
+  #
+  # Only the BACKUP is monitored here. The loop's own liveness is that its Slack
+  # cards keep updating, and ingest liveness is "Hermes Watchdog - Push" in the
+  # group above — which warden feeds now, and which keeps that name because
+  # renaming it would recreate the monitor and rotate a push token three scripts
+  # already resolve.
+  # ============================================
+  - name: Warden
+    interval: 250
+    monitors:
+      # Daily 03:10 from warden/scripts/warden-backup.sh: VACUUM INTO snapshot of
+      # ~/.warden/warden.db, rotated, rsynced to /mnt/hdd/backups/warden/ — which
+      # the restic container already walks on its way to B2.
+      #
+      # Pings only on a run that BOTH snapshotted and shipped cleanly. A degraded
+      # run — rsync fine, snapshot failed — deliberately does not ping, because
+      # that is the failure that otherwise looks exactly like success: it happened
+      # for real on 2026-09-09, when macOS's sqlite3 turned out to have no -uri
+      # flag and took no snapshot at all while rsync still exited 0.
+      #
+      # interval = 25h, maxretries 0 — same sizing and the same arithmetic as
+      # Hermes Backup - Push above.
+      - name: Warden Backup - Push
+        type: push
+        interval: 90000
+        timeout: 48
+        retry_interval: 90000
+        maxretries: 0
 
   # ============================================
   # VPS (Hetzner) - hetzner-vps infrastructure
