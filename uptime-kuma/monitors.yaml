@@ -858,8 +858,9 @@ groups:
 
               # Hermes integration health as argo sees it — the public,
               # unauthenticated variant of /api/hermes/health. Declared
-              # 2026-09-07 ahead of the endpoint's deploy; it is DOWN (404)
-              # until argo ships it.
+              # 2026-09-07 ahead of the endpoint's deploy. argo shipped it
+              # (200, keyword present); the monitor sat paused in Kuma until
+              # the 2026-09-11 sync resumed it.
               - name: Hermes - HTTP
                 type: keyword
                 url: https://argo.jkrumm.com/api/hermes/health/public
