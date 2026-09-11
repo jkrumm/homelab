@@ -254,6 +254,19 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                     params["notificationIDList"] = monitor_notifications
                     api.edit_monitor(monitor_id, **params)
                     print(f"  [UPDATED] {name}")
+                    # edit_monitor carries `active` but Kuma does not act on it:
+                    # a monitor paused in the UI stayed paused through every
+                    # sync (Hermes - HTTP, 2026-09-11, paused since its 404
+                    # days). Pause state is its own pair of calls, so converge
+                    # it explicitly. Push monitors never carry `active` (above).
+                    want_active = params.get("active")
+                    is_active = bool(existing[name].get("active", True))
+                    if want_active is True and not is_active:
+                        api.resume_monitor(monitor_id)
+                        print(f"  [RESUMED] {name}")
+                    elif want_active is False and is_active:
+                        api.pause_monitor(monitor_id)
+                        print(f"  [PAUSED] {name}")
                 except Exception as e:
                     print(f"  [ERROR] Failed to update {name}: {e}")
         else:
