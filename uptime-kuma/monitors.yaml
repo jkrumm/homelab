@@ -888,10 +888,16 @@ groups:
           # Research Gateway — agentic HTTP research API on VPS, Tailscale-only:
           # grey-cloud, DNS-only A record → VPS Tailscale IP → Traefik, NOT
           # behind the Cloudflare tunnel. /health → {"status":"ok"}.
+          # Keyword is the FIELD, not the whole object: /health grew
+          # lastRestartAt/reaped/interrupted/draining/jobs/memory alongside
+          # `status`, so the old '{"status":"ok"}' (with the closing brace)
+          # stopped being a substring of the body and this monitor sat DOWN
+          # from 2026-08-20 to 2026-09-11 — 22 days, one state-change alert,
+          # then silence. Never pin a keyword to a body's closing brace.
           - name: Research Gateway - HTTP
             type: keyword
             url: https://research.jkrumm.com/health
-            keyword: '{"status":"ok"}'
+            keyword: '"status":"ok"'
             cloudflare_bypass: true
             interval: 155
 
