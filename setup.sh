@@ -12,7 +12,8 @@
 #
 # After this script completes, manually:
 #   1. tailscale up --ssh --advertise-tags=tag:homelab
-#   2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/jkrumm/.bashrc
+#   2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/jkrumm/.bashrc and OP_SOCK to
+#      /home/jkrumm/.profile (cron shells need it — see docs/decisions.md)
 #   3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d
 # --------------------------------------------------
 
@@ -84,7 +85,12 @@ if ! command -v op &>/dev/null; then
     tee /etc/apt/sources.list.d/1password.list
   apt-get update && apt-get install -y 1password-cli
   echo ""
+  # OP_SOCK pins the op cache-daemon socket. Without it, op derives the socket
+  # from XDG_RUNTIME_DIR — absent in cron shells (no login session, Linger=no) —
+  # so each cron invocation skips the local cache and burns 2x service-account
+  # API requests. Rationale and numbers: docs/decisions.md.
   echo ">>> 1Password CLI installed. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
+  echo ">>> Also add: export OP_SOCK=\"$USER_HOME/.config/op/op-daemon.sock\""
   echo ""
 else
   echo "1Password CLI is already installed: $(op --version)"
@@ -315,7 +321,10 @@ echo "=== Setup complete ==="
 echo ""
 echo "Remaining manual steps:"
 echo "  1. sudo tailscale up --ssh --advertise-tags=tag:homelab"
-echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
-echo "     source ~/.bashrc && op vault list (verify access)"
+echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc, and"
+echo "     export OP_SOCK=\"$USER_HOME/.config/op/op-daemon.sock\" to /home/$USERNAME/.profile"
+echo "     (outside the BASH_VERSION guard — cron's dash never reads .bashrc;"
+echo "     see docs/decisions.md)."
+echo "     source ~/.profile && op vault list (verify access)"
 echo "  3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d"
 echo ""

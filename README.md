@@ -226,6 +226,11 @@ command printed at the end of the script.
    ```bash
    # Add to ~/.bashrc
    export OP_SERVICE_ACCOUNT_TOKEN="<token>"
+
+   # Pin the op cache-daemon socket — required for cron shells, see
+   # docs/decisions.md ("1Password op daemon socket in cron shells").
+   # Add to ~/.profile, outside any BASH_VERSION guard, so dash picks it up.
+   export OP_SOCK="$HOME/.config/op/op-daemon.sock"
    ```
 
 3. Verify access:

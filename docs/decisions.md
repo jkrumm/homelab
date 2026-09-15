@@ -2,6 +2,26 @@
 
 Durable "why" narratives pulled out of CLAUDE.md to keep it dense. Read on demand.
 
+## 1Password op daemon socket in cron shells (`OP_SOCK`)
+
+**Cron shells must get `OP_SOCK="$HOME/.config/op/op-daemon.sock"` from `~/.profile`.** The `op` CLI
+derives its cache-daemon socket from `XDG_RUNTIME_DIR` and falls back to `~/.config/op/op-daemon.sock`
+(where the daemon actually listens) only without it. On this host `/run/user/1000` exists but has no
+op-daemon.sock (`Linger=no`), so cron-time `op` calls miss the local cache and fall back to the
+service-account API: ~381 op-wrapped cron invocations/day on this host double to ~762 requests/day,
+against a 1000/day budget shared account-wide with the VPS. Thin headroom. The export goes in
+`~/.profile` (not `.bashrc`) and **outside the `BASH_VERSION` guard**, because cron's `sh` is dash and
+never reads `.bashrc`. Root is unaffected — `/run/user/0` is absent, so root's `op` falls through to
+the correct `~/.config/op` socket path.
+
+`OP_SOCK` is **not in 1Password's official environment-variable docs** (community-confirmed override
+as of op 2.33.1, 2026-09) — re-verify the variable name after any op major upgrade.
+
+Two related host behaviors worth knowing when debugging: the daemon **caches rate-limit errors**, so if
+cron `op` calls keep failing past the ~04:24 UTC budget reset, an op daemon restart (not just waiting)
+clears the cached error. And this only applies to cron shells — an interactive session has the socket
+path right and needs nothing.
+
 ## Build-cache pruning (locally-built services)
 
 **garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
