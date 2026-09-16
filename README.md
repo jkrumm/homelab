@@ -233,6 +233,17 @@ command printed at the end of the script.
    export OP_SOCK="$HOME/.config/op/op-daemon.sock"
    ```
 
+   `~/.profile` is only *read* by cron if the cron line sources it — a cron
+   command runs under a non-login `sh` that reads neither `.profile` nor
+   `.bashrc`. Every `op`-wrapped entry must therefore source it first:
+
+   ```cron
+   */5 * * * * . /home/jkrumm/.profile; op run --env-file=.env.tpl -- <script>
+   ```
+
+   Without the `. /home/jkrumm/.profile;` prefix the export above never reaches
+   the `op` call and the cache stays disengaged — see `docs/decisions.md`.
+
 3. Verify access:
 
    ```bash

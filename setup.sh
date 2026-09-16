@@ -91,6 +91,7 @@ if ! command -v op &>/dev/null; then
   # API requests. Rationale and numbers: docs/decisions.md.
   echo ">>> 1Password CLI installed. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
   echo ">>> Also add: export OP_SOCK=\"$USER_HOME/.config/op/op-daemon.sock\""
+  echo ">>> Cron commands must source it first: '. $USER_HOME/.profile; op run ...' (docs/decisions.md)"
   echo ""
 else
   echo "1Password CLI is already installed: $(op --version)"
@@ -325,6 +326,8 @@ echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc, and"
 echo "     export OP_SOCK=\"$USER_HOME/.config/op/op-daemon.sock\" to /home/$USERNAME/.profile"
 echo "     (outside the BASH_VERSION guard — cron's dash never reads .bashrc;"
 echo "     see docs/decisions.md)."
+echo "     Every op-wrapped cron line must source it first:"
+echo "     '*/5 * * * * . $USER_HOME/.profile; op run --env-file=... -- <script>'"
 echo "     source ~/.profile && op vault list (verify access)"
 echo "  3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d"
 echo ""

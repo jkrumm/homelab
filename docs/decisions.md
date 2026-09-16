@@ -4,7 +4,8 @@ Durable "why" narratives pulled out of CLAUDE.md to keep it dense. Read on deman
 
 ## 1Password op daemon socket in cron shells (`OP_SOCK`)
 
-**Cron shells must get `OP_SOCK="$HOME/.config/op/op-daemon.sock"` from `~/.profile`.** The `op` CLI
+**Cron shells must get `OP_SOCK="$HOME/.config/op/op-daemon.sock"` from `~/.profile`, and every
+`op`-wrapped cron line must source `~/.profile` itself.** The `op` CLI
 derives its cache-daemon socket from `XDG_RUNTIME_DIR` and falls back to `~/.config/op/op-daemon.sock`
 (where the daemon actually listens) only without it. On this host `/run/user/1000` exists but has no
 op-daemon.sock (`Linger=no`), so cron-time `op` calls miss the local cache and fall back to the
@@ -21,6 +22,18 @@ Two related host behaviors worth knowing when debugging: the daemon **caches rat
 cron `op` calls keep failing past the ~04:24 UTC budget reset, an op daemon restart (not just waiting)
 clears the cached error. And this only applies to cron shells — an interactive session has the socket
 path right and needs nothing.
+
+**The export is inert unless the cron line sources `~/.profile` first.** A cron command runs under a
+non-login `sh`, which reads neither `.profile` nor `.bashrc`; nothing exports `OP_SOCK` into that
+environment on its own. Every `op`-wrapped entry in `jkrumm`'s crontab therefore carries the prefix:
+
+```cron
+*/5 * * * * . /home/jkrumm/.profile; op run --env-file=/home/jkrumm/homelab/.env.tpl -- <script> >> <log> 2>&1
+```
+
+Root's watchdog entry uses the same shape against `/root/.profile` (see README → *Install the cron
+job*). A new `op`-wrapped cron entry without the prefix silently reintroduces the request-burn bug
+while looking correct in the crontab — the export is present, it just never reaches the call.
 
 ## Build-cache pruning (locally-built services)
 
