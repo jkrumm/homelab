@@ -162,7 +162,7 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 ### How Secrets Work
 
 1. `.env.tpl` contains `op://` references (committed to git — no actual secrets)
-2. `OP_SERVICE_ACCOUNT_TOKEN` is set in the server's `~/.bashrc` (the only secret on disk)
+2. `OP_SERVICE_ACCOUNT_TOKEN` is set in the server's `~/.profile`; root's cron entry needs its own copy in `/root/.profile` — cron shells source no profile (docs/decisions.md)
 3. `op run --env-file=.env.tpl --` resolves all references at runtime and passes them as env vars
 4. Docker Compose `environment:` maps these into container env vars
 
@@ -370,10 +370,14 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
 `jkrumm`'s, not `/etc/cron.d`, not a systemd timer):
 
 ```
-*/10 * * * * . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
+*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
 ```
 
-Root, because the script restarts containers, remounts the HDD and can reboot. Verify
+Root, because the script restarts containers, remounts the HDD and can reboot. The
+profile is sourced because cron's `sh` reads none, and that is where root's
+`OP_SERVICE_ACCOUNT_TOKEN` has to live for the watchdog's `op read` — `[ -r ]`-guarded
+because dash aborts the whole line when a sourced file is missing
+(docs/decisions.md → *1Password CLI in cron shells*). Verify
 it's firing without sudo: `ssh homelab "journalctl -u cron --since '30 min ago' --no-pager | grep homelab_watchdog"`.
 
 Full failure scenarios, escalation states (0-4), config values and log files:

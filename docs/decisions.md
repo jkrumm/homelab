@@ -2,6 +2,36 @@
 
 Durable "why" narratives pulled out of CLAUDE.md to keep it dense. Read on demand.
 
+## 1Password CLI in cron shells
+
+**Every `op`-wrapped cron line must source a profile first.** A cron command runs under a
+non-login `sh` (dash here) that reads neither `.profile` nor `.bashrc`, so on its own it
+carries no `OP_SERVICE_ACCOUNT_TOKEN`:
+
+```cron
+*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh >> /var/log/homelab_watchdog.log 2>&1
+```
+
+The `[ -r ]` guard is load-bearing, not decoration. `.` is a POSIX *special builtin*, so
+dash aborts the **entire command line** when the file it names cannot be opened — verified
+on the dev host 2026-09-21, `dash -c '. /nonexistent; echo REACHED'` prints nothing and
+exits 2, while the `[ -r ]`-guarded form reaches the next command with a missing, present
+or unreadable file. Unguarded, one absent profile costs every run of the entry, not just
+the credential it was meant to supply.
+
+**The token lives in `~jkrumm/.profile`, outside the `BASH_VERSION` guard** — dash skips
+the guard body, and a `.bashrc` copy only serves interactive shells. Root's entry is the
+one that is easy to miss: it needs the same export in `/root/.profile`, and **nothing in
+this repo writes that file**. `setup.sh` creates it when absent, keeps it `0600`, and
+reports `Watchdog credentials: NOT CONFIGURED` in its closing summary when the export is
+still missing — but the value is a secret an operator pastes in by hand. That gap is what
+makes the failure silent: without the token `load_credentials()` exits 1, and the watchdog
+cannot alert about it, because its Slack webhook is itself read through `op`.
+
+The rule covers every op-wrapped entry, not just the watchdog —
+`scripts/garmin-auto-relogin.sh` runs from cron under `op run --env-file=.env.tpl` the
+same way, which is why it lives here rather than in the watchdog's own doc.
+
 ## Build-cache pruning (locally-built services)
 
 **garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
