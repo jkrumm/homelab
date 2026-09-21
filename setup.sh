@@ -12,7 +12,9 @@
 #
 # After this script completes, manually:
 #   1. tailscale up --ssh --advertise-tags=tag:homelab
-#   2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/jkrumm/.bashrc
+#   2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/jkrumm/.bashrc, and both it and
+#      OP_SOCK to /home/jkrumm/.profile, outside the BASH_VERSION guard —
+#      cron shells source the latter (docs/decisions.md -> OP_SOCK)
 #   3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d
 # --------------------------------------------------
 
@@ -85,6 +87,9 @@ if ! command -v op &>/dev/null; then
   apt-get update && apt-get install -y 1password-cli
   echo ""
   echo ">>> 1Password CLI installed. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
+  echo ">>> Also add it and OP_SOCK to /home/$USERNAME/.profile, outside the BASH_VERSION"
+  echo ">>> guard, and source that file from every op-wrapped cron line:"
+  echo ">>>   . $USER_HOME/.profile; op run --env-file=... -- <script>   (docs/decisions.md)"
   echo ""
 else
   echo "1Password CLI is already installed: $(op --version)"
@@ -230,7 +235,9 @@ echo "Unattended-upgrades configured (Docker blacklisted, auto-reboot at 4 AM)"
 # --------------------------------------------------
 echo "=== Setting up watchdog ==="
 WATCHDOG_SCRIPT="$USER_HOME/homelab/scripts/homelab_watchdog.sh"
-CRON_ENTRY="*/10 * * * * $WATCHDOG_SCRIPT >> /var/log/homelab_watchdog.log 2>&1"
+# `. /root/.profile` first: the watchdog does `op read` at runtime and cron's `sh`
+# reads no profile on its own. Shape matches README -> "Install the cron job".
+CRON_ENTRY="*/10 * * * * . /root/.profile; $WATCHDOG_SCRIPT >> /var/log/homelab_watchdog.log 2>&1"
 
 # Ensure watchdog script is executable
 if [ -f "$WATCHDOG_SCRIPT" ]; then
@@ -315,7 +322,10 @@ echo "=== Setup complete ==="
 echo ""
 echo "Remaining manual steps:"
 echo "  1. sudo tailscale up --ssh --advertise-tags=tag:homelab"
-echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
+echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc, and both it"
+echo "     and OP_SOCK to /home/$USERNAME/.profile (outside the BASH_VERSION guard)."
+echo "     Every op-wrapped cron line must source it first:"
+echo "       . $USER_HOME/.profile; op run --env-file=... -- <script>"
 echo "     source ~/.bashrc && op vault list (verify access)"
 echo "  3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d"
 echo ""

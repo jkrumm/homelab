@@ -2,6 +2,41 @@
 
 Durable "why" narratives pulled out of CLAUDE.md to keep it dense. Read on demand.
 
+## 1Password CLI in cron shells (`OP_SOCK`, `~/.profile`)
+
+**Every `op`-wrapped cron line must source `~/.profile` first.** A cron command runs under a
+non-login `sh` (dash here) that reads neither `.profile` nor `.bashrc`, so on its own it carries
+neither the service-account token nor `OP_SOCK`:
+
+```cron
+*/5 * * * * . /home/jkrumm/.profile; op run --env-file=/home/jkrumm/homelab/.env.tpl -- <script> >> <log> 2>&1
+```
+
+Root's watchdog entry takes the same shape against `/root/.profile` — `setup.sh` installs it that
+way and README → *Install the cron job* documents it. A new `op`-wrapped entry without the prefix
+fails misleadingly: `op` exits non-zero with no credential, which reads as a bug in the script
+rather than a missing environment.
+
+Both exports therefore sit in `~/.profile`, **outside the `BASH_VERSION` guard** (verified against
+the live file 2026-09-21: the token and `OP_SOCK` are both below the guard's `fi`; the `.bashrc`
+copy of the token only serves interactive shells). Moving either inside the guard, or into
+`.bashrc`, is the same bug — dash skips both.
+
+**`OP_SOCK` pins the op cache-daemon socket.** `op`'s own help describes it as "the path of a UNIX
+domain socket to communicate between daemon and client"; it is **not** in 1Password's public
+environment-variable reference (op 2.33.1, 2026-09 — re-verify the name after any op major
+upgrade). On this host the daemon listens at `~/.config/op/op-daemon.sock` while `/run/user/1000`
+holds only `op-daemon.pid` — the socket is there *because* `OP_SOCK` points there, not because that
+path is an op default.
+
+**What is still unverified: what `op` does without it in a cron shell.** The earlier account — that
+cron-time `op` looks in `/run/user/1000` and therefore misses the cache — does not survive the PAM
+facts: `/etc/pam.d/cron` pulls `common-session-noninteractive`, which has no `pam_systemd.so`, and
+neither `/etc/environment` nor `pam_env.conf` carries an XDG entry, so a cron shell has no
+`XDG_RUNTIME_DIR` at all. One host-side check settles it: `op vault list` under `env -i`, with and
+without `OP_SOCK`, comparing whether the daemon is contacted. Until then treat `OP_SOCK` as
+belt-and-braces and the `.profile`-sourcing rule as load-bearing on the token alone.
+
 ## Build-cache pruning (locally-built services)
 
 **garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.

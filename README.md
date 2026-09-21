@@ -228,7 +228,28 @@ command printed at the end of the script.
    export OP_SERVICE_ACCOUNT_TOKEN="<token>"
    ```
 
-3. Verify access:
+3. Pin the `op` cache-daemon socket — cron shells need it:
+
+   ```bash
+   # Add to ~/.profile, outside any BASH_VERSION guard
+   export OP_SOCK="$HOME/.config/op/op-daemon.sock"
+   ```
+
+   `~/.profile` is only *read* by cron if the cron line sources it — a cron command
+   runs under a non-login `sh` that reads neither `.profile` nor `.bashrc`. So the
+   token from step 2 belongs in `~/.profile` too, and every `op`-wrapped entry must
+   source it first, with absolute paths (cron's working directory is `$HOME`, not
+   `~/homelab`):
+
+   ```cron
+   */5 * * * * . /home/jkrumm/.profile; op run --env-file=/home/jkrumm/homelab/.env.tpl -- <script>
+   ```
+
+   Without the `. /home/jkrumm/.profile;` prefix neither the token nor `OP_SOCK`
+   reaches the `op` call and the entry fails with no credential. See
+   `docs/decisions.md`.
+
+4. Verify access:
 
    ```bash
    op vault list
