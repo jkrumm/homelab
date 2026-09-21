@@ -3,7 +3,8 @@
 # All docker compose commands that need secrets are wrapped with:
 #   op run --env-file=.env.tpl -- docker compose ...
 #
-# The homelab server has OP_SERVICE_ACCOUNT_TOKEN in ~/.bashrc,
+# The homelab server has OP_SERVICE_ACCOUNT_TOKEN in ~/.profile (cron shells
+# source it; .bashrc only serves interactive shells),
 # so op CLI authenticates automatically via 1Password service account.
 #
 # Usage:

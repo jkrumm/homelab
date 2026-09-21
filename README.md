@@ -224,9 +224,16 @@ command printed at the end of the script.
 2. Set the service account token:
 
    ```bash
-   # Add to ~/.bashrc
+   # Add to ~/.profile, outside any BASH_VERSION guard
    export OP_SERVICE_ACCOUNT_TOKEN="<token>"
    ```
+
+   `~/.profile` is what cron shells read — a cron command runs under a non-login `sh`
+   that reads neither `.profile` nor `.bashrc` on its own, so every `op`-wrapped cron
+   line has to source it first (see *Install the cron job* below). Mirror the export
+   into `~/.bashrc` if you want it in interactive shells too. Root's cron entry needs
+   the same export in `/root/.profile` — see `docs/decisions.md` →
+   *1Password CLI in cron shells*.
 
 3. Verify access:
 
@@ -577,8 +584,9 @@ make restic-prune       # quarterly, from your Mac, uses the master B2 key
 
 3. **Credentials:** the script reads `BETTERSTACK_TOKEN`, `common/slack/WEBHOOK_ALERTS`
    and `homelab/uptime-kuma/PUSH_TOKEN` live via `op read` under root's
-   `OP_SERVICE_ACCOUNT_TOKEN` session — there is no credentials file to create.
-   Verify root can reach 1Password:
+   `OP_SERVICE_ACCOUNT_TOKEN` session — there is no credentials file to create, but the
+   token must be exported in `/root/.profile` for cron to see it (see *Install the cron
+   job* below). Verify root can reach 1Password:
 
    ```bash
    sudo -i
@@ -598,12 +606,22 @@ systemd timer):
 ```bash
 sudo crontab -e
 # add:
-*/10 * * * * . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
+*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
 ```
 
-Root, because the script restarts containers, remounts the HDD and can reboot;
-`.profile` first so it sees the same PATH as an interactive root shell. Verify it's
-firing without sudo — cron logs each run to the journal:
+Root, because the script restarts containers, remounts the HDD and can reboot.
+
+`.profile` first, because cron's `sh` reads no profile — that is the only place the
+`OP_SERVICE_ACCOUNT_TOKEN` the script needs for `op read` can come from, and it has to
+live in **`/root/.profile`**, not jkrumm's. **`setup.sh` creates that file but cannot
+fill it in** (the token is a secret): export it there yourself and confirm with
+`sudo -i; op whoami` before trusting the watchdog. The `[ -r ]` guard matters — `.` is a
+POSIX special builtin, so dash aborts the whole command line when the sourced file is
+missing or unreadable, which stops every run instead of just starving it of a
+credential. `setup.sh` reports `Watchdog credentials: NOT CONFIGURED` at the end when
+this step is still outstanding.
+
+Verify it's firing without sudo — cron logs each run to the journal:
 
 ```bash
 ssh homelab "journalctl -u cron --since '30 min ago' --no-pager | grep homelab_watchdog"
