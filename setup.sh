@@ -12,7 +12,10 @@
 #
 # After this script completes, manually:
 #   1. tailscale up --ssh --advertise-tags=tag:homelab
-#   2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/jkrumm/.bashrc
+#   2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/jkrumm/.profile (outside the
+#      BASH_VERSION guard) AND to /root/.profile — cron shells read no profile,
+#      so that is the only way the watchdog's `op read` gets a credential
+#      (docs/decisions.md -> 1Password CLI in cron shells)
 #   3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d
 # --------------------------------------------------
 
@@ -84,7 +87,10 @@ if ! command -v op &>/dev/null; then
     tee /etc/apt/sources.list.d/1password.list
   apt-get update && apt-get install -y 1password-cli
   echo ""
-  echo ">>> 1Password CLI installed. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
+  echo ">>> 1Password CLI installed. Add OP_SERVICE_ACCOUNT_TOKEN to"
+  echo ">>> /home/$USERNAME/.profile (outside the BASH_VERSION guard) and to"
+  echo ">>> /root/.profile — cron shells read no profile on their own."
+  echo ">>> See docs/decisions.md -> 1Password CLI in cron shells"
   echo ""
 else
   echo "1Password CLI is already installed: $(op --version)"
@@ -230,18 +236,83 @@ echo "Unattended-upgrades configured (Docker blacklisted, auto-reboot at 4 AM)"
 # --------------------------------------------------
 echo "=== Setting up watchdog ==="
 WATCHDOG_SCRIPT="$USER_HOME/homelab/scripts/homelab_watchdog.sh"
-CRON_ENTRY="*/10 * * * * $WATCHDOG_SCRIPT >> /var/log/homelab_watchdog.log 2>&1"
+# `. /root/.profile` first: the watchdog does `op read` at runtime and cron's `sh`
+# reads no profile on its own. Guarded with `[ -r ]` because `.` is a POSIX special
+# builtin — dash aborts the whole command line when the file is missing or
+# unreadable, which would stop every run rather than just starve it of a credential.
+# Shape matches README -> "Install the cron job".
+CRON_ENTRY="*/10 * * * * [ -r /root/.profile ] && . /root/.profile; $WATCHDOG_SCRIPT >> /var/log/homelab_watchdog.log 2>&1"
+CRON_BACKUP="/root/crontab.backup"
+
+# The one check that actually proves root's *cron* shell reaches 1Password. It is
+# run in the closing summary below and quoted verbatim in README and
+# docs/decisions.md. `env -i` because the token has to come from /root/.profile —
+# run in the invoking shell, an inherited OP_SERVICE_ACCOUNT_TOKEN would pass a
+# check that cron itself fails. PATH is set explicitly because `env -i` clears it
+# and `op` is at /usr/bin/op; without it the check fails closed. The profile is
+# sourced under `sh`, matching cron, so a token parked behind a BASH_VERSION
+# guard behaves here exactly as it does from cron — i.e. not at all.
+ROOT_OP_CHECK='env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin sh -c ". /root/.profile && op whoami"'
 
 # Ensure watchdog script is executable
 if [ -f "$WATCHDOG_SCRIPT" ]; then
   chmod +x "$WATCHDOG_SCRIPT"
 fi
 
-if crontab -l 2>/dev/null | grep -q "homelab_watchdog"; then
-  echo "Watchdog cron job already exists"
-else
-  (crontab -l 2>/dev/null; echo "$CRON_ENTRY") | crontab -
+# Root's cron shell reads no profile, so the watchdog reaches 1Password only if
+# root's own profile carries the token — and nothing else in this repo writes it.
+# Create the file when absent so the guard above has something to read; the token
+# itself is a secret no installer can fill in (see the verification summary below).
+if [ ! -f /root/.profile ]; then
+  cat > /root/.profile <<'PROFILE'
+# Read by the watchdog cron line (docs/decisions.md -> 1Password CLI in cron shells).
+# Export the service-account token below — without it the watchdog exits 1 and
+# cannot alert, because its Slack webhook is itself read through `op`.
+PROFILE
+  chmod 600 /root/.profile
+  echo "Created /root/.profile — export OP_SERVICE_ACCOUNT_TOKEN in it"
+fi
+
+# Read the current crontab once, before writing anything back. The invariant is
+# that this script never rewrites a crontab it has not successfully read: the
+# write below replaces the whole spool file, so mistaking a failed read for an
+# empty crontab is exactly the wipe this block exists to prevent. `crontab -l`
+# fails both for "no crontab yet" and for a spool it cannot read at all, and only
+# the first is safe to treat as empty — so stderr and the exit status are both
+# captured, and anything that is not `no crontab for` stops the script. `grep -v`
+# likewise exits non-zero once it has removed every line, hence the `|| true`.
+# Keyed on the script path rather than `homelab_watchdog` so a line that merely
+# names the log file survives; `-F` because the path is not a pattern.
+CRON_ERR="$(mktemp)"
+CRON_STATUS=0
+CRON_CURRENT="$(crontab -l 2>"$CRON_ERR")" || CRON_STATUS=$?
+if [ "$CRON_STATUS" -ne 0 ] && ! grep -qF 'no crontab for' "$CRON_ERR"; then
+  cat "$CRON_ERR" >&2
+  rm -f "$CRON_ERR"
+  echo "ERROR: root's crontab could not be read — refusing to rewrite it." >&2
+  exit 1
+fi
+rm -f "$CRON_ERR"
+
+CRON_KEPT="$(printf '%s\n' "$CRON_CURRENT" | grep -vF "$WATCHDOG_SCRIPT" || true)"
+
+# Keep the pre-rewrite crontab on disk — the write below is unconditional and the
+# spool is not itself a backup.
+if [ -n "$CRON_CURRENT" ]; then
+  printf '%s\n' "$CRON_CURRENT" > "$CRON_BACKUP"
+  chmod 600 "$CRON_BACKUP"
+  echo "Previous crontab saved to $CRON_BACKUP"
+fi
+
+# Always rewrite the whole crontab, keeping every unrelated line — never write
+# CRON_ENTRY alone, which would drop them. Rewriting rather than skipping when an
+# entry is already present is also what migrates a host still carrying the
+# pre-guard shape.
+{ [ -n "$CRON_KEPT" ] && printf '%s\n' "$CRON_KEPT"; printf '%s\n' "$CRON_ENTRY"; } | crontab -
+if [ "$CRON_CURRENT" = "$CRON_KEPT" ]; then
   echo "Watchdog cron job added (every 10 minutes)"
+else
+  echo "Watchdog cron job updated (every 10 minutes)"
 fi
 
 # Create watchdog state directory (don't overwrite existing state)
@@ -304,7 +375,18 @@ echo -n "Unattended-upgrades: "
 [ -f /etc/apt/apt.conf.d/50unattended-upgrades-local ] && echo "configured" || echo "NOT CONFIGURED"
 
 echo -n "Watchdog cron: "
-crontab -l 2>/dev/null | grep -q "homelab_watchdog" && echo "active" || echo "NOT CONFIGURED"
+crontab -l 2>/dev/null | grep -qF "$WATCHDOG_SCRIPT" && echo "active" || echo "NOT CONFIGURED"
+
+echo -n "Watchdog credentials: "
+# Authenticates rather than grepping /root/.profile for the export line: a token
+# that is present but expired, revoked or quoted unparseably passes a grep and
+# still leaves the watchdog exiting 1 without being able to alert.
+if [ -r /root/.profile ] && sh -c "$ROOT_OP_CHECK" >/dev/null 2>&1; then
+  echo "configured"
+else
+  echo "NOT CONFIGURED — the watchdog exits 1 and cannot alert;"
+  echo "                     export OP_SERVICE_ACCOUNT_TOKEN in /root/.profile"
+fi
 
 echo -n "Log rotation: "
 [ -f /etc/logrotate.d/homelab-watchdog ] && echo "configured" || echo "NOT CONFIGURED"
@@ -315,7 +397,9 @@ echo "=== Setup complete ==="
 echo ""
 echo "Remaining manual steps:"
 echo "  1. sudo tailscale up --ssh --advertise-tags=tag:homelab"
-echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.bashrc"
-echo "     source ~/.bashrc && op vault list (verify access)"
+echo "  2. Add OP_SERVICE_ACCOUNT_TOKEN to /home/$USERNAME/.profile (outside the"
+echo "     BASH_VERSION guard) and to /root/.profile — cron shells read no profile"
+echo "     on their own, and .bashrc only serves interactive shells."
+echo "     sudo $ROOT_OP_CHECK (verify root's access)"
 echo "  3. cd ~/homelab && op run --env-file=.env.tpl -- docker compose up -d"
 echo ""

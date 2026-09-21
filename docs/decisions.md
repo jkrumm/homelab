@@ -2,6 +2,57 @@
 
 Durable "why" narratives pulled out of AGENTS.md to keep it dense. Read on demand.
 
+## 1Password CLI in cron shells
+
+**Every `op`-wrapped cron line must source a profile first.** A cron command runs under a
+non-login `sh` (dash here) that reads neither `.profile` nor `.bashrc`, so on its own it
+carries no `OP_SERVICE_ACCOUNT_TOKEN`:
+
+```cron
+*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh >> /var/log/homelab_watchdog.log 2>&1
+```
+
+The `[ -r ]` guard is load-bearing, not decoration. `.` is a POSIX *special builtin*, so
+dash aborts the **entire command line** when the file it names cannot be opened — verified
+on the dev host 2026-09-21, `dash -c '. /nonexistent; echo REACHED'` prints nothing and
+exits 2, while the `[ -r ]`-guarded form reaches the next command with a missing, present
+or unreadable file. Unguarded, one absent profile costs every run of the entry, not just
+the credential it was meant to supply.
+
+**The token lives in `~jkrumm/.profile`, outside the `BASH_VERSION` guard** — dash skips
+the guard body, and a `.bashrc` copy only serves interactive shells. Root's entry is the
+one that is easy to miss: it needs the same export in `/root/.profile`, and **nothing in
+this repo writes that file**. `setup.sh` creates it when absent, keeps it `0600`, and
+reports `Watchdog credentials: NOT CONFIGURED` in its closing summary when the export is
+still missing — but the value is a secret an operator pastes in by hand. That gap is what
+makes the failure silent: without the token `load_credentials()` exits 1, and the watchdog
+cannot alert about it, because its Slack webhook is itself read through `op`.
+
+The rule covers every op-wrapped entry, not just the watchdog —
+`scripts/garmin-auto-relogin.sh` runs from cron under `op run --env-file=.env.tpl` the
+same way, which is why it lives here rather than in the watchdog's own doc.
+
+**Verify the credential, don't grep for it.** The only check that proves root's *cron*
+shell reaches 1Password reproduces that shell instead of approximating it:
+
+```bash
+sudo env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin sh -c '. /root/.profile && op whoami'
+```
+
+`setup.sh` runs the same command (as `ROOT_OP_CHECK`) from its closing summary, so the
+`Watchdog credentials:` line is an authentication, not a match on the export line — a
+token that is present, expired or revoked passes a grep and still leaves the watchdog
+exiting 1. Each part of the shape is load-bearing. `env -i` drops the invoking
+environment, without which an `OP_SERVICE_ACCOUNT_TOKEN` already exported in the
+operator's shell makes `op whoami` succeed against *their* token; `PATH` is then passed
+explicitly, because `env -i` clears it and the apt package's `op` lives at `/usr/bin/op`
+— omit it and the check fails closed on a correctly configured host. Sourcing the
+profile under `sh` rather than bash is the last piece: it is what cron does, so a token
+parked behind the `BASH_VERSION` guard that a stock `.profile` puts there fails here too,
+instead of passing and hiding the outage. `sudo -i` alone is not this check — it only
+opens a shell, so a following `op whoami` runs in the shell that typed it, authenticating
+the wrong token and reporting the failure as success.
+
 ## Build-cache pruning (locally-built services)
 
 **garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
