@@ -122,7 +122,7 @@ logs: ## Follow logs for a service: make logs svc=<name>
 # Image tags are explicitly pinned (e.g. immich-server:v3.1.0), so this pulls only what
 # docker-compose.yml names — bump both tags (server + ML) there first or it's a no-op.
 # Take a verified DB dump before major bumps: downgrades are unsupported and migrations
-# are irreversible. See CLAUDE.md "Immich database" + /upgrade-stack immich.
+# are irreversible. See AGENTS.md "Immich database" + /upgrade-stack immich.
 immich-upgrade: ## Upgrade Immich stack: git pull + pull pinned images + recreate (bump tags in docker-compose.yml first)
 	$(SSH) "$(CD) && git pull && $(DC) pull immich-server immich-machine-learning immich_redis immich_postgres && $(DC) up -d immich-server immich-machine-learning immich_redis immich_postgres"
 

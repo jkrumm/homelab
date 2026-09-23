@@ -4,7 +4,7 @@
 # Immich's built-in backup job (02:00, Administration → Settings → Backup) writes
 # upload/backups/immich-db-backup-<ts>-v<immich>-pg<ver>.sql.gz and pushes
 # nothing. That dump is the ONLY copy of albums, people, sharing and metadata
-# edits (CLAUDE.md "Immich database"), so this cron checks it and pings
+# edits (AGENTS.md "Immich database"), so this cron checks it and pings
 # "Immich Backup - Push" only when the newest dump is
 #   - younger than MAX_AGE_H,
 #   - a valid gzip stream (a container killed mid-dump leaves a truncated file),

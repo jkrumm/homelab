@@ -1,6 +1,6 @@
 # Decisions & Rationale
 
-Durable "why" narratives pulled out of CLAUDE.md to keep it dense. Read on demand.
+Durable "why" narratives pulled out of AGENTS.md to keep it dense. Read on demand.
 
 ## Build-cache pruning (locally-built services)
 

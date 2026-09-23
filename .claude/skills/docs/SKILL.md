@@ -1,6 +1,6 @@
 ---
 name: docs
-description: HomeLab documentation maintenance — audit infrastructure changes and update README.md, CLAUDE.md, docs/, and skill files
+description: HomeLab documentation maintenance — audit infrastructure changes and update README.md, AGENTS.md, docs/, and skill files
 context: main
 ---
 
@@ -21,7 +21,7 @@ context: main
 2. Checks scripts/ directory for new scripts
 3. Audits config files and mount points
 4. Detects multi-component stacks with `com.centurylinklabs.watchtower.enable: "false"`
-5. Updates the single owning doc per fact (README = onboarding/service access, CLAUDE.md = operating rules/gotchas, docs/ = runbooks/rationale) — never restates a fact in two places
+5. Updates the single owning doc per fact (README = onboarding/service access, AGENTS.md = operating rules/gotchas, docs/ = runbooks/rationale) — never restates a fact in two places
 6. Synchronizes Table of Contents
 7. Updates behavior documentation in docs/
 8. Prompts to extend /upgrade-stack for new stacks
@@ -69,9 +69,9 @@ When running this skill, I will check:
 
 - [ ] README.md "Quick Commands Cheatsheet"
 - [ ] README.md Table of Contents
-- [ ] CLAUDE.md "Quick Reference Card"
-- [ ] CLAUDE.md "Services Reference" tables
-- [ ] CLAUDE.md "Available Scripts" table
+- [ ] AGENTS.md "Quick Reference Card"
+- [ ] AGENTS.md "Services Reference" tables
+- [ ] AGENTS.md "Available Scripts" table
 - [ ] docs/\*.md behavior documentation
 
 ---
@@ -102,7 +102,7 @@ When running this skill, I will check:
 ssh homelab "docker compose ps"
 ```
 
-**CLAUDE.md (table format, concise):**
+**AGENTS.md (table format, concise):**
 
 ```markdown
 | `docker compose ps` | View all services |
@@ -175,7 +175,7 @@ If changes found, update:
 - Quick Commands Cheatsheet (new service commands)
 - Table of Contents (if structure changed)
 
-**CLAUDE.md:**
+**AGENTS.md:**
 
 - Services Reference (Public/Private/Internal tables)
 - Quick Reference Card (command tables)
@@ -203,7 +203,7 @@ If new multi-component stack detected:
 | File                                                           | What Gets Updated                                                                               |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `README.md`                                                    | Quick Commands Cheatsheet, ToC, Service tables                                                  |
-| `CLAUDE.md`                                                    | Quick Reference Card, Services Reference, Scripts table                                         |
+| `AGENTS.md`                                                    | Quick Reference Card, Services Reference, Scripts table                                         |
 | `docs/watchdog-behaviors.md`                                   | Failure scenarios, recovery states                                                              |
 | `docs/*.md`                                                    | Behavior documentation for modified scripts                                                     |
 | `uptime-kuma/monitors.yaml`                                    | If monitor config changed                                                                       |
@@ -238,7 +238,7 @@ After updates:
 **Files modified:**
 
 - README.md: [specific changes]
-- CLAUDE.md: [specific changes]
+- AGENTS.md: [specific changes]
 - docs/\*.md: [specific changes]
 - .claude/skills/\*.md: [specific changes]
 

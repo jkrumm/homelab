@@ -207,7 +207,7 @@ services:
   # Repo: s3://jkrumm/backups/homelab/restic
   # Append-only key (op://common/backblaze-s3, no delete perms) for ransomware
   # safety; manual prune via `make restic-prune` from Mac with master key
-  # (op://Private/Backblaze B2). See CLAUDE.md "Backups" for the full design.
+  # (op://Private/Backblaze B2). See AGENTS.md "Backups" for the full design.
   restic-backup:
     image: mazzolino/restic:latest
     container_name: restic-backup

@@ -274,7 +274,7 @@ groups:
 
           # Immich's built-in nightly pg_dump (02:00, Administration → Settings →
           # Backup) is the ONLY copy of albums, people, sharing and metadata edits
-          # (see CLAUDE.md "Immich database"). Immich itself pushes nothing, so
+          # (see AGENTS.md "Immich database"). Immich itself pushes nothing, so
           # scripts/immich-backup-check.sh (jkrumm crontab, daily 04:00) verifies
           # the newest dump is <26h old, gzip-valid and carries pg_dump's "dump
           # complete" trailer, and pings this only then. DOWN = last night's dump

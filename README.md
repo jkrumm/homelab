@@ -7,7 +7,7 @@ via a cron watchdog, monitored with Uptime Kuma (config-as-code) and backed up n
 to Backblaze B2 via restic.
 
 **For agent-facing operating rules, gotchas and the full command reference, see
-`CLAUDE.md`.** This file is onboarding: what runs where, how to reach it, and how to set
+`AGENTS.md`.** This file is onboarding: what runs where, how to reach it, and how to set
 a fresh server up from scratch.
 
 ---
@@ -79,13 +79,13 @@ a fresh server up from scratch.
 DNS: grey cloud (DNS-only) A records pointing to the HomeLab Tailscale IP —
 unreachable from the public internet. TLS via Let's Encrypt (Cloudflare DNS-01
 challenge). Full network topology and the Caddy dual-http/https detail:
-`CLAUDE.md` → Network Topology.
+`AGENTS.md` → Network Topology.
 
 #### HomeLab — Internal (no direct web access)
 
 Caddy, Cloudflared, three docker-socket-proxy variants (monitoring / Watchtower / argo),
 Watchtower, Samba, Beszel Agent, Immich ML/Postgres/Redis, Restic Backup (daily 03:30
-cron), watchdog log sidecars. See `CLAUDE.md` → Repository Structure for the full
+cron), watchdog log sidecars. See `AGENTS.md` → Repository Structure for the full
 compose service list.
 
 #### VPS — Public (monitored from here, full inventory + ops in `~/SourceRoot/vps`)
@@ -129,7 +129,7 @@ Both machines are hardened with identical configurations (applied via `setup.sh`
 | `docs/watchdog-behaviors.md` | Failure scenarios, escalation states, recovery paths for the self-healing watchdog  |
 
 Run the `/docs` skill after infrastructure changes — it keeps each fact owned by exactly
-one of README / CLAUDE.md / `docs/*.md`.
+one of README / AGENTS.md / `docs/*.md`.
 
 ---
 
@@ -137,7 +137,7 @@ one of README / CLAUDE.md / `docs/*.md`.
 
 `.env.tpl` (repo root) is the full, current list of `op://` references this stack needs —
 read it rather than a hand-maintained copy here. The dense reference table (which secret
-does what) lives in `CLAUDE.md` → Key Secrets. To set up a fresh vault:
+does what) lives in `AGENTS.md` → Key Secrets. To set up a fresh vault:
 
 ```bash
 op vault list
@@ -524,7 +524,7 @@ Then `op run --env-file=.env.tpl -- docker compose up -d`.
    ```
 7. **Diagnostics:** `docker logs uptime-kuma -f | grep -iE "(warn|error)"`
 8. **Config as code:** monitors live in `uptime-kuma/monitors.yaml`, synced via
-   `sync.py` — commands and gotchas are in `CLAUDE.md` → Uptime Kuma Config-as-Code
+   `sync.py` — commands and gotchas are in `AGENTS.md` → Uptime Kuma Config-as-Code
    (single copy, don't duplicate here). Required secret: `homelab/uptime-kuma/PASSWORD`.
 
    First-time venv setup:

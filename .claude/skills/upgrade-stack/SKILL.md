@@ -76,7 +76,7 @@ updates) — is Watchtower-managed and out of scope for this skill.
 - **Rollback is a restore, not a re-pin.** Immich downgrades are unsupported and schema
   migrations are irreversible — an older server refuses a newer-migrated DB. Reverting
   means: stop the stack, wipe `Bilder/immich/postgres`, bring up a clean stack on the
-  old tag, restore a dump (see CLAUDE.md → "Immich database"). Take a verified dump
+  old tag, restore a dump (see AGENTS.md → "Immich database"). Take a verified dump
   **before** every major bump.
 - **Never touch the media mount during an upgrade.** The v3 data-loss reports
   (immich#29445) were all caused by a changed `UPLOAD_LOCATION` — Immich reads an empty
