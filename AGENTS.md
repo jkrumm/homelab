@@ -370,14 +370,13 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
 `jkrumm`'s, not `/etc/cron.d`, not a systemd timer):
 
 ```
-*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
+*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh >> /var/log/homelab_watchdog.log 2>&1
 ```
 
 Root, because the script restarts containers, remounts the HDD and can reboot. The
 profile is sourced because cron's `sh` reads none, and that is where root's
-`OP_SERVICE_ACCOUNT_TOKEN` has to live for the watchdog's `op read` — `[ -r ]`-guarded
-because dash aborts the whole line when a sourced file is missing
-(docs/decisions.md → *1Password CLI in cron shells*). Verify
+`OP_SERVICE_ACCOUNT_TOKEN` has to live for the watchdog's `op read` — the `[ -r ]`
+guard is load-bearing (docs/decisions.md → *1Password CLI in cron shells*). Verify
 it's firing without sudo: `ssh homelab "journalctl -u cron --since '30 min ago' --no-pager | grep homelab_watchdog"`.
 
 Full failure scenarios, escalation states (0-4), config values and log files:

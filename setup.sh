@@ -237,9 +237,8 @@ echo "Unattended-upgrades configured (Docker blacklisted, auto-reboot at 4 AM)"
 echo "=== Setting up watchdog ==="
 WATCHDOG_SCRIPT="$USER_HOME/homelab/scripts/homelab_watchdog.sh"
 # `. /root/.profile` first: the watchdog does `op read` at runtime and cron's `sh`
-# reads no profile on its own. Guarded with `[ -r ]` because `.` is a POSIX special
-# builtin — dash aborts the whole command line when the file is missing or
-# unreadable, which would stop every run rather than just starve it of a credential.
+# reads no profile on its own. The `[ -r ]` guard is load-bearing
+# (docs/decisions.md -> 1Password CLI in cron shells).
 # Shape matches README -> "Install the cron job".
 CRON_ENTRY="*/10 * * * * [ -r /root/.profile ] && . /root/.profile; $WATCHDOG_SCRIPT >> /var/log/homelab_watchdog.log 2>&1"
 CRON_BACKUP="/root/crontab.backup"
@@ -264,11 +263,14 @@ fi
 # Create the file when absent so the guard above has something to read; the token
 # itself is a secret no installer can fill in (see the verification summary below).
 if [ ! -f /root/.profile ]; then
-  cat > /root/.profile <<'PROFILE'
+  # umask 077 so the file is never world-readable, not even for the instant
+  # before chmod runs.
+  ( umask 077; cat > /root/.profile <<'PROFILE'
 # Read by the watchdog cron line (docs/decisions.md -> 1Password CLI in cron shells).
 # Export the service-account token below — without it the watchdog exits 1 and
 # cannot alert, because its Slack webhook is itself read through `op`.
 PROFILE
+  )
   chmod 600 /root/.profile
   echo "Created /root/.profile — export OP_SERVICE_ACCOUNT_TOKEN in it"
 fi
@@ -296,23 +298,32 @@ rm -f "$CRON_ERR"
 
 CRON_KEPT="$(printf '%s\n' "$CRON_CURRENT" | grep -vF "$WATCHDOG_SCRIPT" || true)"
 
-# Keep the pre-rewrite crontab on disk — the write below is unconditional and the
-# spool is not itself a backup.
-if [ -n "$CRON_CURRENT" ]; then
-  printf '%s\n' "$CRON_CURRENT" > "$CRON_BACKUP"
-  chmod 600 "$CRON_BACKUP"
-  echo "Previous crontab saved to $CRON_BACKUP"
-fi
-
-# Always rewrite the whole crontab, keeping every unrelated line — never write
-# CRON_ENTRY alone, which would drop them. Rewriting rather than skipping when an
-# entry is already present is also what migrates a host still carrying the
-# pre-guard shape.
-{ [ -n "$CRON_KEPT" ] && printf '%s\n' "$CRON_KEPT"; printf '%s\n' "$CRON_ENTRY"; } | crontab -
-if [ "$CRON_CURRENT" = "$CRON_KEPT" ]; then
-  echo "Watchdog cron job added (every 10 minutes)"
+# The exact crontab this script would write, built once so a re-run can be detected
+# by comparison instead of by rewriting and reporting an update.
+NEW_CRON="$( { [ -n "$CRON_KEPT" ] && printf '%s\n' "$CRON_KEPT"; printf '%s\n' "$CRON_ENTRY"; } )"
+if [ "$NEW_CRON" = "$CRON_CURRENT" ]; then
+  echo "Watchdog cron job already present (every 10 minutes)"
 else
-  echo "Watchdog cron job updated (every 10 minutes)"
+  # Keep the pre-rewrite crontab on disk — the write below replaces the whole spool
+  # and the spool is not itself a backup. Written only on the first change, so a
+  # later re-run never overwrites the pre-migration crontab with an already-migrated
+  # one. umask 077 so it is never world-readable, not even for the instant before
+  # chmod runs.
+  if [ -n "$CRON_CURRENT" ] && [ ! -f "$CRON_BACKUP" ]; then
+    ( umask 077; printf '%s\n' "$CRON_CURRENT" > "$CRON_BACKUP" )
+    chmod 600 "$CRON_BACKUP"
+    echo "Previous crontab saved to $CRON_BACKUP"
+  fi
+
+  # Always write the whole crontab, keeping every unrelated line — never write
+  # CRON_ENTRY alone, which would drop them. A host still carrying the pre-guard
+  # shape differs from NEW_CRON, so this branch also migrates it.
+  printf '%s\n' "$NEW_CRON" | crontab -
+  if [ -n "$CRON_CURRENT" ]; then
+    echo "Watchdog cron job updated (every 10 minutes)"
+  else
+    echo "Watchdog cron job added (every 10 minutes)"
+  fi
 fi
 
 # Create watchdog state directory (don't overwrite existing state)

@@ -598,9 +598,11 @@ make restic-prune       # quarterly, from your Mac, uses the master B2 key
    while root's cron entry is still credential-less. `env -i` discards the environment
    for the same reason, and `PATH` is passed explicitly because it clears that too.
 
-4. Test the self-healing script:
+4. Test the self-healing script under root's cron shell (profile sourced). Running
+   `sudo ./scripts/…` alone skips `/root/.profile`, so the script's `op whoami` fails
+   before any check runs:
    ```bash
-   sudo ./scripts/homelab_watchdog.sh
+   sudo sh -c '. /root/.profile && ./scripts/homelab_watchdog.sh'
    ```
 
 ### Install the cron job
@@ -611,7 +613,7 @@ systemd timer):
 ```bash
 sudo crontab -e
 # add:
-*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh
+*/10 * * * * [ -r /root/.profile ] && . /root/.profile; /home/jkrumm/homelab/scripts/homelab_watchdog.sh >> /var/log/homelab_watchdog.log 2>&1
 ```
 
 Root, because the script restarts containers, remounts the HDD and can reboot.
@@ -621,9 +623,8 @@ Root, because the script restarts containers, remounts the HDD and can reboot.
 live in **`/root/.profile`**, not jkrumm's. **`setup.sh` creates that file but cannot
 fill it in** (the token is a secret): export it there yourself and confirm it with the
 check in step 3 above — `sudo -i` followed by `op whoami` would only prove that *your*
-token works. The `[ -r ]` guard matters: `.` is a POSIX special builtin, so dash aborts
-the whole command line when the sourced file is missing or unreadable, which stops every
-run instead of just starving it of a credential. `setup.sh` reports
+token works. The `[ -r ]` guard is load-bearing — see *1Password CLI in cron shells* in
+`docs/decisions.md`. `setup.sh` reports
 `Watchdog credentials: NOT CONFIGURED` at the end when this step is still outstanding.
 
 Verify it's firing without sudo — cron logs each run to the journal:
