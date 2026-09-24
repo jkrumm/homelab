@@ -297,12 +297,16 @@ rm -f "$CRON_ERR"
 
 CRON_KEPT="$(printf '%s\n' "$CRON_CURRENT" | grep -vF "$WATCHDOG_SCRIPT" || true)"
 
-# Detect a no-op re-run by whether the guarded entry is already present, not by
-# rebuilding the target crontab and comparing it verbatim — the rebuilt form always
-# appends the entry, so a crontab with the entry in the middle would read as
-# different and trigger a pointless rewrite. `grep -qxF` matches the whole line as
-# a fixed string, so the cron wildcards and the log redirect are literal.
-if printf '%s\n' "$CRON_CURRENT" | grep -qxF "$CRON_ENTRY"; then
+# No-op only when the crontab's watchdog lines are exactly CRON_ENTRY. Comparing
+# the set of lines naming $WATCHDOG_SCRIPT — rather than asking whether CRON_ENTRY
+# appears anywhere (`grep -qxF`) — is both order-independent (the entry may sit
+# mid-crontab) and structural: a stale pre-guard line surviving next to the
+# canonical one makes the set differ from CRON_ENTRY, so the rewrite below strips
+# every watchdog line and appends CRON_ENTRY alone instead of leaving the
+# duplicate in place. `grep -F` matches the fixed path; `|| true` because grep
+# exits non-zero when no line names it.
+CRON_WD_LINES="$(printf '%s\n' "$CRON_CURRENT" | grep -F "$WATCHDOG_SCRIPT" || true)"
+if [ "$CRON_WD_LINES" = "$CRON_ENTRY" ]; then
   echo "Watchdog cron job already present (every 10 minutes)"
 else
   # Keep the pre-rewrite crontab on disk — the write below replaces the whole spool
