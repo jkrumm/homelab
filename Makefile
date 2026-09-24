@@ -90,7 +90,7 @@ help: ## Show all targets
 	@echo "    make restic-prune        ⚠ Run on YOUR MAC with admin key — quarterly cleanup"
 	@echo ""
 	@echo "  Tests (local Mac, no server needed)"
-	@echo "    make test                Run the local regression suite (uptime-kuma sync guard)"
+	@echo "    make test                Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay)"
 	@echo ""
 
 # ── Stack Operations ─────────────────────────────────────────────────────────
@@ -193,8 +193,11 @@ uk-export: ## Export current Uptime Kuma monitors to YAML
 # uptime-kuma/.venv only exists on the homelab server (sync.py runs there
 # only). The suite declares its one dependency (pyyaml) inline (PEP 723), so
 # `uv run` builds a throwaway env for it — no repo venv, no borrowed one.
-test: ## Run the local regression suite (uptime-kuma sync guard) — no network, no server
+# The setup.sh cron replay is plain bash: it extracts the watchdog-cron block and
+# replays six seeded crontabs against a stubbed `crontab`.
+test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay) — no network, no server
 	uv run tests/test_uptime_kuma_sync_guard.py
+	bash tests/test_setup_cron_replay.sh
 
 # ── Restic Backup ────────────────────────────────────────────────────────────
 # Backup runs daily at 03:30 inside container (BACKUP_CRON env).

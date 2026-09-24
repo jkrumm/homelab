@@ -157,7 +157,7 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync` / `uk-dry-run` / `uk-export` | Apply / preview / export Uptime Kuma monitors (see below) |
-| `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` — local, no network, no server |
+| `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` + `bash tests/test_setup_cron_replay.sh` — local, no network, no server |
 
 ### How Secrets Work
 
