@@ -383,8 +383,12 @@ echo -n "Garmin relogin cron: "
 # /home/jkrumm (docs/decisions.md -> Garmin MFA re-login automation). Read-only:
 # this repo installs the watchdog entry but not this one, so the check can only
 # report, never repair.
-GARMIN_RELOGIN_SCRIPT="$USER_HOME/homelab/scripts/garmin-auto-relogin.sh"
-crontab -u "$USERNAME" -l 2>/dev/null | grep -qF "$GARMIN_RELOGIN_SCRIPT" && echo "active" || echo "NOT CONFIGURED"
+# Matched on the script's path suffix, not an absolute form: the entry is written
+# with absolute paths, but `cd ~/homelab && … ./scripts/garmin-auto-relogin.sh`
+# names the same script, and an absolute-only grep would report a correct entry
+# as NOT CONFIGURED.
+GARMIN_RELOGIN_SUFFIX="scripts/garmin-auto-relogin.sh"
+crontab -u "$USERNAME" -l 2>/dev/null | grep -qF "$GARMIN_RELOGIN_SUFFIX" && echo "active" || echo "NOT CONFIGURED"
 
 echo -n "Watchdog credentials: "
 # Authenticates rather than grepping /root/.profile for the export line: a token

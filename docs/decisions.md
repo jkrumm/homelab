@@ -97,14 +97,18 @@ Match the item's existing convention when writing: on `homelab/image-share`, sec
 
 The crontab entry is in **jkrumm's crontab, not root's** — the script's heartbeat file and
 state dir are `${HOME}`-relative, and `make garmin-relogin-auto` invokes it over SSH as
-jkrumm, so both only resolve under `/home/jkrumm`. The canonical line:
+jkrumm, so both only resolve under `/home/jkrumm`. The line as installed on the server:
 
 ```cron
-0 */2 * * * [ -r ~/.profile ] && . ~/.profile; cd ~/homelab && op run --env-file=.env.tpl -- ./scripts/garmin-auto-relogin.sh
+0 */2 * * * . /home/jkrumm/.profile; op run --env-file=/home/jkrumm/homelab/.env.tpl -- /home/jkrumm/homelab/scripts/garmin-auto-relogin.sh >> /home/jkrumm/logs/garmin-relogin.log 2>&1
 ```
 
-Same `[ -r ~/.profile ]` guard as the watchdog entry above; `cd ~/homelab` is load-bearing
-because `op run --env-file=.env.tpl` resolves the template relative to cwd.
+Absolute paths throughout, like jkrumm's other entries: cron's `sh` reads no profile, so the
+line sources `.profile` itself before `op run`, and names `.env.tpl` absolutely rather than
+relying on a `cd` into the repo. The `[ -r ]` guard on the watchdog entry above is root-only
+— a missing `/root/.profile` aborts the whole line in dash, whereas jkrumm's profile is
+always present. `setup.sh`'s summary reports this entry read-only (it does not install it),
+matching on the script's path suffix so a `cd`-relative spelling is recognised too.
 
 **The heartbeat file is a second manual step with no installer.** Before the first run:
 `install -m 600 /dev/null ~/.config/uptime-kuma/garmin-relogin-push-url`, then paste the
