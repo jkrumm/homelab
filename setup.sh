@@ -263,15 +263,14 @@ fi
 # Create the file when absent so the guard above has something to read; the token
 # itself is a secret no installer can fill in (see the verification summary below).
 if [ ! -f /root/.profile ]; then
-  # umask 077 so the file is never world-readable, not even for the instant
-  # before chmod runs.
+  # umask 077 so the file is created 0600 — never world-readable, since the token
+  # the user pastes in below is a secret.
   ( umask 077; cat > /root/.profile <<'PROFILE'
 # Read by the watchdog cron line (docs/decisions.md -> 1Password CLI in cron shells).
 # Export the service-account token below — without it the watchdog exits 1 and
 # cannot alert, because its Slack webhook is itself read through `op`.
 PROFILE
   )
-  chmod 600 /root/.profile
   echo "Created /root/.profile — export OP_SERVICE_ACCOUNT_TOKEN in it"
 fi
 
@@ -298,26 +297,29 @@ rm -f "$CRON_ERR"
 
 CRON_KEPT="$(printf '%s\n' "$CRON_CURRENT" | grep -vF "$WATCHDOG_SCRIPT" || true)"
 
-# The exact crontab this script would write, built once so a re-run can be detected
-# by comparison instead of by rewriting and reporting an update.
-NEW_CRON="$( { [ -n "$CRON_KEPT" ] && printf '%s\n' "$CRON_KEPT"; printf '%s\n' "$CRON_ENTRY"; } )"
-if [ "$NEW_CRON" = "$CRON_CURRENT" ]; then
+# Detect a no-op re-run by whether the guarded entry is already present, not by
+# rebuilding the target crontab and comparing it verbatim — the rebuilt form always
+# appends the entry, so a crontab with the entry in the middle would read as
+# different and trigger a pointless rewrite. `grep -qxF` matches the whole line as
+# a fixed string, so the cron wildcards and the log redirect are literal.
+if printf '%s\n' "$CRON_CURRENT" | grep -qxF "$CRON_ENTRY"; then
   echo "Watchdog cron job already present (every 10 minutes)"
 else
   # Keep the pre-rewrite crontab on disk — the write below replaces the whole spool
-  # and the spool is not itself a backup. Written only on the first change, so a
-  # later re-run never overwrites the pre-migration crontab with an already-migrated
-  # one. umask 077 so it is never world-readable, not even for the instant before
-  # chmod runs.
-  if [ -n "$CRON_CURRENT" ] && [ ! -f "$CRON_BACKUP" ]; then
-    ( umask 077; printf '%s\n' "$CRON_CURRENT" > "$CRON_BACKUP" )
-    chmod 600 "$CRON_BACKUP"
+  # and the spool is not itself a backup. Refreshed on every real change so it is
+  # always the immediate predecessor of the write, not the first-ever snapshot
+  # (which goes stale once a later change happens). rm -f first inside the umask
+  # subshell so a pre-existing backup is recreated 0600 rather than keeping whatever
+  # wide mode it had.
+  if [ -n "$CRON_CURRENT" ]; then
+    ( umask 077; rm -f "$CRON_BACKUP"; printf '%s\n' "$CRON_CURRENT" > "$CRON_BACKUP" )
     echo "Previous crontab saved to $CRON_BACKUP"
   fi
 
   # Always write the whole crontab, keeping every unrelated line — never write
   # CRON_ENTRY alone, which would drop them. A host still carrying the pre-guard
-  # shape differs from NEW_CRON, so this branch also migrates it.
+  # shape has a line that does not match CRON_ENTRY, so this branch also migrates it.
+  NEW_CRON="$( { [ -n "$CRON_KEPT" ] && printf '%s\n' "$CRON_KEPT"; printf '%s\n' "$CRON_ENTRY"; } )"
   printf '%s\n' "$NEW_CRON" | crontab -
   if [ -n "$CRON_CURRENT" ]; then
     echo "Watchdog cron job updated (every 10 minutes)"
