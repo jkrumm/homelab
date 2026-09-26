@@ -14,11 +14,11 @@ fi
 
 case "${1:-daemon}" in
   cli)
-    exec bridge --cli
+    exec protonmail-bridge --cli
     ;;
   daemon)
     socat TCP-LISTEN:143,fork,reuseaddr TCP:127.0.0.1:1143 &
-    exec bridge --noninteractive
+    exec protonmail-bridge --noninteractive
     ;;
   *)
     exec "$@"
