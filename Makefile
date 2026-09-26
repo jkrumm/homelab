@@ -39,7 +39,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test
+.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +69,12 @@ help: ## Show all targets
 	@echo "    make image-share-deploy  Full deploy: git pull homelab + image-share, rebuild (no cache) + restart"
 	@echo "    make image-share-restart Restart container only (no rebuild)"
 	@echo "    make image-share-logs    Follow image-share logs"
+	@echo ""
+	@echo "  Proton Bridge (IMAP for hello@, Tailscale-only — docs/proton-bridge.md):"
+	@echo "    make proton-bridge-deploy   Full deploy: git pull + rebuild (no cache) + up"
+	@echo "    make proton-bridge-login    Interactive Bridge CLI (login, change mode, info) — one-time"
+	@echo "    make proton-bridge-restart  Restart container only"
+	@echo "    make proton-bridge-logs     Follow proton-bridge logs"
 	@echo ""
 	@echo "  Docker Disk Hygiene"
 	@echo "    make docker-df           Show Docker disk usage + free space on /"
@@ -158,6 +164,23 @@ image-share-restart: ## Restart image-share container (picks up new env vars, no
 
 image-share-logs: ## Follow image-share logs
 	$(SSH) "docker logs -f --tail=100 image-share"
+
+# ── Proton Bridge ────────────────────────────────────────────────────────────
+proton-bridge-deploy: ## Full deploy: git pull + rebuild proton-bridge (no cache) + up
+	$(SSH) "$(CD) && git pull && mkdir -p ~/ssd/proton-bridge && $(DC) build --no-cache proton-bridge && $(DC) up -d proton-bridge && $(PRUNE)"
+
+# Bridge allows one instance per vault, so the daemon is stopped for the session and
+# restarted after. `run` publishes no ports, so nothing is exposed while you are in the CLI.
+proton-bridge-login: ## Interactive Bridge CLI (login, change mode, info) — stops the daemon, restarts after
+	$(SSH) "$(CD) && $(DC) stop proton-bridge"
+	ssh -t homelab "$(CD) && $(DC) run --rm --no-deps proton-bridge cli"
+	$(SSH) "$(CD) && $(DC) up -d proton-bridge"
+
+proton-bridge-restart: ## Restart proton-bridge container (no rebuild)
+	$(SSH) "$(CD) && $(DC) up -d --force-recreate proton-bridge"
+
+proton-bridge-logs: ## Follow proton-bridge logs
+	$(SSH) "docker logs -f --tail=100 proton-bridge"
 
 # ── Docker Disk Hygiene ──────────────────────────────────────────────────────
 # The build targets above prune themselves; these are for inspecting the result and

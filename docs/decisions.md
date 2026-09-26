@@ -55,7 +55,7 @@ the wrong token and reporting the failure as success.
 
 ## Build-cache pruning (locally-built services)
 
-**garmin-collector and image-share are the only locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
+**garmin-collector, image-share and proton-bridge are the locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
 
 **`--no-cache` on every build is why the disk fills, so every build target self-prunes.**
 Each rebuild leaves a whole build-cache layer set plus a dangling image; unbounded that

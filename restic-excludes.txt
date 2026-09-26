@@ -51,3 +51,8 @@
 # Immich's built-in nightly pg_dump → upload/backups/immich-db-backup-*.sql.gz,
 # which IS backed up (that path is deliberately not excluded).
 **/immich/postgres/**
+
+# Proton Bridge — vault.enc + gpg keyring + pass store are backed up (re-login otherwise);
+# the gluon message cache and logs are re-derived from Proton on next sync.
+**/protonmail/bridge-v3/gluon/**
+**/protonmail/bridge-v3/logs/**

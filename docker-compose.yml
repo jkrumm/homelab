@@ -246,6 +246,7 @@ services:
       - /mnt/hdd/fuji/RAWs:/sources/Fuji-RAWs:ro
       - /mnt/hdd/backups:/sources/hermes-backup:ro
       - /mnt/hdd/karakeep/data:/sources/Karakeep:ro
+      - /home/jkrumm/ssd/proton-bridge:/sources/ProtonBridge:ro
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
     labels:
@@ -782,6 +783,40 @@ services:
       glance.hide: false
       com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
 
+  # Proton Mail Bridge — headless IMAP gateway for hello@ (bun-email-api on the VPS reads
+  # it over Tailscale). Built from Proton's official signed .deb (packages/proton-bridge).
+  # IMAP only, bound to the Tailscale IP: no SMTP (sending stays on Resend), no Caddy,
+  # no tunnel. Waits for a one-time interactive login: `make proton-bridge-login`.
+  # State (vault, gpg keyring, pass store) lives in /data → restic; docs/proton-bridge.md.
+  proton-bridge:
+    build:
+      context: packages/proton-bridge
+      dockerfile: Dockerfile
+    container_name: proton-bridge
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - proton-bridge
+    ports:
+      - '${HOMELAB_TAILSCALE_IP}:1143:143'
+    volumes:
+      - /home/jkrumm/ssd/proton-bridge:/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    labels:
+      glance.hide: true
+      com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
+
 volumes:
   model-cache:
   caddy_data:
@@ -804,5 +839,7 @@ networks:
     driver: bridge # Bound to host Tailscale IP, not internal
   watchtower-egress:
     driver: bridge # Internet access for Slack notifications (Watchtower)
+  proton-bridge:
+    driver: bridge # egress to Proton; IMAP published on the Tailscale IP only
   karakeep-internal:
     driver: bridge # Karakeep web ⇄ meili ⇄ chrome; chrome needs egress to crawl pages

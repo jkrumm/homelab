@@ -154,6 +154,7 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make garmin-relogin-auto`| Force the automated MFA re-login (see `docs/decisions.md`) |
 | `make garmin-logs`        | Follow garmin-collector logs                              |
 | `make image-share-deploy` / `-restart` / `-logs` | Same shape as garmin, for image-share |
+| `make proton-bridge-deploy` / `-login` / `-restart` / `-logs` | Proton Mail Bridge (IMAP for hello@, Tailscale-only); `-login` is the one-time interactive CLI — `docs/proton-bridge.md` |
 | `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync` / `uk-dry-run` / `uk-export` | Apply / preview / export Uptime Kuma monitors (see below) |
@@ -191,7 +192,7 @@ ssh homelab "docker compose logs -f <service>"
 ### Container Updates (Watchtower)
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `garmin-collector`, `image-share` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Opted-out** (other): `garmin-collector`, `image-share`, `proton-bridge` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else, including `caddy`
 
 ---
@@ -312,6 +313,7 @@ homelab/
 │   └── hwaccel.{ml,transcoding}.yml  # Immich GPU acceleration stubs (not active)
 ├── docs/                    # Detailed documentation
 │   ├── backups.md           # Restic design + restore drill
+│   ├── proton-bridge.md     # Proton Bridge image decision, login steps, restore
 │   ├── decisions.md         # Durable rationale (build-cache, push monitors, Garmin MFA, Tailscale/Caddy)
 │   └── watchdog-behaviors.md
 └── uptime-kuma/             # Monitor config-as-code
