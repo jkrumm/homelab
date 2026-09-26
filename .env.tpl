@@ -5,7 +5,10 @@
 # --- Cloudflare ---
 # Token + account + primary zone ID live in `common` — shared with VPS.
 # Tunnel token + tunnel ID are per-server (HomeLab and VPS run separate tunnels).
+# DNS_API_TOKEN (dashboard: dns-acme) = Zone.DNS only — Traefik/Caddy ACME DNS-01.
+# MANAGE_API_TOKEN (dashboard: cf-manage) = DNS + Tunnel + Cache Rules — /cloudflare skill only.
 CLOUDFLARE_API_TOKEN=op://common/cloudflare/DNS_API_TOKEN
+CLOUDFLARE_MANAGE_TOKEN=op://common/cloudflare/MANAGE_API_TOKEN
 CLOUDFLARE_ACCOUNT_ID=op://common/cloudflare/ACCOUNT_ID
 CLOUDFLARE_ZONE_ID=op://common/cloudflare/ZONE_ID_JKRUMM_COM
 CLOUDFLARE_TOKEN=op://homelab/cloudflare-tunnel/TOKEN
