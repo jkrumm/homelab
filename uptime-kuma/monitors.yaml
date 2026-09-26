@@ -886,48 +886,6 @@ groups:
             keyword: '"status":"ok"'
             interval: 165
 
-          # Research Gateway — agentic HTTP research API on VPS, Tailscale-only:
-          # grey-cloud, DNS-only A record → VPS Tailscale IP → Traefik, NOT
-          # behind the Cloudflare tunnel. /health → {"status":"ok"}.
-          # Keyword is the FIELD, not the whole object: /health grew
-          # lastRestartAt/reaped/interrupted/draining/jobs/memory alongside
-          # `status`, so the old '{"status":"ok"}' (with the closing brace)
-          # stopped being a substring of the body and this monitor sat DOWN
-          # from 2026-08-20 to 2026-09-11 — 22 days, one state-change alert,
-          # then silence. Never pin a keyword to a body's closing brace.
-          - name: Research Gateway - HTTP
-            type: keyword
-            url: https://research.jkrumm.com/health
-            keyword: '"status":"ok"'
-            cloudflare_bypass: true
-            interval: 155
-
-          # Research Gateway's lightpanda JS-rendering sidecar — a SEPARATE
-          # monitor on purpose, not a field on the entry above. The renderer
-          # is an optional step in the gateway's fetch chain (fetching
-          # degrades to Tavily Extract when it's down, research still works),
-          # so it deliberately isn't folded into /health — /health gates the
-          # Docker healthcheck and rollhook's rollout gate, and a broken
-          # renderer must not block deploys of an otherwise-healthy gateway.
-          - name: Research Gateway - Renderer - HTTP
-            type: keyword
-            url: https://research.jkrumm.com/health/render
-            keyword: '"renderer":"ok"'
-            cloudflare_bypass: true
-            interval: 160
-
-          # Tavily plan budget — /health/tavily reports the plan's usage and flips
-          # "overPlan" to true once the monthly credits are exhausted (requests
-          # then fail or bill pay-as-you-go). A quota check, not a liveness one:
-          # the gateway is healthy while research silently stops working. Every
-          # 30 min is plenty — the counter moves per research call, not per second.
-          - name: Research Gateway - Tavily Plan - HTTP
-            type: keyword
-            url: https://research.jkrumm.com/health/tavily
-            keyword: '"overPlan":false'
-            cloudflare_bypass: true
-            interval: 1800
-
   # ============================================
   # FreePlanningPoker - VPS application stack
   # ============================================
