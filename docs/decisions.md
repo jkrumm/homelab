@@ -95,6 +95,29 @@ Match the item's existing convention when writing: on `homelab/image-share`, sec
 
 **Automated MFA re-login.** Garmin invalidates the refresh token every ~1-2 weeks; re-auth then needs an emailed 6-digit MFA code. `scripts/garmin-auto-relogin.sh` automates it end-to-end: `relogin_auto.py` (a `docker compose run` sibling) triggers a fresh login and fetches the code from the "Ihr Sicherheitscode" email via argo's Gmail endpoint (`ARGO_API_TOKEN` = `op://common/api/SECRET`), stashing/restoring the current token so a failed run never leaves the collector token-less. The wrapper is **hybrid**: proactive (refresh every 4d, before the token can expire → container stays healthy, no UptimeKuma/watchdog noise) + reactive (if already unhealthy, reauth within ~2h, but ≥6h between attempts so a Garmin 429 can't storm). A homelab crontab entry runs it every 2h; `make garmin-relogin-auto` forces a run. The UptimeKuma "Garmin Collector - Push" interval is widened to 12h so this auto-recovery heals silently before paging. `make garmin-relogin` (interactive, MFA from phone/email) remains the manual fallback.
 
+The crontab entry is in **jkrumm's crontab, not root's** — the script's heartbeat file and
+state dir are `${HOME}`-relative, and `make garmin-relogin-auto` invokes it over SSH as
+jkrumm, so both only resolve under `/home/jkrumm`. The line as installed on the server:
+
+```cron
+0 */2 * * * . /home/jkrumm/.profile; op run --env-file=/home/jkrumm/homelab/.env.tpl -- /home/jkrumm/homelab/scripts/garmin-auto-relogin.sh >> /home/jkrumm/logs/garmin-relogin.log 2>&1
+```
+
+Absolute paths throughout, like jkrumm's other entries: cron's `sh` reads no profile, so the
+line sources `.profile` itself before `op run`, and names `.env.tpl` absolutely rather than
+relying on a `cd` into the repo. The `[ -r ]` guard on the watchdog entry above is root-only
+— a missing `/root/.profile` aborts the whole line in dash, whereas jkrumm's profile is
+always present. `setup.sh`'s summary reports this entry read-only (it does not install it),
+matching on the script's path suffix so a `cd`-relative spelling is recognised too.
+
+**The heartbeat file is a second manual step with no installer.** Before the first run:
+`install -m 600 /dev/null ~/.config/uptime-kuma/garmin-relogin-push-url`, then paste the
+"Garmin Collector - Push" monitor's push URL into it (Uptime Kuma UI, or
+`api.get_monitor(<id>)["pushToken"]` per the wiring note above). The script reads it from a
+plain file rather than `op run` so one unresolvable ref can't abort every homelab cron — but
+that also means nothing in this repo creates it, and a fresh install silently drops the
+heartbeat until it is added by hand.
+
 ## Tailscale + Caddy — durable insights from the 2026-02 migration
 
 The phase-by-phase migration plan (`docs/TAILSCALE.md`) shipped and was deleted once every
