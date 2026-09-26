@@ -55,6 +55,12 @@ Re-login is only needed if the vault is lost/restored without the gpg keyring, o
 revokes the session. The Bridge password is not the Proton password and rotates only on
 re-login / mode change.
 
+## Tailnet ACL prerequisite
+
+The VPS → homelab grant in `dotfiles-private/tailscale-acl.jsonc` must include `tcp:1143`
+(it started as `tcp:443`, `tcp:2376`); without it the VPS times out on the port. Apply via
+`make tailscale-acl-diff` / `tailscale-acl-push` in the `dotfiles` repo (MacBook-only).
+
 ## Operate
 
 | | |
