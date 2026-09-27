@@ -65,13 +65,13 @@ Postgres - Backup - Push             # inside VPS > Infra, no VPS prefix
 Postgres - DB - Push
 Photos - HTTP
 Photos - Uptime
-BunEmailApi - HTTP
+EmailGateway - HTTP
 ```
 
 ❌ Wrong:
 ```
 Photos                          # missing type suffix
-BunEmailApi                     # missing type suffix
+EmailGateway                    # missing type suffix
 FPP - Frontend                  # missing type suffix
 VPS Postgres - Backup           # type suffix should be Push (type), not Backup (subject)
 VPS Postgres Backup - Push      # parent group already says VPS, prefix is noise

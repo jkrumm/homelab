@@ -46,7 +46,7 @@ a fresh server up from scratch.
 │                   VPS (Hetzner ARM64, Ubuntu 22.04)                  │
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app    │
 │  MariaDB:  Vercel → port 33306 (direct, Hetzner FW allows)           │
-│  Argo, FPP, BunEmailApi, Umami, HyperDX, MariaDB, … — see ~/vps      │
+│  Argo, FPP, EmailGateway, Umami, HyperDX, MariaDB, … — see ~/vps     │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Cross-Machine Links                           │
 │  Dozzle hub (HomeLab) ←→ Dozzle agent (VPS)  via Tailscale           │
@@ -92,7 +92,7 @@ compose service list.
 
 Argo (`argo.jkrumm.com`, Tailscale-only), Free Planning Poker
 (`free-planning-poker.com` + `server.`/`analytics.` subdomains), Photos
-(`photos.jkrumm.com`), BunEmailApi, RollHook, HyperDX (Tailscale-only), Umami.
+(`photos.jkrumm.com`), EmailGateway, RollHook, HyperDX (Tailscale-only), Umami.
 
 #### Tailscale devices
 

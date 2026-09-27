@@ -1,6 +1,6 @@
 # Proton Mail Bridge (headless IMAP for hello@)
 
-`proton-bridge` exposes the Proton mailbox as IMAP so `bun-email-api` (VPS, `proxy`
+`proton-bridge` exposes the Proton mailbox as IMAP so `email-gateway` (VPS, `proxy`
 docker network) can read it. Proton has no public API; Bridge is the official way in.
 
 | | |

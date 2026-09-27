@@ -827,9 +827,9 @@ groups:
         type: group
         interval: 215
         monitors:
-          - name: BunEmailApi - HTTP
+          - name: EmailGateway - HTTP
             type: keyword
-            url: https://bun-email-api.jkrumm.com/health
+            url: https://email-gateway.jkrumm.com/health
             keyword: '{"ok":true}'
             interval: 161
             cloudflare_bypass: true
