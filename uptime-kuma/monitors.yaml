@@ -292,6 +292,25 @@ groups:
             retry_interval: 90000
             maxretries: 0
 
+          # WeatherOrb account DB (passkeys, sessions, favourites — lives on the VPS,
+          # weatherorb ADR 0013). scripts/weatherorb-accounts-pull.sh (jkrumm crontab,
+          # hourly :25, after the VPS pg_dump at :15) rsyncs the dumps home over
+          # Tailscale SSH, proves the newest is <2h old and `pg_restore --list`-clean,
+          # and pings status=up; on any failure it pings status=down with a msg.
+          #
+          # interval 3700 = hourly cron + 100s grace. maxretries 1 is deliberate and the
+          # one exception to the maxretries-0 rule above: time-to-DOWN is interval +
+          # retry_interval = ~2h, the same window as the script's own 2h freshness gate,
+          # so one late or failed run (a flaky SSH hop, a slow VPS dump) stays PENDING
+          # and only two consecutive misses page. Push URL on the homelab server at
+          # ~/.config/uptime-kuma/weatherorb-accounts-push-url (chmod 600) — plain file.
+          - name: WeatherOrb Accounts Backup - Push
+            type: push
+            interval: 3700
+            timeout: 48
+            retry_interval: 3700
+            maxretries: 1
+
       # --- Karakeep subgroup (read-later; web + chrome crawler + meili search) ---
       - name: Karakeep
         type: group

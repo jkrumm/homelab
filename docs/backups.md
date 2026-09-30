@@ -24,7 +24,7 @@
 | `/home/jkrumm/ssd/SSD/Public` | `/sources/Public` | Dufs files |
 | `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
-| `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) |
+| `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) + `weatherorb-accounts/` hourly VPS DB dumps (see "WeatherOrb account database" below) |
 | `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable) |
 | `/home/jkrumm/ssd/proton-bridge` | `/sources/ProtonBridge` | Proton Bridge vault + gpg keyring + pass store (gluon message cache excluded — re-synced; see `docs/proton-bridge.md`) |
 
@@ -59,6 +59,39 @@ point first), or the CLI path — stop the stack, wipe `Bilder/immich/postgres`,
 a clean stack on the dump's Immich version, then pipe the dump into `psql`. The dump
 filename records the Immich + Postgres version it came from. Restoring needs the
 VectorChord-enabled Postgres image (the one pinned in `docker-compose.yml`).
+
+## WeatherOrb account database — pulled from the VPS
+
+The WeatherOrb account DB (users, passkeys, sessions, favourites, settings) lives on the
+VPS (weatherorb ADR 0013). Its dumps are pulled home so the data exists off the VPS:
+
+- **VPS side (not this repo):** an hourly cron at :15 writes verified
+  `pg_dump --format=custom` files `weatherorb_accounts-<UTC %Y%m%dT%H%MZ>.dump` to
+  `/var/backups/weatherorb-accounts/` (newest 48 kept), readable only by the
+  unprivileged user `wo-backup`.
+- **Pull:** `scripts/weatherorb-accounts-pull.sh` (jkrumm crontab, hourly at :25) runs
+  `rsync -a` (no `--delete`) as `wo-backup@vps` over Tailscale SSH (MagicDNS host `vps`;
+  a tailnet grant for exactly that user) into `/mnt/hdd/backups/weatherorb-accounts/`.
+  It then proves the newest local dump is <2 h old and passes `pg_restore --list`
+  (one-shot `postgres:18` container), deletes local dumps older than 14 days, and pings
+  `WeatherOrb Accounts Backup - Push`: `status=up` on success, `status=down` with a
+  message on any failure (exit nonzero).
+- **Offsite:** `/mnt/hdd/backups` is a restic source (table above) and
+  `restic-excludes.txt` has no rule for this subdirectory, so the dumps ship to B2 with
+  the nightly 03:30 run.
+- **Push URL:** `~/.config/uptime-kuma/weatherorb-accounts-push-url` (chmod 600) on the
+  homelab server — the plain-file convention, never `.env.tpl`. Without the file the
+  script logs a warning and skips the ping.
+- **Restore drill:** `scripts/weatherorb-accounts-restore-check.sh [dump]` restores the
+  newest local dump into a throwaway `postgres:18` container (random password generated
+  at runtime, container always removed) and prints row counts for `"user"`, `passkey`,
+  `session`, `favourite`, `user_settings` plus the newest `"user".created_at`. Run it by
+  hand, or weekly from cron.
+
+```
+# crontab -e (jkrumm) — the repo documents these, setup.sh installs only the root watchdog
+25 * * * * /home/jkrumm/homelab/scripts/weatherorb-accounts-pull.sh >> /home/jkrumm/logs/weatherorb-accounts-pull.log 2>&1
+```
 
 ## Two-key pattern (ransomware safety)
 
