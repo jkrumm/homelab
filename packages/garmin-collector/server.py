@@ -6,7 +6,8 @@ on its own cron schedule and upserts into its SQLite. This service holds the OAu
 tokens, never the data.
 
 Endpoints (all bearer-authed except /health):
-  GET /health                         → {"status":"ok"} (503 when Garmin auth is down)
+  GET /health                         → {"status":"ok"} (503 only when Garmin rejected our
+                                        credentials; a Garmin-side 5xx stays 200)
   GET /status                         → {"login_at": iso, "auth_ok": bool, ...}
   GET /daily-metrics?from=&to=        → [{"date": "...", "steps": ..., ...}]
   GET /activities?from=&to=           → [{"activity_id": ..., ...}]
@@ -24,7 +25,12 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from garminconnect import Garmin
+from garminconnect import (
+    Garmin,
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,14 +92,32 @@ _auth_detail = "probe pending"
 
 
 def _auth_probe_once() -> None:
+    """Probe Garmin once, distinguishing a dead token from a Garmin-side outage.
+
+    `/health` feeds the Docker healthcheck (`curl -fsS /health`) and, through it,
+    `scripts/garmin-auto-relogin.sh`'s reactive relogin — so only a failure that actually
+    means "these credentials are rejected" may flip the container unhealthy. Anything else
+    (Cloudflare 5xx on connectapi, a timeout, rate limiting) leaves the previous `_auth_ok`
+    untouched and just refreshes the detail: an upstream outage is not a broken token, and
+    re-logging in against it cannot help.
+    """
     global _auth_ok, _auth_detail
     try:
         client = get_client()
         client.get_stats(date.today().isoformat())
         _auth_ok, _auth_detail = True, "ok"
-    except Exception as e:
+    except GarminConnectAuthenticationError as e:
+        # 401 / rejected credentials: the one case that really is auth-down.
         _auth_ok, _auth_detail = False, str(e)[:300]
-        log.warning("auth probe failed: %s", e)
+        log.warning("auth probe failed (credentials rejected): %s", e)
+    except (GarminConnectConnectionError, GarminConnectTooManyRequestsError) as e:
+        # 5xx, connection/timeout, 429 — Garmin's side. Keep the current auth verdict.
+        _auth_detail = f"transient upstream failure: {str(e)[:280]}"
+        log.warning("auth probe hit a transient upstream failure, auth state kept: %s", e)
+    except Exception as e:
+        # Unknown shape: never fabricate an auth failure out of it.
+        _auth_detail = f"unclassified probe failure: {str(e)[:280]}"
+        log.warning("auth probe failed unclassified, auth state kept: %s", e)
 
 
 def _auth_probe_loop() -> None:
@@ -264,8 +288,11 @@ def fetch_activities(client: Garmin, start: str, end: str) -> list[dict]:
 
 @app.get("/health")
 def health():
-    # Reflects Garmin auth, not just process liveness — 503 makes Docker mark the
-    # container unhealthy when the token has expired (see auth-health probe above).
+    # Reflects Garmin auth, not just process liveness: 503 makes Docker mark the container
+    # unhealthy, and that is what triggers the reactive relogin. It therefore means exactly
+    # one thing — Garmin rejected our credentials — and never "Garmin is down" (see the
+    # classification in _auth_probe_once above; a transient upstream failure keeps this 200,
+    # and the outage shows up on the garmin-sync push monitor instead).
     if _auth_ok:
         return {"status": "ok"}
     raise HTTPException(status_code=503, detail=f"garmin auth down: {_auth_detail}")
