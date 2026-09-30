@@ -118,6 +118,36 @@ plain file rather than `op run` so one unresolvable ref can't abort every homela
 that also means nothing in this repo creates it, and a fresh install silently drops the
 heartbeat until it is added by hand.
 
+## The auth probe distinguishes a dead token from a Garmin outage
+
+**`/health` answers one question: are our Garmin credentials still good.** It used to answer
+a second, wrong one. `_auth_probe_once()` caught a bare `Exception` and set `_auth_ok = False`
+for *any* failure, and `/health` returns 503 exactly when that flag is false — so a Garmin-side
+outage (Cloudflare `521 origin_down` from `connectapi.garmin.com`, a timeout, a 429) was
+reported as "garmin auth down", flipped the container `unhealthy`, and paged through the
+Docker alert as a broken token. Worse, the reactive half of the relogin above keys off
+`docker inspect … Health.Status = unhealthy`, so every Garmin outage also provoked a re-login
+attempt that could not possibly help.
+
+The probe now classifies with `garminconnect`'s own taxonomy (pinned 0.3.3, whose
+`_handle_api_errors` retries 5xx/network and then raises `GarminConnectConnectionError`, maps
+401 to `GarminConnectAuthenticationError` and 429 to `GarminConnectTooManyRequestsError`):
+
+- `GarminConnectAuthenticationError` → real credential failure → `_auth_ok = False`, `/health`
+503, container unhealthy, reactive relogin as before.
+- `GarminConnectConnectionError` / `GarminConnectTooManyRequestsError` → Garmin's side → the
+previous `_auth_ok` is kept, `/health` stays 200, and the detail lands in `_auth_detail`
+(visible on `/status`) instead of paging.
+- anything else → also kept, because an unrecognised failure is not evidence about the token.
+
+A Garmin outage is still visible — on the "Garmin Collector - Push" monitor, which only beats
+when argo's sync actually pulled data, and on the collector's own `/daily-metrics` callers.
+That is the signal that should page, and it is the one measured on the right thing.
+
+Known gap: `garminconnect` maps a plain 403 to `GarminConnectConnectionError`, so a 403-based
+auth rejection would be treated as transient. Garmin's expired-token path is a 401, which
+still pages; add explicit 403 handling if one is ever observed in practice.
+
 ## Tailscale + Caddy — durable insights from the 2026-02 migration
 
 The phase-by-phase migration plan (`docs/TAILSCALE.md`) shipped and was deleted once every
