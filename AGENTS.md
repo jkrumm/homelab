@@ -147,7 +147,7 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make deploy`             | Full stack deploy: git pull + recreate all services             |
 | `make up` / `make down`   | Start/recreate — stop all services                       |
 | `make restart svc=<name>` | Force-recreate a single service                          |
-| `make ps` / `make logs svc=<name>` | Show running containers — follow logs           |
+| `make ps` / `make logs svc=<name>` / `make logs-follow svc=<name>` | Show running containers — bounded log tail — follow logs live |
 | `make immich-upgrade`     | Upgrade Immich stack (git pull + pull pinned images + recreate) — tags are explicit, so bump `immich-server` + `immich-machine-learning` in `docker-compose.yml` first, else it's a no-op. Watchtower-excluded, see `/upgrade-stack immich` |
 | `make garmin-deploy` / `-rebuild` / `-restart` | Full deploy — rebuild only (no pull) — restart (env vars only) |
 | `make garmin-relogin`     | Interactive MFA re-login — writes fresh tokens, restarts |
@@ -159,6 +159,8 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync` / `uk-dry-run` / `uk-export` | Apply / preview / export Uptime Kuma monitors (see below) |
 | `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` + `bash tests/test_setup_cron_replay.sh` — local, no network, no server |
+| `make check`              | All local validation: compose config + YAML/shell lint + `make test` (see Validate) |
+| `make verify`             | Probe production via the Uptime Kuma status page — exit 0 = healthy (see Verify & Monitor) |
 
 ### How Secrets Work
 
@@ -396,22 +398,55 @@ ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"
 
 ---
 
-## Change Management Workflow
+## Validate
+
+Local validation runs on the MacBook — no server, no secrets, no Docker daemon
+mutation, so it is safe to run anywhere. Run it before handing a change over:
 
 ```bash
-# 1. Edit locally, commit via /commit (only when requested), push to GitHub
-# 2. Deploy
-make deploy          # Full stack (git pull + recreate all)
-make garmin-deploy   # garmin-collector only (git pull + rebuild + restart)
-make caddy-reload    # Caddy only (after Caddyfile changes)
-# 3. Verify
-make ps
-curl -I https://glance.jkrumm.com
+make check   # compose config + YAML parse + shell syntax + regression suite (non-zero on failure)
+make test    # the regression suite alone (uptime-kuma sync guard + setup.sh cron replay)
 ```
 
----
+`make check` is the authoritative gate — a non-zero exit means the change is not ready.
 
-## Troubleshooting
+## Deploy
+
+Deploys are manual and push-driven, not CI-driven: commit and push from the MacBook,
+then run a Makefile target, which `git pull`s on the server and applies the change with
+secrets injected by `op run`:
+
+```bash
+make deploy          # full stack: git pull + recreate all services
+make garmin-deploy   # garmin-collector only (git pull + rebuild + restart)
+make caddy-reload    # Caddy only (after Caddyfile changes)
+```
+
+## Verify & Monitor
+
+- **Health URL:** `https://uptime.jkrumm.com/status/homelab-watchdog` — the published
+  Uptime Kuma status page aggregating the HomeLab stack. Machine-readable form:
+  `https://uptime.jkrumm.com/api/status-page/homelab-watchdog` (`incidents` and
+  `maintenanceList` both empty == healthy).
+- **Kuma monitor:** `HomeLab Watchdog - Push` — the watchdog heartbeat that represents
+  this stack on that status page.
+- **OTel `service.name`:** `none` — there is no ClickStack/OTel receiver on HomeLab (the
+  receiver is on the VPS only); locally-built services ship an empty
+  `OTEL_EXPORTER_OTLP_ENDPOINT` that trips their no-op exporter guard, so nothing here
+  emits traces.
+- `make verify` probes the status page and exits non-zero on any active incident or
+  maintenance window.
+
+## Gotchas
+
+- **Server operations go through the Makefile** — raw `docker compose` on the server can
+  miss `op run` and a required secret (see Docker Operations).
+- **`uptime-kuma/sync.py` runs on the homelab server only** — it talks to
+  `localhost:3010`; never run it locally or on the VPS. Orphan deletion also needs a TTY,
+  and every push monitor must set `maxretries: 0` (see Uptime Kuma Config-as-Code).
+- **The watchdog runs from root's crontab** — not `/etc/cron.d`, not a systemd timer;
+  root's `/root/.profile` supplies its `OP_SERVICE_ACCOUNT_TOKEN` (see Watchdog).
+- **Never hardcode tailnet IPs, hosts or secrets** in tracked files — placeholders only.
 
 | Issue                  | Diagnosis         | Solution                              |
 | ---------------------- | ----------------- | ------------------------------------- |

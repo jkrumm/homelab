@@ -39,7 +39,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,12 @@ help: ## Show all targets
 	@echo "    make restart svc=<name>  Force-recreate a single service"
 	@echo "    make down                Stop all services"
 	@echo "    make ps                  Show running containers"
-	@echo "    make logs svc=<name>     Follow logs for a service"
+	@echo "    make logs svc=<name>     Bounded tail of a service's logs (no follow)"
+	@echo "    make logs-follow svc=<name>  Follow a service's logs live"
+	@echo ""
+	@echo "  Validation & Health"
+	@echo "    make check               All local validation (compose config + YAML/shell lint + tests)"
+	@echo "    make verify              Probe production via the Uptime Kuma status page (exit 0 = healthy)"
 	@echo ""
 	@echo "  Immich Stack (manually-managed — Watchtower-excluded)"
 	@echo "    make immich-upgrade      git pull + pull pinned images + recreate Immich stack"
@@ -117,9 +122,36 @@ down: ## Stop all services
 ps: ## Show running containers
 	$(SSH) "$(CD) && $(DC) ps"
 
-logs: ## Follow logs for a service: make logs svc=<name>
+logs: ## Bounded tail of a service's logs, then exits (no follow): make logs svc=<name>
 	@[ -n "$(svc)" ] || { echo "ERROR: Specify service — make logs svc=<name>"; exit 1; }
+	$(SSH) "docker logs --tail=100 $(svc)"
+
+logs-follow: ## Follow a service's logs live: make logs-follow svc=<name>
+	@[ -n "$(svc)" ] || { echo "ERROR: Specify service — make logs-follow svc=<name>"; exit 1; }
 	$(SSH) "docker logs -f --tail=100 $(svc)"
+
+# ── Validation & Health (repo contract) ──────────────────────────────────────
+# These are the four repo-contract targets: check, deploy, verify, logs. deploy
+# already existed above; logs/logs-follow are near Stack Operations.
+#
+# `check` is the single local gate — no server, no secrets, no Docker daemon
+# mutation, so it is safe to run anywhere. compose config runs with
+# --no-interpolate because .env.tpl holds op:// values that cannot resolve
+# locally; the structure is still fully validated.
+check: test ## Run all local validation: compose config + YAML/shell lint + regression suite
+	docker compose config --no-interpolate --quiet
+	uv run --no-project --with pyyaml python3 -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" config/glance.yml config/hwaccel.ml.yml config/hwaccel.transcoding.yml config/cloudflared/config.yml uptime-kuma/monitors.yaml
+	@for f in scripts/*.sh setup.sh tests/*.sh; do bash -n "$$f" || exit 1; done
+
+# `verify` probes the live, public Uptime Kuma status page — read-only, no SSH,
+# no secrets. Non-zero means the status page is unreachable, or Kuma reports an
+# active incident or maintenance window.
+verify: ## Probe production health via the Uptime Kuma status page (exit 0 = healthy)
+	@resp="$$(curl -fsS --max-time 20 https://uptime.jkrumm.com/api/status-page/homelab-watchdog)"; \
+		if [ $$? -ne 0 ] || [ -z "$$resp" ]; then echo "UNHEALTHY: Uptime Kuma status page unreachable"; exit 1; fi; \
+		echo "$$resp" | grep -q '"incidents":\[\]' || { echo "UNHEALTHY: active Uptime Kuma incident(s)"; exit 1; }; \
+		echo "$$resp" | grep -q '"maintenanceList":\[\]' || { echo "UNHEALTHY: Uptime Kuma maintenance window active"; exit 1; }; \
+		echo "OK: production healthy — no active Uptime Kuma incidents"
 
 # ── Immich Stack (manually-managed, Watchtower-excluded) ─────────────────────
 # Immich server/ML use the rolling `release` tag, so a plain `up -d` won't advance
