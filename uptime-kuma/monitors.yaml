@@ -725,6 +725,30 @@ groups:
         maxretries: 0
 
   # ============================================
+  # Agent Gateway (Mac mini) - job queue health
+  # ============================================
+  - name: Agent Gateway
+    interval: 250
+    monitors:
+      # Pushed every 60s by the gateway itself (server/lib/kuma-push.ts) from
+      # GET /api/jobs/health: DOWN with a reason when ≥3 jobs failed in the last
+      # hour, the queue is wedged, or a route is degraded (3 transport failures in
+      # a row); UP otherwise, including while draining. Silence = the process is
+      # gone, which is the same page.
+      #
+      # interval 300 = five missed beats, maxretries 1 → ~10 min to DOWN, so a
+      # `make reload` drain or a launchd restart does not page.
+      #
+      # Push URL → on the mini at ~/.config/uptime-kuma/agent-gateway-push-url
+      # (chmod 600). A plain file, not the secrets cache: a monitor must not
+      # depend on the thing it monitors.
+      - name: Agent Gateway - Push
+        type: push
+        interval: 300
+        retry_interval: 300
+        maxretries: 1
+
+  # ============================================
   # VPS (Hetzner) - hetzner-vps infrastructure
   # ============================================
   - name: VPS
