@@ -12,9 +12,12 @@
 #   - the newest local dump must be younger than MAX_AGE_H,
 #   - it must pass `pg_restore --list` (a dump killed mid-write fails the TOC read),
 #   - dumps older than KEEP_DAYS are deleted (only after both checks passed),
-# and pings "WeatherOrb Accounts Backup - Push" with status=up. Any failure pings
-# status=down with a message and exits nonzero. rsync has no --delete: the VPS
-# keeps 48 hours, this side keeps KEEP_DAYS.
+# and pings "WeatherOrb Accounts Backup - Push" with status=up. A transient
+# rsync/SSH failure exits nonzero with NO ping, so the monitor's maxretries:1
+# keeps one miss PENDING and only two consecutive misses page; a genuine
+# data-protection fault (missing, stale or corrupt dump) pings status=down and
+# pages at once. rsync has no --delete: the VPS keeps 48 hours, this side keeps
+# KEEP_DAYS.
 #
 # Plain user cron, no `op run`. Push URL from a chmod-600 file, same convention
 # as immich-backup-check.sh — never .env.tpl. Missing file = warning, no ping.
@@ -45,7 +48,19 @@ heartbeat() {
     || log "warning: heartbeat ping failed (Uptime Kuma unreachable?)" >&2
 }
 
+# Transient failure — a flaky SSH hop, a briefly unreachable VPS. Exit nonzero
+# WITHOUT a heartbeat: the monitor's maxretries:1 then keeps one missed run
+# PENDING and only two consecutive misses page. An explicit status=down here
+# would bypass that grace (Uptime Kuma jumps straight to DOWN on an explicit
+# down ping), which is the noise this avoids.
 fail() {
+  log "FAIL: $*"
+  exit 1
+}
+
+# Genuine data-protection fault — no dump, a stale dump, a corrupt dump. Ping
+# status=down so it pages at once rather than waiting out the retry grace.
+fail_hard() {
   log "FAIL: $*"
   heartbeat down "$*"
   exit 1
@@ -62,17 +77,17 @@ fi
 
 newest="$(find "$DEST_DIR" -maxdepth 1 -name 'weatherorb_accounts-*.dump' -printf '%T@ %p\n' \
   | sort -rn | head -1 | cut -d' ' -f2-)"
-[ -n "$newest" ] || fail "no weatherorb_accounts-*.dump in $DEST_DIR"
+[ -n "$newest" ] || fail_hard "no weatherorb_accounts-*.dump in $DEST_DIR"
 
 age_s=$(( $(date +%s) - $(stat -c %Y "$newest") ))
 if [ "$age_s" -gt $(( MAX_AGE_H * 3600 )) ]; then
-  fail "newest dump is $(( age_s / 60 )) min old (> ${MAX_AGE_H}h): $(basename "$newest")"
+  fail_hard "newest dump is $(( age_s / 60 )) min old (> ${MAX_AGE_H}h): $(basename "$newest")"
 fi
 
 toc="$(docker run --rm -i "$PG_IMAGE" pg_restore --list < "$newest" 2>&1)" \
-  || fail "pg_restore --list failed (truncated dump?): $(basename "$newest")"
+  || fail_hard "pg_restore --list failed (truncated dump?): $(basename "$newest")"
 grep -q 'TABLE DATA' <<< "$toc" \
-  || fail "dump has no TABLE DATA entries: $(basename "$newest")"
+  || fail_hard "dump has no TABLE DATA entries: $(basename "$newest")"
 
 find "$DEST_DIR" -maxdepth 1 -name 'weatherorb_accounts-*.dump' -mtime "+$KEEP_DAYS" -delete
 
