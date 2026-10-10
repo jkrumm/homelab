@@ -724,6 +724,22 @@ groups:
         retry_interval: 90000
         maxretries: 0
 
+      # The warden loop (com.jkrumm.warden-loop, every 10 min) pings this at the end of every
+      # COMPLETED pass (scripts/clients/kuma.py), after the ledger heartbeat is written. Silence =
+      # the loop is wedged, crashed or unloaded: the one failure its own health endpoint cannot
+      # report about itself.
+      #
+      # interval 1200 = two missed passes, maxretries 1 → ~40 min to DOWN, so a `make deploy`
+      # kickstart or a slow pass does not page.
+      #
+      # Push URL → on the mini at ~/.config/uptime-kuma/warden-loop-push-url (chmod 600). A plain
+      # file for the same reason as the backup's: a monitor must not depend on the thing it monitors.
+      - name: Warden Loop - Push
+        type: push
+        interval: 1200
+        retry_interval: 1200
+        maxretries: 1
+
   # ============================================
   # Agent Gateway (Mac mini) - job queue health
   # ============================================
