@@ -301,9 +301,12 @@ groups:
           # interval 3700 = hourly cron + 100s grace. maxretries 1 is deliberate and the
           # one exception to the maxretries-0 rule above: time-to-DOWN is interval +
           # retry_interval = ~2h, the same window as the script's own 2h freshness gate,
-          # so one late or failed run (a flaky SSH hop, a slow VPS dump) stays PENDING
-          # and only two consecutive misses page. Push URL on the homelab server at
-          # ~/.config/uptime-kuma/weatherorb-accounts-push-url (chmod 600) — plain file.
+          # so one late or failed run (a flaky SSH hop) stays PENDING and only two
+          # consecutive misses page. The script only pings status=down for a genuine
+          # data-protection fault (missing/stale/corrupt dump); a transient failure is
+          # silent, because an explicit down would bypass this grace. Push URL on the
+          # homelab server at ~/.config/uptime-kuma/weatherorb-accounts-push-url
+          # (chmod 600) — plain file.
           - name: WeatherOrb Accounts Backup - Push
             type: push
             interval: 3700
