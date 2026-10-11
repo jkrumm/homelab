@@ -93,6 +93,61 @@ VPS (weatherorb ADR 0013). Its dumps are pulled home so the data exists off the 
 25 * * * * /home/jkrumm/homelab/scripts/weatherorb-accounts-pull.sh >> /home/jkrumm/logs/weatherorb-accounts-pull.log 2>&1
 ```
 
+## WeatherOrb archive — pulled from the mini
+
+The weatherorb Mac mini stages an append-only archive of what the weather pipeline
+cannot regenerate — the past-track forecast runs (`past/<date>/<round>/…`), database
+dumps (`dumps/<date>/…`), round products (`rounds/<round_id>/…`) and static grids
+(`static/…`) — and deletes its own copy only after this side has verified and acked it
+(weatherorb ADR 0009). It is pulled home:
+
+- **Mini side (not this repo):** a forced-command ssh door. The homelab connects as
+  `jkrumm@mini` with a dedicated key whose `authorized_keys` entry is
+  `restrict,command=…`, so the "command" this side sends is only an argument string:
+  `index` (stdout lines `<sha256>  <size>  <relpath>`, append-only), `get <relpath>`
+  (the bytes; exit 3 + `pruned` if the mini already deleted it after an ack) and `ack`
+  (stdin lines `<sha256>  <relpath>`; replies `acked <n> rejected <m>`).
+- **Pull:** `scripts/weatherorb-archive-pull.sh` (jkrumm crontab, hourly at :55) writes
+  the index to `INDEX.mini`, then per entry skips what is held and recorded in
+  `.verified`, else fetches whole-file into `<relpath>.part`, checks size + sha256,
+  renames into place and appends to `.verified`. A mismatch deletes the `.part` and
+  counts a failure; a `pruned` answer for a file not held is a hard failure (data lost,
+  never acked). Every `.verified` line not yet in `.acked` is then acked in one batch
+  and recorded in `.acked` only after the reply parsed. Relpaths with `..`, a leading
+  `/` or characters outside `[A-Za-z0-9._/-]` are refused. `flock` keeps two runs from
+  overlapping; nothing in the archive is ever deleted (append-only, year one). Files are
+  immutable, so a failed run is simply resumed by the next one.
+- **Where:** `/mnt/hdd/weatherorb-archive` (`WO_ARCHIVE_DEST`) — deliberately outside
+  `/mnt/hdd/backups`, so it is **not** restic-backed and has no offsite copy. A second
+  (offsite) copy is an open owner decision (ADR 0009); until it is made, this disk holds
+  the only copy of acked files.
+- **Env overrides:** `WO_ARCHIVE_SSH` (default `jkrumm@mini`), `WO_ARCHIVE_PORT` (22),
+  `WO_ARCHIVE_KEY` (`~/.ssh/id_ed25519_weatherorb_archive`), `WO_ARCHIVE_DEST`.
+- **Key:** `scripts/weatherorb-archive-keygen.sh` idempotently creates the key
+  (ed25519, no passphrase, comment `homelab-weatherorb-archive`) on the homelab server
+  and prints the public key line. Install it on the mini from the weatherorb checkout:
+  `make archive-door-key KEY='<printed line>'`.
+- **Push URL:** `~/.config/uptime-kuma/weatherorb-archive-push-url` (chmod 600) — the
+  plain-file convention. Without the file the script logs a warning and skips the ping.
+  The `WeatherOrb Archive - Push` monitor (interval 3900 s) is declared in
+  `uptime-kuma/monitors.yaml`, but **create it (`make uk-sync`) only after the pending
+  tailnet grant homelab → mini is applied** and the first pull succeeded — before the
+  grant the pull cannot reach the mini and the monitor would only page.
+- **Restore drill:** `scripts/weatherorb-archive-restore-check.sh [<YYYY-MM-DD>]`
+  (default: the newest date that has a dump) re-hashes every held file of that day
+  (`past/<date>/**`, `dumps/<date>/**`) against `INDEX.mini`, prints file count and
+  bytes per past-track round, then restores the day's dump into a throwaway `postgres:18`
+  container (random password, no published port, always removed) and prints the dump's
+  table-data entries, per-table row counts (`forecast_point` and `observation` flagged)
+  and the newest value of each table's first `timestamptz` column. Exit nonzero on any
+  mismatch or restore failure; the output is the evidence. Run by hand, or weekly from
+  cron.
+
+```
+# crontab -e (jkrumm) — the repo documents these, setup.sh installs only the root watchdog
+55 * * * * /home/jkrumm/homelab/scripts/weatherorb-archive-pull.sh >> /home/jkrumm/logs/weatherorb-archive-pull.log 2>&1
+```
+
 ## Two-key pattern (ransomware safety)
 
 | Key | Permissions | Storage | Used by |

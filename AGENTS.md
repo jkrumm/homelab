@@ -279,7 +279,8 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 ├── restic/cache/         # Restic local cache (~200 MB metadata)
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
-└── backups/              # FPP MySQL hourly dump + weatherorb-accounts/ (hourly VPS pg_dump pull) (restic source)
+├── backups/              # FPP MySQL hourly dump + weatherorb-accounts/ (hourly VPS pg_dump pull) (restic source)
+└── weatherorb-archive/   # hourly pull from the Mac mini (sha256-verified, append-only; NOT restic-backed)
 ```
 
 ---
@@ -289,7 +290,9 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 Restic → Backblaze B2, daily 03:30, two-key ransomware-safe pattern, Mac-side restore
 drill. Full design + operations + restore commands: **`docs/backups.md`**. Also pulled
 hourly from the VPS (jkrumm crontab, :25): the WeatherOrb account DB dumps,
-`scripts/weatherorb-accounts-pull.sh`.
+`scripts/weatherorb-accounts-pull.sh`; and hourly from the Mac mini (jkrumm crontab,
+:55): the WeatherOrb archive, `scripts/weatherorb-archive-pull.sh` into
+`/mnt/hdd/weatherorb-archive` (outside restic — no offsite copy yet, ADR 0009).
 
 ---
 
