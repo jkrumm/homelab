@@ -34,25 +34,6 @@ KARAKEEP_MEILI_MASTER_KEY=op://homelab/karakeep/MEILI_MASTER_KEY
 KARAKEEP_OPENAI_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 KARAKEEP_OPENAI_API_KEY=op://common/anthropic/API_KEY
 
-# --- Image Share (personal photo library — public, single host share.jkrumm.com) ---
-IMAGE_SHARE_API_SECRET=op://homelab/image-share/API_SECRET
-# B2 coordinates reused from the shared bucket item + the service's own scoped key
-# (`image-share-b2`: bucket `jkrumm`, prefix `img/`, list/read/write/DELETE — the sole
-# delete-capable key wired into automation; see vps/docs/image-cdn.md key inventory).
-IMAGE_SHARE_B2_ENDPOINT=op://common/backblaze-s3/ENDPOINT
-IMAGE_SHARE_B2_REGION=op://common/backblaze-s3/REGION
-IMAGE_SHARE_B2_BUCKET=op://common/backblaze-s3/BUCKET
-IMAGE_SHARE_B2_KEY_ID=op://homelab/image-share/B2_KEY_ID
-IMAGE_SHARE_B2_APP_KEY=op://homelab/image-share/B2_APP_KEY
-# UptimeKuma push URL — reverse-backup (nightly 06:00 + manual admin trigger) heartbeat.
-# ORDERING TRAP when adding any new op:// ref here: the field must exist in 1Password
-# BEFORE this line lands on the server. `op run` exits 1 on an unresolvable ref and OP
-# wraps EVERY target in this Makefile — including uk-sync, which git-pulls before it
-# runs — so an uncommented ref to a missing field bricks deploy/up/restart/uk-sync and
-# both image-share targets at once, with no way left to create the monitor that mints
-# the token. Field created 2026-08-07; safe to keep uncommented.
-IMAGE_SHARE_KUMA_PUSH_URL=op://homelab/image-share/KUMA_PUSH_URL
-
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
 RESTIC_PASSWORD=op://homelab/restic/PASSWORD

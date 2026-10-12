@@ -20,7 +20,7 @@ CD := cd ~/homelab
 OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
-# garmin-collector and image-share are the only locally-built services, and both are
+# garmin-collector and proton-bridge are the locally-built services, and each is
 # rebuilt with --no-cache on every deploy — so each deploy leaves behind a full build
 # cache layer set plus a dangling image. Unbounded that reached 108 GB of build cache
 # (2552 entries, oldest 6 months) and 350 dangling images by 2026-08, i.e. more disk
@@ -39,7 +39,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs image-share-deploy image-share-restart image-share-logs proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -69,11 +69,6 @@ help: ## Show all targets
 	@echo "    make garmin-relogin      Interactive MFA re-login (writes fresh tokens + restarts)"
 	@echo "    make garmin-relogin-auto Force automated MFA re-login (code fetched from Gmail via argo)"
 	@echo "    make garmin-logs         Follow garmin-collector logs"
-	@echo ""
-	@echo "  Image Share (personal photo library — local build)"
-	@echo "    make image-share-deploy  Full deploy: git pull homelab + image-share, rebuild (no cache) + restart"
-	@echo "    make image-share-restart Restart container only (no rebuild)"
-	@echo "    make image-share-logs    Follow image-share logs"
 	@echo ""
 	@echo "  Proton Bridge (IMAP for hello@, Tailscale-only — docs/proton-bridge.md):"
 	@echo "    make proton-bridge-deploy   Full deploy: git pull + rebuild (no cache) + up"
@@ -185,17 +180,6 @@ garmin-relogin-auto: ## Force the automated MFA re-login (fetches the code from 
 
 garmin-logs: ## Follow garmin-collector logs
 	$(SSH) "docker logs -f --tail=100 garmin-collector"
-
-# ── Image Share (locally-built — source is a sibling clone, not packages/) ──
-
-image-share-deploy: ## Full deploy: git pull homelab + image-share, rebuild (no cache) + restart
-	$(SSH) "$(CD) && git pull && cd ~/image-share && git pull && $(CD) && $(DC) build --no-cache image-share && $(DC) up -d image-share && $(PRUNE)"
-
-image-share-restart: ## Restart image-share container (picks up new env vars, no rebuild)
-	$(SSH) "$(CD) && $(DC) up -d --force-recreate image-share"
-
-image-share-logs: ## Follow image-share logs
-	$(SSH) "docker logs -f --tail=100 image-share"
 
 # ── Proton Bridge ────────────────────────────────────────────────────────────
 proton-bridge-deploy: ## Full deploy: git pull + rebuild proton-bridge (no cache) + up

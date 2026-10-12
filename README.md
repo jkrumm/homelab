@@ -64,7 +64,6 @@ a fresh server up from scratch.
 | Immich      | [immich.jkrumm.com](https://immich.jkrumm.com)       | Photo management    |
 | UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com)       | Status page         |
 | Dufs        | [public.jkrumm.com](https://public.jkrumm.com)       | Public file server  |
-| Image Share | [share.jkrumm.com](https://share.jkrumm.com)         | Personal photo library — public share links (bare `/<slug>` → `/s/<slug>`), admin UI under `/admin`, API under `/api` |
 
 #### HomeLab — Private (Tailscale devices only, via Caddy HTTPS `:443`)
 

@@ -55,13 +55,13 @@ the wrong token and reporting the failure as success.
 
 ## Build-cache pruning (locally-built services)
 
-**garmin-collector, image-share and proton-bridge are the locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild` or `make image-share-deploy` — all use `--no-cache`.
+**garmin-collector and proton-bridge are the locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild`/`make proton-bridge-deploy` — all use `--no-cache`. (image-share was the third until it was decommissioned 2026-10-12, see the end of this file.)
 
 **`--no-cache` on every build is why the disk fills, so every build target self-prunes.**
 Each rebuild leaves a whole build-cache layer set plus a dangling image; unbounded that
 reached **108 GB of build cache (2552 entries) and 350 dangling images** by 2026-08 —
 more disk than every photo on the box. `$(PRUNE)` is appended to `garmin-deploy`,
-`garmin-rebuild` and `image-share-deploy`, so the garbage is collected by whoever makes
+`garmin-rebuild` and the other build targets, so the garbage is collected by whoever makes
 it. Two deliberate choices in it:
 
 - **Bounded, not zeroed** (`--max-used-space 10GB`). Both Dockerfiles use
@@ -167,3 +167,9 @@ phase landed; these three decisions are the parts worth keeping:
   (`caddy-dns/cloudflare` plugin baked into the `caddybuilds/caddy-cloudflare` image), which
   works even for hostnames that only resolve to a private Tailscale IP — no port-80 HTTP-01
   challenge needed.
+
+## image-share decommissioned (2026-10-12)
+
+The `image-share` service (share.jkrumm.com) was decommissioned; sharing moved to shutterflow. Its compose service, Caddy site block, `IMAGE_SHARE_*` secret refs, `make image-share-*` targets and the "Image Share" Uptime Kuma group are gone from this repo. The entries above that mention image-share (build-cache pruning, the push-monitor walkthrough) are kept as history of how those mechanisms were established; the `make image-share-*` targets they name no longer exist.
+
+Data was left on disk on purpose and stays covered by restic: `~/ssd/SSD/Bilder/ImageShare`, `~/ssd/image-share`, `~/ssd/SSD/Dev/image-share` and `~/ssd/SSD/Bilder/B2-Mirror`. The daily B2 `img/` → B2-Mirror reverse-backup cron lived inside the service and died with it, so B2-Mirror no longer refreshes.

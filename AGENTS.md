@@ -113,8 +113,6 @@ fallback tunnel — `ssh -L 1445:localhost:445 homelab` → `smb://localhost:144
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `homelab/garmin/EMAIL`, `homelab/garmin/PASSWORD` | Garmin Connect login                    |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
-| `homelab/image-share/API_SECRET`  | Bearer secret for image-share's admin `/api/*` surface (also the SPA login token) |
-| `homelab/image-share/KUMA_PUSH_URL` | UptimeKuma push URL — reverse-backup cron (+ manual trigger) heartbeat (monitor id=219) |
 | `common/slack/WEBHOOK_ALERTS`     | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `common/slack/WATCHTOWER_URL`     | Shoutrrr-formatted Slack webhook for Watchtower         |
 | `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
@@ -153,7 +151,6 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make garmin-relogin`     | Interactive MFA re-login — writes fresh tokens, restarts |
 | `make garmin-relogin-auto`| Force the automated MFA re-login (see `docs/decisions.md`) |
 | `make garmin-logs`        | Follow garmin-collector logs                              |
-| `make image-share-deploy` / `-restart` / `-logs` | Same shape as garmin, for image-share |
 | `make proton-bridge-deploy` / `-login` / `-restart` / `-logs` | Proton Mail Bridge (IMAP for hello@, Tailscale-only); `-login` is the one-time interactive CLI — `docs/proton-bridge.md` |
 | `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
@@ -194,7 +191,7 @@ ssh homelab "docker compose logs -f <service>"
 ### Container Updates (Watchtower)
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `garmin-collector`, `image-share`, `proton-bridge` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Opted-out** (other): `garmin-collector`, `proton-bridge` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else, including `caddy`
 
 ---
@@ -258,23 +255,20 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 ├── homelab/              # This repository
 ├── ssd/
 │   ├── SSD/
-│   │   ├── Bilder/       # Photos (incl. Immich subfolder)
-│   │   │   ├── ImageShare/ # image-share ingest area (SHARE_ROOT, rw — the only
-│   │   │   │               # writable image root; Fuji/ and RAWs/ are :ro)
-│   │   │   └── B2-Mirror/  # image-share reverse-backup of B2 img/ (B2_MIRROR_DIR)
+│   │   ├── Bilder/       # Photos (incl. Immich subfolder; ImageShare/ + B2-Mirror/ are
+│   │   │                 # leftovers of the decommissioned image-share — kept, restic-covered)
 │   │   ├── Bücher/       # Calibre library
 │   │   ├── Dokumente/    # Documents — includes Obsidian/ vault sync target
 │   │   ├── Videos/       # Personal videos
 │   │   ├── Public/       # Dufs public files
-│   │   └── Dev/
-│   │       └── image-share/  # nightly sqlite VACUUM INTO snapshots (SNAPSHOT_DIR, restic-covered)
+│   │   └── Dev/          # incl. image-share/ snapshots (decommissioned, kept, restic-covered)
 │   ├── garmin-tokens/    # Garmin Connect OAuth tokens
 │   ├── uptime-kuma/      # UptimeKuma data
-│   └── image-share/      # sqlite DB + renditions cache (DATA_DIR, rebuildable — not backed up)
+│   └── image-share/      # decommissioned service's sqlite DB + renditions cache (kept, not backed up)
 
 /mnt/hdd/
 ├── fuji/
-│   ├── RAWs/             # Fuji RAW archive (image-share RAWS_ROOT, read-only)
+│   ├── RAWs/             # Fuji RAW archive
 │   └── Videos/           # Fuji video archive (not restic-covered, not indexed)
 ├── restic/cache/         # Restic local cache (~200 MB metadata)
 ├── beszel/               # Metrics data
