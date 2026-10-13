@@ -30,6 +30,11 @@ mutation when the live set differs — sync attaches every live provider to
 every leaf, so one added in the UI doubles every alert and one deleted mutes
 them, both silently.
 
+Groups 10-12 pin the login retry policy: only a transient Socket.IO transport
+failure is retried — a rejected login (`UptimeKumaException`) is surfaced at
+once so a typo'd password cannot lock the account — and `--timeout` reaches the
+client constructor.
+
 Run (`uptime-kuma/.venv` only exists on the homelab server, since sync.py is
 documented to run there; the PEP 723 header above declares pyyaml, so uv
 builds a throwaway env):
@@ -63,7 +68,13 @@ PRIVATE_MONITORS_YAML = (
 # MonitorType` binds to this instead of touching pip/network.
 # =============================================================================
 
-FAKE_KUMA_STATE = {"calls": [], "login_fail": False, "notifications": []}
+FAKE_KUMA_STATE = {
+    "calls": [],
+    "login_fail": False,
+    "login_transient": 0,
+    "notifications": [],
+    "timeouts": [],
+}
 
 # Calls sync.py only makes once it is actually mutating/reading live monitor
 # state (inside sync_monitors() or export_monitors()) — never on the
@@ -81,11 +92,30 @@ API_TOUCHING_METHODS = {
 def reset_fake_kuma():
     FAKE_KUMA_STATE["calls"] = []
     FAKE_KUMA_STATE["login_fail"] = False
+    FAKE_KUMA_STATE["login_transient"] = 0
     FAKE_KUMA_STATE["notifications"] = []
+    FAKE_KUMA_STATE["timeouts"] = []
 
 
 def api_touching_calls():
     return [c for c in FAKE_KUMA_STATE["calls"] if c[0] in API_TOUCHING_METHODS]
+
+
+class FakeUptimeKumaException(Exception):
+    """Stand-in for `uptime_kuma_api.UptimeKumaException` — what a rejected
+    login raises. sync.py never retries it."""
+
+
+class FakeSocketIOError(Exception):
+    pass
+
+
+class FakeSocketIOConnectionError(FakeSocketIOError):
+    pass
+
+
+class FakeSocketIOTimeoutError(FakeSocketIOError):
+    pass
 
 
 class FakeMonitorType:
@@ -105,12 +135,20 @@ class FakeUptimeKumaApi:
 
     def __init__(self, url, timeout=10, **kwargs):
         FAKE_KUMA_STATE["calls"].append(("__init__", url))
+        # Recorded so a test can prove --timeout reaches the client constructor.
+        FAKE_KUMA_STATE["timeouts"].append(timeout)
         self.timeout = timeout
 
     def login(self, username, password):
         FAKE_KUMA_STATE["calls"].append(("login", username))
+        # A leading run of transient socketio timeouts, then success — mirrors a
+        # slow-broker login ack (the 2026-10-13 failure) that a retry recovers.
+        if FAKE_KUMA_STATE["login_transient"] > 0:
+            FAKE_KUMA_STATE["login_transient"] -= 1
+            raise FakeSocketIOTimeoutError()
+        # A rejected login: UptimeKumaException, which sync.py must NOT retry.
         if FAKE_KUMA_STATE["login_fail"]:
-            raise RuntimeError("fake login failure (simulated, no real network)")
+            raise FakeUptimeKumaException("fake login rejection (simulated, no real network)")
 
     def disconnect(self):
         FAKE_KUMA_STATE["calls"].append(("disconnect",))
@@ -140,9 +178,25 @@ def _install_fake_uptime_kuma_api():
     fake_mod = types.ModuleType("uptime_kuma_api")
     fake_mod.UptimeKumaApi = FakeUptimeKumaApi
     fake_mod.MonitorType = FakeMonitorType
+    fake_mod.UptimeKumaException = FakeUptimeKumaException
     sys.modules["uptime_kuma_api"] = fake_mod
 
 
+def _install_fake_socketio():
+    """`sync.py` names the transient-transport classes from `socketio.exceptions`;
+    the real python-socketio is absent here (same safety model as the fake
+    uptime_kuma_api), so provide a module-shaped stand-in for them."""
+    exceptions_mod = types.ModuleType("socketio.exceptions")
+    exceptions_mod.SocketIOError = FakeSocketIOError
+    exceptions_mod.ConnectionError = FakeSocketIOConnectionError
+    exceptions_mod.TimeoutError = FakeSocketIOTimeoutError
+    socketio_mod = types.ModuleType("socketio")
+    socketio_mod.exceptions = exceptions_mod
+    sys.modules["socketio"] = socketio_mod
+    sys.modules["socketio.exceptions"] = exceptions_mod
+
+
+_install_fake_socketio()
 _install_fake_uptime_kuma_api()
 
 _spec = importlib.util.spec_from_file_location("uk_sync_under_test", SYNC_PATH)
@@ -184,10 +238,11 @@ def scoped_env(set_vars=None, unset_vars=None, password="test-password"):
 
 
 def run_main(argv, *, set_vars=None, unset_vars=None, password="test-password",
-             login_fail=False, notifications=None):
+             login_fail=False, login_transient=0, notifications=None):
     """Run sync.main() in-process against the fake API, capturing everything."""
     reset_fake_kuma()
     FAKE_KUMA_STATE["login_fail"] = login_fail
+    FAKE_KUMA_STATE["login_transient"] = login_transient
     FAKE_KUMA_STATE["notifications"] = list(notifications or [])
     old_argv = sys.argv
     stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
@@ -642,6 +697,84 @@ def test_real_config_declares_notifications():
 
 
 # =============================================================================
+# 10-12. Login retry policy: only transient transport failures are retried; a
+#    rejected login (UptimeKumaException) is surfaced at once, and --timeout
+#    reaches the client. The exact exception classes live in
+#    `sync.RETRYABLE_LOGIN_ERRORS`.
+# =============================================================================
+
+
+def test_timeout_flag_reaches_client():
+    failures = []
+    with tempfile.TemporaryDirectory() as td:
+        cfg = write_yaml(Path(td), "monitors.yaml",
+                          RESOLVED_FIXTURE.format(var="TEST_TIMEOUT_OK"))
+        rc, out, err = run_main(
+            ["--config", cfg, "--timeout", "12.5"],
+            set_vars={"TEST_TIMEOUT_OK": "http://ok.local/"})
+
+        if rc != 0:
+            failures.append(f"run failed: rc={rc} stdout={out!r} stderr={err!r}")
+        if FAKE_KUMA_STATE["timeouts"] != [12.5]:
+            failures.append(f"--timeout did not reach the client constructor: "
+                             f"saw {FAKE_KUMA_STATE['timeouts']!r}")
+
+    total = 1
+    return total, (total if not failures else 0), failures
+
+
+def test_auth_failure_is_not_retried():
+    failures = []
+    with tempfile.TemporaryDirectory() as td:
+        cfg = write_yaml(Path(td), "monitors.yaml",
+                          RESOLVED_FIXTURE.format(var="TEST_AUTH_OK"))
+        rc, out, err = run_main(
+            ["--config", cfg],
+            set_vars={"TEST_AUTH_OK": "http://ok.local/"}, login_fail=True)
+
+        logins = [c for c in FAKE_KUMA_STATE["calls"] if c[0] == "login"]
+        if len(logins) != 1:
+            failures.append(f"a rejected login must not be retried — expected 1 "
+                             f"login call, got {len(logins)}: {FAKE_KUMA_STATE['calls']!r}")
+        if rc == 0:
+            failures.append(f"a rejected login should fail the run: rc={rc}")
+        if "Error:" not in err:
+            failures.append(f"the failure was not reported on stderr: {err!r}")
+
+    total = 1
+    return total, (total if not failures else 0), failures
+
+
+def test_transient_login_timeout_is_retried():
+    failures = []
+    saved_backoff = sync.LOGIN_BACKOFF_SECONDS
+    sync.LOGIN_BACKOFF_SECONDS = 0  # do not sleep ~2 s for real
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            cfg = write_yaml(Path(td), "monitors.yaml",
+                              RESOLVED_FIXTURE.format(var="TEST_RETRY_OK"))
+            rc, out, err = run_main(
+                ["--config", cfg],
+                set_vars={"TEST_RETRY_OK": "http://ok.local/"}, login_transient=1)
+
+            if rc != 0:
+                failures.append(f"a single transient login timeout should recover: "
+                                 f"rc={rc} stdout={out!r} stderr={err!r}")
+            logins = [c for c in FAKE_KUMA_STATE["calls"] if c[0] == "login"]
+            if len(logins) != 2:
+                failures.append(f"expected the timeout to be retried exactly once "
+                                 f"(2 logins), got {len(logins)}: "
+                                 f"{FAKE_KUMA_STATE['calls']!r}")
+            if "attempt 1/3 failed" not in err:
+                failures.append(f"the retried attempt was not reported: {err!r}")
+    finally:
+        sync.LOGIN_BACKOFF_SECONDS = saved_backoff
+
+    total = 1
+    return total, (total if not failures else 0), failures
+
+
+# =============================================================================
 
 GROUPS = [
     ("1. unset variable aborts", test_unset_variable_aborts),
@@ -655,6 +788,9 @@ GROUPS = [
     ("8b. synthetic non-env literal documented", test_synthetic_non_env_literal_would_abort),
     ("9a. notification set guard", test_notification_set_guard),
     ("9b. real config declares notifications", test_real_config_declares_notifications),
+    ("10. --timeout reaches the client", test_timeout_flag_reaches_client),
+    ("11. rejected login is not retried", test_auth_failure_is_not_retried),
+    ("12. transient timeout is retried", test_transient_login_timeout_is_retried),
 ]
 
 

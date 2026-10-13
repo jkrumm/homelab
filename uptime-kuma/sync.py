@@ -19,6 +19,9 @@ Usage (from ~/homelab on homelab):
     # Export current monitors to YAML
     op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --export
 
+    # Slow instance: raise the Socket.IO timeout, and trace a failure in full
+    op run --env-file=.env.tpl -- uptime-kuma/.venv/bin/python uptime-kuma/sync.py --timeout 120 --verbose
+
 Requirements:
     pip install uptime-kuma-api pyyaml
 
@@ -42,6 +45,8 @@ import traceback
 from pathlib import Path
 
 import yaml
+from socketio.exceptions import ConnectionError as SocketIOConnectionError
+from socketio.exceptions import TimeoutError as SocketIOTimeoutError
 from uptime_kuma_api import UptimeKumaApi, MonitorType
 
 
@@ -415,37 +420,70 @@ def export_monitors(api: UptimeKumaApi, output_path: str):
     print(f"Exported {len(monitors)} monitors to {output_path}")
 
 
+def format_error(e: BaseException) -> str:
+    """Render any exception as `Type: repr(e)` — one failure format, every site.
+
+    python-socketio raises `TimeoutError()` with no arguments, so `str(e)` is
+    empty and a bare `f"Error: {e}"` printed nothing but the prefix. The repr
+    names the type, so a failed run on 2026-10-13 could not say what had
+    actually gone wrong.
+    """
+    return f"{type(e).__name__}: {e!r}"
+
+
+# Login retry policy. `connect_and_login` retries only failures of the Socket.IO
+# transport; a rejected login is never retried (hammering a typo'd password is
+# how an account gets locked out). `LOGIN_BACKOFF_SECONDS` is read at call time,
+# so the regression suite can set it to 0 instead of sleeping ~4 s.
+LOGIN_ATTEMPTS = 3
+LOGIN_BACKOFF_SECONDS = 2.0
+
+# `UptimeKumaException` is deliberately absent here: uptime_kuma_api raises it
+# for BOTH a rejected login and a failed connect, so its type cannot tell "wrong
+# password" from "flaky socket" — everything that is not a transport failure is
+# re-raised untouched. Class names verified against python-socketio 5.11.4
+# `socketio/exceptions.py` (uptime-kuma-api 1.2.1 floors it at
+# `python-socketio[client]>=5.0.0` in its setup.py).
+RETRYABLE_LOGIN_ERRORS = (
+    TimeoutError,             # builtin — socketio's TimeoutError is a separate class
+    SocketIOTimeoutError,     # socketio.exceptions.TimeoutError — an unacked event/login
+    SocketIOConnectionError,  # socketio.exceptions.ConnectionError (+ ConnectionRefusedError)
+)
+
+
 # A large instance (~250 monitors) can miss uptime-kuma-api's default 10 s
-# Socket.IO timeout on login: python-socketio raises TimeoutError with no
-# message, so a failed run printed a bare "Error: " and hid the cause (three
-# consecutive full runs did this on 2026-10-13). Each attempt builds a fresh
-# client — one whose login failed is not reusable — and `timeout` covers both
-# login and the initial monitor-list event. Override the 60 s default with
-# `--timeout`.
-def connect_and_login(url: str, username: str, password: str, timeout: float,
-                      attempts: int = 3, backoff: float = 2.0) -> UptimeKumaApi:
-    """Connect and log in, retrying a few times before giving up."""
+# Socket.IO timeout on login. `timeout` is the only knob: UptimeKumaApi.__init__
+# (1.2.1 signature `(url, timeout=10, headers=None, ssl_verify=True,
+# wait_events=0.2)`) passes it through as `wait_timeout` to `sio.connect()`, as
+# `timeout` to `sio.call()`, and `_get_event_data()` uses it as the event-wait
+# deadline — so one value covers connect, login and the initial monitor-list
+# wait. Override the 60 s default with `--timeout`. Each attempt builds a fresh
+# client: one whose login failed is not reusable.
+def connect_and_login(url: str, username: str, password: str, timeout: float) -> UptimeKumaApi:
+    """Connect and log in, retrying only transient transport failures."""
     last_error = None
-    for attempt in range(1, attempts + 1):
+    for attempt in range(1, LOGIN_ATTEMPTS + 1):
         api = None
         try:
             api = UptimeKumaApi(url, timeout=timeout)
             api.login(username, password)
             return api
         except Exception as e:
-            last_error = e
-            print(
-                f"  connect/login attempt {attempt}/{attempts} failed: "
-                f"{type(e).__name__}: {e!r}",
-                file=sys.stderr,
-            )
             if api is not None:
                 try:
                     api.disconnect()
                 except Exception:
                     pass
-            if attempt < attempts:
-                time.sleep(backoff)
+            if not isinstance(e, RETRYABLE_LOGIN_ERRORS):
+                raise
+            last_error = e
+            print(
+                f"  connect/login attempt {attempt}/{LOGIN_ATTEMPTS} failed: "
+                f"{format_error(e)}",
+                file=sys.stderr,
+            )
+            if attempt < LOGIN_ATTEMPTS:
+                time.sleep(LOGIN_BACKOFF_SECONDS)
     raise last_error
 
 
@@ -523,15 +561,18 @@ def main():
             sync_monitors(api, config, dry_run=args.dry_run, delete_orphans=args.delete_orphans)
 
     except Exception as e:
-        # Name the type and repr: a socketio timeout carries an empty message,
-        # so the old `Error: {e}` printed nothing about the actual failure.
-        print(f"Error: {type(e).__name__}: {e!r}", file=sys.stderr)
+        print(f"Error: {format_error(e)}", file=sys.stderr)
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)
     finally:
         if api is not None:
-            api.disconnect()
+            # A disconnect can itself raise if the socket is already gone; the
+            # exit code above is what matters, so swallow it as the retry loop does.
+            try:
+                api.disconnect()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
