@@ -103,8 +103,9 @@ class FakeMonitorType:
 class FakeUptimeKumaApi:
     """Records every call; opens no socket; never reaches a real server."""
 
-    def __init__(self, url):
+    def __init__(self, url, timeout=10, **kwargs):
         FAKE_KUMA_STATE["calls"].append(("__init__", url))
+        self.timeout = timeout
 
     def login(self, username, password):
         FAKE_KUMA_STATE["calls"].append(("login", username))

@@ -37,6 +37,8 @@ import json
 import os
 import re
 import sys
+import time
+import traceback
 from pathlib import Path
 
 import yaml
@@ -413,6 +415,40 @@ def export_monitors(api: UptimeKumaApi, output_path: str):
     print(f"Exported {len(monitors)} monitors to {output_path}")
 
 
+# A large instance (~250 monitors) can miss uptime-kuma-api's default 10 s
+# Socket.IO timeout on login: python-socketio raises TimeoutError with no
+# message, so a failed run printed a bare "Error: " and hid the cause (three
+# consecutive full runs did this on 2026-10-13). Each attempt builds a fresh
+# client — one whose login failed is not reusable — and `timeout` covers both
+# login and the initial monitor-list event. Override the 60 s default with
+# `--timeout`.
+def connect_and_login(url: str, username: str, password: str, timeout: float,
+                      attempts: int = 3, backoff: float = 2.0) -> UptimeKumaApi:
+    """Connect and log in, retrying a few times before giving up."""
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        api = None
+        try:
+            api = UptimeKumaApi(url, timeout=timeout)
+            api.login(username, password)
+            return api
+        except Exception as e:
+            last_error = e
+            print(
+                f"  connect/login attempt {attempt}/{attempts} failed: "
+                f"{type(e).__name__}: {e!r}",
+                file=sys.stderr,
+            )
+            if api is not None:
+                try:
+                    api.disconnect()
+                except Exception:
+                    pass
+            if attempt < attempts:
+                time.sleep(backoff)
+    raise last_error
+
+
 def main():
     parser = argparse.ArgumentParser(description="Sync Uptime Kuma monitors from YAML config")
     parser.add_argument("--dry-run", action="store_true", help="Show what would change without making changes")
@@ -422,6 +458,8 @@ def main():
     parser.add_argument("--extra-config", default=None, help="Path to additional monitors.yaml to merge in (e.g. from homelab-private)")
     parser.add_argument("--url", default="http://localhost:3010", help="Uptime Kuma URL")
     parser.add_argument("--username", default="jkrumm", help="Uptime Kuma username")
+    parser.add_argument("--timeout", type=float, default=60, help="Socket.IO timeout (seconds) for connect/login — a large instance needs more than the library default of 10")
+    parser.add_argument("--verbose", action="store_true", help="Print a full traceback when an error aborts the run")
     args = parser.parse_args()
 
     # Get credentials (only password from environment)
@@ -432,12 +470,13 @@ def main():
         print("Error: UPTIME_KUMA_PASSWORD environment variable required")
         sys.exit(1)
 
-    # Connect to Uptime Kuma
+    # Connect and log in (retrying), then run. `api` stays None when every
+    # attempt failed, so `finally` never touches a half-built client.
     print(f"Connecting to {args.url}...")
-    api = UptimeKumaApi(args.url)
+    api = None
 
     try:
-        api.login(username, password)
+        api = connect_and_login(args.url, username, password, args.timeout)
         print("Connected successfully")
 
         if args.export:
@@ -484,10 +523,15 @@ def main():
             sync_monitors(api, config, dry_run=args.dry_run, delete_orphans=args.delete_orphans)
 
     except Exception as e:
-        print(f"Error: {e}")
+        # Name the type and repr: a socketio timeout carries an empty message,
+        # so the old `Error: {e}` printed nothing about the actual failure.
+        print(f"Error: {type(e).__name__}: {e!r}", file=sys.stderr)
+        if args.verbose:
+            traceback.print_exc()
         sys.exit(1)
     finally:
-        api.disconnect()
+        if api is not None:
+            api.disconnect()
 
 
 if __name__ == "__main__":
