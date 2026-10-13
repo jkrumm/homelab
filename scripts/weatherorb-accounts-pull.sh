@@ -88,7 +88,7 @@ grep -q 'TABLE DATA' <<< "$toc" \
   || fail_hard "dump has no TABLE DATA entries: $(basename "$newest")"
 
 if [ "$pull_failed" -eq 1 ]; then
-  log "FAIL: rsync from VPS failed; newest held dump is fresh and valid ($(basename "$newest")) — no heartbeat, the monitor retry decides"
+  log "FAIL: rsync from VPS failed; held dump $(basename "$newest") is still fresh and valid — no heartbeat"
   exit 1
 fi
 
