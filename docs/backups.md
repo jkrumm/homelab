@@ -148,9 +148,13 @@ dumps (`dumps/<date>/…`), round products (`rounds/<round_id>/…`) and static 
   (default: the newest date that has a dump) re-hashes every held file of that day
   (`past/<date>/**`, `dumps/<date>/**`) against `INDEX.mini`, prints file count and
   bytes per past-track round, then restores the day's dump into a throwaway `postgres:18`
-  container (random password, no published port, always removed) and prints the dump's
-  table-data entries, per-table row counts (`forecast_point` and `observation` flagged)
-  and the newest value of each table's first `timestamptz` column. Exit nonzero on any
+  container (random password, no published port, data on a named Docker volume because the
+  ~10 GB database does not fit this host's RAM; container and volume always removed) and
+  prints the dump's table-data entries, per-table row counts (`forecast_point` and
+  `observation` flagged) and the newest value of each table's first `timestamptz` column.
+  With `WO_RESTORE_SITES=<id>,<id>` it also prints, as CSV, the restored `weatherorb_blend`
+  `forecast_point` rows of those stations for the day at leads under 3 h; the weatherorb repo
+  compares them against the mini's live rows and the past-track files. Exit nonzero on any
   mismatch or restore failure; the output is the evidence. Run by hand, or weekly from
   cron.
 

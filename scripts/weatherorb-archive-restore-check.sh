@@ -6,7 +6,8 @@
 #      the size and sha256 in $DEST/INDEX.mini — a missing, short or altered file fails
 #   2. prints, per past-track round, the file count and bytes
 #   3. restores the day's dump into a throwaway postgres container (random password
-#      generated at runtime, no published port, always removed on exit) and prints
+#      generated at runtime, no published port, data on a named volume — the database is
+#      larger than this host's RAM — container and volume always removed on exit) and prints
 #      the dump's table-data entries, every table's row count (forecast_point and
 #      observation among them) and, per table, the newest value of its first
 #      timestamptz column — columns are discovered from information_schema, none is
@@ -16,6 +17,13 @@
 # changes to the archive, and weekly if wanted:
 #
 #   scripts/weatherorb-archive-restore-check.sh [<YYYY-MM-DD>]
+#   WO_RESTORE_SITES=EDDF,62144 scripts/weatherorb-archive-restore-check.sh 2026-10-12
+#
+# WO_RESTORE_SITES (optional, comma-separated station ids) adds a value sample: every
+# restored weatherorb_blend forecast_point row of those stations whose valid time falls on
+# the day and whose lead is under 3 h (the span the past track holds), as CSV between
+# `-- site sample begin/end` markers — the weatherorb repo compares it against the mini's
+# live rows and the past-track files.
 #   crontab (jkrumm, optional):  50 5 * * 0 /home/jkrumm/homelab/scripts/weatherorb-archive-restore-check.sh >> /home/jkrumm/logs/weatherorb-archive-restore-check.log 2>&1
 set -euo pipefail
 
@@ -72,11 +80,17 @@ dump="$(find "$DEST/dumps/$date_arg" -maxdepth 1 -name '*.dump' 2> /dev/null | s
 [ -n "$dump" ] && [ -r "$dump" ] || die "no readable dump under $DEST/dumps/$date_arg"
 log "dump: ${dump#"$DEST"/} ($(du -h "$dump" | cut -f1))"
 
-trap 'docker rm -fv "$CONTAINER" > /dev/null 2>&1 || true' EXIT
+sites="${WO_RESTORE_SITES:-}"
+[[ -z "$sites" || "$sites" =~ ^[A-Za-z0-9_]+(,[A-Za-z0-9_]+)*$ ]] || die "WO_RESTORE_SITES must be comma-separated station ids"
 
+trap 'docker rm -fv "$CONTAINER" > /dev/null 2>&1 || true; docker volume rm "$CONTAINER" > /dev/null 2>&1 || true' EXIT
+
+# A named volume on Docker's disk, never a tmpfs: the restored weatherorb database is ~10 GB
+# (forecast_point and its index), more than this host's free RAM — a tmpfs restore pushed it
+# toward OOM on 2026-10-13. The volume is removed with the container on exit.
 POSTGRES_PASSWORD="$(openssl rand -hex 24)" \
   docker run -d --name "$CONTAINER" -e POSTGRES_PASSWORD \
-  --tmpfs /var/lib/postgresql "$PG_IMAGE" > /dev/null
+  -v "$CONTAINER:/var/lib/postgresql" "$PG_IMAGE" > /dev/null
 
 # TCP, not the socket: the image's init phase answers on the socket only, then
 # restarts — a socket probe would race the restart.
@@ -130,5 +144,14 @@ SELECT n AS expected,
                AND table_schema NOT IN ('pg_catalog', 'information_schema')) AS present
 FROM unnest(ARRAY['forecast_point', 'observation']) AS n;
 SQL
+
+if [ -n "$sites" ]; then
+  echo "-- site sample begin"
+  docker exec -i "$CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$DB" \
+    -v sites="{$sites}" -v day="$date_arg" <<'SQL' || die "site sample query failed"
+COPY (SELECT model, run_init, source, station_id, variable, valid_time, lead_hours, value FROM forecast_point WHERE model = 'weatherorb_blend' AND station_id = ANY(:'sites'::text[]) AND valid_time >= :'day'::date AND valid_time < :'day'::date + 1 AND lead_hours < 3 ORDER BY station_id, variable, valid_time, run_init) TO STDOUT WITH (FORMAT csv, HEADER);
+SQL
+  echo "-- site sample end"
+fi
 
 log "OK: $date_arg — $checked files re-hashed, ${dump#"$DEST"/} restored and queried"
