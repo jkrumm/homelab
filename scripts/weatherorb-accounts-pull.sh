@@ -12,12 +12,12 @@
 #   - the newest local dump must be younger than MAX_AGE_H,
 #   - it must pass `pg_restore --list` (a dump killed mid-write fails the TOC read),
 #   - dumps older than KEEP_DAYS are deleted (only after both checks passed),
-# and pings "WeatherOrb Accounts Backup - Push" with status=up. A transient
-# rsync/SSH failure exits nonzero with NO ping, so the monitor's maxretries:1
-# keeps one miss PENDING and only two consecutive misses page; a genuine
-# data-protection fault (missing, stale or corrupt dump) pings status=down and
-# pages at once. rsync has no --delete: the VPS keeps 48 hours, this side keeps
-# KEEP_DAYS.
+# and pings "WeatherOrb Accounts Backup - Push" with status=up. A failed rsync
+# does not skip those checks: if the held dumps are fresh and valid the run exits
+# nonzero with NO ping, so the monitor's maxretries:1 keeps one miss PENDING and
+# only two consecutive misses page; a missing, stale or corrupt dump pings
+# status=down and pages at once. rsync has no --delete: the VPS keeps 48 hours,
+# this side keeps KEEP_DAYS.
 #
 # Plain user cron, no `op run`. Push URL from a chmod-600 file, same convention
 # as immich-backup-check.sh — never .env.tpl. Missing file = warning, no ping.
@@ -48,17 +48,7 @@ heartbeat() {
     || log "warning: heartbeat ping failed (Uptime Kuma unreachable?)" >&2
 }
 
-# Transient failure — a flaky SSH hop, a briefly unreachable VPS. Exit nonzero
-# WITHOUT a heartbeat: the monitor's maxretries:1 then keeps one missed run
-# PENDING and only two consecutive misses page. An explicit status=down here
-# would bypass that grace (Uptime Kuma jumps straight to DOWN on an explicit
-# down ping), which is the noise this avoids.
-fail() {
-  log "FAIL: $*"
-  exit 1
-}
-
-# Genuine data-protection fault — no dump, a stale dump, a corrupt dump. Ping
+# Data-protection fault — no dump, a stale dump, a corrupt dump. Ping
 # status=down so it pages at once rather than waiting out the retry grace.
 fail_hard() {
   log "FAIL: $*"
@@ -68,11 +58,19 @@ fail_hard() {
 
 mkdir -p "$DEST_DIR"
 
+# A failed pull is not a verdict by itself: the dumps already held are still
+# validated below, so a missing, stale or corrupt copy pages at once whatever the
+# cause of the failed pull. Only when a fresh, valid copy remains does the run end
+# nonzero with NO heartbeat — the monitor's maxretries:1 then keeps one miss
+# PENDING and two consecutive misses page. (An explicit status=down would skip
+# that grace: Uptime Kuma goes straight to DOWN on a down ping.)
+pull_failed=0
 if ! rsync -a --timeout=120 \
   --include='weatherorb_accounts-*.dump' --exclude='*' \
   -e "ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new" \
   "$REMOTE" "$DEST_DIR/"; then
-  fail "rsync from VPS failed"
+  pull_failed=1
+  log "warning: rsync from VPS failed — validating the dumps already held"
 fi
 
 newest="$(find "$DEST_DIR" -maxdepth 1 -name 'weatherorb_accounts-*.dump' -printf '%T@ %p\n' \
@@ -88,6 +86,11 @@ toc="$(docker run --rm -i "$PG_IMAGE" pg_restore --list < "$newest" 2>&1)" \
   || fail_hard "pg_restore --list failed (truncated dump?): $(basename "$newest")"
 grep -q 'TABLE DATA' <<< "$toc" \
   || fail_hard "dump has no TABLE DATA entries: $(basename "$newest")"
+
+if [ "$pull_failed" -eq 1 ]; then
+  log "FAIL: rsync from VPS failed; newest held dump is fresh and valid ($(basename "$newest")) — no heartbeat, the monitor retry decides"
+  exit 1
+fi
 
 find "$DEST_DIR" -maxdepth 1 -name 'weatherorb_accounts-*.dump' -mtime "+$KEEP_DAYS" -delete
 

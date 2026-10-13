@@ -74,10 +74,12 @@ VPS (weatherorb ADR 0013). Its dumps are pulled home so the data exists off the 
   a tailnet grant for exactly that user) into `/mnt/hdd/backups/weatherorb-accounts/`.
   It then proves the newest local dump is <2 h old and passes `pg_restore --list`
   (one-shot `postgres:18` container), deletes local dumps older than 14 days, and pings
-  `WeatherOrb Accounts Backup - Push`: `status=up` on success. A transient rsync/SSH
-  failure exits nonzero with no ping, so the monitor's `maxretries: 1` keeps one missed
-  run PENDING and only two consecutive misses page; a genuine data-protection fault
-  (missing, stale or corrupt dump) pings `status=down` and pages at once.
+  `WeatherOrb Accounts Backup - Push`: `status=up` on success. A failed rsync still runs the freshness and
+  `pg_restore --list` checks on the dumps already held: if they are fresh and valid the run exits nonzero with
+  no ping, so the monitor's `maxretries: 1` keeps one missed run PENDING and only two
+  consecutive misses page; a missing, stale or corrupt dump pings `status=down` and pages
+  at once, whatever the cause of the failed pull. A persistent pull fault (revoked key,
+  full disk) therefore pages within ~2 h, never silently.
 - **Offsite:** `/mnt/hdd/backups` is a restic source (table above) and
   `restic-excludes.txt` has no rule for this subdirectory, so the dumps ship to B2 with
   the nightly 03:30 run.
