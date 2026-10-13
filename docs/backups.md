@@ -131,6 +131,13 @@ dumps (`dumps/<date>/…`), round products (`rounds/<round_id>/…`) and static 
   (ed25519, no passphrase, comment `homelab-weatherorb-archive`) on the homelab server
   and prints the public key line. Install it on the mini from the weatherorb checkout:
   `make archive-door-key KEY='<printed line>'`.
+- **Wiring checklist (nothing installs these):** the jkrumm crontab line below, the push-URL
+  file(s) for the monitors (`WeatherOrb Accounts Backup - Push` and `WeatherOrb Archive - Push`;
+  the URL is `<kuma-url>/api/push/<pushToken>`, token from `api.get_monitor(<id>)["pushToken"]`
+  run through `op run --env-file=.env.tpl` with `uptime-kuma/.venv`), and `make archive-door-key`
+  in the weatherorb checkout. A missing piece fails silently: no crontab line or push file means
+  no heartbeat and a DOWN monitor; no door key means `Permission denied (publickey)` in
+  `~/logs/weatherorb-archive-pull.log`.
 - **Push URL:** `~/.config/uptime-kuma/weatherorb-archive-push-url` (chmod 600) — the
   plain-file convention. Without the file the script logs a warning and skips the ping.
   The `WeatherOrb Archive - Push` monitor (interval 3900 s) is declared in
