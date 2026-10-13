@@ -296,16 +296,15 @@ groups:
           # weatherorb ADR 0013). scripts/weatherorb-accounts-pull.sh (jkrumm crontab,
           # hourly :25, after the VPS pg_dump at :15) rsyncs the dumps home over
           # Tailscale SSH, proves the newest is <2h old and `pg_restore --list`-clean,
-          # and pings status=up; a transient rsync/SSH failure exits silently, while a
-          # genuine data-protection fault pings status=down with a msg.
+          # and pings status=up; the failure semantics (silent vs explicit down) are
+          # documented in the script header.
           #
           # interval 3700 = hourly cron + 100s grace. maxretries 1 is deliberate and the
           # one exception to the maxretries-0 rule above: time-to-DOWN is interval +
           # retry_interval = ~2h, the same window as the script's own 2h freshness gate,
           # so one late or failed run (a flaky SSH hop) stays PENDING and only two
-          # consecutive misses page. The script only pings status=down for a genuine
-          # data-protection fault (missing/stale/corrupt dump); a transient failure is
-          # silent, because an explicit down would bypass this grace. Push URL on the
+          # consecutive misses page; an explicit status=down would bypass this grace, so
+          # the script sends one only for a missing/stale/corrupt dump. Push URL on the
           # homelab server at ~/.config/uptime-kuma/weatherorb-accounts-push-url
           # (chmod 600) — plain file.
           - name: WeatherOrb Accounts Backup - Push
