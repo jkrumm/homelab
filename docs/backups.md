@@ -149,7 +149,8 @@ dumps (`dumps/<date>/…`), round products (`rounds/<round_id>/…`) and static 
   (`past/<date>/**`, `dumps/<date>/**`) against `INDEX.mini`, prints file count and
   bytes per past-track round, then restores the day's dump into a throwaway `postgres:18`
   container (random password, no published port, data on a named Docker volume because the
-  ~10 GB database does not fit this host's RAM; container and volume always removed) and
+  ~10 GB database does not fit this host's RAM; container and volume removed on exit, and
+  a run killed past that is swept by the next one under a lock) and
   prints the dump's table-data entries, per-table row counts (`forecast_point` and
   `observation` flagged) and the newest value of each table's first `timestamptz` column.
   With `WO_RESTORE_SITES=<id>,<id>` it also prints, as CSV, the restored `weatherorb_blend`

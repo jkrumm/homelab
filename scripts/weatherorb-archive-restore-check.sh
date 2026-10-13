@@ -83,14 +83,24 @@ log "dump: ${dump#"$DEST"/} ($(du -h "$dump" | cut -f1))"
 sites="${WO_RESTORE_SITES:-}"
 [[ -z "$sites" || "$sites" =~ ^[A-Za-z0-9_]+(,[A-Za-z0-9_]+)*$ ]] || die "WO_RESTORE_SITES must be comma-separated station ids"
 
-trap 'docker rm -fv "$CONTAINER" > /dev/null 2>&1 || true; docker volume rm "$CONTAINER" > /dev/null 2>&1 || true' EXIT
-
 # A named volume on Docker's disk, never a tmpfs: the restored weatherorb database is ~10 GB
 # (forecast_point and its index), more than this host's free RAM — a tmpfs restore pushed it
-# toward OOM on 2026-10-13. The volume is removed with the container on exit.
+# toward OOM on 2026-10-13. The EXIT trap removes container and volume; a run killed past the
+# trap (SIGKILL, OOM, reboot) leaves both behind, so every run first sweeps what an earlier run
+# left. The lock makes that safe: no other drill can be using a labelled container or volume.
+VOLUME="$CONTAINER-data"
+LABEL="weatherorb-archive-restore-check=1"
+exec 9> "$DEST/.restore-check.lock"
+flock -n 9 || die "another restore check holds $DEST/.restore-check.lock"
+docker ps -aq --filter "label=$LABEL" | xargs -r docker rm -fv > /dev/null
+docker volume ls -q --filter "label=$LABEL" | xargs -r docker volume rm > /dev/null
+
+trap 'docker rm -fv "$CONTAINER" > /dev/null 2>&1 || true; docker volume rm "$VOLUME" > /dev/null 2>&1 || true' EXIT
+
+docker volume create --label "$LABEL" "$VOLUME" > /dev/null
 POSTGRES_PASSWORD="$(openssl rand -hex 24)" \
-  docker run -d --name "$CONTAINER" -e POSTGRES_PASSWORD \
-  -v "$CONTAINER:/var/lib/postgresql" "$PG_IMAGE" > /dev/null
+  docker run -d --name "$CONTAINER" --label "$LABEL" -e POSTGRES_PASSWORD \
+  -v "$VOLUME:/var/lib/postgresql" "$PG_IMAGE" > /dev/null
 
 # TCP, not the socket: the image's init phase answers on the socket only, then
 # restarts — a socket probe would race the restart.
@@ -149,7 +159,16 @@ if [ -n "$sites" ]; then
   echo "-- site sample begin"
   docker exec -i "$CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$DB" \
     -v sites="{$sites}" -v day="$date_arg" <<'SQL' || die "site sample query failed"
-COPY (SELECT model, run_init, source, station_id, variable, valid_time, lead_hours, value FROM forecast_point WHERE model = 'weatherorb_blend' AND station_id = ANY(:'sites'::text[]) AND valid_time >= :'day'::date AND valid_time < :'day'::date + 1 AND lead_hours < 3 ORDER BY station_id, variable, valid_time, run_init) TO STDOUT WITH (FORMAT csv, HEADER);
+COPY (
+  SELECT model, run_init, source, station_id, variable, valid_time, lead_hours, value
+  FROM forecast_point
+  WHERE model = 'weatherorb_blend'
+    AND station_id = ANY(:'sites'::text[])
+    AND valid_time >= (:'day'::timestamp AT TIME ZONE 'UTC')
+    AND valid_time < (:'day'::timestamp AT TIME ZONE 'UTC') + interval '1 day'
+    AND lead_hours < 3
+  ORDER BY station_id, variable, valid_time, run_init
+) TO STDOUT WITH (FORMAT csv, HEADER);
 SQL
   echo "-- site sample end"
 fi
