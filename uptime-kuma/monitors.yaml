@@ -610,10 +610,11 @@ groups:
 
       # The weatherorb weather-pipeline watchdog on the Mac mini
       # (weatherorb/src/weatherorb/watchdog/check.py under com.jkrumm.weatherorb.watchdog,
-      # StartInterval 900). It GETs this URL only after a fully-healthy run —
-      # a failed check suppresses the push deliberately — so DOWN collapses
-      # two conditions into one alert: the pipeline failed a check, or the
-      # watchdog itself (or the mini) is gone. Which one is in
+      # StartInterval 900). Liveness since weatherorb Wave 31: it GETs this URL
+      # unless a service (point API, tileserver) or a launchd job is dead, so
+      # DOWN means a dead service or a gone watchdog/mini. Degraded pipelines
+      # (stale stores, failed rounds, …) page through "WeatherOrb Watchdog -
+      # Degraded" below and a GitHub issue. Which check failed is in
       # weatherorb/var/health.json on the mini.
       #
       # interval 2100 = 2× the 900s cadence + buffer, maxretries: 0 →
@@ -628,6 +629,21 @@ groups:
       # when the env var is absent (see check.py), so that 1Password item is
       # the URL's durable home once seeded.
       - name: WeatherOrb Watchdog - Push
+        type: push
+        interval: 2100
+        timeout: 48
+        retry_interval: 2100
+        maxretries: 0
+
+      # The degraded half of the split push (weatherorb ADR 0019, Wave 31). Since
+      # the split, "WeatherOrb Watchdog - Push" above is liveness — the watchdog
+      # pushes it unless a service or launchd job is dead — and this one is pushed
+      # only while no warden-routed check fails (src/weatherorb/watchdog/heartbeat.py).
+      # Every such failure is also a GitHub issue through ops.alert; this monitor is
+      # warden's second signal if that issue path breaks. Same 2100 s / maxretries 0
+      # sizing as the liveness monitor → time-to-DOWN 35 min. Push URL on the mini at
+      # ~/.config/uptime-kuma/weatherorb-degraded-push-url (chmod 600) — plain file.
+      - name: WeatherOrb Watchdog - Degraded
         type: push
         interval: 2100
         timeout: 48
