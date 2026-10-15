@@ -681,8 +681,22 @@ groups:
         retry_interval: 2100
         maxretries: 0 # else time-to-DOWN is 4×2100s — the file default is 3
 
-      # Hermes WebUI - Push and Hermes Serve - Push were removed 2026-09-07 with
-      # the WebUI/serve teardown; the Slack gateway above is the whole surface.
+      # Backend server — every 5 min from hermes-serve-liveness.sh. `hermes serve`
+      # (:9119) is the JSON-RPC/WebSocket backend Hermes Desktop connects to;
+      # separate process from the Slack gateway, which upstream expects.
+      # Removed 2026-09-07 with the serve teardown, restored 2026-10-15 (owner
+      # decision: Desktop is a surface again). Hermes WebUI - Push stays gone.
+      # The heartbeat asserts /api/status reports auth_required=true, not just
+      # that the port answers: /api/status is a PUBLIC path by design (it is how a
+      # client discovers whether auth is needed), so a misconfigured auth provider
+      # answers 200 and looks healthy while exposing a socket that drives the agent.
+      # Push URL → 1Password hermes/uptime-kuma/serve-push-url
+      - name: Hermes Serve - Push
+        type: push
+        interval: 360 # 5 min agent + buffer
+        timeout: 48
+        retry_interval: 360
+        maxretries: 0 # time-to-DOWN is the interval, not interval + 3×retry
 
       # Daily backup → /mnt/hdd/backups/hermes/ from hermes-backup.sh at 03:00.
       # Push URL → 1Password hermes/uptime-kuma/backup-push-url
