@@ -159,14 +159,14 @@ groups:
             interval: 700 # Cron runs every 10 min (600s) + buffer for execution
             timeout: 48
             retry_interval: 700
-            maxretries: 0 # time-to-DOWN is the interval — see the arithmetic in the Local group
+            maxretries: 1
 
           - name: Restic Backup - Push
             type: push
             interval: 90000 # 25h — daily 03:30 backup cron + buffer
             timeout: 48
-            retry_interval: 90000
-            maxretries: 0 # else time-to-DOWN is 4×25h
+            retry_interval: 3600
+            maxretries: 1
 
           # garmin-auto-relogin.sh (homelab/scripts, op-wrapped cron every 2h).
           # Pings on EVERY run — both the no-op skip path (token still fresh)
@@ -194,8 +194,8 @@ groups:
             type: push
             interval: 14400
             timeout: 48
-            retry_interval: 14400
-            maxretries: 0
+            retry_interval: 3600
+            maxretries: 1
 
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
@@ -298,8 +298,8 @@ groups:
             type: push
             interval: 90000
             timeout: 48
-            retry_interval: 90000
-            maxretries: 0
+            retry_interval: 3600
+            maxretries: 1
 
           # WeatherOrb account DB (passkeys, sessions, favourites — lives on the VPS,
           # weatherorb ADR 0013). scripts/weatherorb-accounts-pull.sh (jkrumm crontab,
@@ -400,8 +400,8 @@ groups:
         type: push
         interval: 43200 # 12h — argo sync runs every 6h; extra cycle = silent auto-recovery room
         timeout: 48
-        retry_interval: 43200
-        maxretries: 0 # else time-to-DOWN is 4×12h = 2 days of silent token death
+        retry_interval: 3600
+        maxretries: 1
         resend_interval: 1 # re-alert Slack every down beat (~12h) once recovery is genuinely stuck
 
       # Weekly manual 1Password export backup, run locally from the Mac.
@@ -409,8 +409,8 @@ groups:
       - name: 1Password Backup - Push
         type: push
         interval: 691200 # 8 days — weekly manual + buffer
-        retry_interval: 691200
-        maxretries: 0 # else time-to-DOWN is 32 days, not the 8 the interval implies
+        retry_interval: 3600
+        maxretries: 1
 
       # Weekly secrets-cache seed-freshness heartbeat, pushed from the Mac mini
       # (dotfiles/scripts/secrets-freshness-check.sh, weekly LaunchAgent). A
@@ -419,11 +419,11 @@ groups:
       - name: MacMini Secret Seed - Push
         type: push
         interval: 691200 # 8 days — weekly + buffer
-        retry_interval: 691200
+        retry_interval: 3600
         # 0, or time-to-DOWN is interval + 3 × retry_interval = 32 days. The
         # LaunchAgent behind this monitor was dead for 11 days in July 2026 and
         # the monitor never went red — the 8 days above is the whole intent.
-        maxretries: 0
+        maxretries: 1
 
       # Remote-dev readiness on the Mac mini — one composite heartbeat covering
       # herdr (the workspace server agents live in), sshd, tailscaled, the
@@ -437,20 +437,16 @@ groups:
       # check the mini can just as well report on itself.
       # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
       #
-      # maxretries: 0 is load-bearing. A push monitor runs the normal failure
-      # path, so time-to-DOWN is `interval + maxretries × retry_interval`. With
-      # the file-level default of 3 this would alert after 40 min, not the 10
-      # the interval implies. The same arithmetic applies to EVERY push monitor
-      # in this file, so since 2026-09-07 all of them set maxretries: 0 and the
-      # interval alone is the time-to-DOWN (the one exception, Home Line -
-      # Watchdog, says why inline). A new push monitor without it alerts 4×
-      # later than its comment claims — the retry path only makes sense for
-      # probes, where a retry is a second request.
+      # maxretries: 1 everywhere (ops-signals §2): one retry absorbs a single missed beat, and a
+      # push monitor's time-to-DOWN is `interval + maxretries × retry_interval`. So every push
+      # monitor here sets retry_interval to min(interval, 3600) — the default 3 retries at the
+      # full interval would alert 4× later than the interval implies, and a single retry at a
+      # 25 h interval would add another day. Chain-alive monitors stay at interval ≈ 10 min.
       - name: MacMini Dev Host - Push
         type: push
         interval: 600 # 10 min — must exceed the agent's 300s cadence so one skipped run doesn't page
         retry_interval: 600
-        maxretries: 0
+        maxretries: 1
 
       # Collie — the phone control surface for the herd on the Mac mini
       # (dotfiles: `make collie-setup`). Its OWN monitor rather than a sixth
@@ -475,9 +471,9 @@ groups:
       # was not made by hand, and the one that disproved the note repeated above.
       - name: MacMini Collie - Push
         type: push
-        interval: 600 # 10 min — same 300s agent cadence, one skipped run must not page
-        retry_interval: 600
-        maxretries: 0
+        interval: 14400 # 4 h backstop (ops-signals §2): ≥ 2× warden's 2 h verdict budget, so warden acts first
+        retry_interval: 3600
+        maxretries: 1
 
       # Upstream drift on the Mac mini (dotfiles: `make drift-check-setup`) —
       # commit-pinned herdr plugins, the xcaddy/caddy-dns modules compiled into
@@ -502,8 +498,8 @@ groups:
       - name: MacMini Drift - Push
         type: push
         interval: 172800 # 2 days — must exceed the agent's daily cadence
-        retry_interval: 172800
-        maxretries: 0
+        retry_interval: 3600
+        maxretries: 1
 
       # The brain vault's continuous sync (dotfiles/brain/brain-sync.sh under
       # com.jkrumm.brain-sync, every 300s on the mini). It pulls, pushes when
@@ -527,9 +523,9 @@ groups:
       # error.
       - name: Brain Sync - Push
         type: push
-        interval: 600 # 10 min — same 300s agent cadence, one skipped run must not page
-        retry_interval: 600
-        maxretries: 0 # see the arithmetic above — the default 3 would alert at 40 min, not 10
+        interval: 14400 # 4 h backstop (ops-signals §2): ≥ 2× warden's 2 h verdict budget, so warden acts first
+        retry_interval: 3600
+        maxretries: 1
 
       # The nightly leftover-dirt sweep (dotfiles/brain/brain-backup.sh under
       # com.jkrumm.brain-backup, 03:30 on the mini). Separate from the monitor
@@ -544,8 +540,8 @@ groups:
         type: push
         interval: 90000 # 25h — nightly 03:30 sweep + buffer, same shape as Restic Backup - Push
         timeout: 48
-        retry_interval: 90000
-        maxretries: 0 # unlike the older push monitors, this one does not inherit the 4×-late default
+        retry_interval: 3600
+        maxretries: 1
 
       # The home internet line, as measured by linewatch on the Mac mini
       # (~/SourceRoot/linewatch, collector/heartbeat.ts under the
@@ -585,7 +581,7 @@ groups:
         type: push
         interval: 240
         retry_interval: 240
-        maxretries: 0
+        maxretries: 1
 
       # A SECOND push monitor, and the duplication is the point.
       #
@@ -642,7 +638,7 @@ groups:
         interval: 2100
         timeout: 48
         retry_interval: 2100
-        maxretries: 0
+        maxretries: 1
 
       # The degraded half of the split push (weatherorb ADR 0019, Wave 31). Since
       # the split, "WeatherOrb Watchdog - Push" above is liveness — the watchdog
@@ -657,7 +653,7 @@ groups:
         interval: 2100
         timeout: 48
         retry_interval: 2100
-        maxretries: 0
+        maxretries: 1
 
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
@@ -674,21 +670,7 @@ groups:
         interval: 360 # 5 min cron + buffer
         timeout: 48
         retry_interval: 360
-        maxretries: 0 # else time-to-DOWN is 4×360s — the file default is 3
-
-      # Watchdog — every 30 min. Fed by WARDEN now, not hermes: the ingest poller
-      # left hermes-agent on 2026-09-09 and runs as com.jkrumm.warden-poll
-      # (warden/scripts/watchdog-poll.py --post). The gateway cron and its
-      # watchdog-slack.py wrapper that used to ping this are both deleted; the
-      # heartbeat itself was ported unchanged, which is why this monitor keeps its
-      # identity, its history and its push token rather than being recreated.
-      # Push URL → 1Password hermes/uptime-kuma/watchdog-push-url
-      - name: Hermes Watchdog - Push
-        type: push
-        interval: 2100 # 35 min — 30 min cron + buffer
-        timeout: 48
-        retry_interval: 2100
-        maxretries: 0 # else time-to-DOWN is 4×2100s — the file default is 3
+        maxretries: 1
 
       # Backend server — every 5 min from hermes-serve-liveness.sh. `hermes serve`
       # (:9119) is the JSON-RPC/WebSocket backend Hermes Desktop connects to;
@@ -702,18 +684,18 @@ groups:
       # Push URL → 1Password hermes/uptime-kuma/serve-push-url
       - name: Hermes Serve - Push
         type: push
-        interval: 360 # 5 min agent + buffer
+        interval: 14400 # 4 h backstop (ops-signals §2): ≥ 2× warden's 2 h verdict budget, so warden acts first
         timeout: 48
-        retry_interval: 360
-        maxretries: 0 # time-to-DOWN is the interval, not interval + 3×retry
+        retry_interval: 3600
+        maxretries: 1
 
       # Daily backup → /mnt/hdd/backups/hermes/ from hermes-backup.sh at 03:00.
       # Push URL → 1Password hermes/uptime-kuma/backup-push-url
       - name: Hermes Backup - Push
         type: push
         interval: 90000 # 25h — daily cron at 03:00 + buffer
-        retry_interval: 90000
-        maxretries: 0 # else time-to-DOWN is 4×25h — see the note in the Local group
+        retry_interval: 3600
+        maxretries: 1
 
   # ============================================
   # warden — the control plane, on the Mac Mini. Extracted from hermes-agent
@@ -722,11 +704,10 @@ groups:
   # the act-loop kept ticking against a ledger that had stopped receiving signals,
   # with no way to notice it was blind.
   #
-  # Only the BACKUP is monitored here. The loop's own liveness is that its Slack
-  # cards keep updating, and ingest liveness is "Hermes Watchdog - Push" in the
-  # group above — which warden feeds now, and which keeps that name because
-  # renaming it would recreate the monitor and rotate a push token three scripts
-  # already resolve.
+  # The backup and the loop. "Warden Loop - Push" is the chain-alive monitor for the
+  # whole of warden: its push requires the loop, the poller and the sweep to be fresh
+  # (scripts/lifecycle/freshness.py, the same test as GET /health). The old "Hermes
+  # Watchdog - Push" (poller liveness) was retired in that monitor's favour 2026-10-17.
   # ============================================
   - name: Warden
     interval: 250
@@ -747,8 +728,8 @@ groups:
         type: push
         interval: 90000
         timeout: 48
-        retry_interval: 90000
-        maxretries: 0
+        retry_interval: 3600
+        maxretries: 1
 
       # The warden loop (com.jkrumm.warden-loop, every 10 min) pings this at the end of every
       # COMPLETED pass (scripts/clients/kuma.py), after the ledger heartbeat is written. Silence =
@@ -760,10 +741,12 @@ groups:
       #
       # Push URL → on the mini at ~/.config/uptime-kuma/warden-loop-push-url (chmod 600). A plain
       # file for the same reason as the backup's: a monitor must not depend on the thing it monitors.
+      # Since 2026-10-17 the push is skipped unless loop, poll and sweep are all fresh, so a dead
+      # sweep or poller pages here too: interval 1200 + one 600 s retry → ~30 min to DOWN.
       - name: Warden Loop - Push
         type: push
         interval: 1200
-        retry_interval: 1200
+        retry_interval: 600
         maxretries: 1
 
   # ============================================
@@ -860,8 +843,8 @@ groups:
           - name: Postgres - Backup - Push
             type: push
             interval: 90000 # 25h — daily cron at 03:00 UTC + buffer
-            retry_interval: 90000
-            maxretries: 0 # else time-to-DOWN is 4×25h
+            retry_interval: 3600
+            maxretries: 1
 
           # Liveness — VPS cron runs SELECT 1 every minute via scripts/health-pg.sh.
           # Push URL → op://vps/config/UPTIME_KUMA_POSTGRES_PUSH_URL
@@ -870,7 +853,7 @@ groups:
             interval: 120 # 2 min — cron runs every 60s + buffer
             timeout: 48
             retry_interval: 120
-            maxretries: 0 # 2 min to DOWN, not 8
+            maxretries: 1
 
           # Image CDN (imgproxy) — TWO monitors on purpose, they fail differently.
           #
@@ -1011,14 +994,14 @@ groups:
       - name: FPP - DB Backup - Push
         type: push
         interval: 90000 # 25h — daily cron at 03:30 UTC + buffer
-        retry_interval: 90000
-        maxretries: 0 # else time-to-DOWN is 4×25h
+        retry_interval: 3600
+        maxretries: 1
 
       - name: FPP - Analytics Readmodel - Push
         type: push
         interval: 650
         retry_interval: 650
-        maxretries: 0 # ~11 min to DOWN, not 43
+        maxretries: 1
 
   # ============================================
   # Websites - External website monitoring
