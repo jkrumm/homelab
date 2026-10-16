@@ -157,6 +157,15 @@ class FakeUptimeKumaApi:
         FAKE_KUMA_STATE["calls"].append(("get_notifications",))
         return list(FAKE_KUMA_STATE["notifications"])
 
+    def add_notification(self, **kwargs):
+        FAKE_KUMA_STATE["calls"].append(("add_notification", kwargs.get("name")))
+        FAKE_KUMA_STATE["notifications"].append({"id": 50, "name": kwargs["name"], "config": "{}"})
+        return {"id": 50}
+
+    def edit_notification(self, id_, **kwargs):
+        FAKE_KUMA_STATE["calls"].append(("edit_notification", id_))
+        return {"id": id_}
+
     def get_monitors(self):
         FAKE_KUMA_STATE["calls"].append(("get_monitors",))
         return []
@@ -683,6 +692,53 @@ def test_notification_set_guard():
     return len(cases) + 1, passed, failures
 
 
+WEBHOOK_FIXTURE = """\
+settings:
+  defaults: {}
+  notifications:
+    - Slack - Alerts
+    - Hook
+  webhooks:
+    - name: Hook
+      url: https://hook.example.com/ingest
+      token_env: TEST_HOOK_TOKEN
+groups:
+  - name: TestGroup
+    monitors:
+      - name: test-monitor
+        type: http
+        url: http://example.local/
+"""
+
+
+def test_webhook_provider_convergence():
+    failures = []
+    slack = {"id": 2, "name": "Slack - Alerts"}
+    with tempfile.TemporaryDirectory() as td:
+        cfg = write_yaml(Path(td), "monitors.yaml", WEBHOOK_FIXTURE)
+        env = {"TEST_HOOK_TOKEN": "s3cret"}
+
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack])
+        if rc != 0 or ("add_notification", "Hook") not in FAKE_KUMA_STATE["calls"]:
+            failures.append(f"missing webhook not created: rc={rc} err={err!r}")
+        if "s3cret" in out + err:
+            failures.append("token leaked to output")
+
+        rc, out, err = run_main(["--config", cfg, "--dry-run"], set_vars=env, notifications=[slack])
+        if rc != 0 or any(c[0] == "add_notification" for c in FAKE_KUMA_STATE["calls"]):
+            failures.append(f"dry-run created or aborted: rc={rc} err={err!r}")
+
+        rc, out, err = run_main(["--config", cfg], unset_vars=["TEST_HOOK_TOKEN"], notifications=[slack])
+        if rc != 2 or any(c[0] in ("add_notification", "add_monitor") for c in FAKE_KUMA_STATE["calls"]):
+            failures.append(f"missing token env did not abort before mutation: rc={rc}")
+
+        stale = {"id": 3, "name": "Hook", "config": "{}"}
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, stale])
+        if ("edit_notification", 3) not in FAKE_KUMA_STATE["calls"]:
+            failures.append("drifted webhook not updated")
+    return 4, 4 - len(failures), failures
+
+
 def test_real_config_declares_notifications():
     """The real monitors.yaml must carry the block — a guard that only runs
     when declared is no guard if the declaration goes missing."""
@@ -787,6 +843,7 @@ GROUPS = [
     ("8a. real configs — no stray literals", test_real_configs_have_no_stray_literals),
     ("8b. synthetic non-env literal documented", test_synthetic_non_env_literal_would_abort),
     ("9a. notification set guard", test_notification_set_guard),
+    ("9c. webhook provider convergence", test_webhook_provider_convergence),
     ("9b. real config declares notifications", test_real_config_declares_notifications),
     ("10. --timeout reaches the client", test_timeout_flag_reaches_client),
     ("11. rejected login is not retried", test_auth_failure_is_not_retried),
