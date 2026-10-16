@@ -190,18 +190,26 @@ def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict,
     return params
 
 
-def ensure_webhook_providers(api: UptimeKumaApi, config: dict, dry_run: bool) -> set:
-    """Create or converge the webhook providers declared in `settings.webhooks`.
+def plan_webhook_providers(api: UptimeKumaApi, config: dict) -> list:
+    """Validate `settings.webhooks` and plan the provider writes; mutates nothing.
 
     Every other provider stays UI-managed (the Slack one holds a secret URL). A webhook
-    carries a bearer token, so it is declared here with `token_env` naming the env var and
-    pushed to Kuma; the token itself never enters the YAML. Must run before the
-    declared-vs-live provider check, which counts these names.
+    carries a bearer token, so it is declared with `token_env` naming the env var; the
+    token itself never enters the YAML. Returns [(action, live_id, params)] with action
+    "create" or "update" (converged providers are omitted). Every field and token is
+    checked before any write, so a bad second entry cannot leave the first half-applied.
     """
     declared = config.get("settings", {}).get("webhooks") or []
-    planned = set()
     live = {n["name"]: n for n in api.get_notifications()}
+    plan = []
     for hook in declared:
+        missing = [k for k in ("name", "url", "token_env") if not hook.get(k)]
+        if missing:
+            print(f"Error: settings.webhooks entry {hook!r} lacks {missing}", file=sys.stderr)
+            sys.exit(EXIT_UNRESOLVED_ENV)
+        if not hook["url"].startswith("https://"):
+            print(f"Error: webhook '{hook['name']}' url must be https:// (it carries a bearer token)", file=sys.stderr)
+            sys.exit(EXIT_UNRESOLVED_ENV)
         token = os.environ.get(hook["token_env"], "")
         if not token:
             print(f"Error: {hook['token_env']} is not set (webhook '{hook['name']}')", file=sys.stderr)
@@ -216,20 +224,25 @@ def ensure_webhook_providers(api: UptimeKumaApi, config: dict, dry_run: bool) ->
         }
         current = live.get(hook["name"])
         if current is None:
-            print(f"  [CREATE] notification {hook['name']} -> {hook['url']}")
-            if dry_run:
-                planned.add(hook["name"])
-            else:
-                api.add_notification(applyExisting=False, **params)
+            plan.append(("create", None, params))
             continue
         cfg = json.loads(current.get("config") or "{}")
-        if (cfg.get("webhookURL"), cfg.get("webhookAdditionalHeaders")) != (
-            params["webhookURL"], params["webhookAdditionalHeaders"],
-        ):
-            print(f"  [UPDATE] notification {hook['name']}")
-            if not dry_run:
-                api.edit_notification(current["id"], applyExisting=False, **params)
-    return planned
+        wanted = (params["webhookURL"], params["webhookContentType"], json.loads(params["webhookAdditionalHeaders"]), params["isDefault"])
+        actual = (cfg.get("webhookURL"), cfg.get("webhookContentType"), json.loads(cfg.get("webhookAdditionalHeaders") or "{}"), bool(current.get("isDefault")))
+        if wanted != actual:
+            plan.append(("update", current["id"], params))
+    return plan
+
+
+def apply_webhook_plan(api: UptimeKumaApi, plan: list, dry_run: bool):
+    for action, live_id, params in plan:
+        print(f"  [{action.upper()}] notification {params['name']} -> {params['webhookURL']}")
+        if dry_run:
+            continue
+        if action == "create":
+            api.add_notification(applyExisting=False, **params)
+        else:
+            api.edit_notification(live_id, applyExisting=False, **params)
 
 
 def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delete_orphans: bool = False):
@@ -237,17 +250,15 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
     defaults = config.get("settings", {}).get("defaults", {})
     cloudflare_header = config.get("settings", {}).get("cloudflare_bypass_header", {})
 
-    planned_webhooks = ensure_webhook_providers(api, config, dry_run)
-
-    # Get all notification IDs to auto-enable on new monitors
+    webhook_plan = plan_webhook_providers(api, config)
     notifications = api.get_notifications()
-    notification_ids = [n["id"] for n in notifications]
 
     # `settings.notifications` is the declared provider set; the live set must
     # match exactly, because every provider below is attached to every leaf.
     declared = config.get("settings", {}).get("notifications")
     if declared is not None:
-        live_names = sorted([n["name"] for n in notifications] + list(planned_webhooks))
+        # A would-be-created webhook counts as live, so --dry-run does not trip the guard on it.
+        live_names = sorted([n["name"] for n in notifications] + [p["name"] for a, _, p in webhook_plan if a == "create"])
         if live_names != sorted(declared):
             print(
                 "\nError: live notification providers differ from settings.notifications:",
@@ -261,6 +272,9 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                 file=sys.stderr,
             )
             sys.exit(EXIT_NOTIFICATIONS_DRIFT)
+
+    apply_webhook_plan(api, webhook_plan, dry_run)
+    notification_ids = [n["id"] for n in api.get_notifications()]
 
     # Get existing monitors
     existing = {m["name"]: m for m in api.get_monitors()}

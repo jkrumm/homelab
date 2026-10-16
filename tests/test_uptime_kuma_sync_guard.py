@@ -736,7 +736,36 @@ def test_webhook_provider_convergence():
         rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, stale])
         if ("edit_notification", 3) not in FAKE_KUMA_STATE["calls"]:
             failures.append("drifted webhook not updated")
-    return 4, 4 - len(failures), failures
+
+        # Same URL/headers but a different content type is drift, not converged.
+        import json as _json
+        cfg_ok = {"webhookURL": "https://hook.example.com/ingest", "webhookContentType": "form-data",
+                  "webhookAdditionalHeaders": _json.dumps({"Authorization": "Bearer s3cret"})}
+        drifted = {"id": 3, "name": "Hook", "isDefault": False, "config": _json.dumps(cfg_ok)}
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, drifted])
+        if ("edit_notification", 3) not in FAKE_KUMA_STATE["calls"]:
+            failures.append("content-type drift not updated")
+
+        # Header key order / whitespace is not drift.
+        cfg_ok["webhookContentType"] = "json"
+        cfg_ok["webhookAdditionalHeaders"] = '{ "Authorization":  "Bearer s3cret" }'
+        same = {"id": 3, "name": "Hook", "isDefault": False, "config": _json.dumps(cfg_ok)}
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, same])
+        if any(c[0] == "edit_notification" for c in FAKE_KUMA_STATE["calls"]):
+            failures.append("re-serialized headers reported as drift")
+
+        # http:// is refused; no write happens; the token is not echoed.
+        bad = write_yaml(Path(td), "bad.yaml", WEBHOOK_FIXTURE.replace("https://hook", "http://hook"))
+        rc, out, err = run_main(["--config", bad], set_vars=env, notifications=[slack])
+        if rc != 2 or "s3cret" in out + err or any(c[0] == "add_notification" for c in FAKE_KUMA_STATE["calls"]):
+            failures.append(f"http url not refused cleanly: rc={rc}")
+
+        # Provider-set drift aborts before any webhook write.
+        rc, out, err = run_main(["--config", cfg], set_vars=env,
+                                notifications=[slack, {"id": 9, "name": "Pushover", "config": "{}"}])
+        if rc != 3 or any(c[0] in ("add_notification", "edit_notification") for c in FAKE_KUMA_STATE["calls"]):
+            failures.append(f"webhook written before the drift guard: rc={rc}")
+    return 8, 8 - len(failures), failures
 
 
 def test_real_config_declares_notifications():
@@ -843,8 +872,8 @@ GROUPS = [
     ("8a. real configs — no stray literals", test_real_configs_have_no_stray_literals),
     ("8b. synthetic non-env literal documented", test_synthetic_non_env_literal_would_abort),
     ("9a. notification set guard", test_notification_set_guard),
-    ("9c. webhook provider convergence", test_webhook_provider_convergence),
     ("9b. real config declares notifications", test_real_config_declares_notifications),
+    ("9c. webhook provider convergence", test_webhook_provider_convergence),
     ("10. --timeout reaches the client", test_timeout_flag_reaches_client),
     ("11. rejected login is not retried", test_auth_failure_is_not_retried),
     ("12. transient timeout is retried", test_transient_login_timeout_is_retried),
