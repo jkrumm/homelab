@@ -226,7 +226,8 @@ def plan_webhook_providers(api: UptimeKumaApi, config: dict) -> list:
         if current is None:
             plan.append(("create", None, params))
             continue
-        cfg = json.loads(current.get("config") or "{}")
+        # uptime-kuma-api flattens the provider's config into the top-level dict.
+        cfg = current
         wanted = (params["webhookURL"], params["webhookContentType"], json.loads(params["webhookAdditionalHeaders"]), params["isDefault"])
         actual = (cfg.get("webhookURL"), cfg.get("webhookContentType"), json.loads(cfg.get("webhookAdditionalHeaders") or "{}"), bool(current.get("isDefault")))
         if wanted != actual:

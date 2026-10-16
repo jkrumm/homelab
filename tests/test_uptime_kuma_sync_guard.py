@@ -741,7 +741,7 @@ def test_webhook_provider_convergence():
         import json as _json
         cfg_ok = {"webhookURL": "https://hook.example.com/ingest", "webhookContentType": "form-data",
                   "webhookAdditionalHeaders": _json.dumps({"Authorization": "Bearer s3cret"})}
-        drifted = {"id": 3, "name": "Hook", "isDefault": False, "config": _json.dumps(cfg_ok)}
+        drifted = {"id": 3, "name": "Hook", "isDefault": False, **cfg_ok}
         rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, drifted])
         if ("edit_notification", 3) not in FAKE_KUMA_STATE["calls"]:
             failures.append("content-type drift not updated")
@@ -749,7 +749,7 @@ def test_webhook_provider_convergence():
         # Header key order / whitespace is not drift.
         cfg_ok["webhookContentType"] = "json"
         cfg_ok["webhookAdditionalHeaders"] = '{ "Authorization":  "Bearer s3cret" }'
-        same = {"id": 3, "name": "Hook", "isDefault": False, "config": _json.dumps(cfg_ok)}
+        same = {"id": 3, "name": "Hook", "isDefault": False, **cfg_ok}
         rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, same])
         if any(c[0] == "edit_notification" for c in FAKE_KUMA_STATE["calls"]):
             failures.append("re-serialized headers reported as drift")
