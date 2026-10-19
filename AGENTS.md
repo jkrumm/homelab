@@ -110,7 +110,6 @@ existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 | `homelab/restic/HEARTBEAT_URL`    | UptimeKuma push URL for restic backup heartbeat         |
 | `common/backblaze-s3/*`           | B2 append-only key — shared by homelab restic + VPS pg-dump (no delete perms) |
 | `Private/Backblaze B2/MASTER_*`   | B2 master key — manual use only, `make restic-prune`/`init` from Mac |
-| `homelab/dufs/PASSWORD`           | Public file server auth                                 |
 | `homelab/versitygw-root/*`        | S3 gateway root key — server-only; creates the IAM users |
 | `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
@@ -263,7 +262,7 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 │   │   ├── Bücher/       # Calibre library
 │   │   ├── Dokumente/    # Documents — includes Obsidian/ vault sync target
 │   │   ├── Videos/       # Personal videos
-│   │   ├── Public/       # Dufs public files
+│   │   ├── Public/       # ex-dufs public files (service retired, data kept)
 │   │   └── Dev/          # incl. image-share/ snapshots (decommissioned, kept, restic-covered)
 │   ├── garmin-tokens/    # Garmin Connect OAuth tokens
 │   ├── uptime-kuma/      # UptimeKuma data

@@ -111,7 +111,6 @@ services:
       - glance
       - uptime-kuma
       - immich-server
-      - dufs
     networks:
       - cloudflared
     labels:
@@ -390,8 +389,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
       # External library - read-only mount for Fuji photos
       - /home/jkrumm/ssd/SSD/Bilder/Fuji:/mnt/media/fuji:ro
-    ports:
-      - '2283:2283'
+    # No host port: Caddy and Glance reach immich-server over Docker networks, so a
+    # published 2283 would only add a LAN door.
     networks:
       - cloudflared
       - immich
@@ -545,28 +544,6 @@ services:
       glance.name: S3 (VersityGW)
       glance.icon: si:amazons3
       glance.url: https://s3.jkrumm.com/_/health
-      glance.hide: false
-
-  dufs:
-    image: sigoden/dufs:latest
-    container_name: dufs
-    restart: unless-stopped
-    command: >
-      /data -A
-      --auth @/
-      --auth jkrumm:${DUFS_PASSWORD}@/:rw
-      --enable-cors
-      --hidden .DS_Store,.git,Thumbs.db
-    volumes:
-      - /home/jkrumm/ssd/SSD/Public:/data
-    ports:
-      - '8098:5000'
-    networks:
-      - cloudflared
-    labels:
-      glance.name: Dufs Public Files
-      glance.icon: si:files
-      glance.url: https://public.jkrumm.com
       glance.hide: false
 
   # garmin-collector — stateless HTTP query layer over Garmin Connect.

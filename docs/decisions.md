@@ -173,3 +173,13 @@ phase landed; these three decisions are the parts worth keeping:
 The `image-share` service (share.jkrumm.com) was decommissioned; sharing moved to shutterflow. Its compose service, Caddy site block, `IMAGE_SHARE_*` secret refs, `make image-share-*` targets and the "Image Share" Uptime Kuma group are gone from this repo. The entries above that mention image-share (build-cache pruning, the push-monitor walkthrough) are kept as history of how those mechanisms were established; the `make image-share-*` targets they name no longer exist.
 
 Data was left on disk on purpose and stays covered by restic: `~/ssd/SSD/Bilder/ImageShare`, `~/ssd/image-share`, `~/ssd/SSD/Dev/image-share` and `~/ssd/SSD/Bilder/B2-Mirror`. The daily B2 `img/` → B2-Mirror reverse-backup cron lived inside the service and died with it, so B2-Mirror no longer refreshes.
+
+## dufs / public.jkrumm.com retired (2026-10-19)
+
+Every file door is Tailscale-only now. dufs served `~/ssd/SSD/Public` publicly (anonymous
+read, password write); its one real use, hosting README diagrams, is covered by the `/img`
+CDN for public images and by presigned links (B2 `private/`, or `s3.jkrumm.com`) for
+one-off shares. The compose service, Caddy block, `DUFS_PASSWORD` ref, Kuma monitors, the
+tunnel ingress entry and the DNS record are gone. `~/ssd/SSD/Public` stays on disk and in
+restic. Immich's host port 2283 went in the same change — Caddy and Glance reach it over
+Docker networks, so the published port was only a LAN door.

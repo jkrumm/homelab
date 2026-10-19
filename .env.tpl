@@ -17,7 +17,6 @@ CLOUDFLARE_TUNNEL_ID=op://homelab/config/CLOUDFLARE_TUNNEL_ID
 # --- Infrastructure ---
 POSTGRES_DB_PASSWORD=op://homelab/postgres/PASSWORD
 SAMBA_PASSWORD=op://homelab/samba/PASSWORD
-DUFS_PASSWORD=op://homelab/dufs/PASSWORD
 IMMICH_API_KEY=op://homelab/immich/API_KEY
 
 # --- VersityGW (S3 over existing dirs, Tailscale-only) ---

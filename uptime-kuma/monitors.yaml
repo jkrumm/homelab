@@ -219,19 +219,6 @@ groups:
             timeout: 120
             maxretries: 5
 
-          - name: Dufs - Docker
-            type: docker
-            docker_container: dufs
-            interval: 173
-            timeout: 120
-            maxretries: 5
-
-          - name: Public Files - HTTP
-            type: http
-            url: https://public.jkrumm.com/
-            interval: 179
-            cloudflare_bypass: true
-
           - name: S3 Gateway - Docker
             type: docker
             docker_container: versitygw

@@ -29,7 +29,6 @@ a fresh server up from scratch.
 13. [Setup Restic Backup](#setup-restic-backup)
 14. [Setup HomeLab self-healing watchdog](#setup-homelab-self-healing-watchdog)
 15. [Setup Immich](#setup-immich)
-16. [Setup Public Files (Dufs)](#setup-public-files-dufs)
 
 ---
 
@@ -63,7 +62,6 @@ a fresh server up from scratch.
 | Glance      | [glance.jkrumm.com](https://glance.jkrumm.com)       | Home dashboard      |
 | Immich      | [immich.jkrumm.com](https://immich.jkrumm.com)       | Photo management    |
 | UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com)       | Status page         |
-| Dufs        | [public.jkrumm.com](https://public.jkrumm.com)       | Public file server  |
 
 #### HomeLab — Private (Tailscale devices only, via Caddy HTTPS `:443`)
 
@@ -689,36 +687,3 @@ stubs with device config from the [official Immich hwaccel docs](https://immich.
   Library, import path `/mnt/media/fuji` (container path, not host path), then Scan.
   External-library photos carry a folder-icon badge and can't be modified from Immich.
 - **Restore / rollback / DB backup mechanics:** `docs/backups.md` → Immich database.
-
-## Setup Public Files (Dufs)
-
-[Dufs](https://github.com/sigoden/dufs) is a lightweight file server for hosting public static files with optional authentication for uploads.
-
-1. Create the directories:
-   ```bash
-   mkdir -p /home/jkrumm/ssd/SSD/Public/diagrams
-   mkdir -p /home/jkrumm/ssd/SSD/Public/assets
-   ```
-2. Add the `DUFS_PASSWORD` secret to 1Password (`homelab/dufs/PASSWORD`).
-3. Start the container: `op run --env-file=.env.tpl -- docker compose up -d dufs`
-4. Access at `https://public.jkrumm.com`.
-
-**Authentication model:** public read (anyone can browse/download); authenticated write
-(only `jkrumm` can upload/delete/modify).
-
-```bash
-# Upload with basic auth
-curl -u jkrumm:PASSWORD -T file.png https://public.jkrumm.com/diagrams/project/file.png
-```
-
-Embed in READMEs/Notion/Linear with the direct URL, e.g.
-`![Architecture Diagram](https://public.jkrumm.com/diagrams/architecture.png)`.
-
-| Option                              | Effect                                                           |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `-A`                                | Allow all operations (public read + directory listing)           |
-| `--auth jkrumm:$DUFS_PASSWORD@/:rw` | Only authenticated user can write/delete                         |
-| `--enable-cors`                     | Allows cross-origin requests (required for GitHub/Notion embeds) |
-| `--hidden .DS_Store,.git,Thumbs.db` | Hides OS/git clutter from directory listings                     |
-
-Files backed up via restic (`Public` source); auto-updated via Watchtower.
