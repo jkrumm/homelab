@@ -535,8 +535,10 @@ services:
       - /mnt/hdd/inbox:/data/root/inbox
       - /mnt/hdd/fuji:/data/root/fuji
       - /home/jkrumm/ssd/SSD/Dokumente:/data/root/dokumente
-      - /home/jkrumm/ssd/SSD/Bilder:/data/root/bilder:ro
-      - /mnt/hdd/weatherorb-archive:/data/root/weatherorb-archive:ro
+      # rw on purpose: bucket ACLs/policies are xattrs on the bucket dir itself, so a :ro
+      # bind can't hold one. Write protection is IAM — only the admin key writes here.
+      - /home/jkrumm/ssd/SSD/Bilder:/data/root/bilder
+      - /mnt/hdd/weatherorb-archive:/data/root/weatherorb-archive
     networks:
       - cloudflared
     labels:
