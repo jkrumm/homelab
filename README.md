@@ -108,7 +108,7 @@ Both machines are hardened with identical configurations (applied via `setup.sh`
 | Component               | Configuration                                                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **SSH**                 | Drop-in at `/etc/ssh/sshd_config.d/99-hardening.conf`: PermitRootLogin no, PasswordAuthentication no, MaxAuthTries 3, X11/Agent/TcpForwarding disabled |
-| **UFW**                 | Default deny incoming. SSH restricted to Tailscale CGNAT range (`100.64.0.0/10`). HomeLab: Samba also Tailscale-only. VPS: HTTPS + MariaDB open        |
+| **UFW**                 | Default deny incoming. SSH restricted to Tailscale CGNAT range (`100.64.0.0/10`). HomeLab: Samba bound to the Tailscale IP. VPS: HTTPS + MariaDB open        |
 | **fail2ban**            | Enabled (sshd jail)                                                                                                                                    |
 | **sysctl**              | kptr_restrict=2, dmesg_restrict=1, ptrace_scope=2, rp_filter=1, log_martians=1, send_redirects=0, unprivileged_bpf_disabled=1                          |
 | **unattended-upgrades** | Security updates auto-installed. Docker packages blacklisted. Auto-reboot at 4 AM if kernel update pending                                             |
@@ -423,23 +423,24 @@ Files on the SSD (`/mnt/ssd/SSD`) and HDD (`/mnt/hdd`) are reachable two ways.
 
 ### Samba (SMB File Sharing)
 
-SMB3-only (blocks SMB1/SMB2), encryption preferred, macOS-compatible (fruit VFS module).
+SMB3-only, encryption preferred, macOS-compatible (fruit VFS), durable handles on so a
+Mac resumes open files after a short network drop. Global options go through
+`SAMBA_GLOBAL_STANZA` — the image ignores a plain `SAMBA_GLOBAL_CONFIG` (that variable is
+only read with a `_<key>` suffix); check the effective config with
+`ssh homelab "docker exec samba testparm -s"`.
 
-1. Create a specific SSD folder for Samba:
+| Share | Path on server | Notes |
+|-|-|-|
+| `SSD` | `~/ssd/SSD` | User data only — service state under `~/ssd` stays off the share |
+| `HDD` | `/mnt/hdd` | Whole HDD |
 
-   ```bash
-   sudo mkdir -p /home/jkrumm/ssd
-   sudo chown -R 1000:1000 /mnt/ssd/samba
-   sudo chmod -R 755 /mnt/ssd/samba
-   ```
+Access (Tailscale devices only): Finder → `Cmd+K` → `smb://samba.jkrumm.com`, user
+`jkrumm`, password `op://homelab/samba/PASSWORD`. Port 445 is published on the HomeLab
+Tailscale IP only — Docker-published ports bypass UFW, so binding the address is what
+keeps SMB off the LAN. There is no SSH-tunnel fallback (`AllowTcpForwarding no`).
 
-2. Access (Tailscale devices only):
-   - **Direct** (preferred): Finder → `Cmd+K` → `smb://samba.jkrumm.com`
-   - **SSH tunnel** (fallback): `ssh -L 1445:localhost:445 homelab` → `smb://localhost:1445`
-   - Username: jkrumm, password in 1Password
-   - Samba ports (139, 445) restricted to Tailscale CGNAT range via UFW
-
-**Filebrowser** is best for web-based upload/browse; **Samba** for mounting network drives and bulk operations.
+**Filebrowser** for web upload/browse and links from notes; **Samba** for Finder mounts and bulk
+human work; **S3** for anything scripted or agent-driven.
 
 ## Setup Beszel
 
