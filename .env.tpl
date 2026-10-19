@@ -20,6 +20,12 @@ SAMBA_PASSWORD=op://homelab/samba/PASSWORD
 DUFS_PASSWORD=op://homelab/dufs/PASSWORD
 IMMICH_API_KEY=op://homelab/immich/API_KEY
 
+# --- VersityGW (S3 over existing dirs, Tailscale-only) ---
+# Root key is server-only; client keys (s3-admin = MacBook, s3-agent = mini) are
+# VersityGW IAM users created from it — see docs/s3.md.
+VERSITYGW_ROOT_ACCESS_KEY=op://homelab/versitygw-root/ACCESS_KEY_ID
+VERSITYGW_ROOT_SECRET_KEY=op://homelab/versitygw-root/SECRET_ACCESS_KEY
+
 # --- Garmin Collector (HTTP query layer — argo API on VPS reads via Tailscale) ---
 GARMIN_EMAIL=op://homelab/garmin/EMAIL
 GARMIN_PASSWORD=op://homelab/garmin/PASSWORD

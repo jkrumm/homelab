@@ -86,8 +86,9 @@ ssh homelab "cd ~/homelab && git pull && op run --env-file=.env.tpl -- docker co
 ssh -t homelab "docker logs -f <service>"   # interactive, needed for a follow that expects a TTY
 ```
 
-**Samba** (file access via Tailscale): direct — Finder → `Cmd+K` → `smb://samba.jkrumm.com`;
-fallback tunnel — `ssh -L 1445:localhost:445 homelab` → `smb://localhost:1445`.
+**Files** (Tailscale only): Samba — Finder → `Cmd+K` → `smb://samba.jkrumm.com` (no SSH-tunnel
+fallback: sshd has `AllowTcpForwarding no`); S3 — `https://s3.jkrumm.com`, buckets are
+existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 
 ---
 
@@ -110,6 +111,8 @@ fallback tunnel — `ssh -L 1445:localhost:445 homelab` → `smb://localhost:144
 | `common/backblaze-s3/*`           | B2 append-only key — shared by homelab restic + VPS pg-dump (no delete perms) |
 | `Private/Backblaze B2/MASTER_*`   | B2 master key — manual use only, `make restic-prune`/`init` from Mac |
 | `homelab/dufs/PASSWORD`           | Public file server auth                                 |
+| `homelab/versitygw-root/*`        | S3 gateway root key — server-only; creates the IAM users |
+| `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `homelab/garmin/EMAIL`, `homelab/garmin/PASSWORD` | Garmin Connect login                    |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
@@ -314,6 +317,7 @@ homelab/
 │   └── hwaccel.{ml,transcoding}.yml  # Immich GPU acceleration stubs (not active)
 ├── docs/                    # Detailed documentation
 │   ├── backups.md           # Restic design + restore drill
+│   ├── s3.md                # VersityGW S3 gateway — bucket map, IAM users, client setup
 │   ├── proton-bridge.md     # Proton Bridge image decision, login steps, restore
 │   ├── decisions.md         # Durable rationale (build-cache, push monitors, Garmin MFA, Tailscale/Caddy)
 │   └── watchdog-behaviors.md

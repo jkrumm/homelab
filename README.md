@@ -72,6 +72,7 @@ a fresh server up from scratch.
 | Beszel           | [beszel.jkrumm.com](https://beszel.jkrumm.com)   | System metrics                                                |
 | Dozzle           | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)   | Container logs                                                |
 | FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
+| S3 (VersityGW)   | [s3.jkrumm.com](https://s3.jkrumm.com)           | S3 API over existing folders — agents, rclone, presigned links (`docs/s3.md`) |
 | Garmin Collector | [garmin.jkrumm.com](https://garmin.jkrumm.com)   | Stateless Garmin Connect HTTP layer (called by argo from VPS) |
 | Karakeep         | [karakeep.jkrumm.com](https://karakeep.jkrumm.com) | Read-later / bookmark bucket, AI auto-tagging via IU endpoint |
 
@@ -399,7 +400,9 @@ sudo reboot   # then: mount | grep /mnt/hdd
 
 ## File Access
 
-Files on the SSD (`/mnt/ssd/SSD`) and HDD (`/mnt/hdd`) are reachable two ways.
+Files on the SSD (`~/ssd/SSD`) and HDD (`/mnt/hdd`) are reachable three ways, all
+Tailscale-only: Filebrowser (web), Samba (Finder mounts) and the S3 gateway (agents,
+rclone, scripts — buckets are existing folders, see `docs/s3.md`).
 
 ### Filebrowser (Web Interface)
 

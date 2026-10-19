@@ -232,6 +232,20 @@ groups:
             interval: 179
             cloudflare_bypass: true
 
+          - name: S3 Gateway - Docker
+            type: docker
+            docker_container: versitygw
+            interval: 181
+            timeout: 120
+            maxretries: 5
+
+          # Over the shared cloudflared bridge, no Tailscale hop; unauthenticated.
+          - name: S3 Gateway - HTTP
+            type: http
+            url: http://versitygw:7070/_/health
+            interval: 187
+            maxretries: 1
+
       # --- Immich subgroup ---
       - name: Immich
         type: group

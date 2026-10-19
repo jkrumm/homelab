@@ -511,6 +511,40 @@ services:
       glance.url: https://files.jkrumm.com
       glance.hide: false
 
+  # S3 front over existing directories (VersityGW posix backend): buckets are the bind
+  # mounts below, objects stay plain files — Samba, restic and Immich read the same tree.
+  # Tailscale-only via Caddy (s3.jkrumm.com). Users/keys live in the internal IAM dir;
+  # the gateway root itself holds nothing but the bucket mount points.
+  versitygw:
+    image: versity/versitygw:latest
+    container_name: versitygw
+    restart: unless-stopped
+    user: '1000:1000'
+    environment:
+      ROOT_ACCESS_KEY: ${VERSITYGW_ROOT_ACCESS_KEY}
+      ROOT_SECRET_KEY: ${VERSITYGW_ROOT_SECRET_KEY}
+      VGW_BACKEND: posix
+      VGW_BACKEND_ARGS: /data/root
+      VGW_PORT: ':7070'
+      VGW_IAM_DIR: /data/iam
+      VGW_ARGS: '--health /_/health'
+      VGW_QUIET: 'true'
+    volumes:
+      - /home/jkrumm/ssd/versitygw/root:/data/root
+      - /home/jkrumm/ssd/versitygw/iam:/data/iam
+      - /mnt/hdd/inbox:/data/root/inbox
+      - /mnt/hdd/fuji:/data/root/fuji
+      - /home/jkrumm/ssd/SSD/Dokumente:/data/root/dokumente
+      - /home/jkrumm/ssd/SSD/Bilder:/data/root/bilder:ro
+      - /mnt/hdd/weatherorb-archive:/data/root/weatherorb-archive:ro
+    networks:
+      - cloudflared
+    labels:
+      glance.name: S3 (VersityGW)
+      glance.icon: si:amazons3
+      glance.url: https://s3.jkrumm.com/_/health
+      glance.hide: false
+
   dufs:
     image: sigoden/dufs:latest
     container_name: dufs

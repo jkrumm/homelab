@@ -46,6 +46,15 @@ http://files.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
+# S3 gateway (private, Tailscale only — VersityGW over existing dirs). Caddy keeps the
+# Host header, so SigV4 and presigned URLs signed for s3.jkrumm.com verify upstream.
+s3.jkrumm.com {
+	reverse_proxy versitygw:7070
+}
+http://s3.jkrumm.com {
+	redir https://{host}{uri} permanent
+}
+
 # Garmin Collector (private, Tailscale only — stateless HTTP query layer
 # over Garmin Connect for the argo API on VPS). Bearer-authed at the app level.
 garmin.jkrumm.com {
