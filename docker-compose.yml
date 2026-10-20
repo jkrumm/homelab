@@ -255,6 +255,7 @@ services:
       - /mnt/hdd/backups:/sources/hermes-backup:ro
       - /mnt/hdd/karakeep/data:/sources/Karakeep:ro
       - /home/jkrumm/ssd/proton-bridge:/sources/ProtonBridge:ro
+      - /mnt/hdd/mini-archive:/sources/Mini-Archive:ro
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
     labels:
@@ -532,6 +533,7 @@ services:
       - /home/jkrumm/ssd/versitygw/root:/data/root
       - /home/jkrumm/ssd/versitygw/iam:/data/iam
       - /mnt/hdd/inbox:/data/root/inbox
+      - /mnt/hdd/mini-archive:/data/root/mini-archive
       - /mnt/hdd/fuji:/data/root/fuji
       - /home/jkrumm/ssd/SSD/Dokumente:/data/root/dokumente
       # rw on purpose: bucket ACLs/policies are xattrs on the bucket dir itself, so a :ro
