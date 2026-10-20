@@ -76,6 +76,12 @@ else
   echo "Tailscale is already installed: $(tailscale version)"
 fi
 
+# Docker waits for the Tailscale IP (rationale in the drop-in itself).
+install -D -m 644 "$USER_HOME/homelab/config/systemd/docker-after-tailscale.conf" \
+  /etc/systemd/system/docker.service.d/10-after-tailscale.conf
+systemctl daemon-reload
+echo "Docker ordered after Tailscale (drop-in 10-after-tailscale.conf)"
+
 # --------------------------------------------------
 # 1Password CLI
 # --------------------------------------------------
@@ -161,13 +167,12 @@ ufw default allow outgoing
 # SSH: allow from Tailscale CGNAT range only
 ufw allow from 100.64.0.0/10 to any port 22 proto tcp comment 'SSH via Tailscale'
 
-# Samba: allow from Tailscale CGNAT range only
-ufw allow from 100.64.0.0/10 to any port 139 proto tcp comment 'Samba NetBIOS via Tailscale'
+# Samba: allow from Tailscale CGNAT range only. Defence in depth — Docker-published
+# ports bypass UFW; the real guard is samba publishing 445 on the Tailscale IP only.
 ufw allow from 100.64.0.0/10 to any port 445 proto tcp comment 'Samba SMB via Tailscale'
 
 # Deny these ports from all other sources
 ufw deny 22/tcp
-ufw deny 139/tcp
 ufw deny 445/tcp
 
 ufw --force enable

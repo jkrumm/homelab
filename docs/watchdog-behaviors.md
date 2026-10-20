@@ -271,7 +271,9 @@ If BetterStack is genuinely down but homelab is healthy:
 
 - Public services (Cloudflare tunnel path is independent)
 - All containers running normally
-- SSH via fallback: `ssh homelab-direct` (IPv6 homelab.jkrumm.com)
+- Nothing private: SSH, Samba and the S3 gateway are Tailscale-only, so they go dark with
+  it. There is no direct-SSH fallback (the old IPv6 `homelab.jkrumm.com` record was removed
+  2026-10-20); the last resort is physical access.
 
 ---
 
