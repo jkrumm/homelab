@@ -363,6 +363,13 @@ sudo systemctl enable mount-hdd.service
 sudo reboot   # then: mount | grep /mnt/hdd
 ```
 
+**Lock the bare mountpoint.** With the HDD unmounted, Docker's bind mounts would create
+empty stand-in dirs under `/mnt/hdd` on the SSD and every HDD-bound container would start
+against them (S3 buckets included). `scripts/hdd-mountpoint-guard.sh` (root, HDD unmounted)
+clears any stand-ins, sets `chattr +i` on the empty mountpoint so those containers refuse
+to start instead, then unlocks LUKS and mounts. It is also the recovery step after the HDD
+was absent: `sudo ~/homelab/scripts/hdd-mountpoint-guard.sh`, then `make up`.
+
 ## Mount the `TRANSFER` Partition
 
 1. Create the mount point:

@@ -146,7 +146,10 @@ Usually resolves at state 1 (simple Docker restart).
 **What fails:**
 
 - `check_mount_integrity` - /mnt/hdd not accessible
-- Containers with HDD volumes fail (beszel, filebrowser, restic-backup)
+- Containers with HDD volumes fail to (re)start — the bare `/mnt/hdd` mountpoint is
+  `chattr +i`, so Docker cannot create stand-in dirs on the SSD
+  (`scripts/hdd-mountpoint-guard.sh`). Already-running ones keep their stale view: stop them.
+  After the HDD is back: run the guard script (root), then `make up`.
 
 **What keeps working:**
 
