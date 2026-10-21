@@ -954,6 +954,13 @@ analyze_failure_and_recover() {
     local external_ok_recheck=false
     local internal_ok_recheck=false
     local docker_ok_recheck=false
+    local mount_ok_recheck=false
+
+    # The mount is re-checked too: without it a mount-only failure (HDD gone, every
+    # other check green) always read as "resolved itself" and sent a healthy heartbeat.
+    if check_mount_integrity "false"; then
+        mount_ok_recheck=true
+    fi
 
     if check_internet_connectivity "false"; then
         internet_ok_recheck=true
@@ -972,14 +979,14 @@ analyze_failure_and_recover() {
     fi
 
     # If everything is now healthy, the issue resolved itself
-    if $internet_ok_recheck && $external_ok_recheck && $internal_ok_recheck && $docker_ok_recheck; then
+    if $mount_ok_recheck && $internet_ok_recheck && $external_ok_recheck && $internal_ok_recheck && $docker_ok_recheck; then
         log "✅ Re-check shows all systems healthy - issue resolved itself"
         log "No recovery action needed"
         set_state 0
         return 0
     fi
 
-    log "Re-check confirmed failures: Internet=$internet_ok_recheck, External=$external_ok_recheck, Internal=$internal_ok_recheck, Docker=$docker_ok_recheck"
+    log "Re-check confirmed failures: Mount=$mount_ok_recheck, Internet=$internet_ok_recheck, External=$external_ok_recheck, Internal=$internal_ok_recheck, Docker=$docker_ok_recheck"
     log "Proceeding with recovery actions..."
 
     # Check mount integrity first - if this fails, try to recover it
