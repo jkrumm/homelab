@@ -1,0 +1,9 @@
+[Unit]
+Description=Seal settled WeatherOrb archive files (etag backfill + chattr +i)
+RequiresMountsFor=/mnt/hdd
+
+[Service]
+Type=oneshot
+ExecStart=/home/jkrumm/homelab/scripts/weatherorb-archive-seal.sh
+Nice=10
+IOSchedulingClass=idle

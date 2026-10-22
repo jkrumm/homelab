@@ -82,6 +82,14 @@ install -D -m 644 "$USER_HOME/homelab/config/systemd/docker-after-tailscale.conf
 systemctl daemon-reload
 echo "Docker ordered after Tailscale (drop-in 10-after-tailscale.conf)"
 
+# WeatherOrb archive WORM: seal settled files (rationale in the script header).
+for unit in weatherorb-archive-seal.service weatherorb-archive-seal.timer; do
+  install -D -m 644 "$USER_HOME/homelab/config/systemd/$unit" "/etc/systemd/system/$unit"
+done
+systemctl daemon-reload
+systemctl enable --now weatherorb-archive-seal.timer
+echo "WeatherOrb archive seal timer enabled"
+
 # --------------------------------------------------
 # 1Password CLI
 # --------------------------------------------------

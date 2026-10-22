@@ -276,7 +276,7 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
 ├── backups/              # FPP MySQL hourly dump + weatherorb-accounts/ (hourly VPS pg_dump pull) (restic source)
-└── weatherorb-archive/   # hourly pull from the Mac mini (sha256-verified, append-only; NOT restic-backed)
+└── weatherorb-archive/   # hourly pull from the Mac mini (sha256-verified, append-only, files sealed chattr +i; NOT restic-backed)
 ```
 
 ---
