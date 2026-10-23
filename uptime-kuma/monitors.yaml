@@ -983,6 +983,25 @@ groups:
         retry_interval: 650
         maxretries: 1
 
+  # Shutterflow share server (VPS). /health is liveness (Postgres); /health/images fetches one
+  # signed view through the CDN and imgproxy and scans it: down means friends see no photos
+  # (shutterflow deploy/image-serving.md, Uptime). It renders at most once a minute.
+  - name: Shutterflow
+    interval: 205
+    monitors:
+      - name: Shutterflow - Share Server - HTTP
+        type: keyword
+        url: https://shutterflow.app/health
+        keyword: '"db":"ok"'
+        interval: 120
+
+      - name: Shutterflow - Images - HTTP
+        type: keyword
+        url: https://shutterflow.app/health/images
+        keyword: '"images":"ok"'
+        interval: 300
+        timeout: 30
+
   # ============================================
   # Websites - External website monitoring
   # ============================================
