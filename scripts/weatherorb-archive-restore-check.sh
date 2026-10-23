@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
-# WeatherOrb archive restore drill — proves one pulled day is intact and restores.
+# WeatherOrb archive restore drill — proves one archived day is intact and restores.
 #
-# For one UTC date (default: the newest date with a database dump in INDEX.mini):
-#   1. re-hashes every held file of that day (past/<date>/**, dumps/<date>/**) against
-#      the size and sha256 in $DEST/INDEX.mini — a missing, short or altered file fails
+# The manifest is the bucket's own: the mini pushes a write-once snapshot of its ledgers
+# every UTC day (weatherorb ADR 0009, Wave 91 amendment), $DEST/manifest/<date>/INDEX
+# (`<sha256>  <size>  <relpath>`) and $DEST/manifest/<date>/LOST (`<UTC ISO>  <sha256>
+# <relpath>  <reason>`, a staged file whose bytes exist nowhere any more). The newest
+# snapshot is the whole truth; no merge across days.
+#
+# For one UTC date (default: the newest date with a database dump in that INDEX):
+#   1. re-hashes every file of that day (past/<date>/**, dumps/<date>/**) against the
+#      size and sha256 in the manifest's INDEX — a missing, short or altered file fails;
+#      a file named in LOST is skipped and printed by name with its reason, never failed
 #   2. prints, per past-track round, the file count and bytes
-#   3. restores the day's dump into a throwaway postgres container (random password
+#   3. restores the day's dump into a throwaway PostGIS container (random password
 #      generated at runtime, no published port, data on a named volume — the database is
 #      larger than this host's RAM — container and volume always removed on exit) and prints
 #      the dump's table-data entries, every table's row count (forecast_point and
@@ -28,22 +35,36 @@
 set -euo pipefail
 
 DEST="${WO_ARCHIVE_DEST:-/mnt/hdd/weatherorb-archive}"
-PG_IMAGE="${PG_IMAGE:-postgres:18}"
+# The dump carries the PostGIS `spots` schema (weatherorb ADR 0012), so stock postgres cannot restore it.
+PG_IMAGE="${PG_IMAGE:-postgis/postgis:18-3.6}"
 CONTAINER="wo-archive-restore-check-$$"
 DB="restore_check"
-INDEX="$DEST/INDEX.mini"
 
 log() { echo "$(date -Iseconds) $*"; }
 die() { log "FAIL: $*"; exit 1; }
 
-[ -r "$INDEX" ] || die "no readable $INDEX — has the pull run?"
+manifest_day="$(find "$DEST/manifest" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' -printf '%f\n' 2> /dev/null | sort | tail -1)"
+[ -n "$manifest_day" ] || die "no manifest snapshot under $DEST/manifest — has the mini pushed one?"
+INDEX="$DEST/manifest/$manifest_day/INDEX"
+LOST="$DEST/manifest/$manifest_day/LOST"
+[ -r "$INDEX" ] || die "no readable $INDEX"
+[ -r "$LOST" ] || die "no readable $LOST (an empty LOST is a file, a missing one is a broken snapshot)"
+log "manifest: manifest/$manifest_day ($(wc -l < "$INDEX") INDEX lines, $(wc -l < "$LOST") LOST lines)"
+
+# relpath -> reason of every LOST line (fields: ISO, sha256, relpath, reason; two-space separated).
+declare -A lost=()
+while IFS= read -r line; do
+  rest="${line#*  }"; rest="${rest#*  }"
+  rel="${rest%%  *}"
+  lost["$rel"]="${rest#*  }"
+done < "$LOST"
 
 date_arg="${1:-$(awk -F'  ' '$3 ~ /^dumps\/[0-9]{4}-[0-9]{2}-[0-9]{2}\// { split($3, p, "/"); print p[2] }' "$INDEX" | sort -u | tail -1)}"
 [[ "$date_arg" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || die "no dump date in $INDEX and none given (usage: $0 [YYYY-MM-DD])"
 log "day: $date_arg (archive: $DEST)"
 
 # 1. Re-hash every held file of the day against the index.
-checked=0 bad=0
+checked=0 bad=0 skipped_lost=0
 while IFS= read -r line; do
   sha="${line%%  *}"
   rest="${line#*  }"
@@ -54,6 +75,9 @@ while IFS= read -r line; do
     *) continue ;;
   esac
   [[ "$rel" =~ ^[A-Za-z0-9._/-]+$ ]] && [[ "$rel" != *..* ]] || { log "MISMATCH unsafe relpath: $rel"; bad=$(( bad + 1 )); continue; }
+  if [ -n "${lost[$rel]+x}" ]; then
+    log "LOST (skipped, not failed): $rel — ${lost[$rel]}"; skipped_lost=$(( skipped_lost + 1 )); continue
+  fi
   checked=$(( checked + 1 ))
   file="$DEST/$rel"
   if [ ! -f "$file" ]; then
@@ -65,7 +89,7 @@ while IFS= read -r line; do
 done < "$INDEX"
 [ "$checked" -gt 0 ] || die "no index entries for $date_arg"
 [ "$bad" -eq 0 ] || die "$bad of $checked files of $date_arg failed re-hash"
-log "re-hash: $checked files of $date_arg match INDEX.mini"
+log "re-hash: $checked files of $date_arg match manifest/$manifest_day/INDEX, $skipped_lost named in LOST skipped"
 
 # 2. Past-track rounds of the day: files and bytes.
 echo "past-track rounds on $date_arg (round, files, bytes):"
@@ -173,4 +197,4 @@ SQL
   echo "-- site sample end"
 fi
 
-log "OK: $date_arg — $checked files re-hashed, ${dump#"$DEST"/} restored and queried"
+log "OK: $date_arg — $checked files re-hashed against manifest/$manifest_day ($skipped_lost LOST skipped), ${dump#"$DEST"/} restored and queried"
