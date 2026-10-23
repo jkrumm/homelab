@@ -97,57 +97,35 @@ VPS (weatherorb ADR 0013). Its dumps are pulled home so the data exists off the 
 25 * * * * /home/jkrumm/homelab/scripts/weatherorb-accounts-pull.sh >> /home/jkrumm/logs/weatherorb-accounts-pull.log 2>&1
 ```
 
-## WeatherOrb archive — pulled from the mini
+## WeatherOrb archive — pushed from the mini
 
 The weatherorb Mac mini stages an append-only archive of what the weather pipeline
 cannot regenerate — the past-track forecast runs (`past/<date>/<round>/…`), database
-dumps (`dumps/<date>/…`), round products (`rounds/<round_id>/…`) and static grids
-(`static/…`) — and deletes its own copy only after this side has verified and acked it
-(weatherorb ADR 0009). It is pulled home:
+dumps (`dumps/<date>/…`), round products (`rounds/<round_id>/…`), static grids
+(`static/…`) and the published scoreboard days (`scoreboard/…`) — and pushes it to the
+`weatherorb-archive` bucket (VersityGW, `docs/s3.md`), which is the directory
+`/mnt/hdd/weatherorb-archive`. The mini deletes its own copy only after the bucket is
+proven to hold the file's sha256 (weatherorb ADR 0009). The earlier hourly ssh pull
+(`weatherorb-archive-pull.sh`, its key and its Kuma push monitor) was retired on
+2026-10-23 (weatherorb Wave 91).
 
-- **Mini side (not this repo):** a forced-command ssh door. The homelab connects as
-  `jkrumm@mini` with a dedicated key whose `authorized_keys` entry is
-  `restrict,command=…`, so the "command" this side sends is only an argument string:
-  `index` (stdout lines `<sha256>  <size>  <relpath>`, append-only), `get <relpath>`
-  (the bytes; exit 3 + `pruned` if the mini already deleted it after an ack) and `ack`
-  (stdin lines `<sha256>  <relpath>`; replies `acked <n> rejected <m>`).
-- **Pull:** `scripts/weatherorb-archive-pull.sh` (jkrumm crontab, hourly at :55) writes
-  the index to `INDEX.mini`, then per entry skips what is held and recorded in
-  `.verified`, else fetches whole-file into `<relpath>.part`, checks size + sha256,
-  renames into place and appends to `.verified`. A mismatch deletes the `.part` and
-  counts a failure; a `pruned` answer for a file not held is a hard failure (data lost,
-  never acked). Every `.verified` line not yet in `.acked` is then acked in one batch
-  and recorded in `.acked` only after the reply parsed. Relpaths with `..`, a leading
-  `/` or characters outside `[A-Za-z0-9._/-]` are refused. `flock` keeps two runs from
-  overlapping; nothing in the archive is ever deleted (append-only, year one). Files are
-  immutable, so a failed run is simply resumed by the next one.
+- **Write-once:** `scripts/weatherorb-archive-seal.sh` (root timer every 10 min) backfills
+  `user.etag` and seals (`chattr +i`) every file untouched for 10 min, so no key can be
+  overwritten or deleted, whatever the writer (`docs/s3.md` Caveats).
+- **Manifest:** every UTC day the mini pushes a full write-once snapshot of its ledgers,
+  `manifest/<date>/INDEX` (`<sha256>  <size>  <relpath>`) and `manifest/<date>/LOST`
+  (`<UTC ISO>  <sha256>  <relpath>  <reason>`: a staged file whose bytes exist nowhere).
+  The newest snapshot is the whole truth; nothing merges days.
 - **Where:** `/mnt/hdd/weatherorb-archive` (`WO_ARCHIVE_DEST`) — deliberately outside
-  `/mnt/hdd/backups`, so it is **not** restic-backed and has no offsite copy. A second
-  (offsite) copy is an open owner decision (ADR 0009); until it is made, this disk holds
-  the only copy of acked files.
-- **Env overrides:** `WO_ARCHIVE_SSH` (default `jkrumm@mini`), `WO_ARCHIVE_PORT` (22),
-  `WO_ARCHIVE_KEY` (`~/.ssh/id_ed25519_weatherorb_archive`), `WO_ARCHIVE_DEST`.
-- **Key:** `scripts/weatherorb-archive-keygen.sh` idempotently creates the key
-  (ed25519, no passphrase, comment `homelab-weatherorb-archive`) on the homelab server
-  and prints the public key line. Install it on the mini from the weatherorb checkout:
-  `make archive-door-key KEY='<printed line>'`.
-- **Wiring checklist (nothing installs these):** the jkrumm crontab line below, the push-URL
-  file(s) for the monitors (`WeatherOrb Accounts Backup - Push` and `WeatherOrb Archive - Push`;
-  the URL is `<kuma-url>/api/push/<pushToken>`, token from `api.get_monitor(<id>)["pushToken"]`
-  run through `op run --env-file=.env.tpl` with `uptime-kuma/.venv`), and `make archive-door-key`
-  in the weatherorb checkout. A missing piece fails silently: no crontab line or push file means
-  no heartbeat and a DOWN monitor; no door key means `Permission denied (publickey)` in
-  `~/logs/weatherorb-archive-pull.log`.
-- **Push URL:** `~/.config/uptime-kuma/weatherorb-archive-push-url` (chmod 600) — the
-  plain-file convention. Without the file the script logs a warning and skips the ping.
-  The `WeatherOrb Archive - Push` monitor (interval 3900 s) is declared in
-  `uptime-kuma/monitors.yaml`, but **create it (`make uk-sync`) only after the pending
-  tailnet grant homelab → mini is applied** and the first pull succeeded — before the
-  grant the pull cannot reach the mini and the monitor would only page.
+  `/mnt/hdd/backups`, so it is **not** restic-backed and has no offsite copy (owner
+  2026-10-22: this HDD is the one copy, ADR 0009).
+- **Monitoring:** the mini's watchdog (`archive_backlog`) fails when a staged file or a
+  manifest snapshot is not confirmed on the bucket in time; nothing on this side pings.
 - **Restore drill:** `scripts/weatherorb-archive-restore-check.sh [<YYYY-MM-DD>]`
-  (default: the newest date that has a dump) re-hashes every held file of that day
-  (`past/<date>/**`, `dumps/<date>/**`) against `INDEX.mini`, prints file count and
-  bytes per past-track round, then restores the day's dump into a throwaway `postgres:18`
+  (default: the newest date that has a dump) reads the newest `manifest/*/INDEX`,
+  re-hashes every file of that day (`past/<date>/**`, `dumps/<date>/**`) against it,
+  skipping and naming each file listed in that snapshot's `LOST`, prints file count and
+  bytes per past-track round, then restores the day's dump into a throwaway `postgis/postgis:18-3.6`
   container (random password, no published port, data on a named Docker volume because the
   ~10 GB database does not fit this host's RAM; container and volume removed on exit, and
   a run killed past that is swept by the next one under a lock) and
@@ -158,11 +136,6 @@ dumps (`dumps/<date>/…`), round products (`rounds/<round_id>/…`) and static 
   compares them against the mini's live rows and the past-track files. Exit nonzero on any
   mismatch or restore failure; the output is the evidence. Run by hand, or weekly from
   cron.
-
-```
-# crontab -e (jkrumm) — the repo documents these, setup.sh installs only the root watchdog
-55 * * * * /home/jkrumm/homelab/scripts/weatherorb-archive-pull.sh >> /home/jkrumm/logs/weatherorb-archive-pull.log 2>&1
-```
 
 ## Two-key pattern (ransomware safety)
 

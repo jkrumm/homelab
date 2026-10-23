@@ -2,8 +2,8 @@
 # weatherorb-archive-seal.sh — make every settled file in the WeatherOrb archive immutable.
 # Runs as root from weatherorb-archive-seal.timer (config/systemd/, installed by setup.sh).
 #
-# Why: the archive is append-only (weatherorb ADR 0009) but two writers reach it — the
-# hourly ssh pull (weatherorb-archive-pull.sh) and S3 PUTs through VersityGW. VersityGW
+# Why: the archive is append-only (weatherorb ADR 0009) but every write-capable S3 key
+# reaches it, and until 2026-10-23 an ssh pull wrote into it out-of-band too. VersityGW
 # v1.9 posix honours `If-None-Match: *` only for files carrying its `user.etag` xattr, so
 # a PUT onto a pulled file silently replaced it (2026-10-22, one file lost). Two layers:
 #   1. a missing `user.etag` is backfilled with the file's MD5 (the single-part S3 ETag),
@@ -12,7 +12,8 @@
 #      writer and whatever it skips. Directories stay writable so new files still land.
 #
 # Files are sealed once untouched for SETTLE_MIN minutes. Skipped: dot-entries at the top
-# level (pull state, .sgwtmp multipart staging), INDEX.mini (rewritten every pull), *.part.
+# level (the retired pull's state, .sgwtmp multipart staging), INDEX.mini (the retired pull's
+# last index, kept as it was), *.part.
 # Deliberate deletion later needs `chattr -i` first.
 set -euo pipefail
 

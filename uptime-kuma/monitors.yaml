@@ -324,27 +324,6 @@ groups:
             retry_interval: 3700
             maxretries: 1
 
-          # WeatherOrb archive (past-track forecast runs, DB dumps, round products —
-          # staged on the Mac mini, weatherorb ADR 0009). scripts/weatherorb-archive-pull.sh
-          # (jkrumm crontab, hourly :55) fetches the mini's index, pulls + sha256-verifies
-          # every new file, acks the verified ones (the mini deletes only after an ack) and
-          # pings status=up with a summary; any failure — a mismatch, a pruned-before-held
-          # file, an unreachable mini — pings status=down.
-          #
-          # Apply this entry (`make uk-sync`) only AFTER the tailnet grant homelab → mini
-          # is live and the first pull succeeded: until then the pull cannot reach the
-          # mini and a synced monitor would just page. Same interval/retry shape as the
-          # accounts monitor: interval 3900 = hourly cron + 300s grace, maxretries 1 →
-          # time-to-DOWN ~2h, so one late run (a long first sync, a flaky hop) stays
-          # PENDING and only two consecutive misses page. Push URL on the homelab server
-          # at ~/.config/uptime-kuma/weatherorb-archive-push-url (chmod 600) — plain file.
-          - name: WeatherOrb Archive - Push
-            type: push
-            interval: 3900
-            timeout: 48
-            retry_interval: 3900
-            maxretries: 1
-
       # --- Karakeep subgroup (read-later; web + chrome crawler + meili search) ---
       - name: Karakeep
         type: group

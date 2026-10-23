@@ -276,7 +276,7 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
 ├── backups/              # FPP MySQL hourly dump + weatherorb-accounts/ (hourly VPS pg_dump pull) (restic source)
-└── weatherorb-archive/   # hourly pull from the Mac mini (sha256-verified, append-only, files sealed chattr +i; NOT restic-backed)
+└── weatherorb-archive/   # S3 bucket the Mac mini pushes to (sha256-verified, write-once, files sealed chattr +i; NOT restic-backed)
 ```
 
 ---
@@ -286,9 +286,9 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 Restic → Backblaze B2, daily 03:30, two-key ransomware-safe pattern, Mac-side restore
 drill. Full design + operations + restore commands: **`docs/backups.md`**. Also pulled
 hourly from the VPS (jkrumm crontab, :25): the WeatherOrb account DB dumps,
-`scripts/weatherorb-accounts-pull.sh`; and hourly from the Mac mini (jkrumm crontab,
-:55): the WeatherOrb archive, `scripts/weatherorb-archive-pull.sh` into
-`/mnt/hdd/weatherorb-archive` (outside restic — no offsite copy yet, ADR 0009).
+`scripts/weatherorb-accounts-pull.sh`. The WeatherOrb archive is pushed by the Mac mini
+to the `weatherorb-archive` bucket, i.e. `/mnt/hdd/weatherorb-archive` (outside restic —
+the one copy, ADR 0009; `docs/backups.md`).
 
 ---
 
