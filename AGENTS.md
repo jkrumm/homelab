@@ -24,7 +24,7 @@
 | `/commit`               | main    | Smart git commit with conventional commits (inherited from SourceRoot)                       |
 
 **IMPORTANT:** Run `/docs` before committing changes that affect infrastructure or scripts.
-**Note:** The REST API + dashboard moved out of this repo to [`jkrumm/argo`](https://github.com/jkrumm/argo) (deployed to the VPS). API/skill changes are argo's responsibility now — homelab only owns the garmin-collector contract on the data side.
+**Note:** The REST API + dashboard moved out of this repo to [`jkrumm/argo`](https://github.com/jkrumm/argo) (deployed to the VPS). API/skill changes are argo's responsibility now.
 
 ---
 
@@ -113,8 +113,7 @@ existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 | `homelab/versitygw-root/*`        | S3 gateway root key — server-only; creates the IAM users |
 | `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
-| `homelab/garmin/EMAIL`, `homelab/garmin/PASSWORD` | Garmin Connect login                    |
-| `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful collector pull (in `common/` so VPS service account can read) |
+| `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful pull from Garmin's Personal API (in `common/` so VPS service account can read) |
 | `common/slack/WEBHOOK_ALERTS`     | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `common/slack/WATCHTOWER_URL`     | Shoutrrr-formatted Slack webhook for Watchtower         |
 | `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
@@ -149,10 +148,6 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make restart svc=<name>` | Force-recreate a single service                          |
 | `make ps` / `make logs svc=<name>` / `make logs-follow svc=<name>` | Show running containers — bounded log tail — follow logs live |
 | `make immich-upgrade`     | Upgrade Immich stack (git pull + pull pinned images + recreate) — tags are explicit, so bump `immich-server` + `immich-machine-learning` in `docker-compose.yml` first, else it's a no-op. Watchtower-excluded, see `/upgrade-stack immich` |
-| `make garmin-deploy` / `-rebuild` / `-restart` | Full deploy — rebuild only (no pull) — restart (env vars only) |
-| `make garmin-relogin`     | Interactive MFA re-login — writes fresh tokens, restarts |
-| `make garmin-relogin-auto`| Force the automated MFA re-login (see `docs/decisions.md`) |
-| `make garmin-logs`        | Follow garmin-collector logs                              |
 | `make proton-bridge-deploy` / `-login` / `-restart` / `-logs` | Proton Mail Bridge (IMAP for hello@, Tailscale-only); `-login` is the one-time interactive CLI — `docs/proton-bridge.md` |
 | `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
@@ -168,8 +163,8 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 3. `op run --env-file=.env.tpl --` resolves all references at runtime and passes them as env vars
 4. Docker Compose `environment:` maps these into container env vars
 
-**Locally-built services, build-cache pruning, agentic push-monitor wiring, and the Garmin
-MFA automation are documented in `docs/decisions.md`** — durable rationale, kept out of
+**Locally-built services, build-cache pruning and agentic push-monitor wiring are
+documented in `docs/decisions.md`** — durable rationale, kept out of
 this file to stay dense.
 
 ### Raw Commands (When Needed)
@@ -193,7 +188,7 @@ ssh homelab "docker compose logs -f <service>"
 ### Container Updates (Watchtower)
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `garmin-collector`, `proton-bridge` (local builds), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Opted-out** (other): `proton-bridge` (local build), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
 - **Auto-update** (global, daily 4AM): everything else, including `caddy`
 
 ---
@@ -264,7 +259,6 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 │   │   ├── Videos/       # Personal videos
 │   │   ├── Public/       # ex-dufs public files (service retired, data kept)
 │   │   └── Dev/          # incl. image-share/ snapshots (decommissioned, kept, restic-covered)
-│   ├── garmin-tokens/    # Garmin Connect OAuth tokens
 │   ├── uptime-kuma/      # UptimeKuma data
 │   └── image-share/      # decommissioned service's sqlite DB + renditions cache (kept, not backed up)
 
@@ -298,17 +292,12 @@ Pure infrastructure repo (Docker Compose + ops). The application stack (api + da
 
 ```
 homelab/
-├── docker-compose.yml       # Service orchestration (25 services, infra + collectors)
-├── Caddyfile                # Reverse proxy routing (public + private + garmin/argo collectors)
+├── docker-compose.yml       # Service orchestration (infra services)
+├── Caddyfile                # Reverse proxy routing (public + private)
 ├── .env.tpl                 # 1Password secret references (op:// URIs)
 ├── setup.sh                 # Initial server setup (idempotent)
 ├── packages/
-│   └── garmin-collector/    # Python FastAPI — stateless HTTP query layer over Garmin Connect.
-│       ├── server.py        #   Owns OAuth tokens. Argo API on VPS pulls /daily-metrics
-│       ├── relogin.py       #   + /activities via https://garmin.jkrumm.com (Tailscale-only).
-│       ├── relogin_auto.py  #   Bearer-authed via op://common/garmin-collector/TOKEN.
-│       └── Dockerfile       #   relogin.py = interactive MFA; relogin_auto.py = MFA fetched
-│                             #   from Gmail via argo (driven by scripts/garmin-auto-relogin.sh).
+│   └── proton-bridge/       # Proton Mail Bridge image (Dockerfile, entrypoint, bridge.pol)
 ├── scripts/                 # Operational scripts
 │   └── homelab_watchdog.sh  # Self-healing health monitor (root crontab, every 10 min)
 ├── config/                  # App configs + extends
@@ -318,7 +307,7 @@ homelab/
 │   ├── backups.md           # Restic design + restore drill
 │   ├── s3.md                # VersityGW S3 gateway — bucket map, IAM users, client setup
 │   ├── proton-bridge.md     # Proton Bridge image decision, login steps, restore
-│   ├── decisions.md         # Durable rationale (build-cache, push monitors, Garmin MFA, Tailscale/Caddy)
+│   ├── decisions.md         # Durable rationale (build-cache, push monitors, Tailscale/Caddy)
 │   └── watchdog-behaviors.md
 └── uptime-kuma/             # Monitor config-as-code
     ├── sync.py
@@ -333,7 +322,6 @@ directory in this repo. `dozzle/` is a root-owned bind mount (`.gitignore`d, hol
 
 `jkrumm/argo` lives on the VPS at `https://argo.jkrumm.com` (Tailscale-only, DNS-only A record → VPS Tailscale IP). RollHook manages zero-downtime deploys on push to master. The argo API queries homelab over Tailscale:
 
-- `https://garmin.jkrumm.com` → garmin-collector (this repo)
 - `http://${HOMELAB_TAILSCALE_IP}:2376` → docker-socket-proxy-claude (this repo)
 - `https://uptime.jkrumm.com` → uptime-kuma (this repo, via socket.io)
 
@@ -421,7 +409,7 @@ secrets injected by `op run`:
 
 ```bash
 make deploy          # full stack: git pull + recreate all services
-make garmin-deploy   # garmin-collector only (git pull + rebuild + restart)
+make proton-bridge-deploy  # proton-bridge only (git pull + rebuild + restart)
 make caddy-reload    # Caddy only (after Caddyfile changes)
 ```
 

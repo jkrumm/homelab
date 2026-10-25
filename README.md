@@ -71,7 +71,6 @@ a fresh server up from scratch.
 | Dozzle           | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)   | Container logs                                                |
 | FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
 | S3 (VersityGW)   | [s3.jkrumm.com](https://s3.jkrumm.com)           | S3 API over existing folders — agents, rclone, presigned links (`docs/s3.md`) |
-| Garmin Collector | [garmin.jkrumm.com](https://garmin.jkrumm.com)   | Stateless Garmin Connect HTTP layer (called by argo from VPS) |
 | Karakeep         | [karakeep.jkrumm.com](https://karakeep.jkrumm.com) | Read-later / bookmark bucket, AI auto-tagging via IU endpoint |
 
 DNS: grey cloud (DNS-only) A records pointing to the HomeLab Tailscale IP —
@@ -123,7 +122,7 @@ Both machines are hardened with identical configurations (applied via `setup.sh`
 | Document                     | Purpose                                                                            |
 | ---------------------------- | ---------------------------------------------------------------------------------- |
 | `docs/backups.md`            | Restic → B2 design, retention, two-key model, Mac-side restore drill               |
-| `docs/decisions.md`          | Durable rationale: build-cache pruning, agentic push-monitor wiring, Garmin MFA automation, Tailscale/Caddy insights |
+| `docs/decisions.md`          | Durable rationale: build-cache pruning, agentic push-monitor wiring, Tailscale/Caddy insights |
 | `docs/watchdog-behaviors.md` | Failure scenarios, escalation states, recovery paths for the self-healing watchdog  |
 
 Run the `/docs` skill after infrastructure changes — it keeps each fact owned by exactly

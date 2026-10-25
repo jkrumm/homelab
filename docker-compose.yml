@@ -141,7 +141,7 @@ services:
       SAMBA_VOLUME_CONFIG_ssd: '[SSD]; path=/mnt/ssd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=SSD'
       SAMBA_VOLUME_CONFIG_hdd: '[HDD]; path=/mnt/hdd; valid users=jkrumm; guest ok=no; read only=no; browseable=yes; comment=HDD'
     # [SSD] is the user data tree only — service state under ~/ssd (proton-bridge vault,
-    # garmin tokens, uptime-kuma DB) stays off the share.
+    # uptime-kuma DB) stays off the share.
     volumes:
       - /home/jkrumm/ssd/SSD:/mnt/ssd
       - /mnt/hdd:/mnt/hdd
@@ -544,43 +544,6 @@ services:
       glance.icon: si:amazons3
       glance.url: https://s3.jkrumm.com/_/health
       glance.hide: false
-
-  # garmin-collector — stateless HTTP query layer over Garmin Connect.
-  # Replaces garmin-sync's role as the Garmin source of truth: holds OAuth tokens,
-  # serves /daily-metrics + /activities to argo API on VPS over Tailscale.
-  # Reverse-proxied by Caddy at garmin.jkrumm.com (Tailscale-only). App-level bearer auth.
-  garmin-collector:
-    build:
-      context: packages/garmin-collector
-      dockerfile: Dockerfile
-    container_name: garmin-collector
-    restart: unless-stopped
-    networks:
-      - cloudflared
-    environment:
-      - GARMIN_EMAIL=${GARMIN_EMAIL}
-      - GARMIN_PASSWORD=${GARMIN_PASSWORD}
-      - GARMIN_COLLECTOR_TOKEN=${GARMIN_COLLECTOR_TOKEN}
-      - TOKEN_DIR=/app/tokens
-      # Used only by relogin_auto.py (the `docker compose run` sibling) to fetch the
-      # MFA code from Gmail via argo. Empty in the live server (server.py ignores it).
-      - ARGO_API_TOKEN=${ARGO_API_TOKEN}
-    volumes:
-      - /home/jkrumm/ssd/garmin-tokens:/app/tokens
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-    healthcheck:
-      test: ['CMD', 'curl', '-fsS', 'http://localhost:8080/health']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    labels:
-      glance.parent: API
-      glance.hide: true
-      com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
 
   # Read-only Docker socket proxy bound to Tailscale interface — argo API on VPS
   # queries homelab Docker container state via http://${HOMELAB_TAILSCALE_IP}:2376.

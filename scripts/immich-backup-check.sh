@@ -13,8 +13,8 @@
 # file offsite regardless; this is about whether the file is worth shipping.
 #
 # Plain user cron, no `op run`: it only reads a directory. Push URL from a
-# chmod-600 file, same convention as garmin-auto-relogin.sh — never .env.tpl, so
-# a not-yet-created 1Password field cannot brick every op-wrapped target.
+# chmod-600 file, never .env.tpl: op run resolves the whole template before exec, so
+# a not-yet-created 1Password field would brick every op-wrapped target.
 #
 #   crontab (jkrumm):  0 4 * * * /home/jkrumm/homelab/scripts/immich-backup-check.sh >> /home/jkrumm/logs/immich-backup-check.log 2>&1
 set -euo pipefail

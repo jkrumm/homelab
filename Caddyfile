@@ -51,15 +51,6 @@ http://s3.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
-# Garmin Collector (private, Tailscale only — stateless HTTP query layer
-# over Garmin Connect for the argo API on VPS). Bearer-authed at the app level.
-garmin.jkrumm.com {
-	reverse_proxy garmin-collector:8080
-}
-http://garmin.jkrumm.com {
-	redir https://{host}{uri} permanent
-}
-
 # Karakeep (private, Tailscale only — read-later / bookmark everything-bucket)
 karakeep.jkrumm.com {
 	reverse_proxy karakeep:3000

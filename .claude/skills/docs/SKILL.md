@@ -11,7 +11,6 @@ context: main
 - After adding/removing services in docker-compose.yml
 - After creating/modifying scripts
 - After changing ports, paths, or configurations
-- After modifying garmin-collector contract (FastAPI routes)
 - Before committing infrastructure changes
 - When detecting new multi-component stacks
 
@@ -51,7 +50,6 @@ When running this skill, I will check:
 - [ ] Modified config files in `config/`
 - [ ] Changed uptime-kuma/monitors.yaml
 - [ ] Storage mount point changes
-- [ ] Modified garmin-collector FastAPI routes (`packages/garmin-collector/server.py`)
 
 ### Multi-Component Stack Detection
 
@@ -87,11 +85,10 @@ When running this skill, I will check:
 5. Watchdog Management
 6. Container Diagnostics
 7. Uptime Kuma Config-as-Code
-8. Garmin Collector
-9. HDD Diagnostics
-10. Restic Backup
-11. 1Password Secrets
-12. Emergency Commands
+8. HDD Diagnostics
+9. Restic Backup
+10. 1Password Secrets
+11. Emergency Commands
 
 ### Command Format
 

@@ -168,35 +168,6 @@ groups:
             retry_interval: 3600
             maxretries: 1
 
-          # garmin-auto-relogin.sh (homelab/scripts, op-wrapped cron every 2h).
-          # Pings on EVERY run — both the no-op skip path (token still fresh)
-          # and a successful reauth — so this is a liveness check on the cron
-          # itself, not on whether a reauth happened. Deliberately separate
-          # from "Garmin Collector - Push" (Local group, further down): that
-          # one tracks whether the OAuth token is fresh (and its own comment
-          # optimistically assumes this cron "automatically" recovers it);
-          # this one is what actually proves the recovery cron is still
-          # running. On 2026-08-01 a deleted 1Password item broke `op run`
-          # wholesale for all four op-wrapped homelab crons at once — this
-          # job included — and none but vpn-watchdog had a heartbeat, so the
-          # outage went unnoticed ~17h.
-          #
-          # interval = 2× the 2h cron cadence (7200s), maxretries: 0 — one
-          # skipped run must not page, same doubling used for Garmin
-          # Collector - Push's 6h source cadence. Time-to-DOWN = 14400s = 4h.
-          #
-          # Push URL on the homelab server at
-          # ~/.config/uptime-kuma/garmin-relogin-push-url (chmod 600) — not
-          # .env.tpl, deliberately: op run resolves the whole template before
-          # exec, so one unresolvable ref there would abort every homelab
-          # cron, the exact 2026-08-01 incident described above.
-          - name: Garmin Auto-Relogin - Push
-            type: push
-            interval: 14400
-            timeout: 48
-            retry_interval: 3600
-            maxretries: 1
-
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
             type: http
@@ -368,21 +339,20 @@ groups:
     interval: 250
     monitors:
       # Garmin heartbeat — pushed by argo's garmin-sync cron (VPS) after each
-      # successful collector pull. Goes down when Garmin OAuth tokens expire.
-      # Recovery is automated: homelab's garmin-auto-relogin cron refreshes the
-      # token proactively (every 4d) and reactively (within ~2h of an early death)
-      # via Gmail-fetched MFA. The 12h interval gives that auto-recovery room to
-      # heal silently before paging; a genuinely-stuck recovery (>12h) still alerts.
+      # successful pull from Garmin's Connect Personal API. Goes down when the sync
+      # fails (e.g. expired API key — rotate `op://vps/argo/GARMIN_API_KEY`).
+      # The name is historical (the collector is gone) and stays: renaming would mint
+      # a new push URL and break argo's heartbeat.
       # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
       # Push URL → 1Password common/garmin-collector/PUSH_URL (in `common/` so the
       # VPS service account can read it; argo resolves it as GARMIN_HEARTBEAT_URL).
       - name: Garmin Collector - Push
         type: push
-        interval: 43200 # 12h — argo sync runs every 6h; extra cycle = silent auto-recovery room
+        interval: 43200 # 12h — argo sync runs every 6h; one missed cycle of slack
         timeout: 48
         retry_interval: 3600
         maxretries: 1
-        resend_interval: 1 # re-alert Slack every down beat (~12h) once recovery is genuinely stuck
+        resend_interval: 1 # re-alert Slack every down beat (~12h) while the sync stays broken
 
       # Weekly manual 1Password export backup, run locally from the Mac.
       # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).

@@ -20,15 +20,15 @@ CD := cd ~/homelab
 OP := op run --env-file=.env.tpl --
 DC := $(OP) docker compose
 
-# garmin-collector and proton-bridge are the locally-built services, and each is
-# rebuilt with --no-cache on every deploy — so each deploy leaves behind a full build
-# cache layer set plus a dangling image. Unbounded that reached 108 GB of build cache
+# proton-bridge is the locally-built service, and it is rebuilt with --no-cache on
+# every deploy — so each deploy leaves behind a full build cache layer set plus a
+# dangling image. Unbounded that reached 108 GB of build cache
 # (2552 entries, oldest 6 months) and 350 dangling images by 2026-08, i.e. more disk
 # than every photo on the box combined. $(PRUNE) is appended to every build target so
 # the garbage is collected by whoever creates it.
 #
-# Bounded, not zeroed — this is the part that matters: both Dockerfiles carry
-# `--mount=type=cache` for their pip/bun package caches, and those mounts live in the
+# Bounded, not zeroed — this is the part that matters: build Dockerfiles may carry
+# `--mount=type=cache` for their package caches, and those mounts live in the
 # same build cache. An uncapped `builder prune -a` throws them away too, so the next
 # build recompiles the C extensions from source, which is exactly what those mounts
 # exist to prevent. --max-used-space keeps the most-recently-used slice under a
@@ -39,7 +39,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export garmin-deploy garmin-rebuild garmin-restart garmin-relogin garmin-relogin-auto garmin-logs proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -61,14 +61,6 @@ help: ## Show all targets
 	@echo "  Immich Stack (manually-managed — Watchtower-excluded)"
 	@echo "    make immich-upgrade      git pull + pull pinned images + recreate Immich stack"
 	@echo "                             (bump the image tags in docker-compose.yml first)"
-	@echo ""
-	@echo "  Garmin Collector Operations"
-	@echo "    make garmin-deploy       Full deploy: git pull + rebuild (no cache) + restart"
-	@echo "    make garmin-rebuild      Rebuild image (no cache) + restart (no git pull)"
-	@echo "    make garmin-restart      Restart container only"
-	@echo "    make garmin-relogin      Interactive MFA re-login (writes fresh tokens + restarts)"
-	@echo "    make garmin-relogin-auto Force automated MFA re-login (code fetched from Gmail via argo)"
-	@echo "    make garmin-logs         Follow garmin-collector logs"
 	@echo ""
 	@echo "  Proton Bridge (IMAP for hello@, Tailscale-only — docs/proton-bridge.md):"
 	@echo "    make proton-bridge-deploy   Full deploy: git pull + rebuild (no cache) + up"
@@ -159,27 +151,6 @@ verify: ## Probe production health via the Uptime Kuma status page (exit 0 = hea
 # are irreversible. See AGENTS.md "Immich database" + /upgrade-stack immich.
 immich-upgrade: ## Upgrade Immich stack: git pull + pull pinned images + recreate (bump tags in docker-compose.yml first)
 	$(SSH) "$(CD) && git pull && $(DC) pull immich-server immich-machine-learning immich_redis immich_postgres && $(DC) up -d immich-server immich-machine-learning immich_redis immich_postgres"
-
-# ── Garmin Collector Operations ──────────────────────────────────────────────
-
-garmin-deploy: ## Full deploy: git pull + rebuild garmin-collector (no cache) + restart
-	$(SSH) "$(CD) && git pull && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector && $(PRUNE)"
-
-garmin-rebuild: ## Rebuild garmin-collector image (no cache) and restart with secrets
-	$(SSH) "$(CD) && $(DC) build --no-cache garmin-collector && $(DC) up -d garmin-collector && $(PRUNE)"
-
-garmin-restart: ## Restart garmin-collector container (no rebuild)
-	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
-
-garmin-relogin: ## Interactive MFA re-login — writes fresh tokens then restarts the live container
-	ssh -t homelab "$(CD) && $(DC) run --rm --user 0:0 garmin-collector python relogin.py"
-	$(SSH) "$(CD) && $(DC) up -d --force-recreate garmin-collector"
-
-garmin-relogin-auto: ## Force the automated MFA re-login (fetches the code from Gmail via argo) + restart
-	$(SSH) "$(CD) && $(OP) ./scripts/garmin-auto-relogin.sh --force"
-
-garmin-logs: ## Follow garmin-collector logs
-	$(SSH) "docker logs -f --tail=100 garmin-collector"
 
 # ── Proton Bridge ────────────────────────────────────────────────────────────
 proton-bridge-deploy: ## Full deploy: git pull + rebuild proton-bridge (no cache) + up

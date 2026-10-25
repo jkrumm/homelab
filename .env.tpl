@@ -25,13 +25,6 @@ IMMICH_API_KEY=op://homelab/immich/API_KEY
 VERSITYGW_ROOT_ACCESS_KEY=op://homelab/versitygw-root/ACCESS_KEY_ID
 VERSITYGW_ROOT_SECRET_KEY=op://homelab/versitygw-root/SECRET_ACCESS_KEY
 
-# --- Garmin Collector (HTTP query layer — argo API on VPS reads via Tailscale) ---
-GARMIN_EMAIL=op://homelab/garmin/EMAIL
-GARMIN_PASSWORD=op://homelab/garmin/PASSWORD
-GARMIN_COLLECTOR_TOKEN=op://common/garmin-collector/TOKEN
-# Bearer for argo's Gmail endpoint — relogin_auto.py reads the Garmin MFA code from it.
-ARGO_API_TOKEN=op://common/api/SECRET
-
 # --- Karakeep (read-later, Tailscale-only — AI tagging via IU unified endpoint) ---
 KARAKEEP_NEXTAUTH_SECRET=op://homelab/karakeep/NEXTAUTH_SECRET
 KARAKEEP_MEILI_MASTER_KEY=op://homelab/karakeep/MEILI_MASTER_KEY

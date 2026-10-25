@@ -28,9 +28,8 @@ still missing — but the value is a secret an operator pastes in by hand. That 
 makes the failure silent: without the token `load_credentials()` exits 1, and the watchdog
 cannot alert about it, because its Slack webhook is itself read through `op`.
 
-The rule covers every op-wrapped entry, not just the watchdog —
-`scripts/garmin-auto-relogin.sh` runs from cron under `op run --env-file=.env.tpl` the
-same way, which is why it lives here rather than in the watchdog's own doc.
+The rule covers every op-wrapped cron entry, not just the watchdog's, which is why it
+lives here rather than in the watchdog's own doc.
 
 **Verify the credential, don't grep for it.** The only check that proves root's *cron*
 shell reaches 1Password reproduces that shell instead of approximating it:
@@ -55,17 +54,17 @@ the wrong token and reporting the failure as success.
 
 ## Build-cache pruning (locally-built services)
 
-**garmin-collector and proton-bridge are the locally-built services** (Watchtower can't auto-update them). After code changes use `make garmin-deploy`/`make garmin-rebuild`/`make proton-bridge-deploy` — all use `--no-cache`. (image-share was the third until it was decommissioned 2026-10-12, see the end of this file.)
+**proton-bridge is the locally-built service** (Watchtower can't auto-update it). After code changes use `make proton-bridge-deploy`, which uses `--no-cache`. (image-share and garmin-collector were the others until they were decommissioned, see the end of this file.)
 
 **`--no-cache` on every build is why the disk fills, so every build target self-prunes.**
 Each rebuild leaves a whole build-cache layer set plus a dangling image; unbounded that
 reached **108 GB of build cache (2552 entries) and 350 dangling images** by 2026-08 —
-more disk than every photo on the box. `$(PRUNE)` is appended to `garmin-deploy`,
-`garmin-rebuild` and the other build targets, so the garbage is collected by whoever makes
-it. Two deliberate choices in it:
+more disk than every photo on the box. `$(PRUNE)` is appended to
+`proton-bridge-deploy` and every other build target, so the garbage is collected by whoever
+makes it. Two deliberate choices in it:
 
-- **Bounded, not zeroed** (`--max-used-space 10GB`). Both Dockerfiles use
-  `--mount=type=cache` for their pip/bun package caches, and those mounts live *in* the
+- **Bounded, not zeroed** (`--max-used-space 10GB`). Build Dockerfiles can use
+  `--mount=type=cache` for their package caches, and those mounts live *in* the
   build cache — an uncapped `builder prune -a` deletes them too, so the next build
   recompiles the C extensions from source, which is the exact thing those mounts exist
   to avoid. Docker 29's flag is `--max-used-space`; `--keep-storage` is gone.
@@ -91,63 +90,6 @@ Match the item's existing convention when writing: on `homelab/image-share`, sec
 
 **The one hard ordering constraint: the 1Password field must exist BEFORE the `op://` ref lands on the server.** `OP := op run --env-file=.env.tpl --` wraps *every* target here, `op run` exits 1 on an unresolvable ref, and `uk-sync` git-pulls before it runs — so a ref to a missing field bricks `deploy`, `up`, `restart`, `uk-sync` and both image-share targets at once, with no way left to create the monitor that mints the token. The safe sequence is: ship the `.env.tpl` line **commented out** → `make uk-sync` → read the `pushToken` → write the field → uncomment → `make image-share-restart`. Commenting out is not caution for its own sake: unset, compose expands the var to empty and image-share's `env.ts` defaults it to `''`, so the service stays healthy with the heartbeat dormant.
 
-## Garmin MFA re-login automation
-
-**Automated MFA re-login.** Garmin invalidates the refresh token every ~1-2 weeks; re-auth then needs an emailed 6-digit MFA code. `scripts/garmin-auto-relogin.sh` automates it end-to-end: `relogin_auto.py` (a `docker compose run` sibling) triggers a fresh login and fetches the code from the "Ihr Sicherheitscode" email via argo's Gmail endpoint (`ARGO_API_TOKEN` = `op://common/api/SECRET`), stashing/restoring the current token so a failed run never leaves the collector token-less. The wrapper is **hybrid**: proactive (refresh every 4d, before the token can expire → container stays healthy, no UptimeKuma/watchdog noise) + reactive (if already unhealthy, reauth within ~2h, but ≥6h between attempts so a Garmin 429 can't storm). A homelab crontab entry runs it every 2h; `make garmin-relogin-auto` forces a run. The UptimeKuma "Garmin Collector - Push" interval is widened to 12h so this auto-recovery heals silently before paging. `make garmin-relogin` (interactive, MFA from phone/email) remains the manual fallback.
-
-The crontab entry is in **jkrumm's crontab, not root's** — the script's heartbeat file and
-state dir are `${HOME}`-relative, and `make garmin-relogin-auto` invokes it over SSH as
-jkrumm, so both only resolve under `/home/jkrumm`. The line as installed on the server:
-
-```cron
-0 */2 * * * . /home/jkrumm/.profile; op run --env-file=/home/jkrumm/homelab/.env.tpl -- /home/jkrumm/homelab/scripts/garmin-auto-relogin.sh >> /home/jkrumm/logs/garmin-relogin.log 2>&1
-```
-
-Absolute paths throughout, like jkrumm's other entries: cron's `sh` reads no profile, so the
-line sources `.profile` itself before `op run`, and names `.env.tpl` absolutely rather than
-relying on a `cd` into the repo. The `[ -r ]` guard on the watchdog entry above is root-only
-— a missing `/root/.profile` aborts the whole line in dash, whereas jkrumm's profile is
-always present. `setup.sh`'s summary reports this entry read-only (it does not install it),
-matching on the script's path suffix so a `cd`-relative spelling is recognised too.
-
-**The heartbeat file is a second manual step with no installer.** Before the first run:
-`install -m 600 /dev/null ~/.config/uptime-kuma/garmin-relogin-push-url`, then paste the
-"Garmin Collector - Push" monitor's push URL into it (Uptime Kuma UI, or
-`api.get_monitor(<id>)["pushToken"]` per the wiring note above). The script reads it from a
-plain file rather than `op run` so one unresolvable ref can't abort every homelab cron — but
-that also means nothing in this repo creates it, and a fresh install silently drops the
-heartbeat until it is added by hand.
-
-## The auth probe distinguishes a dead token from a Garmin outage
-
-**`/health` answers one question: are our Garmin credentials still good.** It used to answer
-a second, wrong one. `_auth_probe_once()` caught a bare `Exception` and set `_auth_ok = False`
-for *any* failure, and `/health` returns 503 exactly when that flag is false — so a Garmin-side
-outage (Cloudflare `521 origin_down` from `connectapi.garmin.com`, a timeout, a 429) was
-reported as "garmin auth down", flipped the container `unhealthy`, and paged through the
-Docker alert as a broken token. Worse, the reactive half of the relogin above keys off
-`docker inspect … Health.Status = unhealthy`, so every Garmin outage also provoked a re-login
-attempt that could not possibly help.
-
-The probe now classifies with `garminconnect`'s own taxonomy (pinned 0.3.3, whose
-`_handle_api_errors` retries 5xx/network and then raises `GarminConnectConnectionError`, maps
-401 to `GarminConnectAuthenticationError` and 429 to `GarminConnectTooManyRequestsError`):
-
-- `GarminConnectAuthenticationError` → real credential failure → `_auth_ok = False`, `/health`
-503, container unhealthy, reactive relogin as before.
-- `GarminConnectConnectionError` / `GarminConnectTooManyRequestsError` → Garmin's side → the
-previous `_auth_ok` is kept, `/health` stays 200, and the detail lands in `_auth_detail`
-(visible on `/status`) instead of paging.
-- anything else → also kept, because an unrecognised failure is not evidence about the token.
-
-A Garmin outage is still visible — on the "Garmin Collector - Push" monitor, which only beats
-when argo's sync actually pulled data, and on the collector's own `/daily-metrics` callers.
-That is the signal that should page, and it is the one measured on the right thing.
-
-Known gap: `garminconnect` maps a plain 403 to `GarminConnectConnectionError`, so a 403-based
-auth rejection would be treated as transient. Garmin's expired-token path is a 401, which
-still pages; add explicit 403 handling if one is ever observed in practice.
-
 ## Tailscale + Caddy — durable insights from the 2026-02 migration
 
 The phase-by-phase migration plan (`docs/TAILSCALE.md`) shipped and was deleted once every
@@ -160,7 +102,7 @@ phase landed; these three decisions are the parts worth keeping:
   Caddy site blocks default to HTTPS-only, so the `http://` variant must be added
   explicitly per block — it is not implied by disabling the redirect.
 - **Grey-cloud A records for private services.** DNS for Tailscale-only services (Beszel,
-  Dozzle, FileBrowser, Garmin Collector, Karakeep) is a Cloudflare A record in DNS-only
+  Dozzle, FileBrowser, Karakeep) is a Cloudflare A record in DNS-only
   mode (grey cloud) pointing at the HomeLab Tailscale IP — unreachable from the public
   internet, resolves instantly for any Tailscale device.
 - **DNS-01 for TLS.** Caddy obtains Let's Encrypt certs via the Cloudflare DNS-01 challenge
@@ -183,3 +125,7 @@ one-off shares. The compose service, Caddy block, `DUFS_PASSWORD` ref, Kuma moni
 tunnel ingress entry and the DNS record are gone. `~/ssd/SSD/Public` stays on disk and in
 restic. Immich's host port 2283 went in the same change — Caddy and Glance reach it over
 Docker networks, so the published port was only a LAN door.
+
+## garmin-collector decommissioned (2026-10-25)
+
+Argo now calls Garmin's official Connect Personal API directly with a personal API key, so the `garmin-collector` container is gone, and with it the password login, the MFA-by-email relogin (script, cron entry, push monitor) and the Tailscale route (`garmin.jkrumm.com`). The "Garmin Collector - Push" monitor stays under its old name: it is the heartbeat argo's garmin-sync cron pushes to, and renaming it would mint a new push URL.
