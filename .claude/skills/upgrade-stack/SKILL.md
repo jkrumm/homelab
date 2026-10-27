@@ -64,7 +64,7 @@ updates) — is Watchtower-managed and out of scope for this skill.
 
 #### immich-server + immich-machine-learning
 
-- **Current**: `ghcr.io/immich-app/immich-server:v3.1.0` / `immich-machine-learning:v3.1.0-openvino`
+- **Current**: `ghcr.io/immich-app/immich-server:v3.3.5` / `immich-machine-learning:v3.3.5-openvino`
 - **Why pinned**: Database migrations (postgres schema changes between versions)
 - **Depends on**: immich_postgres, immich_redis
 - **Version source**: https://github.com/immich-app/immich/releases
@@ -85,8 +85,8 @@ updates) — is Watchtower-managed and out of scope for this skill.
   upgrade, confirm the log line `Successfully verified system mount folder checks`.
 - **Check upstream's compose at both tags before editing ours.** Diffing
   `immich/releases/download/<tag>/docker-compose.yml` for the old and new version is the
-  fastest way to see real structural changes (both v2.7.5 → v3.0.3 and v3.0.3 → v3.1.0
-  turned out to be a valkey digest bump and nothing else). Also grep our compose for a custom `command`/`healthcheck`
+  fastest way to see real structural changes (v2.7.5 → v3.0.3, v3.0.3 → v3.1.0 and v3.1.0 → v3.3.5 were
+  each a valkey digest bump and nothing more — plus a stricter redis healthcheck in v3.3.x). Also grep our compose for a custom `command`/`healthcheck`
   on `immich_postgres` — leftovers there break v3.0.1+, since both are now baked into
   the image.
 

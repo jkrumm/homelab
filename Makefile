@@ -145,7 +145,7 @@ verify: ## Probe production health via the Uptime Kuma status page (exit 0 = hea
 # them — pull first. postgres/valkey are digest-pinned; `pull` honours new pins.
 # See .claude/skills/upgrade-stack for the full upgrade analysis workflow.
 
-# Image tags are explicitly pinned (e.g. immich-server:v3.1.0), so this pulls only what
+# Image tags are explicitly pinned (e.g. immich-server:v3.3.5), so this pulls only what
 # docker-compose.yml names — bump both tags (server + ML) there first or it's a no-op.
 # Take a verified DB dump before major bumps: downgrades are unsupported and migrations
 # are irreversible. See AGENTS.md "Immich database" + /upgrade-stack immich.
