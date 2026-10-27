@@ -117,7 +117,7 @@ Watchtower-excluded** — the web app floats on `release` and Watchtower updates
 
 #### karakeep-chrome
 
-- **Current**: `ghcr.io/karakeep-app/karakeep-chrome:151.0.7922.47-r1`
+- **Current**: `ghcr.io/karakeep-app/karakeep-chrome:156.0.8078.47-r1`
 - **Why pinned**: tracks a Chromium major; crawl + screenshot behaviour shifts across
   majors, so bumps are deliberate. Stateless → trivial rollback.
 - **Used by**: Karakeep only (crawl + screenshots).
