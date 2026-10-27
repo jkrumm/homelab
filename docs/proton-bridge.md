@@ -9,7 +9,7 @@ docker network) can read it. Proton has no public API; Bridge is the official wa
 | Endpoint | IMAP `${HOMELAB_TAILSCALE_IP}:1143` (STARTTLS, self-signed Bridge cert). **No SMTP** (sending stays on Resend), no Caddy entry, no tunnel |
 | State | `/home/jkrumm/ssd/proton-bridge` → `/data` (`HOME`): vault, gpg keyring, pass store |
 | Backup | restic source `/sources/ProtonBridge`; gluon message cache + logs excluded (re-synced from Proton) |
-| Secrets | `op://common/proton-bridge/IMAP_USER`, `IMAP_PASSWORD` (VPS service account reads `common`) |
+| Secrets | `op://vps/email-gateway/IMAP_USER`, `IMAP_PASSWORD` (read by `vps/apps/email-gateway/.env.tpl`) |
 
 ## Why a local Dockerfile, not a community image
 
