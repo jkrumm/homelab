@@ -174,7 +174,9 @@ Usually resolves at state 1 (simple Docker restart).
      it finds down and safe, so a killed reopen can't leave the host dark. The watchdog
      never deletes: if the bare mountpoint holds files, Docker stays stopped and manual
      intervention is flagged (inspect, then `hdd-mountpoint-guard.sh`). A manual
-     `systemctl stop docker` is undone within 10 minutes, as before.
+     `systemctl stop docker` is undone within 10 minutes, as before. The escalation
+     ladder's own Docker restarts (`restart_docker_services`, `force_docker_cleanup`) pass
+     the same check; a refusal flags manual intervention instead of climbing to a reboot.
      One reopen per hour (`HDD_REOPEN_COOLDOWN`, successful ones included) so a flapping enclosure can't bounce Docker every run; a cooldown skip holds the escalation state, and a failed reopen never enters the reboot ladder — after 3 failures it flags manual intervention. A busy mountpoint aborts (no lazy unmount).
    - On success it logs the drive's SMART power counters — rising `Power_Cycle_Count` /
      `Power-Off_Retract_Count` mean the drive lost power; flat ones point at the USB link.

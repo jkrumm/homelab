@@ -245,6 +245,11 @@ Tailscale IP on `:2376` (read-only, same restrictions).
 | `/mnt/hdd`         | External HDD (encrypted) | Media, backups, large files, restic cache  |
 | `/mnt/transfer`    | Partition                | Movies (`Filme/`)                          |
 
+Both HDD mounts and the crypttab entry carry `nofail,x-systemd.device-timeout=30s`
+(host config, not in this repo): a missing drive no longer drops boot into the
+emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
+(`scripts/hdd-mountpoint-guard.sh`) keeps HDD containers from starting on the SSD.
+
 ### Key Directories
 
 ```

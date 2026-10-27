@@ -610,17 +610,22 @@ hdd_safe_for_docker() {
     lsattr -d "$HDD_MOUNT_POINT" 2>/dev/null | cut -d' ' -f1 | grep -q i
 }
 
+# Lock an unmounted, EMPTY bare mountpoint (chattr +i). Never deletes anything.
+hdd_lock_empty_mountpoint() {
+    if ! hdd_safe_for_docker && [[ -z "$(ls -A "$HDD_MOUNT_POINT" 2>/dev/null)" ]]; then
+        if chattr +i "$HDD_MOUNT_POINT"; then
+            log "🔒 Locked the empty bare $HDD_MOUNT_POINT (chattr +i)"
+        fi
+    fi
+}
+
 # Start Docker unless that would put HDD containers on the SSD. Used at every run start
 # and after a reopen, so a killed reopen never leaves Docker down. Locks an unmounted,
 # EMPTY mountpoint itself; anything inside it is left for a human (hdd-mountpoint-guard.sh)
 # — an unattended run never deletes. Manual `systemctl stop docker` is undone within 10
 # minutes, as the Docker health check already did before.
 hdd_start_docker_if_safe() {
-    if ! hdd_safe_for_docker && [[ -z "$(ls -A "$HDD_MOUNT_POINT" 2>/dev/null)" ]]; then
-        if chattr +i "$HDD_MOUNT_POINT"; then
-            log "🔒 Locked the empty bare $HDD_MOUNT_POINT (chattr +i)"
-        fi
-    fi
+    hdd_lock_empty_mountpoint
     systemctl is-active --quiet docker.service && return 0
     if ! hdd_safe_for_docker; then
         log "🛑 Docker stays stopped: the bare $HDD_MOUNT_POINT is not empty, or could not be locked"
@@ -819,7 +824,8 @@ wait_for_internet_recovery() {
         if check_internet_connectivity "false"; then
             log "✅ Internet connectivity restored after ${elapsed}s"
             notify "✅ Internet Restored" "Connection recovered after ${elapsed}s"
-            return verify_recovery
+            verify_recovery
+            return $?
         fi
     done
 
@@ -853,8 +859,23 @@ restore_vpn_stack() {
     fi
 }
 
+# The escalation ladder's Docker restarts go through the same SSD guard as the HDD path.
+# Refusing flags manual intervention, which also stops the ladder short of a reboot: the
+# next run takes the flagged branch.
+docker_restart_allowed() {
+    hdd_lock_empty_mountpoint
+    hdd_safe_for_docker && return 0
+    log "🛑 Not restarting Docker: the bare $HDD_MOUNT_POINT is not empty, or could not be locked"
+    if [[ ! -f "$MANUAL_INTERVENTION_FLAG" ]]; then
+        notify "🚨 Manual Intervention Required" "Docker restart refused: the HDD is unmounted and the bare $HDD_MOUNT_POINT is not empty or could not be locked. Inspect it, then run hdd-mountpoint-guard.sh"
+    fi
+    set_manual_intervention
+    return 1
+}
+
 restart_docker_services() {
     log "Restarting Docker services..."
+    docker_restart_allowed || return 1
 
     if systemctl restart docker; then
         log "Docker service restarted successfully"
@@ -889,7 +910,8 @@ restart_docker_services() {
                 if check_docker_health "false"; then
                     log "All containers are running and healthy"
                     restore_vpn_stack  # Docker daemon was restarted — restore homelab-private
-                    return verify_recovery
+                    verify_recovery
+                    return $?
                 fi
                 log "Containers not ready yet, waiting..."
                 sleep 20
@@ -907,7 +929,8 @@ restart_docker_services() {
             if check_docker_health "false"; then
                 log "⚠️ Docker Compose reported failure but containers are running - treating as success"
                 restore_vpn_stack  # Docker daemon was restarted — restore homelab-private
-                return verify_recovery
+                verify_recovery
+                return $?
             fi
 
             return 1
@@ -934,7 +957,8 @@ restart_network_interface() {
             # Verify network connectivity is restored
             if check_internet_connectivity "false"; then
                 log "Network connectivity restored"
-                return verify_recovery
+                verify_recovery
+                return $?
             else
                 log "Network connectivity not restored after interface restart"
                 return 1
@@ -987,6 +1011,7 @@ handle_tailscale_recovery() {
 }
 
 force_docker_cleanup() {
+    docker_restart_allowed || return 1
     log "Performing aggressive Docker cleanup and restart..."
 
     # Stop all containers gracefully first
@@ -1011,7 +1036,8 @@ force_docker_cleanup() {
         sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
 
         restore_vpn_stack  # Docker daemon was restarted — restore homelab-private
-        return verify_recovery
+        verify_recovery
+        return $?
     else
         log "Failed to restart Docker services after cleanup"
         return 1
@@ -1207,8 +1233,8 @@ analyze_failure_and_recover() {
             return 1
         fi
         if (( mount_rc == 5 )); then
-            # Never the generic ladder: its top rung reboots a headless host whose
-            # fstab has no nofail. Retry hourly, then hand over to a human.
+            # Never the generic ladder: its top rung reboots, which cannot fix a drive
+            # the reopen could not. Retry hourly, then hand over to a human.
             if (( current_state < 2 )); then
                 set_state $((current_state + 1))
             else
@@ -1446,7 +1472,8 @@ analyze_failure_and_recover() {
                 ;;
             *)
                 log "RECOVERY ACTION: Escalated recovery (persistent external access failure)"
-                return escalated_recovery
+                escalated_recovery
+                return $?
                 ;;
         esac
 
@@ -1484,14 +1511,16 @@ analyze_failure_and_recover() {
                 ;;
             *)
                 log "RECOVERY ACTION: Escalated recovery"
-                return escalated_recovery
+                escalated_recovery
+                return $?
                 ;;
         esac
 
     else
         # Multiple or complex failure = escalated response
         log "🔍 DIAGNOSIS: Complex failure pattern - using escalated recovery"
-        return escalated_recovery
+        escalated_recovery
+        return $?
     fi
 }
 

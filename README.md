@@ -283,7 +283,7 @@ sudo vim /etc/crypttab
 Add the following line, replacing `<UUID>` with the UUID from the previous step:
 
 ```bash
-encrypted_partition UUID=<UUID> /root/.hdd-keyfile luks
+encrypted_partition UUID=<UUID> /root/.hdd-keyfile luks,nofail,x-systemd.device-timeout=30s
 ```
 
 #### Configure `/etc/fstab`
@@ -295,7 +295,7 @@ sudo vim /etc/fstab
 Add the following line to mount the decrypted partition, adjusting the mount point as needed:
 
 ```bash
-/dev/mapper/encrypted_partition /mnt/hdd ext4 defaults,uid=1000,gid=1000 0 2
+/dev/mapper/encrypted_partition /mnt/hdd ext4 defaults,nofail,x-systemd.device-timeout=30s 0 2
 ```
 
 Make sure the mount point directory exists:
