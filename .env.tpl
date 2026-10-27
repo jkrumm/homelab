@@ -71,8 +71,6 @@ BETTERSTACK_TOKEN=op://homelab/monitoring/BETTERSTACK_TOKEN
 UPTIME_MONITOR_TOKEN=op://homelab/monitoring/UPTIME_MONITOR_TOKEN
 FPP_SERVER_AUTH=op://homelab/monitoring/FPP_SERVER_AUTH
 UPTIME_KUMA_PASSWORD=op://homelab/uptime-kuma/PASSWORD
-# Bearer for warden's ingest door (the Kuma webhook provider); copy of op://mini/warden-ingest/token
-WARDEN_INGEST_TOKEN=op://homelab/warden-ingest/token
 UPTIME_KUMA_PUSH_TOKEN=op://homelab/uptime-kuma/PUSH_TOKEN
 
 # --- Network config ---

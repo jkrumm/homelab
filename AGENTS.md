@@ -347,9 +347,8 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   touching a monitor when the live names differ from the declared list — a
   provider added in the UI would double every alert, one deleted would mute them.
   Providers stay UI-managed (Slack URL in 1Password), except the ones under
-  `settings.webhooks`: sync.py creates and converges those itself (`Warden - Ingest`
-  → warden's `/ingest/kuma`, bearer from `WARDEN_INGEST_TOKEN` = `op://homelab/warden-ingest/token`,
-  a copy of the mini item). The 1Password item must exist before the `.env.tpl` ref lands.
+  `settings.webhooks`: sync.py creates and converges those itself, the bearer token read
+  from the named env var (no webhook is declared today).
 - **Orphan deletion needs a TTY**, and `make uk-sync` (`ssh` without `-t`) has none —
   it only lists them. To actually delete, run `sync.py --delete-orphans` by hand on
   homelab after a dry-run shows *only* the monitors you mean to drop.

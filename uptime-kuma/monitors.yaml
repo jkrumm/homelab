@@ -35,15 +35,6 @@ settings:
   # the webhook lives in 1Password (common/slack/WEBHOOK_ALERTS), not here.
   notifications:
     - Slack - Alerts
-    - Warden - Ingest
-
-  # Webhook providers sync.py creates and converges itself (the bearer token comes
-  # from the env var, never the YAML). Attached to every leaf next to Slack: warden
-  # takes the DOWN/UP pair as an event, Slack stays the human-readable mirror.
-  webhooks:
-    - name: Warden - Ingest
-      url: https://warden-ingest.mini.jkrumm.com/ingest/kuma
-      token_env: WARDEN_INGEST_TOKEN
 
 groups:
   # ============================================
@@ -645,58 +636,6 @@ groups:
         type: push
         interval: 90000 # 25h — daily cron at 03:00 + buffer
         retry_interval: 3600
-        maxretries: 1
-
-  # ============================================
-  # warden — the control plane, on the Mac Mini. Extracted from hermes-agent
-  # 2026-09-09 because a control plane cannot live inside the process it
-  # supervises: the gateway crash-looped seven times in 3m34s on 2026-09-07 while
-  # the act-loop kept ticking against a ledger that had stopped receiving signals,
-  # with no way to notice it was blind.
-  #
-  # The backup and the loop. "Warden Loop - Push" is the chain-alive monitor for the
-  # whole of warden: its push requires the loop, the poller and the sweep to be fresh
-  # (scripts/lifecycle/freshness.py, the same test as GET /health). The old "Hermes
-  # Watchdog - Push" (poller liveness) was retired in that monitor's favour 2026-10-17.
-  # ============================================
-  - name: Warden
-    interval: 250
-    monitors:
-      # Daily 03:10 from warden/scripts/warden-backup.sh: VACUUM INTO snapshot of
-      # ~/.warden/warden.db, rotated, rsynced to /mnt/hdd/backups/warden/ — which
-      # the restic container already walks on its way to B2.
-      #
-      # Pings only on a run that BOTH snapshotted and shipped cleanly. A degraded
-      # run — rsync fine, snapshot failed — deliberately does not ping, because
-      # that is the failure that otherwise looks exactly like success: it happened
-      # for real on 2026-09-09, when macOS's sqlite3 turned out to have no -uri
-      # flag and took no snapshot at all while rsync still exited 0.
-      #
-      # interval = 25h, maxretries 0 — same sizing and the same arithmetic as
-      # Hermes Backup - Push above.
-      - name: Warden Backup - Push
-        type: push
-        interval: 90000
-        timeout: 48
-        retry_interval: 3600
-        maxretries: 1
-
-      # The warden loop (com.jkrumm.warden-loop, every 10 min) pings this at the end of every
-      # COMPLETED pass (scripts/clients/kuma.py), after the ledger heartbeat is written. Silence =
-      # the loop is wedged, crashed or unloaded: the one failure its own health endpoint cannot
-      # report about itself.
-      #
-      # interval 1200 = two missed passes, maxretries 1 → ~40 min to DOWN, so a `make deploy`
-      # kickstart or a slow pass does not page.
-      #
-      # Push URL → on the mini at ~/.config/uptime-kuma/warden-loop-push-url (chmod 600). A plain
-      # file for the same reason as the backup's: a monitor must not depend on the thing it monitors.
-      # Since 2026-10-17 the push is skipped unless loop, poll and sweep are all fresh, so a dead
-      # sweep or poller pages here too: interval 1200 + one 600 s retry → ~30 min to DOWN.
-      - name: Warden Loop - Push
-        type: push
-        interval: 1200
-        retry_interval: 600
         maxretries: 1
 
   # ============================================
