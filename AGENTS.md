@@ -380,7 +380,7 @@ Full failure scenarios, escalation states (0-4), config values and log files:
 **`docs/watchdog-behaviors.md`**. One fact worth surfacing here: the watchdog
 **auto-clears** `manual_intervention_required` once health checks pass again — a long
 outage does not need manual SSH to resume, only genuinely unrecoverable states
-(HDD disconnected, LUKS locked, 3 reboots/day) stay stuck until a human intervenes.
+(see *Manual Intervention* there) stay stuck until a human intervenes.
 
 ```bash
 # Manual clear (rarely needed — auto-clears when healthy)

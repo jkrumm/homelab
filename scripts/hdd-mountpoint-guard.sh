@@ -22,6 +22,11 @@ MAPPER=encrypted_partition
 
 [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
 
+# The watchdog mounts the HDD on this same path; racing it would point the delete
+# below at the real HDD root. Share its lock.
+exec 200>/var/run/homelab_watchdog.lock
+flock -w 600 200 || { echo "watchdog busy (lock held) — retry shortly" >&2; exit 1; }
+
 if mountpoint -q "$MP"; then
   echo "$MP is mounted — the bare mountpoint can only be locked while unmounted; nothing to do"
   exit 0
@@ -33,9 +38,12 @@ if [ "$size_mb" -gt "$MAX_STANDIN_MB" ]; then
   exit 1
 fi
 
+mountpoint -q "$MP" && { echo "$MP got mounted meanwhile — aborting" >&2; exit 1; }
 chattr -i "$MP"
+trap 'chattr +i "$MP"' EXIT
 find "$MP" -mindepth 1 -delete
 chattr +i "$MP"
+trap - EXIT
 echo "cleared ${size_mb} MB of stand-ins; $MP locked ($(lsattr -d "$MP" | cut -d' ' -f1))"
 
 [ "${1:-}" = --lock-only ] && exit 0

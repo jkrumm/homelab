@@ -42,6 +42,16 @@ readonly MOUNT_RETRY_INTERVAL=30
 readonly MAX_REBOOTS_PER_DAY=3
 readonly REBOOT_TRACKING_FILE="${STATE_DIR}/reboot_tracker"
 readonly MANUAL_INTERVENTION_FLAG="${STATE_DIR}/manual_intervention_required"
+# While flagged, Slack hears a "still unhealthy" reminder at most this often, not every run
+readonly MANUAL_REMINDER_FILE="${STATE_DIR}/manual_reminder_sent"
+readonly MANUAL_REMINDER_INTERVAL=21600
+# dm-crypt mapper name of the HDD — its LUKS partition is resolved from /etc/crypttab
+readonly HDD_MAPPER_NAME="encrypted_partition"
+# A reopen stops Docker; a failing one must not bounce the whole host every 10 minutes
+readonly HDD_REOPEN_STAMP="${STATE_DIR}/hdd_reopen_attempted"
+readonly HDD_REOPEN_COOLDOWN=3600
+# Set when e2fsck -p refuses; blocks every automatic mount/reopen until a human clears it
+readonly HDD_FSCK_MARKER="${STATE_DIR}/hdd_fsck_needs_human"
 
 # Create directories with proper permissions
 mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$LOG_FILE")"
@@ -499,34 +509,29 @@ attempt_mount_recovery() {
 
     log "Found mount device: $mount_device"
 
-    # Detailed HDD status check
-    local hdd_status="unknown"
-
     # Check if USB device is connected (VIA Labs SATA adapter)
-    if lsusb | grep -E -q "VLI|VIA Labs.*SATA|2109:0715"; then
-        log "✓ USB-SATA adapter detected"
-
-        # Check if encrypted partition exists and is unlocked
-        if [[ -e "$mount_device" ]]; then
-            log "✓ Encrypted partition is unlocked"
-            hdd_status="unlocked"
-        else
-            log "⚠️ USB device present but encrypted partition NOT unlocked"
-            log "This may indicate the LUKS decryption failed at boot"
-            notify "🔐 HDD Encryption Issue" "USB drive connected but encrypted partition not unlocked. May need manual cryptsetup."
-            hdd_status="not_unlocked"
-            return 1
-        fi
-    else
+    if ! lsusb | grep -E -q "VLI|VIA Labs.*SATA|2109:0715"; then
         log "❌ USB-SATA adapter NOT detected"
         log "The ORICO HDD enclosure is not visible to the system"
-        notify "💿 HDD Physically Disconnected" "USB drive not detected. Check: 1) USB cable connected, 2) ORICO power supply connected, 3) LED on enclosure."
-        hdd_status="not_connected"
+        # Already flagged means Slack already heard it — the flagged branch retries every run
+        [[ -f "$MANUAL_INTERVENTION_FLAG" ]] || notify "💿 HDD Physically Disconnected" "USB drive not detected. Check: 1) USB cable connected, 2) ORICO power supply connected, 3) LED on enclosure."
         return 1
     fi
+    log "✓ USB-SATA adapter detected"
 
-    # If we get here, device exists but is not mounted
-    log "HDD Status: $hdd_status - attempting mount recovery"
+    if [[ -f "$HDD_FSCK_MARKER" ]]; then
+        log "HDD fsck awaits a human — no automatic mount (sudo e2fsck -f -y, then rm $HDD_FSCK_MARKER)"
+        return 2
+    fi
+
+    # Mapper missing (never unlocked, or the drive came back after a disconnect) or
+    # stale (still bound to the vanished device node): only a LUKS reopen helps.
+    if [[ ! -e "$mount_device" ]] || hdd_mapping_stale; then
+        log "⚠️ $HDD_MAPPER_NAME is missing or bound to a vanished device — reopening"
+        reopen_encrypted_hdd
+        return $?
+    fi
+    log "✓ Encrypted partition is unlocked and bound to $(hdd_luks_device)"
 
     local attempt=1
     while [[ $attempt -le $MOUNT_RETRY_ATTEMPTS ]]; do
@@ -547,6 +552,8 @@ attempt_mount_recovery() {
 
             # Verify mount is actually working
             if check_mount_integrity "false"; then
+                # An interrupted reopen may have left Docker stopped
+                hdd_start_docker_if_safe || true
                 log "✅ Mount recovery successful!"
                 notify "🔧 Mount Recovered" "Successfully remounted $HDD_MOUNT_POINT"
                 return 0
@@ -565,8 +572,180 @@ attempt_mount_recovery() {
         ((attempt++))
     done
 
-    log "❌ Mount recovery failed after $MOUNT_RETRY_ATTEMPTS attempts"
-    return 1
+    # A plain remount cannot clear an aborted journal; reopen includes the fsck.
+    log "❌ Remount failed after $MOUNT_RETRY_ATTEMPTS attempts — falling back to a full reopen"
+    reopen_encrypted_hdd
+}
+
+# The LUKS partition behind the HDD mapper, resolved from /etc/crypttab (UUID=…).
+hdd_luks_device() {
+    local spec
+    spec=$(awk -v n="$HDD_MAPPER_NAME" '$1 == n {print $2}' /etc/crypttab)
+    [[ "$spec" == UUID=* ]] && spec="/dev/disk/by-uuid/${spec#UUID=}"
+    readlink -f "$spec" 2>/dev/null || true
+}
+
+# True when the mapper no longer sits on the LUKS partition. A USB re-enumeration
+# hands the returning drive a new name (sdb -> sdc, because the open mapper still
+# holds sdb) and leaves dm-crypt bound to the vanished node: every I/O fails, ext4
+# aborts its journal and goes read-only, and remounting the same mapper changes
+# nothing (2026-10-27).
+hdd_mapping_stale() {
+    local dm slave luks
+    [[ -e "/dev/mapper/$HDD_MAPPER_NAME" ]] || return 1
+    dm=$(basename "$(readlink -f "/dev/mapper/$HDD_MAPPER_NAME")")
+    slave=$(ls "/sys/block/$dm/slaves" 2>/dev/null | head -1) || true
+    [[ -n "$slave" && -b "/dev/$slave" ]] || return 0
+    luks=$(hdd_luks_device)
+    [[ -n "$luks" && "/dev/$slave" != "$luks" ]]
+}
+
+# The hazard is HDD containers binding stand-in dirs on the SSD under an unmounted
+# mountpoint: safe means mounted, or bare-and-empty-and-immutable. A mounted HDD — even a
+# read-only one — just hands them I/O errors, and must not keep the SSD-only services
+# (Caddy, Uptime Kuma) down.
+hdd_safe_for_docker() {
+    mountpoint -q "$HDD_MOUNT_POINT" && return 0
+    [[ -z "$(ls -A "$HDD_MOUNT_POINT" 2>/dev/null)" ]] || return 1
+    lsattr -d "$HDD_MOUNT_POINT" 2>/dev/null | cut -d' ' -f1 | grep -q i
+}
+
+# Start Docker unless that would put HDD containers on the SSD. Used at every run start
+# and after a reopen, so a killed reopen never leaves Docker down. Locks an unmounted,
+# EMPTY mountpoint itself; anything inside it is left for a human (hdd-mountpoint-guard.sh)
+# — an unattended run never deletes. Manual `systemctl stop docker` is undone within 10
+# minutes, as the Docker health check already did before.
+hdd_start_docker_if_safe() {
+    if ! hdd_safe_for_docker && [[ -z "$(ls -A "$HDD_MOUNT_POINT" 2>/dev/null)" ]]; then
+        if chattr +i "$HDD_MOUNT_POINT"; then
+            log "🔒 Locked the empty bare $HDD_MOUNT_POINT (chattr +i)"
+        fi
+    fi
+    systemctl is-active --quiet docker.service && return 0
+    if ! hdd_safe_for_docker; then
+        log "🛑 Docker stays stopped: the bare $HDD_MOUNT_POINT is not empty, or could not be locked"
+        return 1
+    fi
+    systemctl start docker.service
+}
+
+# Rebuild the HDD from the LUKS layer up: stop Docker (every HDD container holds the
+# dead filesystem), unmount, drop the mapper, reopen it from crypttab (keyfile), fsck,
+# mount, then start Docker through hdd_start_docker_if_safe and restore the VPN stack.
+# Returns 0 healed, 5 failed (retry after the cooldown), 2 fsck needs a human,
+# 3 skipped (cooldown), 4 Docker kept stopped (bare mountpoint unlocked and not empty).
+reopen_encrypted_hdd() {
+    local luks rc=0
+    if [[ -f "$HDD_FSCK_MARKER" ]]; then
+        log "HDD fsck awaits a human ($HDD_FSCK_MARKER) — not reopening"
+        return 2
+    fi
+    luks=$(hdd_luks_device)
+    if [[ ! -b "$luks" ]]; then
+        log "❌ LUKS partition from /etc/crypttab is not present — cannot reopen"
+        return 5
+    fi
+
+    local last_attempt
+    last_attempt=$(cat "$HDD_REOPEN_STAMP" 2>/dev/null || echo 0)
+    [[ "$last_attempt" =~ ^[0-9]+$ ]] || last_attempt=0
+    if (( $(date +%s) - last_attempt < HDD_REOPEN_COOLDOWN )); then
+        log "HDD reopen attempted less than $((HDD_REOPEN_COOLDOWN / 60))m ago — skipping (cooldown)"
+        # A previous attempt may have been killed between stop and start
+        hdd_start_docker_if_safe || true
+        return 3
+    fi
+    # Stamp before touching Docker: a stop that keeps failing must not bounce it every run
+    date +%s > "$HDD_REOPEN_STAMP"
+
+    # Don't bounce Docker for a reopen that cannot work
+    if ! cryptsetup isLuks "$luks"; then
+        log "❌ $luks has no readable LUKS header — not reopening"
+        return 5
+    fi
+
+    log "🔧 Reopening $HDD_MAPPER_NAME on $luks — Docker stops for the duration"
+    trap 'hdd_start_docker_if_safe || true; exit 1' INT TERM HUP
+    if ! systemctl stop docker.socket docker.service; then
+        log "❌ Could not stop Docker — leaving the HDD alone"
+        rc=1
+    fi
+
+    # No lazy unmount: a detached-but-open filesystem plus a forced mapper removal
+    # would let fsck run under live writers. Busy means abort and retry.
+    if (( rc == 0 )) && mountpoint -q "$HDD_MOUNT_POINT" && ! umount "$HDD_MOUNT_POINT"; then
+        log "❌ $HDD_MOUNT_POINT is busy with Docker stopped: $(fuser -m "$HDD_MOUNT_POINT" 2>&1 | tr -s ' ')"
+        rc=1
+    fi
+    if (( rc == 0 )) && [[ -e "/dev/mapper/$HDD_MAPPER_NAME" ]]; then
+        # --force only for a mapper whose device vanished; a live but busy one means retry
+        if ! cryptsetup close "$HDD_MAPPER_NAME" >> "$LOG_FILE" 2>&1; then
+            if hdd_mapping_stale; then
+                dmsetup remove --force "$HDD_MAPPER_NAME" >> "$LOG_FILE" 2>&1 || rc=1
+            else
+                log "❌ $HDD_MAPPER_NAME is busy but not stale — not forcing it"
+                rc=1
+            fi
+        fi
+    fi
+    if (( rc == 0 )); then
+        cryptdisks_start "$HDD_MAPPER_NAME" >> "$LOG_FILE" 2>&1 || rc=1
+    fi
+    if (( rc == 0 )); then
+        local fsck_rc=0
+        e2fsck -p "/dev/mapper/$HDD_MAPPER_NAME" >> "$LOG_FILE" 2>&1 || fsck_rc=$?
+        log "e2fsck -p exit $fsck_rc"
+        # Bit 4 = errors left uncorrected (-p refused): a human decides on -y.
+        # 8+ without it is an operational error (busy, transient I/O): just retry.
+        if (( fsck_rc & 4 )); then
+            touch "$HDD_FSCK_MARKER"
+            rc=2
+        elif (( fsck_rc >= 8 )); then
+            rc=1
+        elif ! mount "$HDD_MOUNT_POINT"; then
+            rc=1
+        elif ! check_mount_integrity "false"; then
+            umount "$HDD_MOUNT_POINT" || true
+            rc=1
+        fi
+    fi
+
+    if ! hdd_start_docker_if_safe; then
+        if hdd_safe_for_docker; then
+            log "❌ Docker failed to start after the HDD reopen"
+            if (( rc == 0 )); then rc=1; fi
+        elif (( rc != 2 )) && ! mountpoint -q "$HDD_MOUNT_POINT"; then
+            # A pending fsck (2) stays the headline; its marker blocks Docker-unsafe retries anyway
+            rc=4
+        fi
+    fi
+    trap - INT TERM HUP
+
+    case "$rc" in
+        0)
+            # The stamp stays: a flapping enclosure must not get a Docker bounce every run
+            log "✅ HDD reopened on $luks and mounted read-write"
+            # Rising power counters mean the drive itself lost power (enclosure PSU,
+            # outage); flat ones point at the USB link (cable, bridge, port).
+            log "SMART power counters: $(smartctl -A -d sat "/dev/$(lsblk -no PKNAME "$luks")" 2>/dev/null \
+                | awk '$2 ~ /Power_Cycle_Count|Power-Off_Retract_Count|UDMA_CRC_Error_Count/ {printf "%s=%s ", $2, $10}')"
+            notify "🔧 HDD Auto-Recovered" "The drive re-attached as $luks; reopened LUKS, fsck clean, remounted, Docker restarted"
+            sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
+            restore_vpn_stack
+            ;;
+        2)
+            log "❌ e2fsck -p refused to repair $HDD_MAPPER_NAME — needs a human"
+            ;;
+        4)
+            log "❌ Docker kept stopped — bare $HDD_MOUNT_POINT holds data and could not be locked"
+            ;;
+        *)
+            rc=5
+            log "❌ HDD reopen failed — retrying after the cooldown"
+            [[ -f "$MANUAL_INTERVENTION_FLAG" ]] || notify "⚠️ HDD Reopen Failed" "Could not reopen the HDD on $luks — retrying in $((HDD_REOPEN_COOLDOWN / 60))m"
+            ;;
+    esac
+    return "$rc"
 }
 
 # --------------------------------------------------
@@ -863,7 +1042,7 @@ check_reboot_limits() {
     if [[ "$tracked_count" -ge "$MAX_REBOOTS_PER_DAY" ]]; then
         log "🚨 CRITICAL: Maximum reboots per day ($MAX_REBOOTS_PER_DAY) exceeded"
         log "Creating manual intervention flag - automatic recovery suspended"
-        touch "$MANUAL_INTERVENTION_FLAG"
+        set_manual_intervention
         notify "🚨 MANUAL INTERVENTION REQUIRED" "Max reboots ($MAX_REBOOTS_PER_DAY) reached today. Automatic recovery suspended. Please investigate manually."
         return 1
     fi
@@ -883,6 +1062,28 @@ increment_reboot_counter() {
     echo "$today:$tracked_count" > "$REBOOT_TRACKING_FILE"
 
     log "Reboot counter: $tracked_count/$MAX_REBOOTS_PER_DAY for $today"
+}
+
+set_manual_intervention() {
+    touch "$MANUAL_INTERVENTION_FLAG"
+    date +%s > "$MANUAL_REMINDER_FILE"
+}
+
+clear_manual_intervention() {
+    rm -f "$MANUAL_INTERVENTION_FLAG" "$MANUAL_REMINDER_FILE"
+}
+
+# The flagged branch runs every 10 minutes; one reminder per MANUAL_REMINDER_INTERVAL.
+remind_manual_intervention() {
+    local now last
+    now=$(date +%s)
+    last=$(cat "$MANUAL_REMINDER_FILE" 2>/dev/null || echo 0)
+    [[ "$last" =~ ^[0-9]+$ ]] || last=0
+    if (( now - last < MANUAL_REMINDER_INTERVAL )); then
+        return 0
+    fi
+    echo "$now" > "$MANUAL_REMINDER_FILE"
+    notify "⚠️ Still Unhealthy" "Manual intervention still required (reminder every $((MANUAL_REMINDER_INTERVAL / 3600))h)"
 }
 
 check_manual_intervention_flag() {
@@ -994,10 +1195,40 @@ analyze_failure_and_recover() {
         log "🔍 DIAGNOSIS: Critical mount failure detected"
 
         # Try to recover the mount first
-        if attempt_mount_recovery; then
+        local mount_rc=0
+        attempt_mount_recovery || mount_rc=$?
+        if (( mount_rc == 0 )); then
             log "✅ Mount recovered successfully - resetting state"
             set_state 0
             return 0
+        fi
+        if (( mount_rc == 3 )); then
+            log "HDD reopen in cooldown — holding escalation state $current_state"
+            return 1
+        fi
+        if (( mount_rc == 5 )); then
+            # Never the generic ladder: its top rung reboots a headless host whose
+            # fstab has no nofail. Retry hourly, then hand over to a human.
+            if (( current_state < 2 )); then
+                set_state $((current_state + 1))
+            else
+                log "🔍 DIAGNOSIS: HDD reopen keeps failing - requiring manual intervention"
+                notify "🚨 Manual Intervention Required" "The HDD reopen failed repeatedly. Check $LOG_FILE, the USB cable and the enclosure power."
+                set_manual_intervention
+            fi
+            return 1
+        fi
+        if (( mount_rc == 4 )); then
+            log "🔍 DIAGNOSIS: bare $HDD_MOUNT_POINT holds data and cannot be locked — Docker kept stopped"
+            notify "🚨 Manual Intervention Required" "Docker is stopped: the HDD is unmounted and the bare $HDD_MOUNT_POINT holds data on the SSD. Inspect it, then run hdd-mountpoint-guard.sh"
+            set_manual_intervention
+            return 1
+        fi
+        if (( mount_rc == 2 )); then
+            log "🔍 DIAGNOSIS: HDD filesystem awaits a human fsck"
+            notify "🚨 Manual Intervention Required" "HDD filesystem needs a manual fsck: sudo e2fsck -f -y /dev/mapper/$HDD_MAPPER_NAME, then sudo rm $HDD_FSCK_MARKER"
+            set_manual_intervention
+            return 1
         fi
 
         # Mount recovery failed - check why it failed
@@ -1010,14 +1241,14 @@ analyze_failure_and_recover() {
             log "🔍 DIAGNOSIS: HDD physically disconnected - requires manual intervention"
             notify "💿 Manual Intervention" "External HDD is not connected. This requires physical access to reconnect the drive."
             # Don't escalate - just wait for manual fix
-            touch "$MANUAL_INTERVENTION_FLAG"
+            set_manual_intervention
             return 1
         elif [[ ! -e "$mount_device" ]]; then
             # USB connected but partition not unlocked - encryption issue
             log "🔍 DIAGNOSIS: Encryption issue - partition not unlocked"
             notify "🔐 Manual Intervention" "HDD encryption issue - partition not unlocked. May need manual cryptsetup."
             # Don't escalate - encryption issues need manual intervention
-            touch "$MANUAL_INTERVENTION_FLAG"
+            set_manual_intervention
             return 1
         else
             # Device exists but mount fails - this could be I/O error or filesystem corruption
@@ -1030,15 +1261,15 @@ analyze_failure_and_recover() {
 
                 case "$current_state" in
                     0|1)
-                        log "Escalating cautiously - waiting for USB to stabilize"
-                        notify "⚠️ HDD Hardware Issue" "Detected I/O errors or USB instability. Monitoring. (Attempt $((current_state + 1))/3)"
+                        # Log only: Slack hears about it once, when the flag is set
+                        log "Escalating cautiously - waiting for USB to stabilize (attempt $((current_state + 1))/3)"
                         set_state $((current_state + 1))
                         return 1
                         ;;
                     2)
                         log "Persistent hardware issues - requiring manual intervention"
                         notify "🚨 Manual Intervention Required" "Persistent HDD hardware issues detected. Check USB cable, power supply, and drive health."
-                        touch "$MANUAL_INTERVENTION_FLAG"
+                        set_manual_intervention
                         return 1
                         ;;
                 esac
@@ -1416,6 +1647,11 @@ main() {
         apt-get update &>/dev/null && apt-get install -y jq &>/dev/null || log "Warning: Could not install jq, using fallback parsing"
     fi
 
+    # A reopen killed between stopping and starting Docker (SIGKILL, OOM) leaves it down,
+    # and no later step restarts it while the HDD is absent. The flock rules out a reopen
+    # in flight, so: Docker down + safe for it → start it before anything else.
+    hdd_start_docker_if_safe || log "⚠️ Docker is down and was not started at run start"
+
     # Check if manual intervention flag is set
     # Even if set, we still run health checks - if system is healthy, auto-clear the flag
     # This allows self-healing after long outages (e.g., ISP down for hours)
@@ -1424,7 +1660,7 @@ main() {
 
         if perform_health_checks; then
             log "✅ System healthy - auto-clearing manual intervention flag"
-            rm -f "$MANUAL_INTERVENTION_FLAG"
+            clear_manual_intervention
             set_state 0
             notify "🟢 Auto-Recovery" "System healthy after manual intervention period - resuming normal operation"
             flush_notifications
@@ -1432,9 +1668,20 @@ main() {
             log_quiet "=== HomeLab WatchDog completed successfully (auto-recovered) ==="
             return 0
         else
+            # A drive that came back (replugged, enclosure power restored) must not
+            # wait for a human: keep trying the HDD recovery while flagged.
+            # The flag may have another cause (reboot limit): clear it only when everything passes.
+            if ! check_mount_integrity "false" && attempt_mount_recovery && perform_health_checks; then
+                log "✅ HDD recovered while flagged and system healthy - clearing manual intervention flag"
+                clear_manual_intervention
+                set_state 0
+                flush_notifications
+                send_uptime_kuma_heartbeat
+                return 0
+            fi
             log "❌ System still unhealthy - manual intervention still required"
             log "Remove $MANUAL_INTERVENTION_FLAG manually once issue is resolved"
-            notify "⚠️ Still Unhealthy" "System checked but still failing - manual intervention required"
+            remind_manual_intervention
             flush_notifications
             send_uptime_kuma_heartbeat
             return 1

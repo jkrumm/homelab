@@ -160,19 +160,41 @@ Usually resolves at state 1 (simple Docker restart).
 
 1. **Diagnose cause:**
    - USB device not connected → Set manual intervention (hardware issue)
-   - LUKS partition not unlocked → Set manual intervention (encryption issue)
-   - I/O errors in dmesg → Cautious escalation, then manual intervention
+   - Mapper missing, or **stale** (bound to a device node that vanished) → LUKS reopen (below)
+   - I/O errors in dmesg after a failed reopen → Cautious escalation (log only), then manual intervention
    - Unknown cause → Normal escalation
 
 2. **Recovery attempts:**
-   - Try `mount /mnt/hdd` up to 3 times
-   - If mount succeeds, verify with write test
+   - Mapper healthy: try `mount /mnt/hdd` up to 3 times, verify with a write test
+   - Otherwise, or if remounting failed: **LUKS reopen** (`reopen_encrypted_hdd`) — stop
+     Docker, unmount, `cryptsetup close`, `cryptdisks_start` (crypttab keyfile, by UUID),
+     `e2fsck -p`, mount, write test, start Docker, `restore_vpn_stack`. Docker comes back
+     whenever that is safe — HDD mounted, or the bare mountpoint immutable
+     (an empty one is locked with `chattr +i` on the spot) — and every run starts a Docker
+     it finds down and safe, so a killed reopen can't leave the host dark. The watchdog
+     never deletes: if the bare mountpoint holds files, Docker stays stopped and manual
+     intervention is flagged (inspect, then `hdd-mountpoint-guard.sh`). A manual
+     `systemctl stop docker` is undone within 10 minutes, as before.
+     One reopen per hour (`HDD_REOPEN_COOLDOWN`, successful ones included) so a flapping enclosure can't bounce Docker every run; a cooldown skip holds the escalation state, and a failed reopen never enters the reboot ladder — after 3 failures it flags manual intervention. A busy mountpoint aborts (no lazy unmount).
+   - On success it logs the drive's SMART power counters — rising `Power_Cycle_Count` /
+     `Power-Off_Retract_Count` mean the drive lost power; flat ones point at the USB link.
+
+**Why the reopen exists (2026-10-27):** the enclosure dropped off USB for a second and
+re-enumerated as `sdc` — the open mapper still held `sdb`, so the kernel could not reuse
+the name. dm-crypt stayed bound to the vanished `sdb2`, ext4 aborted its journal and went
+read-only, and the old recovery remounted the same dead mapper three times before flagging
+manual intervention. Every HDD-backed service was down for ~40 minutes.
 
 **Manual intervention required for:**
 
-- Physical HDD disconnection
-- Encryption/LUKS issues
+- Physical HDD disconnection (but a flagged run keeps retrying recovery, so a drive that
+  comes back is reopened without a human)
+- LUKS partition absent although the adapter is present
+- `e2fsck -p` refusing to repair — sets `hdd_fsck_needs_human`, which blocks every automatic mount/reopen until a human runs `e2fsck -f -y` and removes it
 - Persistent I/O errors (failing drive)
+
+**SMART baseline** (ST18000NM003D, 2026-10-27, after the drop): `Power_Cycle_Count` 40,
+`Power-Off_Retract_Count` 13, `UDMA_CRC_Error_Count` 0, 0 reallocated/pending sectors.
 
 ---
 
@@ -329,12 +351,16 @@ This allows self-healing after extended outages without manual intervention.
 
 - 3 reboots in one day
 - HDD physically disconnected
-- LUKS encryption issues
+- LUKS partition absent / `e2fsck -p` refused
 - Persistent I/O errors
 
 **Auto-cleared when:**
 
-- System becomes healthy (all checks pass)
+- System becomes healthy (all checks pass), or
+- HDD recovery succeeds on a flagged run (the flagged branch retries it every run)
+
+**Slack while flagged:** one "Still Unhealthy" reminder per 6h (`MANUAL_REMINDER_INTERVAL`),
+not one per 10-minute run.
 
 **Manual clear (if needed):**
 
