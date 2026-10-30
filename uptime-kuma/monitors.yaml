@@ -484,6 +484,19 @@ groups:
         retry_interval: 3600
         maxretries: 1
 
+      # The Mac mini's Postgres (databases shared and agent_workflows): nightly 03:15
+      # pg_dump to this server, checksum-verified, then restored into scratch databases and
+      # compared row for row (vps/scripts/backup-pg-dev.sh). It pushes only when the whole run,
+      # restore drill and retention included, is green, so DOWN = no verified backup for a
+      # night and a half. Push URL on the mini at ~/.config/uptime-kuma/pg-backup-push-url
+      # (chmod 600). Same sizing as Brain Backup - Push.
+      - name: MacMini Postgres Backup - Push
+        type: push
+        interval: 90000
+        timeout: 48
+        retry_interval: 3600
+        maxretries: 1
+
       # The home internet line, as measured by linewatch on the Mac mini
       # (~/SourceRoot/linewatch, collector/heartbeat.ts under the
       # com.jkrumm.linewatch-heartbeat LaunchAgent, every 60s).
