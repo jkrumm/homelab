@@ -329,7 +329,7 @@ groups:
   - name: Local
     interval: 250
     monitors:
-      # Garmin heartbeat — pushed by argo's garmin-sync cron (VPS) after each
+      # Garmin heartbeat — pushed by argo's garmin-sync cron (mini) after each
       # successful pull from Garmin's Connect Personal API. Goes down when the sync
       # fails (e.g. expired API key — rotate `op://vps/argo/GARMIN_API_KEY`).
       # The name is historical (the collector is gone) and stays: renaming would mint

@@ -545,7 +545,7 @@ services:
       glance.url: https://s3.jkrumm.com/_/health
       glance.hide: false
 
-  # Read-only Docker socket proxy bound to Tailscale interface — argo API on VPS
+  # Read-only Docker socket proxy bound to Tailscale interface — argo API (on the Mac mini)
   # queries homelab Docker container state via http://${HOMELAB_TAILSCALE_IP}:2376.
   # Mirrors the VPS-side socket-proxy-claude pattern, in reverse.
   docker-socket-proxy-claude:

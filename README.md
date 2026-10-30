@@ -45,7 +45,7 @@ a fresh server up from scratch.
 │                   VPS (Hetzner ARM64, Ubuntu 22.04)                  │
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app    │
 │  MariaDB:  Vercel → port 33306 (direct, Hetzner FW allows)           │
-│  Argo, FPP, EmailGateway, Umami, HyperDX, MariaDB, … — see ~/vps     │
+│  FPP, EmailGateway, Umami, HyperDX, MariaDB, … — see ~/vps           │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Cross-Machine Links                           │
 │  Dozzle hub (HomeLab) ←→ Dozzle agent (VPS)  via Tailscale           │
@@ -80,16 +80,17 @@ challenge). Full network topology and the Caddy dual-http/https detail:
 
 #### HomeLab — Internal (no direct web access)
 
-Caddy, Cloudflared, three docker-socket-proxy variants (monitoring / Watchtower / argo),
+Caddy, Cloudflared, three docker-socket-proxy variants (monitoring / Watchtower / argo; Argo now queries it from the Mac mini),
 Watchtower, Samba, Beszel Agent, Immich ML/Postgres/Redis, Restic Backup (daily 03:30
 cron), watchdog log sidecars. See `AGENTS.md` → Repository Structure for the full
 compose service list.
 
 #### VPS — Public (monitored from here, full inventory + ops in `~/SourceRoot/vps`)
 
-Argo (`argo.jkrumm.com`, Tailscale-only), Free Planning Poker
-(`free-planning-poker.com` + `server.`/`analytics.` subdomains), Photos
-(`photos.jkrumm.com`), EmailGateway, RollHook, HyperDX (Tailscale-only), Umami.
+Free Planning Poker (`free-planning-poker.com` + `server.`/`analytics.` subdomains),
+Photos (`photos.jkrumm.com`), EmailGateway, RollHook, HyperDX (Tailscale-only), Umami.
+Argo left the VPS on 2026-10-30 and now runs on the Mac mini (`argo.jkrumm.com` is
+served there; Kuma probes it through the mini door, not from the homelab).
 
 #### Tailscale devices
 

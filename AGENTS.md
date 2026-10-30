@@ -24,7 +24,7 @@
 | `/commit`               | main    | Smart git commit with conventional commits (inherited from SourceRoot)                       |
 
 **IMPORTANT:** Run `/docs` before committing changes that affect infrastructure or scripts.
-**Note:** The REST API + dashboard moved out of this repo to [`jkrumm/argo`](https://github.com/jkrumm/argo) (deployed to the VPS). API/skill changes are argo's responsibility now.
+**Note:** The REST API + dashboard moved out of this repo to [`jkrumm/argo`](https://github.com/jkrumm/argo) (runs natively on the Mac mini since 2026-10-30). API/skill changes are argo's responsibility now.
 
 ---
 
@@ -229,9 +229,9 @@ Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
 `docker-socket-proxy` (`tcp://docker-socket-proxy:2375`) instead of a direct socket mount —
 read-only (CONTAINERS, IMAGES, INFO, NETWORKS, VOLUMES; POST/BUILD/EXEC blocked), on an
 internal network with no external access. **Exceptions:** Watchtower gets a dedicated
-`docker-socket-proxy-watchtower` (POST=1, DELETE=1) on its own isolated network; argo on
-the VPS reads container state through `docker-socket-proxy-claude`, bound to the HomeLab
-Tailscale IP on `:2376` (read-only, same restrictions).
+`docker-socket-proxy-watchtower` (POST=1, DELETE=1) on its own isolated network; argo
+(on the Mac mini since 2026-10-30) reads container state through `docker-socket-proxy-claude`, bound to the HomeLab
+Tailscale IP on `:2376` (read-only, same restrictions; tailnet grant `tag:devhost -> tag:homelab`).
 
 ---
 
@@ -293,7 +293,7 @@ the one copy, ADR 0009; `docs/backups.md`).
 
 ## Repository Structure
 
-Pure infrastructure repo (Docker Compose + ops). The application stack (api + dashboard) lives in [`jkrumm/argo`](https://github.com/jkrumm/argo) on the VPS, deployed via RollHook.
+Pure infrastructure repo (Docker Compose + ops). The application stack (api + dashboard) lives in [`jkrumm/argo`](https://github.com/jkrumm/argo) on the Mac mini (native LaunchAgent, `make deploy` in that repo; no longer on the VPS since 2026-10-30).
 
 ```
 homelab/
@@ -325,12 +325,12 @@ directory in this repo. `dozzle/` is a root-owned bind mount (`.gitignore`d, hol
 
 ### Argo (api + dashboard) — separate repo
 
-`jkrumm/argo` lives on the VPS at `https://argo.jkrumm.com` (Tailscale-only, DNS-only A record → VPS Tailscale IP). RollHook manages zero-downtime deploys on push to master. The argo API queries homelab over Tailscale:
+`jkrumm/argo` runs natively on the Mac mini since 2026-10-30 (LaunchAgent `com.jkrumm.argo` on 127.0.0.1:7737, releases under `~/.argo`, `make deploy` / `make verify` / `make rollback` in the argo repo). It is still served at `https://argo.jkrumm.com` (tailnet-only: the DNS-only A record points at the mini's tailnet IP, the mini's Caddy serves it as an extra FQDN door). The homelab cannot reach that door (the source guard answers 403), so Kuma probes Argo through the mini's Kuma door (`GET /h/argo` on :8795, monitor `Argo - Door` in `uptime-kuma/monitors.mini-door.generated.yaml`); there is no `argo.jkrumm.com` probe from here. The argo API, queried from the mini, reads the homelab over Tailscale:
 
 - `http://${HOMELAB_TAILSCALE_IP}:2376` → docker-socket-proxy-claude (this repo)
 - `https://uptime.jkrumm.com` → uptime-kuma (this repo, via socket.io)
 
-See `~/SourceRoot/argo/` and the VPS-side `apps/argo/compose.yml`.
+See `~/SourceRoot/argo/`. The VPS Argo containers are stopped (rollback kept); the VPS `argo` schema is kept pending an owner decision.
 
 ---
 

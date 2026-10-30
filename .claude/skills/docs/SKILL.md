@@ -26,7 +26,7 @@ context: main
 8. Prompts to extend /upgrade-stack for new stacks
 
 > **Note:** The dashboard + REST API used to live here under `packages/api`
-> and `packages/dashboard`. Both moved to `jkrumm/argo` (deployed to VPS).
+> and `packages/dashboard`. Both moved to `jkrumm/argo` (runs natively on the Mac mini).
 > Hermes skill regeneration (the `argo-api` skill in `~/SourceRoot/hermes-agent`)
 > now belongs to argo's docs flow, not this one.
 
