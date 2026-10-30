@@ -35,6 +35,9 @@ failure is retried — a rejected login (`UptimeKumaException`) is surfaced at
 once so a typo'd password cannot lock the account — and `--timeout` reaches the
 client constructor.
 
+Groups 13-14 pin the repeatable `--extra-config` (ordered merge into one group
+list, an unresolved var in a later file aborts before any mutation).
+
 Run (`uptime-kuma/.venv` only exists on the homelab server, since sync.py is
 documented to run there; the PEP 723 header above declares pyyaml, so uv
 builds a throwaway env):
@@ -74,6 +77,7 @@ FAKE_KUMA_STATE = {
     "login_transient": 0,
     "notifications": [],
     "timeouts": [],
+    "added": [],
 }
 
 # Calls sync.py only makes once it is actually mutating/reading live monitor
@@ -95,6 +99,7 @@ def reset_fake_kuma():
     FAKE_KUMA_STATE["login_transient"] = 0
     FAKE_KUMA_STATE["notifications"] = []
     FAKE_KUMA_STATE["timeouts"] = []
+    FAKE_KUMA_STATE["added"] = []
 
 
 def api_touching_calls():
@@ -172,6 +177,8 @@ class FakeUptimeKumaApi:
 
     def add_monitor(self, **kwargs):
         FAKE_KUMA_STATE["calls"].append(("add_monitor", kwargs.get("name")))
+        # Full params, so a test can assert what build_monitor_params produced.
+        FAKE_KUMA_STATE["added"].append(kwargs)
         return {"monitorID": 999}
 
     def edit_monitor(self, monitor_id, **kwargs):
@@ -860,6 +867,76 @@ def test_transient_login_timeout_is_retried():
 
 
 # =============================================================================
+# 13-14. Repeatable --extra-config.
+# =============================================================================
+
+
+def _fragment(group, monitor, extra_lines=""):
+    return (
+        "groups:\n"
+        f"  - name: {group}\n"
+        "    monitors:\n"
+        f"      - name: {monitor}\n"
+        "        type: http\n"
+        f"        url: {extra_lines or 'http://example.local/'}\n"
+    )
+
+
+def test_two_extra_configs_merge_in_order():
+    failures = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        main_cfg = write_yaml(tmp, "main.yaml", _fragment("TestGroup", "main-mon"))
+        extra1 = write_yaml(tmp, "extra1.yaml", _fragment("TestGroup", "e1-mon")
+                            + "  - name: G2\n    monitors:\n      - name: e1-g2-mon\n"
+                              "        type: http\n        url: http://example.local/\n")
+        extra2 = write_yaml(tmp, "extra2.yaml", _fragment("G2", "e2-g2-mon")
+                            + "  - name: TestGroup\n    monitors:\n      - name: e2-mon\n"
+                              "        type: http\n        url: http://example.local/\n")
+        missing = str(tmp / "absent.yaml")
+
+        rc, out, err = run_main(
+            ["--config", main_cfg, "--extra-config", extra1,
+             "--extra-config", missing, "--extra-config", extra2])
+        added = [c[1] for c in FAKE_KUMA_STATE["calls"] if c[0] == "add_monitor"]
+        expected = ["TestGroup", "main-mon", "e1-mon", "e2-mon",
+                    "G2", "e1-g2-mon", "e2-g2-mon"]
+        if rc != 0:
+            failures.append(f"merge run failed: rc={rc} stderr={err!r}")
+        if added != expected:
+            failures.append(f"merged group list wrong: expected {expected!r}, got {added!r}")
+        if missing in out or out.count("Merged extra config") != 2:
+            failures.append(f"a missing extra file must be skipped silently: {out!r}")
+
+    total = 1
+    return total, (total if not failures else 0), failures
+
+
+def test_unresolved_var_in_second_extra_config_aborts():
+    failures = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        main_cfg = write_yaml(tmp, "main.yaml", _fragment("TestGroup", "main-mon"))
+        extra1 = write_yaml(tmp, "extra1.yaml", _fragment("TestGroup", "e1-mon"))
+        extra2 = write_yaml(
+            tmp, "extra2.yaml",
+            _fragment("G2", "e2-mon", extra_lines="https://${TEST_SECOND_MISSING}:8795/h/x"))
+
+        rc, out, err = run_main(
+            ["--config", main_cfg, "--extra-config", extra1, "--extra-config", extra2],
+            unset_vars=["TEST_SECOND_MISSING"])
+        if rc != 2:
+            failures.append(f"expected exit 2, got {rc} (stdout={out!r} stderr={err!r})")
+        if "TEST_SECOND_MISSING" not in err:
+            failures.append(f"second extra config's unresolved var not named: {err!r}")
+        if api_touching_calls():
+            failures.append(f"API touched despite the guard: {api_touching_calls()!r}")
+
+    total = 1
+    return total, (total if not failures else 0), failures
+
+
+# =============================================================================
 
 GROUPS = [
     ("1. unset variable aborts", test_unset_variable_aborts),
@@ -877,6 +954,8 @@ GROUPS = [
     ("10. --timeout reaches the client", test_timeout_flag_reaches_client),
     ("11. rejected login is not retried", test_auth_failure_is_not_retried),
     ("12. transient timeout is retried", test_transient_login_timeout_is_retried),
+    ("13. two extra configs merge in order", test_two_extra_configs_merge_in_order),
+    ("14. unresolved var in 2nd extra aborts", test_unresolved_var_in_second_extra_config_aborts),
 ]
 
 

@@ -354,6 +354,12 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   Providers stay UI-managed (Slack URL in 1Password), except the ones under
   `settings.webhooks`: sync.py creates and converges those itself, the bearer token read
   from the named env var (no webhook is declared today).
+- **`--extra-config` is repeatable** (merged in order; a missing file is skipped).
+  `make uk-sync` passes homelab-private's `monitors.yaml` plus
+  `uptime-kuma/monitors.mini-door.generated.yaml` — the mini-door fragment is generated
+  by dotfiles (`make kuma-door-gen`), never edited here. Its monitors reach the mini at
+  `https://${MINI_TAILSCALE_HOST}:8795/h/<name>` (`.env.tpl` → `homelab/config/MINI_TAILSCALE_HOST`,
+  the mini's MagicDNS name; the cert is issued for it, so TLS validates normally).
 - **Orphan deletion needs a TTY**, and `make uk-sync` (`ssh` without `-t`) has none —
   it only lists them. To actually delete, run `sync.py --delete-orphans` by hand on
   homelab after a dry-run shows *only* the monitors you mean to drop.

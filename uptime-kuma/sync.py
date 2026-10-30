@@ -552,7 +552,7 @@ def main():
     parser.add_argument("--export", action="store_true", help="Export current monitors to YAML")
     parser.add_argument("--delete-orphans", action="store_true", help="Delete orphaned monitors without prompting")
     parser.add_argument("--config", default="uptime-kuma/monitors.yaml", help="Path to monitors.yaml")
-    parser.add_argument("--extra-config", default=None, help="Path to additional monitors.yaml to merge in (e.g. from homelab-private)")
+    parser.add_argument("--extra-config", action="append", default=[], help="Path to additional monitors.yaml to merge in (e.g. from homelab-private); repeatable, merged in order, a missing file is skipped")
     parser.add_argument("--url", default="http://localhost:3010", help="Uptime Kuma URL")
     parser.add_argument("--username", default="jkrumm", help="Uptime Kuma username")
     parser.add_argument("--timeout", type=float, default=60, help="Socket.IO timeout (seconds) for connect/login — a large instance needs more than the library default of 10")
@@ -584,8 +584,11 @@ def main():
             # one still writes empty values.
             unresolved = set()
             config = load_config(args.config, unresolved)
-            if args.extra_config and Path(args.extra_config).exists():
-                extra = load_config(args.extra_config, unresolved)
+            for extra_path in args.extra_config:
+                if not Path(extra_path).exists():
+                    print(f"WARNING: extra config not found, skipped: {extra_path}", file=sys.stderr)
+                    continue
+                extra = load_config(extra_path, unresolved)
                 # Merge groups: append monitors into matching groups, add new groups
                 main_by_name = {g["name"]: g for g in config.get("groups", [])}
                 for group in extra.get("groups", []):
@@ -596,7 +599,7 @@ def main():
                         )
                     else:
                         config.setdefault("groups", []).append(group)
-                print(f"Merged extra config from {args.extra_config}")
+                print(f"Merged extra config from {extra_path}")
 
             # Abort before anything mutating — including under --dry-run, which is
             # the pre-flight and so has to catch this too. SystemExit is not an
