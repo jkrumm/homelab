@@ -802,15 +802,6 @@ groups:
                 keyword: '"status":"ok"'
                 interval: 150
 
-          # Image Gen Gateway — image generation API on VPS, Tailscale-only via
-          # Traefik (grey-cloud → VPS Tailscale IP, no CF bypass).
-          # /health → {"status":"ok"}.
-          - name: Image Gen Gateway - HTTP
-            type: keyword
-            url: https://image-gateway.jkrumm.com/health
-            keyword: '"status":"ok"'
-            interval: 165
-
   # ============================================
   # FreePlanningPoker - VPS application stack
   # ============================================
