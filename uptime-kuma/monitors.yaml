@@ -35,6 +35,9 @@ settings:
   # the webhook lives in 1Password (common/slack/WEBHOOK_ALERTS), not here.
   notifications:
     - Slack - Alerts
+    # POSTs to the software-factory door (tailnet, bearer token kept in this provider), which files an Issue
+    # for a monitor routed in the factory's registry and ignores the rest.
+    - Factory door
 
 groups:
   # ============================================
