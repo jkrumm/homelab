@@ -114,6 +114,7 @@ existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 | `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful pull from Garmin's Personal API (in `common/` so VPS service account can read) |
+| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only) |
 | `common/slack/WEBHOOK_ALERTS`     | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
 | `common/slack/WATCHTOWER_URL`     | Shoutrrr-formatted Slack webhook for Watchtower         |
 | `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
