@@ -32,6 +32,11 @@ KARAKEEP_MEILI_MASTER_KEY=op://homelab/karakeep/MEILI_MASTER_KEY
 KARAKEEP_OPENAI_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 KARAKEEP_OPENAI_API_KEY=op://common/anthropic/API_KEY
 
+# --- ntfy (push notifications, Tailscale-only) ---
+# PASSWORD_HASH = bcrypt of PASSWORD (admin login for web/iOS); TOKEN = tk_ client token
+NTFY_PASSWORD_HASH=op://common/ntfy/PASSWORD_HASH
+NTFY_TOKEN=op://common/ntfy/TOKEN
+
 # --- Restic → Backblaze B2 ---
 # Repo password — NEVER changes after init (encrypts the repo)
 RESTIC_PASSWORD=op://homelab/restic/PASSWORD

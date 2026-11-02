@@ -289,6 +289,25 @@ groups:
             retry_interval: 3700
             maxretries: 1
 
+      # --- ntfy subgroup (push notifications, Tailscale-only) ---
+      - name: ntfy
+        type: group
+        interval: 249
+        monitors:
+          - name: ntfy - Docker
+            type: docker
+            docker_container: ntfy
+            interval: 203
+            timeout: 120
+            maxretries: 5
+
+          # Over the shared cloudflared bridge, no Caddy hop. /v1/health is unauthenticated.
+          - name: ntfy - HTTP
+            type: http
+            url: http://ntfy:80/v1/health
+            interval: 212
+            accepted_statuscodes: ['200-299']
+
       # --- Karakeep subgroup (read-later; web + chrome crawler + meili search) ---
       - name: Karakeep
         type: group

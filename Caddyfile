@@ -59,6 +59,16 @@ http://karakeep.jkrumm.com {
 	redir https://{host}{uri} permanent
 }
 
+# ntfy (private, Tailscale only). flush_interval -1: stream /json, /sse and /ws
+# subscriptions unbuffered so a publish reaches clients immediately.
+ntfy.jkrumm.com {
+	reverse_proxy ntfy:80 {
+		flush_interval -1
+	}
+}
+http://ntfy.jkrumm.com {
+	redir https://{host}{uri} permanent
+}
 
 # Private service overrides — loaded from homelab-private (not tracked here)
 import /etc/caddy/private/*.caddy

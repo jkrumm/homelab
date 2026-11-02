@@ -1,0 +1,27 @@
+# ntfy server — Tailscale-only (ntfy.jkrumm.com resolves to the HomeLab tailnet IP).
+# Users and tokens are provisioned declaratively from env (NTFY_AUTH_USERS /
+# NTFY_AUTH_TOKENS in docker-compose.yml, values from 1Password common/ntfy) —
+# never via `ntfy user add`; provisioned entries are read-only in the CLI.
+base-url: "https://ntfy.jkrumm.com"
+listen-http: ":80"
+behind-proxy: true
+
+auth-file: "/var/lib/ntfy/user.db"
+auth-default-access: "deny-all"
+enable-login: true
+require-login: true
+
+# Clients recover messages missed during sleep via since=<id> — keep a day plus margin.
+cache-file: "/var/lib/ntfy/cache.db"
+cache-duration: "48h"
+
+attachment-cache-dir: "/var/lib/ntfy/attachments"
+attachment-total-size-limit: "2G"
+attachment-file-size-limit: "25M"
+attachment-expiry-duration: "48h"
+
+# iOS instant delivery: ntfy.sh relays only a content-free poll_request to APNs; the
+# iPhone then fetches the message from base-url over Tailscale. Outbound only.
+upstream-base-url: "https://ntfy.sh"
+
+log-level: "info"

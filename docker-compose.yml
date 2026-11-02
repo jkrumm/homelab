@@ -630,6 +630,40 @@ services:
       glance.url: https://karakeep.jkrumm.com
       glance.hide: false
 
+  # Push notifications (Tailscale-only). Config in config/ntfy/server.yml; the
+  # admin user and client token are provisioned from env on every start.
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
+    command: serve
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Compose does not re-interpolate substituted values, so the bcrypt `$` survive.
+      NTFY_AUTH_USERS: jkrumm:${NTFY_PASSWORD_HASH}:admin
+      NTFY_AUTH_TOKENS: jkrumm:${NTFY_TOKEN}:clients
+    volumes:
+      - ./config/ntfy/server.yml:/etc/ntfy/server.yml:ro
+      - /home/jkrumm/ssd/ntfy:/var/lib/ntfy
+    networks:
+      - cloudflared # Caddy + Uptime Kuma; plain bridge, egress to the ntfy.sh upstream
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:80/v1/health -O - | grep -q '\"healthy\":true'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    labels:
+      glance.name: ntfy
+      glance.icon: si:ntfy
+      glance.url: https://ntfy.jkrumm.com
+      glance.hide: false
+
   # Headless Chrome for crawling + screenshots. Needs egress (karakeep-internal is a
   # plain bridge). Pinned tag — Watchtower must not bump it.
   # Karakeep's own image since 0.33.x — the previous gcr.io/zenika-hub/alpine-chrome:124

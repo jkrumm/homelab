@@ -72,6 +72,7 @@ a fresh server up from scratch.
 | FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
 | S3 (VersityGW)   | [s3.jkrumm.com](https://s3.jkrumm.com)           | S3 API over existing folders — agents, rclone, presigned links (`docs/s3.md`) |
 | Karakeep         | [karakeep.jkrumm.com](https://karakeep.jkrumm.com) | Read-later / bookmark bucket, AI auto-tagging via IU endpoint |
+| ntfy             | [ntfy.jkrumm.com](https://ntfy.jkrumm.com)         | Push notifications (macOS/iOS), deny-all + token; admin user/token provisioned from `common/ntfy` |
 
 DNS: grey cloud (DNS-only) A records pointing to the HomeLab Tailscale IP —
 unreachable from the public internet. TLS via Let's Encrypt (Cloudflare DNS-01
