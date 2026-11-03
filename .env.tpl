@@ -54,6 +54,8 @@ SLACK_WATCHTOWER_URL=op://common/slack/WATCHTOWER_URL
 
 # --- Media (homelab-private services) ---
 WIREGUARD_PRIVATE_KEY=op://homelab/protonvpn/WIREGUARD_PRIVATE_KEY
+GLUETUN_HTTPPROXY_USER=op://homelab/protonvpn/HTTPPROXY_USER
+GLUETUN_HTTPPROXY_PASSWORD=op://homelab/protonvpn/HTTPPROXY_PASSWORD
 TORRENT_APP_TOKEN=op://homelab/torrent-app/TOKEN
 PROWLARR_API_KEY=op://homelab/prowlarr/API_KEY
 QBITTORRENT_PASSWORD=op://homelab/qbittorrent/PASSWORD
