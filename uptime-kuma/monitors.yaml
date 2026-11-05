@@ -438,6 +438,23 @@ groups:
         retry_interval: 3600
         maxretries: 1
 
+      # The software-factory server on the Mac mini (~/SourceRoot/software-factory).
+      # It judges its own liveness — "the tick advanced and the queue moved within
+      # 30 minutes", GET /health heartbeat.ok — and dotfiles/scripts/devhost-health-check.sh
+      # (every 5 min) pushes that verdict here. DOWN = the factory stopped working
+      # or the mini/pusher is gone; the Dev Host monitor above covers the box itself.
+      #
+      # interval 600 = 2× the pusher's 300s cadence, maxretries: 0 → time-to-DOWN 10 min
+      # (the push-monitor rule: interval + maxretries × retry_interval). The factory's
+      # own 30 min window already absorbs a slow tick; a retry here would only delay it.
+      #
+      # Push URL on the mini at ~/.config/uptime-kuma/factory-push-url (chmod 600).
+      - name: Software Factory - Push
+        type: push
+        interval: 600
+        retry_interval: 600
+        maxretries: 0
+
       # Upstream drift on the Mac mini (dotfiles: `make drift-check-setup`) —
       # the commit-pinned collie bridge, the xcaddy/caddy-dns modules compiled into
       # caddy, brew-upgrade recency, pending macOS updates. It reports and never
