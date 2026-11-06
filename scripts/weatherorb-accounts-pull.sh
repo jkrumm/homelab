@@ -73,8 +73,11 @@ if ! rsync -a --timeout=120 \
   log "warning: rsync from VPS failed — validating the dumps already held"
 fi
 
+# sed, not `head -1`: under pipefail, head exiting early SIGPIPEs sort (141) and
+# set -e then kills the script before it logs or pushes — roughly 1 run in 3 with
+# ~350 dumps held, which is what made this monitor flap.
 newest="$(find "$DEST_DIR" -maxdepth 1 -name 'weatherorb_accounts-*.dump' -printf '%T@ %p\n' \
-  | sort -rn | head -1 | cut -d' ' -f2-)"
+  | sort -rn | sed -n '1s/^[^ ]* //p')"
 [ -n "$newest" ] || fail_hard "no weatherorb_accounts-*.dump in $DEST_DIR"
 
 age_s=$(( $(date +%s) - $(stat -c %Y "$newest") ))

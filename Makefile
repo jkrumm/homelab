@@ -89,7 +89,7 @@ help: ## Show all targets
 	@echo "    make restic-prune        ⚠ Run on YOUR MAC with admin key — quarterly cleanup"
 	@echo ""
 	@echo "  Tests (local Mac, no server needed)"
-	@echo "    make test                Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay)"
+	@echo "    make test                Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard)"
 	@echo ""
 
 # ── Stack Operations ─────────────────────────────────────────────────────────
@@ -213,9 +213,10 @@ uk-export: ## Export current Uptime Kuma monitors to YAML
 # `uv run` builds a throwaway env for it — no repo venv, no borrowed one.
 # The setup.sh cron replay is plain bash: it extracts the watchdog-cron block and
 # replays six seeded crontabs against a stubbed `crontab`.
-test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay) — no network, no server
+test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard) — no network, no server
 	uv run tests/test_uptime_kuma_sync_guard.py
 	bash tests/test_setup_cron_replay.sh
+	bash tests/test_pipefail_head.sh
 
 # ── Restic Backup ────────────────────────────────────────────────────────────
 # Backup runs daily at 03:30 inside container (BACKUP_CRON env).

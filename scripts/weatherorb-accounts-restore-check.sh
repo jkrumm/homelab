@@ -20,7 +20,7 @@ DB="restore_check"
 log() { echo "$(date -Iseconds) $*"; }
 
 dump="${1:-$(find "$DEST_DIR" -maxdepth 1 -name 'weatherorb_accounts-*.dump' -printf '%T@ %p\n' \
-  | sort -rn | head -1 | cut -d' ' -f2-)}"
+  | sort -rn | sed -n '1s/^[^ ]* //p')}"  # not `head -1`: pipefail + SIGPIPE kills the run silently
 [ -n "$dump" ] && [ -r "$dump" ] || { log "FAIL: no readable dump (looked in $DEST_DIR)"; exit 1; }
 
 trap 'docker rm -fv "$CONTAINER" > /dev/null 2>&1 || true' EXIT

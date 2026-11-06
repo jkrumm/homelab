@@ -35,7 +35,7 @@ heartbeat() {
 }
 
 newest="$(find "$BACKUP_DIR" -maxdepth 1 -name 'immich-db-backup-*.sql.gz' -printf '%T@ %p\n' 2>/dev/null \
-  | sort -rn | head -1 | cut -d' ' -f2-)"
+  | sort -rn | sed -n '1s/^[^ ]* //p')"  # not `head -1`: pipefail + SIGPIPE kills the run silently
 if [ -z "$newest" ]; then
   log "FAIL: no immich-db-backup-*.sql.gz in $BACKUP_DIR"
   exit 1
