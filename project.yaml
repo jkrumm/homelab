@@ -1,0 +1,11 @@
+apiVersion: factory/v2
+name: homelab
+deploy:
+  mode: make
+  targets:
+    - { name: homelab, host: homelab, verify: make verify }
+  hold: 0m
+  migrations: []
+ship:
+  - { paths: ["**"], via: push }
+leads: 1

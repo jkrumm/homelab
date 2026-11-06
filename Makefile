@@ -39,7 +39,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -57,6 +57,7 @@ help: ## Show all targets
 	@echo "  Validation & Health"
 	@echo "    make check               All local validation (compose config + YAML/shell lint + tests)"
 	@echo "    make verify              Probe production via the Uptime Kuma status page (exit 0 = healthy)"
+	@echo "    make version             Print the commit sha the server checkout runs"
 	@echo ""
 	@echo "  Immich Stack (manually-managed — Watchtower-excluded)"
 	@echo "    make immich-upgrade      git pull + pull pinned images + recreate Immich stack"
@@ -139,6 +140,11 @@ verify: ## Probe production health via the Uptime Kuma status page (exit 0 = hea
 		echo "$$resp" | grep -q '"incidents":\[\]' || { echo "UNHEALTHY: active Uptime Kuma incident(s)"; exit 1; }; \
 		echo "$$resp" | grep -q '"maintenanceList":\[\]' || { echo "UNHEALTHY: Uptime Kuma maintenance window active"; exit 1; }; \
 		echo "OK: production healthy — no active Uptime Kuma incidents"
+
+# `version` prints the commit sha the server's checkout runs (`make deploy` is a
+# git pull there) — one line, read-only.
+version: ## Print the deployed commit sha (server checkout HEAD, one line)
+	@$(SSH) "$(CD) && git rev-parse HEAD"
 
 # ── Immich Stack (manually-managed, Watchtower-excluded) ─────────────────────
 # Immich server/ML use the rolling `release` tag, so a plain `up -d` won't advance
