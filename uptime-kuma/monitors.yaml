@@ -80,10 +80,15 @@ groups:
             timeout: 120
             maxretries: 5
 
+          # In-stack HTTP probes ride out a planned redeploy: the 2026-11-06 06:05Z
+          # recreate refused connections for ~5-7 min and 3 retries (3 min) paged
+          # Dozzle and ntfy. 8 retries at the 60s retry interval = ~8 min before DOWN;
+          # a container that stays down still pages, just ~5 min later.
           - name: Dozzle - HTTP
             type: http
             url: http://dozzle:8081/
             interval: 155
+            maxretries: 8
 
           - name: Docker Socket Proxy - Docker
             type: docker
@@ -171,6 +176,32 @@ groups:
             retry_interval: 3600
             maxretries: 1
 
+          # WeatherOrb account DB (passkeys, sessions, favourites — lives on the VPS,
+          # weatherorb ADR 0013). A backup heartbeat of the homelab's HDD/restic
+          # path, so it sits beside Restic Backup - Push, not under Immich (it was
+          # filed there by mistake and paged Immich's group on every flap).
+          # scripts/weatherorb-accounts-pull.sh (jkrumm crontab, hourly :25, after the
+          # VPS pg_dump at :15) rsyncs the dumps home over Tailscale SSH, proves the
+          # newest is <2h old and `pg_restore --list`-clean, and pings status=up; the
+          # failure semantics (silent vs explicit down) are in the script header.
+          #
+          # The cadence is hourly, so interval 3700 = 3600 + 100s grace. maxretries 1 is
+          # deliberate and the one exception to the maxretries-0 rule: time-to-DOWN is
+          # interval + retry_interval = ~2h, the script's own 2h freshness gate, so one
+          # late or failed run (a flaky SSH hop) stays PENDING and only two consecutive
+          # misses page; an explicit status=down would bypass this grace, so the script
+          # sends one only for a missing/stale/corrupt dump. The flapping seen up to
+          # 2026-11-06 was not this window but the script dying silently on ~1 run in 3
+          # (`sort | head -1` under pipefail = SIGPIPE); fixed in the script, window kept.
+          # Push URL on the homelab server at
+          # ~/.config/uptime-kuma/weatherorb-accounts-push-url (chmod 600) — plain file.
+          - name: WeatherOrb Accounts Backup - Push
+            type: push
+            interval: 3700
+            timeout: 48
+            retry_interval: 3700
+            maxretries: 1
+
           # BetterStack external monitoring (verifies public accessibility)
           - name: Uptime Kuma - Uptime
             type: http
@@ -205,7 +236,7 @@ groups:
             type: http
             url: http://versitygw:7070/_/health
             interval: 187
-            maxretries: 1
+            maxretries: 8 # rides out a planned redeploy, see Dozzle - HTTP
 
       # --- Immich subgroup ---
       - name: Immich
@@ -276,28 +307,6 @@ groups:
             retry_interval: 3600
             maxretries: 1
 
-          # WeatherOrb account DB (passkeys, sessions, favourites — lives on the VPS,
-          # weatherorb ADR 0013). scripts/weatherorb-accounts-pull.sh (jkrumm crontab,
-          # hourly :25, after the VPS pg_dump at :15) rsyncs the dumps home over
-          # Tailscale SSH, proves the newest is <2h old and `pg_restore --list`-clean,
-          # and pings status=up; the failure semantics (silent vs explicit down) are
-          # documented in the script header.
-          #
-          # interval 3700 = hourly cron + 100s grace. maxretries 1 is deliberate and the
-          # one exception to the maxretries-0 rule above: time-to-DOWN is interval +
-          # retry_interval = ~2h, the same window as the script's own 2h freshness gate,
-          # so one late or failed run (a flaky SSH hop) stays PENDING and only two
-          # consecutive misses page; an explicit status=down would bypass this grace, so
-          # the script sends one only for a missing/stale/corrupt dump. Push URL on the
-          # homelab server at ~/.config/uptime-kuma/weatherorb-accounts-push-url
-          # (chmod 600) — plain file.
-          - name: WeatherOrb Accounts Backup - Push
-            type: push
-            interval: 3700
-            timeout: 48
-            retry_interval: 3700
-            maxretries: 1
-
       # --- ntfy subgroup (push notifications, Tailscale-only) ---
       - name: ntfy
         type: group
@@ -315,6 +324,7 @@ groups:
             type: http
             url: http://ntfy:80/v1/health
             interval: 212
+            maxretries: 8 # rides out a planned redeploy, see Dozzle - HTTP
             accepted_statuscodes: ['200-299']
 
       # --- Karakeep subgroup (read-later; web + chrome crawler + meili search) ---
@@ -349,6 +359,7 @@ groups:
             type: http
             url: http://karakeep:3000/api/health
             interval: 211
+            maxretries: 8 # rides out a planned redeploy, see Dozzle - HTTP
             accepted_statuscodes: ['200-299']
 
   # ============================================

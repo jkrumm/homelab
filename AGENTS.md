@@ -365,6 +365,10 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   homelab after a dry-run shows *only* the monitors you mean to drop.
 - **`--export` flattens to top-level groups only** — a monitor nested in a subgroup
   never appears in the `.exported` file; read it with `api.get_monitor(<id>)`.
+- **Groups never notify; a group flip in Kuma's event list is dashboard-only.** A planned
+  redeploy must not page: in-stack HTTP probes (Dozzle, ntfy, Karakeep, S3 Gateway) carry
+  `maxretries: 8` (~8 min at the 60 s retry interval). A heartbeat script under `pipefail`
+  never pipes into `head -1` (SIGPIPE kills it silently; `tests/test_pipefail_head.sh`).
 - **Every push monitor has `maxretries: 0`** except `Home Line - Watchdog` (2,
   deliberate) — a retry turns a 10-minute time-to-DOWN into 40. Wiring a brand-new
   push monitor end to end is fully agentic; see `docs/decisions.md`.
@@ -406,7 +410,7 @@ mutation, so it is safe to run anywhere. Run it before handing a change over:
 
 ```bash
 make check   # compose config + YAML parse + shell syntax + regression suite (non-zero on failure)
-make test    # the regression suite alone (uptime-kuma sync guard + setup.sh cron replay)
+make test    # the regression suite alone (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard)
 ```
 
 `make check` is the authoritative gate — a non-zero exit means the change is not ready.
