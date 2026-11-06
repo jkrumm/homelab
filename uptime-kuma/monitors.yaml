@@ -5,7 +5,7 @@
 # GROUP monitors get NO notification providers (sync.py attaches them to leaves
 # only). Uptime Kuma marks a group DOWN whenever any child is DOWN, so a notified
 # group restates every child alert: one HomeLab reboot on 2026-07-28 produced 57
-# Slack messages, and 190 of the 715 monitor alerts in the 2026-06→09 window were
+# alert messages, and 190 of the 715 monitor alerts in the 2026-06→09 window were
 # groups repeating a child. Groups are the dashboard tree; leaves are the alarm.
 #
 # Secrets are referenced via environment variables (loaded from 1Password)
@@ -31,13 +31,22 @@ settings:
   # live providers to every leaf and none to any group, so this list is the
   # alert fan-out as code: sync aborts before touching a monitor when the live
   # set differs (a provider added in the UI would silently double every alert;
-  # one deleted would silently mute them). Providers themselves are UI-managed —
-  # the webhook lives in 1Password (common/slack/WEBHOOK_ALERTS), not here.
+  # one deleted would silently mute them). The code-managed ones (settings.ntfy,
+  # settings.webhooks) are created by sync.py; any other provider is UI-managed.
   notifications:
-    - Slack - Alerts
+    - ntfy - Alerts
     # POSTs to the software-factory door (tailnet, bearer token kept in this provider), which files an Issue
     # for a monitor routed in the factory's registry and ignores the rest.
     - Factory door
+
+  # ntfy provider, created by sync.py. Kuma reaches the ntfy container by name over
+  # the docker network, so the token never leaves the host; it comes from NTFY_TOKEN.
+  ntfy:
+    - name: ntfy - Alerts
+      url: http://ntfy:80
+      topic: alerts
+      token_env: NTFY_TOKEN
+      priority: 4
 
 groups:
   # ============================================
@@ -361,11 +370,11 @@ groups:
       # VPS service account can read it; argo resolves it as GARMIN_HEARTBEAT_URL).
       - name: Garmin Collector - Push
         type: push
-        interval: 43200 # 12h — argo sync runs every 6h; one missed cycle of slack
+        interval: 43200 # 12h — argo sync runs every 6h; one missed cycle of leeway
         timeout: 48
         retry_interval: 3600
         maxretries: 1
-        resend_interval: 1 # re-alert Slack every down beat (~12h) while the sync stays broken
+        resend_interval: 1 # re-alert via ntfy every down beat (~12h) while the sync stays broken
 
       # Weekly manual 1Password export backup, run locally from the Mac.
       # NOTE: created by hand before 2026-07-28 — uk-sync CAN create push monitors on UK 2.x (proven when it created MacMini Collie - Push).
@@ -592,7 +601,7 @@ groups:
       # every shadow-mode evaluation are both UP — otherwise the multi-week
       # shadow run this thing ships in would page continuously and be turned off.
       #
-      # 600 with 2 retries → ~30 min to DOWN, deliberately slacker than the line
+      # 600 with 2 retries → ~30 min to DOWN, deliberately looser than the line
       # monitor. Nothing here is time-critical: a latched watchdog is a state
       # that persists until a human clears it, and paging fast about it would
       # only compete with the line alert during the outage that caused it.

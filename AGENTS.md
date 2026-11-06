@@ -114,9 +114,7 @@ existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 | `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful pull from Garmin's Personal API (in `common/` so VPS service account can read) |
-| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only) |
-| `common/slack/WEBHOOK_ALERTS`     | Slack webhook for alerts (watchdog, UptimeKuma, Beszel) |
-| `common/slack/WATCHTOWER_URL`     | Shoutrrr-formatted Slack webhook for Watchtower         |
+| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only). Alerts go to topic `alerts` (Kuma, watchdog, Beszel), updates to `updates` (Watchtower, shoutrrr URL in `docker-compose.yml`). Beszel alerts are set in the Beszel UI as a shoutrrr URL `ntfy://:<token>@<ntfy host>/alerts` — UI-managed, the secret is not in git |
 | `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
 
 ### Essential Commands
@@ -353,9 +351,9 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   live provider to every leaf and none to any group, so it aborts (exit 3) before
   touching a monitor when the live names differ from the declared list — a
   provider added in the UI would double every alert, one deleted would mute them.
-  Providers stay UI-managed (Slack URL in 1Password), except the ones under
-  `settings.webhooks`: sync.py creates and converges those itself, the bearer token read
-  from the named env var (no webhook is declared today).
+  Providers stay UI-managed, except the ones under `settings.ntfy` (the alert
+  provider, token from `NTFY_TOKEN`) and `settings.webhooks`: sync.py creates and
+  converges those itself, the token read from the named env var.
 - **`--extra-config` is repeatable** (merged in order; a missing file is skipped).
   `make uk-sync` passes homelab-private's `monitors.yaml` plus
   `uptime-kuma/monitors.mini-door.generated.yaml` — the mini-door fragment is generated

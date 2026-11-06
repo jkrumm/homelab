@@ -42,7 +42,7 @@ readonly MOUNT_RETRY_INTERVAL=30
 readonly MAX_REBOOTS_PER_DAY=3
 readonly REBOOT_TRACKING_FILE="${STATE_DIR}/reboot_tracker"
 readonly MANUAL_INTERVENTION_FLAG="${STATE_DIR}/manual_intervention_required"
-# While flagged, Slack hears a "still unhealthy" reminder at most this often, not every run
+# While flagged, ntfy hears a "still unhealthy" reminder at most this often, not every run
 readonly MANUAL_REMINDER_FILE="${STATE_DIR}/manual_reminder_sent"
 readonly MANUAL_REMINDER_INTERVAL=21600
 # dm-crypt mapper name of the HDD — its LUKS partition is resolved from /etc/crypttab
@@ -74,7 +74,9 @@ trap 'flock -u 200' EXIT
 # --------------------------------------------------
 # Secure credential storage (readonly, not exported to child processes)
 declare -g _CRED_BETTERSTACK=""
-declare -g _CRED_SLACK_WEBHOOK=""
+declare -g _CRED_NTFY_TOKEN=""
+declare -g _NTFY_BASE_URL=""
+readonly NTFY_SERVER_CONFIG="/home/jkrumm/homelab/config/ntfy/server.yml"
 declare -g _CRED_UPTIME_KUMA=""
 
 load_credentials() {
@@ -90,12 +92,19 @@ load_credentials() {
 
     # Read secrets from 1Password (not exported to child processes)
     _CRED_BETTERSTACK="$(op read 'op://homelab/monitoring/BETTERSTACK_TOKEN')"
-    _CRED_SLACK_WEBHOOK="$(op read 'op://common/slack/WEBHOOK_ALERTS')"
+    _CRED_NTFY_TOKEN="$(op read 'op://common/ntfy/TOKEN')"
     _CRED_UPTIME_KUMA="$(op read 'op://homelab/uptime-kuma/PUSH_TOKEN' 2>/dev/null || echo '')"
 
     # Validate required variables
-    if [[ -z "$_CRED_BETTERSTACK" || -z "$_CRED_SLACK_WEBHOOK" ]]; then
+    if [[ -z "$_CRED_BETTERSTACK" || -z "$_CRED_NTFY_TOKEN" ]]; then
         log "ERROR: Failed to read required secrets from 1Password"
+        exit 1
+    fi
+
+    # ntfy base URL: the same file the ntfy container is configured from
+    _NTFY_BASE_URL="$(sed -n 's/^base-url:[[:space:]]*"\{0,1\}\([^"[:space:]]*\)"\{0,1\}.*/\1/p' "$NTFY_SERVER_CONFIG" 2>/dev/null | head -n1 || true)"
+    if [[ -z "$_NTFY_BASE_URL" ]]; then
+        log "ERROR: no base-url in $NTFY_SERVER_CONFIG"
         exit 1
     fi
 }
@@ -124,22 +133,25 @@ flush_notifications() {
         return 0
     fi
 
-    # Bold the title portion (before first colon) in each queued line
-    local msgs
-    msgs=$(sed 's/^\([^:]*\): /• *\1*: /' "$QUEUE_FILE")
+    # Plain-text body: "Title: message" lines rendered as "- Title: message"
+    local body
+    body=$(sed 's/^/- /' "$QUEUE_FILE")
 
-    local payload
-    payload=$(jq -n --arg msgs "$msgs" '{
-        blocks: [
-            {type: "header", text: {type: "plain_text", text: "HomeLab WatchDog", emoji: true}},
-            {type: "section", text: {type: "mrkdwn", text: $msgs}}
-        ]
-    }')
+    # 🚨 anywhere in the queue means the owner is needed now (high); the rest is default
+    local priority=3 tags="house"
+    if grep -q '🚨' "$QUEUE_FILE"; then
+        priority=4
+        tags="rotating_light,house"
+    fi
 
-    if curl -s --max-time 10 \
-           -H "Content-type: application/json" \
-           --data "$payload" \
-           "$_CRED_SLACK_WEBHOOK" > /dev/null 2>&1; then
+    # The token goes through a process-substitution header file, so it never shows in ps
+    if curl -sf --max-time 10 \
+           -H @<(printf 'Authorization: Bearer %s\n' "$_CRED_NTFY_TOKEN") \
+           -H "Title: HomeLab WatchDog" \
+           -H "Priority: $priority" \
+           -H "Tags: $tags" \
+           -d "$body" \
+           "$_NTFY_BASE_URL/alerts" > /dev/null 2>&1; then
         > "$QUEUE_FILE"  # Clear queue on success
         log_quiet "Notifications sent successfully"
     else
@@ -513,7 +525,7 @@ attempt_mount_recovery() {
     if ! lsusb | grep -E -q "VLI|VIA Labs.*SATA|2109:0715"; then
         log "❌ USB-SATA adapter NOT detected"
         log "The ORICO HDD enclosure is not visible to the system"
-        # Already flagged means Slack already heard it — the flagged branch retries every run
+        # Already flagged means ntfy already heard it — the flagged branch retries every run
         [[ -f "$MANUAL_INTERVENTION_FLAG" ]] || notify "💿 HDD Physically Disconnected" "USB drive not detected. Check: 1) USB cable connected, 2) ORICO power supply connected, 3) LED on enclosure."
         return 1
     fi
@@ -1287,7 +1299,7 @@ analyze_failure_and_recover() {
 
                 case "$current_state" in
                     0|1)
-                        # Log only: Slack hears about it once, when the flag is set
+                        # Log only: ntfy hears about it once, when the flag is set
                         log "Escalating cautiously - waiting for USB to stabilize (attempt $((current_state + 1))/3)"
                         set_state $((current_state + 1))
                         return 1

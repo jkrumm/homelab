@@ -643,7 +643,7 @@ NOTIFICATIONS_FIXTURE = """\
 settings:
   defaults: {}
   notifications:
-    - Slack - Alerts
+    - ntfy - Alerts
 groups:
   - name: TestGroup
     monitors:
@@ -662,15 +662,15 @@ def _mutating_calls():
 def test_notification_set_guard():
     failures = []
     passed = 0
-    slack = {"id": 2, "name": "Slack - Alerts"}
+    live_ntfy = {"id": 2, "name": "ntfy - Alerts"}
     with tempfile.TemporaryDirectory() as td:
         cfg = write_yaml(Path(td), "monitors.yaml", NOTIFICATIONS_FIXTURE)
 
         cases = [
-            ("exact match proceeds", [slack], 0, True),
-            ("extra live provider aborts", [slack, {"id": 3, "name": "Pushover"}], 3, False),
+            ("exact match proceeds", [live_ntfy], 0, True),
+            ("extra live provider aborts", [live_ntfy, {"id": 3, "name": "Pushover"}], 3, False),
             ("missing live provider aborts", [], 3, False),
-            ("renamed provider aborts", [{"id": 2, "name": "Slack"}], 3, False),
+            ("renamed provider aborts", [{"id": 2, "name": "ntfy"}], 3, False),
         ]
         for label, live, want_rc, want_mutation in cases:
             rc, out, err = run_main(["--config", cfg], notifications=live)
@@ -703,7 +703,7 @@ WEBHOOK_FIXTURE = """\
 settings:
   defaults: {}
   notifications:
-    - Slack - Alerts
+    - ntfy - Alerts
     - Hook
   webhooks:
     - name: Hook
@@ -720,27 +720,27 @@ groups:
 
 def test_webhook_provider_convergence():
     failures = []
-    slack = {"id": 2, "name": "Slack - Alerts"}
+    live_ntfy = {"id": 2, "name": "ntfy - Alerts"}
     with tempfile.TemporaryDirectory() as td:
         cfg = write_yaml(Path(td), "monitors.yaml", WEBHOOK_FIXTURE)
         env = {"TEST_HOOK_TOKEN": "s3cret"}
 
-        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack])
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[live_ntfy])
         if rc != 0 or ("add_notification", "Hook") not in FAKE_KUMA_STATE["calls"]:
             failures.append(f"missing webhook not created: rc={rc} err={err!r}")
         if "s3cret" in out + err:
             failures.append("token leaked to output")
 
-        rc, out, err = run_main(["--config", cfg, "--dry-run"], set_vars=env, notifications=[slack])
+        rc, out, err = run_main(["--config", cfg, "--dry-run"], set_vars=env, notifications=[live_ntfy])
         if rc != 0 or any(c[0] == "add_notification" for c in FAKE_KUMA_STATE["calls"]):
             failures.append(f"dry-run created or aborted: rc={rc} err={err!r}")
 
-        rc, out, err = run_main(["--config", cfg], unset_vars=["TEST_HOOK_TOKEN"], notifications=[slack])
+        rc, out, err = run_main(["--config", cfg], unset_vars=["TEST_HOOK_TOKEN"], notifications=[live_ntfy])
         if rc != 2 or any(c[0] in ("add_notification", "add_monitor") for c in FAKE_KUMA_STATE["calls"]):
             failures.append(f"missing token env did not abort before mutation: rc={rc}")
 
         stale = {"id": 3, "name": "Hook", "config": "{}"}
-        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, stale])
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[live_ntfy, stale])
         if ("edit_notification", 3) not in FAKE_KUMA_STATE["calls"]:
             failures.append("drifted webhook not updated")
 
@@ -749,7 +749,7 @@ def test_webhook_provider_convergence():
         cfg_ok = {"webhookURL": "https://hook.example.com/ingest", "webhookContentType": "form-data",
                   "webhookAdditionalHeaders": _json.dumps({"Authorization": "Bearer s3cret"})}
         drifted = {"id": 3, "name": "Hook", "isDefault": False, **cfg_ok}
-        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, drifted])
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[live_ntfy, drifted])
         if ("edit_notification", 3) not in FAKE_KUMA_STATE["calls"]:
             failures.append("content-type drift not updated")
 
@@ -757,22 +757,99 @@ def test_webhook_provider_convergence():
         cfg_ok["webhookContentType"] = "json"
         cfg_ok["webhookAdditionalHeaders"] = '{ "Authorization":  "Bearer s3cret" }'
         same = {"id": 3, "name": "Hook", "isDefault": False, **cfg_ok}
-        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[slack, same])
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[live_ntfy, same])
         if any(c[0] == "edit_notification" for c in FAKE_KUMA_STATE["calls"]):
             failures.append("re-serialized headers reported as drift")
 
         # http:// is refused; no write happens; the token is not echoed.
         bad = write_yaml(Path(td), "bad.yaml", WEBHOOK_FIXTURE.replace("https://hook", "http://hook"))
-        rc, out, err = run_main(["--config", bad], set_vars=env, notifications=[slack])
+        rc, out, err = run_main(["--config", bad], set_vars=env, notifications=[live_ntfy])
         if rc != 2 or "s3cret" in out + err or any(c[0] == "add_notification" for c in FAKE_KUMA_STATE["calls"]):
             failures.append(f"http url not refused cleanly: rc={rc}")
 
         # Provider-set drift aborts before any webhook write.
         rc, out, err = run_main(["--config", cfg], set_vars=env,
-                                notifications=[slack, {"id": 9, "name": "Pushover", "config": "{}"}])
+                                notifications=[live_ntfy, {"id": 9, "name": "Pushover", "config": "{}"}])
         if rc != 3 or any(c[0] in ("add_notification", "edit_notification") for c in FAKE_KUMA_STATE["calls"]):
             failures.append(f"webhook written before the drift guard: rc={rc}")
     return 8, 8 - len(failures), failures
+
+
+NTFY_FIXTURE = """\
+settings:
+  defaults: {}
+  notifications:
+    - ntfy - Alerts
+  ntfy:
+    - name: ntfy - Alerts
+      url: http://ntfy:80
+      topic: alerts
+      token_env: TEST_NTFY_TOKEN
+      priority: 4
+groups:
+  - name: TestGroup
+    monitors:
+      - name: test-monitor
+        type: http
+        url: http://example.local/
+"""
+
+NTFY_LIVE = {
+    "id": 4, "name": "ntfy - Alerts", "isDefault": False,
+    "ntfyserverurl": "http://ntfy:80", "ntfytopic": "alerts", "ntfyPriority": 4,
+    "ntfyAuthenticationMethod": "accessToken", "ntfyaccesstoken": "t0ken",
+}
+
+
+def test_ntfy_provider_convergence():
+    failures = []
+    env = {"TEST_NTFY_TOKEN": "t0ken"}
+
+    def writes():
+        return [c for c in FAKE_KUMA_STATE["calls"] if c[0] in ("add_notification", "edit_notification")]
+
+    with tempfile.TemporaryDirectory() as td:
+        cfg = write_yaml(Path(td), "monitors.yaml", NTFY_FIXTURE)
+
+        # Absent: created (http:// accepted), guard counts it as live, token not echoed.
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[])
+        if rc != 0 or ("add_notification", "ntfy - Alerts") not in FAKE_KUMA_STATE["calls"]:
+            failures.append(f"missing ntfy provider not created: rc={rc} err={err!r}")
+        if "t0ken" in out + err:
+            failures.append("token leaked to output")
+
+        # Dry-run: guard passes on the would-be-created provider, nothing written.
+        rc, out, err = run_main(["--config", cfg, "--dry-run"], set_vars=env, notifications=[])
+        if rc != 0 or writes():
+            failures.append(f"dry-run aborted or wrote: rc={rc} err={err!r}")
+
+        # Converged: no write.
+        rc, out, err = run_main(["--config", cfg], set_vars=env, notifications=[dict(NTFY_LIVE)])
+        if rc != 0 or writes():
+            failures.append(f"converged provider was written: rc={rc} calls={writes()!r}")
+
+        # Drift on any of topic/url/priority/token: update.
+        for field, value in (("ntfytopic", "other"), ("ntfyserverurl", "http://x:80"),
+                             ("ntfyPriority", 3), ("ntfyaccesstoken", "old")):
+            rc, out, err = run_main(["--config", cfg], set_vars=env,
+                                    notifications=[{**NTFY_LIVE, field: value}])
+            if ("edit_notification", 4) not in FAKE_KUMA_STATE["calls"]:
+                failures.append(f"{field} drift not updated")
+
+        # Invalid config or unset token aborts with rc 2 before any write.
+        broken = {
+            "missing topic": NTFY_FIXTURE.replace("      topic: alerts\n", ""),
+            "bad priority": NTFY_FIXTURE.replace("priority: 4", "priority: 9"),
+        }
+        for label, text in broken.items():
+            bad = write_yaml(Path(td), "bad.yaml", text)
+            rc, out, err = run_main(["--config", bad], set_vars=env, notifications=[])
+            if rc != 2 or "t0ken" in out + err or writes() or _mutating_calls():
+                failures.append(f"{label}: not refused cleanly: rc={rc}")
+        rc, out, err = run_main(["--config", cfg], unset_vars=["TEST_NTFY_TOKEN"], notifications=[])
+        if rc != 2 or writes() or _mutating_calls():
+            failures.append(f"unset token env did not abort before any write: rc={rc}")
+    return 10, 10 - len(failures), failures
 
 
 def test_real_config_declares_notifications():
@@ -951,6 +1028,7 @@ GROUPS = [
     ("9a. notification set guard", test_notification_set_guard),
     ("9b. real config declares notifications", test_real_config_declares_notifications),
     ("9c. webhook provider convergence", test_webhook_provider_convergence),
+    ("9d. ntfy provider convergence", test_ntfy_provider_convergence),
     ("10. --timeout reaches the client", test_timeout_flag_reaches_client),
     ("11. rejected login is not retried", test_auth_failure_is_not_retried),
     ("12. transient timeout is retried", test_transient_login_timeout_is_retried),

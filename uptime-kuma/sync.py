@@ -193,7 +193,7 @@ def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict,
 def plan_webhook_providers(api: UptimeKumaApi, config: dict) -> list:
     """Validate `settings.webhooks` and plan the provider writes; mutates nothing.
 
-    Every other provider stays UI-managed (the Slack one holds a secret URL). A webhook
+    Every other provider stays UI-managed (they can hold secret URLs). A webhook
     carries a bearer token, so it is declared with `token_env` naming the env var; the
     token itself never enters the YAML. Returns [(action, live_id, params)] with action
     "create" or "update" (converged providers are omitted). Every field and token is
@@ -235,9 +235,57 @@ def plan_webhook_providers(api: UptimeKumaApi, config: dict) -> list:
     return plan
 
 
-def apply_webhook_plan(api: UptimeKumaApi, plan: list, dry_run: bool):
+def plan_ntfy_providers(api: UptimeKumaApi, config: dict) -> list:
+    """Validate `settings.ntfy` and plan the provider writes; mutates nothing.
+
+    Same plan shape and guarantees as plan_webhook_providers. An entry is
+    {name, url, topic, token_env, priority (1-5, default 4)}; the access token comes
+    from the env var `token_env` and never enters the YAML. `url` may be http://: the
+    in-docker network address keeps the token on the host.
+    """
+    declared = config.get("settings", {}).get("ntfy") or []
+    live = {n["name"]: n for n in api.get_notifications()}
+    plan = []
+    for entry in declared:
+        missing = [k for k in ("name", "url", "topic", "token_env") if not entry.get(k)]
+        if missing:
+            print(f"Error: settings.ntfy entry {entry!r} lacks {missing}", file=sys.stderr)
+            sys.exit(EXIT_UNRESOLVED_ENV)
+        priority = entry.get("priority", 4)
+        if isinstance(priority, bool) or not isinstance(priority, int) or not 1 <= priority <= 5:
+            print(f"Error: ntfy '{entry['name']}' priority must be an integer 1-5", file=sys.stderr)
+            sys.exit(EXIT_UNRESOLVED_ENV)
+        token = os.environ.get(entry["token_env"], "")
+        if not token:
+            print(f"Error: {entry['token_env']} is not set (ntfy '{entry['name']}')", file=sys.stderr)
+            sys.exit(EXIT_UNRESOLVED_ENV)
+        params = {
+            "name": entry["name"],
+            "type": "ntfy",
+            "isDefault": False,
+            "ntfyserverurl": entry["url"],
+            "ntfytopic": entry["topic"],
+            "ntfyPriority": priority,
+            "ntfyAuthenticationMethod": "accessToken",
+            "ntfyaccesstoken": token,
+        }
+        current = live.get(entry["name"])
+        if current is None:
+            plan.append(("create", None, params))
+            continue
+        # uptime-kuma-api flattens the provider's config into the top-level dict.
+        fields = ("ntfyserverurl", "ntfytopic", "ntfyPriority", "ntfyAuthenticationMethod", "ntfyaccesstoken")
+        wanted = tuple(params[k] for k in fields) + (params["isDefault"],)
+        actual = tuple(current.get(k) for k in fields) + (bool(current.get("isDefault")),)
+        if wanted != actual:
+            plan.append(("update", current["id"], params))
+    return plan
+
+
+def apply_provider_plan(api: UptimeKumaApi, plan: list, dry_run: bool):
     for action, live_id, params in plan:
-        print(f"  [{action.upper()}] notification {params['name']} -> {params['webhookURL']}")
+        target = params.get("webhookURL") or f"{params['ntfyserverurl']}/{params['ntfytopic']}"
+        print(f"  [{action.upper()}] notification {params['name']} -> {target}")
         if dry_run:
             continue
         if action == "create":
@@ -251,15 +299,15 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
     defaults = config.get("settings", {}).get("defaults", {})
     cloudflare_header = config.get("settings", {}).get("cloudflare_bypass_header", {})
 
-    webhook_plan = plan_webhook_providers(api, config)
+    provider_plan = plan_webhook_providers(api, config) + plan_ntfy_providers(api, config)
     notifications = api.get_notifications()
 
     # `settings.notifications` is the declared provider set; the live set must
     # match exactly, because every provider below is attached to every leaf.
     declared = config.get("settings", {}).get("notifications")
     if declared is not None:
-        # A would-be-created webhook counts as live, so --dry-run does not trip the guard on it.
-        live_names = sorted([n["name"] for n in notifications] + [p["name"] for a, _, p in webhook_plan if a == "create"])
+        # A would-be-created code-managed provider counts as live, so --dry-run does not trip the guard on it.
+        live_names = sorted([n["name"] for n in notifications] + [p["name"] for a, _, p in provider_plan if a == "create"])
         if live_names != sorted(declared):
             print(
                 "\nError: live notification providers differ from settings.notifications:",
@@ -274,7 +322,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             )
             sys.exit(EXIT_NOTIFICATIONS_DRIFT)
 
-    apply_webhook_plan(api, webhook_plan, dry_run)
+    apply_provider_plan(api, provider_plan, dry_run)
     notification_ids = [n["id"] for n in api.get_notifications()]
 
     # Get existing monitors
@@ -286,7 +334,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
 
         `notify=False` detaches every notification provider. Used for GROUP
         monitors: Uptime Kuma marks a group DOWN whenever any child is DOWN, so
-        a notified group turns one real incident into N+1 Slack messages — a
+        a notified group turns one real incident into N+1 alert messages — a
         HomeLab reboot on 2026-07-28 produced 57. Groups earn their keep in the
         dashboard tree, not in the alert stream; the child that actually failed
         is the one that names the fault.

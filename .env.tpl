@@ -47,11 +47,6 @@ B2_RESTIC_APP_KEY=op://common/backblaze-s3/SECRET_ACCESS_KEY
 # UptimeKuma push URL — backup heartbeat (post-success / post-failure)
 RESTIC_HEARTBEAT_URL=op://homelab/restic/HEARTBEAT_URL
 
-# --- Slack ---
-SLACK_WEBHOOK_ALERTS=op://common/slack/WEBHOOK_ALERTS
-SLACK_WEBHOOK_MEDIA=op://common/slack/WEBHOOK_MEDIA
-SLACK_WATCHTOWER_URL=op://common/slack/WATCHTOWER_URL
-
 # --- Media (homelab-private services) ---
 WIREGUARD_PRIVATE_KEY=op://homelab/protonvpn/WIREGUARD_PRIVATE_KEY
 GLUETUN_HTTPPROXY_USER=op://homelab/protonvpn/HTTPPROXY_USER

@@ -26,7 +26,7 @@ this repo writes that file**. `setup.sh` creates it when absent, keeps it `0600`
 reports `Watchdog credentials: NOT CONFIGURED` in its closing summary when the export is
 still missing — but the value is a secret an operator pastes in by hand. That gap is what
 makes the failure silent: without the token `load_credentials()` exits 1, and the watchdog
-cannot alert about it, because its Slack webhook is itself read through `op`.
+cannot alert about it, because its ntfy token is itself read through `op`.
 
 The rule covers every op-wrapped cron entry, not just the watchdog's, which is why it
 lives here rather than in the watchdog's own doc.
@@ -129,3 +129,16 @@ Docker networks, so the published port was only a LAN door.
 ## garmin-collector decommissioned (2026-10-25)
 
 Argo now calls Garmin's official Connect Personal API directly with a personal API key, so the `garmin-collector` container is gone, and with it the password login, the MFA-by-email relogin (script, cron entry, push monitor) and the Tailscale route (`garmin.jkrumm.com`). The "Garmin Collector - Push" monitor stays under its old name: it is the heartbeat argo's garmin-sync cron pushes to, and renaming it would mint a new push URL.
+
+## Alerts moved from Slack to ntfy (2026-11-06, Issue 173)
+
+Every alert sender in this repo now publishes to the self-hosted, tailnet-only ntfy
+server, never to both: Uptime Kuma (provider `ntfy - Alerts`, code-managed via
+`settings.ntfy`) and the watchdog post to topic `alerts`, Watchtower to `updates`, Beszel
+alerts are a shoutrrr URL set in the Beszel UI (secret not in git).
+
+What stops: all Slack messages from Kuma, the watchdog, Watchtower and Beszel. The Slack
+`#alerts` channel had one human member (the owner) plus bots (Better Stack, Hermes), which
+live outside this repo and are untouched. The old Slack items in 1Password were left in
+place. Trade-off: ntfy is reachable over the tailnet only, so a Tailscale outage delays
+watchdog alerts the way an internet outage already did.

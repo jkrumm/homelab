@@ -591,7 +591,7 @@ make restic-prune       # quarterly, from your Mac, uses the master B2 key
    sudo mkdir -p /var/run
    ```
 
-3. **Credentials:** the script reads `BETTERSTACK_TOKEN`, `common/slack/WEBHOOK_ALERTS`
+3. **Credentials:** the script reads `BETTERSTACK_TOKEN`, `common/ntfy/TOKEN`
    and `homelab/uptime-kuma/PUSH_TOKEN` live via `op read` under root's
    `OP_SERVICE_ACCOUNT_TOKEN` session — there is no credentials file to create, but the
    token must be exported in `/root/.profile` for cron to see it (see *Install the cron

@@ -282,7 +282,7 @@ services:
       DOCKER_API_VERSION: '1.44'
       WATCHTOWER_CLEANUP: 'true'
       WATCHTOWER_SCHEDULE: '0 0 4 * * *'
-      WATCHTOWER_NOTIFICATION_URL: '${SLACK_WATCHTOWER_URL}'
+      WATCHTOWER_NOTIFICATION_URL: 'ntfy://:${NTFY_TOKEN}@ntfy.jkrumm.com/updates?title=Watchtower'
       WATCHTOWER_NOTIFICATIONS_LEVEL: warn
       WATCHTOWER_NO_STARTUP_MESSAGE: 'true'
       WATCHTOWER_WARN_ON_HEAD_FAILURE: never
@@ -768,7 +768,7 @@ networks:
   socket-proxy-claude:
     driver: bridge # Bound to host Tailscale IP, not internal
   watchtower-egress:
-    driver: bridge # Internet access for Slack notifications (Watchtower)
+    driver: bridge # Tailnet access to ntfy for notifications (Watchtower)
   proton-bridge:
     driver: bridge # egress to Proton; IMAP published on the Tailscale IP only
   karakeep-internal:

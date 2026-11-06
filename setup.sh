@@ -281,7 +281,7 @@ if [ ! -f /root/.profile ]; then
   ( umask 077; cat > /root/.profile <<'PROFILE'
 # Read by the watchdog cron line (docs/decisions.md -> 1Password CLI in cron shells).
 # Export the service-account token below — without it the watchdog exits 1 and
-# cannot alert, because its Slack webhook is itself read through `op`.
+# cannot alert, because its ntfy token is itself read through `op`.
 PROFILE
   )
   echo "Created /root/.profile — export OP_SERVICE_ACCOUNT_TOKEN in it"

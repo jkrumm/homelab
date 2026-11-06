@@ -109,7 +109,7 @@ The watchdog monitors Tailscale connectivity to ensure private services remain a
 Once internet returns, next watchdog run detects all healthy → auto-clears flag → resumes normal operation.
 
 **Notifications:**
-Slack notifications are queued during outage, flushed when internet returns.
+ntfy notifications are queued during outage, flushed when internet returns.
 
 ---
 
@@ -361,7 +361,7 @@ This allows self-healing after extended outages without manual intervention.
 - System becomes healthy (all checks pass), or
 - HDD recovery succeeds on a flagged run (the flagged branch retries it every run)
 
-**Slack while flagged:** one "Still Unhealthy" reminder per 6h (`MANUAL_REMINDER_INTERVAL`),
+**ntfy while flagged:** one "Still Unhealthy" reminder per 6h (`MANUAL_REMINDER_INTERVAL`),
 not one per 10-minute run.
 
 **Manual clear (if needed):**
@@ -386,9 +386,9 @@ ssh homelab "sudo rm /var/lib/homelab_watchdog/manual_intervention_required"
 
 ## Notifications
 
-Notifications are sent via Slack webhook and grouped together at the end of each watchdog run.
+Notifications are sent to the ntfy `alerts` topic (priority 4 when a queued line carries 🚨, else 3) and grouped together at the end of each watchdog run.
 
-**During outage:** Notifications are queued (can't reach Slack API).
+**During outage:** Notifications are queued (can't reach ntfy). The ntfy server is tailnet-only, so a Tailscale outage queues alerts the same way an internet outage does.
 
 **After recovery:** Queue is flushed, all notifications sent in batch.
 
