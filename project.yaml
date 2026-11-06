@@ -1,5 +1,5 @@
 apiVersion: factory/v2
-name: homelab
+name: homelab-w7
 deploy:
   mode: make
   targets:
