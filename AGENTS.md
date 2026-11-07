@@ -114,7 +114,7 @@ existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 | `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful pull from Garmin's Personal API (in `common/` so VPS service account can read) |
-| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only). Alerts go to topic `alerts` (Kuma, watchdog, Beszel), updates to `updates` (Watchtower, shoutrrr URL in `docker-compose.yml`). Beszel alerts are set in the Beszel UI as a shoutrrr URL `ntfy://:<token>@<ntfy host>/alerts` — UI-managed, the secret is not in git |
+| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only). Topics, publishers and priorities: `docs/ntfy.md` (`alerts`: Kuma, watchdog, Beszel; `updates`: Watchtower, shoutrrr URL in `docker-compose.yml`). Beszel alerts are set in the Beszel UI as a shoutrrr URL `ntfy://:<token>@<ntfy host>/alerts` — UI-managed, the secret is not in git |
 | `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
 
 ### Essential Commands
@@ -148,10 +148,11 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make ps` / `make logs svc=<name>` / `make logs-follow svc=<name>` | Show running containers — bounded log tail — follow logs live |
 | `make immich-upgrade`     | Upgrade Immich stack (git pull + pull pinned images + recreate) — tags are explicit, so bump `immich-server` + `immich-machine-learning` in `docker-compose.yml` first, else it's a no-op. Watchtower-excluded, see `/upgrade-stack immich` |
 | `make proton-bridge-deploy` / `-login` / `-restart` / `-logs` | Proton Mail Bridge (IMAP for hello@, Tailscale-only); `-login` is the one-time interactive CLI — `docs/proton-bridge.md` |
+| `make ntfy-subscribe` | Subscribe the owner's ntfy account to every topic in `config/ntfy/topics.txt` (`TEST=1` sends one message per topic); ntfy-mac follows the account — `docs/ntfy.md` |
 | `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
 | `make uk-sync` / `uk-dry-run` / `uk-export` | Apply / preview / export Uptime Kuma monitors (see below) |
-| `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` + `bash tests/test_setup_cron_replay.sh` + `bash tests/test_pipefail_head.sh` — local, no network, no server |
+| `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` + `bash tests/test_setup_cron_replay.sh` + `bash tests/test_pipefail_head.sh` + `bash tests/test_ntfy_topics.sh` — local, no network, no server |
 | `make check`              | All local validation: compose config + YAML/shell lint + `make test` (see Validate) |
 | `make verify`             | Probe production via the Uptime Kuma status page — exit 0 = healthy (see Verify & Monitor) |
 | `make version`            | Print the commit sha the server checkout runs (read-only; the software factory's post-deploy check, see `project.yaml`) |
@@ -410,7 +411,7 @@ mutation, so it is safe to run anywhere. Run it before handing a change over:
 
 ```bash
 make check   # compose config + YAML parse + shell syntax + regression suite (non-zero on failure)
-make test    # the regression suite alone (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard)
+make test    # the regression suite alone (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard)
 ```
 
 `make check` is the authoritative gate — a non-zero exit means the change is not ready.

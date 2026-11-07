@@ -142,3 +142,14 @@ What stops: all Slack messages from Kuma, the watchdog, Watchtower and Beszel. T
 live outside this repo and are untouched. The old Slack items in 1Password were left in
 place. Trade-off: ntfy is reachable over the tailnet only, so a Tailscale outage delays
 watchdog alerts the way an internet outage already did.
+
+## Every alert has an ntfy topic (2026-11-07, Issue 249)
+
+`docs/ntfy.md` is the one table of ntfy topics (alerts, watchdog, updates, media, briefings,
+factory, home, models), `config/ntfy/topics.txt` the list behind it, and `tests/test_ntfy_topics.sh`
+keeps the two and the publishers in this repo in step. No Slack sender remains here. The watchdog
+stays on `alerts`: it pages, and a second topic for the same reader would only hide its findings.
+`watchdog` is for audits that find drift with nothing down. The owner's ntfy account is subscribed
+by `make ntfy-subscribe`; ntfy-mac follows the account, the iOS app has no account sync, so its
+eight names are added once by hand. The senders in homelab-private, WeatherOrb and agent-workflows
+move in their own Issues.

@@ -39,7 +39,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -213,10 +213,17 @@ uk-export: ## Export current Uptime Kuma monitors to YAML
 # `uv run` builds a throwaway env for it — no repo venv, no borrowed one.
 # The setup.sh cron replay is plain bash: it extracts the watchdog-cron block and
 # replays six seeded crontabs against a stubbed `crontab`.
-test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard) — no network, no server
+test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard) — no network, no server
 	uv run tests/test_uptime_kuma_sync_guard.py
 	bash tests/test_setup_cron_replay.sh
 	bash tests/test_pipefail_head.sh
+	bash tests/test_ntfy_topics.sh
+
+# ── ntfy ─────────────────────────────────────────────────────────────────────
+# Subscribes the owner's ntfy account to config/ntfy/topics.txt (ntfy-mac follows the
+# account). Runs locally: the token comes from secrets-run or op, never the server.
+ntfy-subscribe: ## Subscribe the ntfy account to every topic in config/ntfy/topics.txt (TEST=1 also sends one message per topic)
+	@scripts/ntfy-subscribe.sh $(if $(TEST),--test)
 
 # ── Restic Backup ────────────────────────────────────────────────────────────
 # Backup runs daily at 03:30 inside container (BACKUP_CRON env).

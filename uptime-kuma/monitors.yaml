@@ -687,7 +687,7 @@ groups:
 
       # Backend server — every 5 min from hermes-serve-liveness.sh. `hermes serve`
       # (:9119) is the JSON-RPC/WebSocket backend Hermes Desktop connects to;
-      # separate process from the Slack gateway, which upstream expects.
+      # separate process from the chat gateway, which upstream expects.
       # Removed 2026-09-07 with the serve teardown, restored 2026-10-15 (owner
       # decision: Desktop is a surface again). Hermes WebUI - Push stays gone.
       # The heartbeat asserts /api/status reports auth_required=true, not just

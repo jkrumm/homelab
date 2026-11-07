@@ -1,0 +1,12 @@
+# The complete ntfy topic set, one per line. docs/ntfy.md is the table of who
+# publishes to each; tests/test_ntfy_topics.sh keeps the two in step.
+# `make ntfy-subscribe` subscribes the owner's ntfy account to every line here;
+# the Mac client (ntfy-mac) picks the account subscriptions up on its own.
+alerts
+watchdog
+updates
+media
+briefings
+factory
+home
+models
