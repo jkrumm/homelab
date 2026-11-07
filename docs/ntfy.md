@@ -25,6 +25,28 @@ topic needs a reader who would act differently on it. `config/ntfy/topics.txt` i
 
 Priority 4 and 5 are for what needs the owner now; the Mac client keeps those until dismissed.
 
+## Kuma alert routing
+
+Factory first (owner decision 2026-11-07): an Uptime Kuma alert posts to the software
+factory's door (provider `Factory door`) and to nobody else, so the owner is not paged
+while a lead is already on it. The factory's 30-minute rule forwards an alert it has not
+solved to `factory` (priority 4-5); a routed alert that heals inside the window pages no one.
+A monitor with no route in the factory still files an Issue after 10 minutes.
+
+The exceptions watch the factory itself. A dead factory cannot page for itself, so these keep
+the direct `alerts` page (provider `ntfy - Alerts`) next to the door:
+
+| Watcher | Watches |
+|-|-|
+| `Software Factory - Push` | The factory's own verdict: the tick advanced and the queue moved within 30 minutes |
+| `MacMini Dev Host - Push` | The mini itself: herdr-core, sshd, tailscaled, the boot path |
+
+`settings.watchers` in `uptime-kuma/monitors.yaml` is the table's source; `make test` fails when
+the two differ, and `sync.py` aborts when a watcher matches no monitor. Every other leaf carries
+the door provider only (`settings.direct_notifications` names the providers that leaves lose).
+`make uk-dry-run` prints `[NOTIFY-DRIFT]` for each live monitor whose providers differ from
+this routing; `make uk-sync` converges them. Groups never notify.
+
 ## Subscribe list
 
 The same eight names on both clients, no wildcard, on the one ntfy server:

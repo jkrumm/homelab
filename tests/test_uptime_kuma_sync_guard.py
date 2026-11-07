@@ -1015,6 +1015,81 @@ def test_unresolved_var_in_second_extra_config_aborts():
 
 # =============================================================================
 
+# =============================================================================
+# 15. Alert routing: the factory door only, except the watchers. A leaf carries
+#    every provider but the direct ones; a watcher carries all; a group none.
+#    A watcher that matches no monitor aborts (exit 4) before any mutation, and
+#    the watcher table in docs/ntfy.md equals settings.watchers in the real config.
+# =============================================================================
+
+ROUTES_FIXTURE = """\
+settings:
+  defaults: {{}}
+  notifications:
+    - ntfy - Alerts
+    - Door
+  direct_notifications:
+    - ntfy - Alerts
+  watchers:
+    - {watcher}
+groups:
+  - name: TestGroup
+    monitors:
+      - name: routed-mon
+        type: http
+        url: http://example.local/
+      - name: watcher-mon
+        type: http
+        url: http://example.local/
+"""
+
+ROUTES_LIVE = [{"id": 2, "name": "ntfy - Alerts"}, {"id": 3, "name": "Door"}]
+
+
+def test_alert_routing():
+    failures = []
+    with tempfile.TemporaryDirectory() as td:
+        cfg = write_yaml(Path(td), "monitors.yaml", ROUTES_FIXTURE.format(watcher="watcher-mon"))
+        rc, out, err = run_main(["--config", cfg], notifications=ROUTES_LIVE)
+        by_name = {a["name"]: a["notificationIDList"] for a in FAKE_KUMA_STATE["added"]}
+        expected = {"TestGroup": [], "routed-mon": [3], "watcher-mon": [2, 3]}
+        if rc != 0 or by_name != expected:
+            failures.append(f"routing wrong: rc={rc} expected={expected!r} got={by_name!r} err={err!r}")
+
+        bad = write_yaml(Path(td), "bad.yaml", ROUTES_FIXTURE.format(watcher="typo-mon"))
+        rc, out, err = run_main(["--config", bad], notifications=ROUTES_LIVE)
+        if rc != 4 or any(c[0] in ("add_monitor", "edit_monitor", "add_notification") for c in FAKE_KUMA_STATE["calls"]):
+            failures.append(f"unknown watcher did not abort before mutation: rc={rc} err={err!r}")
+        rc, out, err = run_main(["--config", bad, "--dry-run"], notifications=ROUTES_LIVE)
+        if rc != 4:
+            failures.append(f"--dry-run did not abort on an unknown watcher: rc={rc}")
+
+        lone = write_yaml(Path(td), "lone.yaml", ROUTES_FIXTURE.replace("  watchers:\n    - {watcher}\n", "").format())
+        rc, out, err = run_main(["--config", lone], notifications=ROUTES_LIVE)
+        if rc != 4:
+            failures.append(f"direct_notifications without watchers did not abort: rc={rc}")
+
+    return 3, 3 - len(failures), failures
+
+
+def test_watcher_table_matches_docs():
+    import yaml
+    failures = []
+    with open(MAIN_MONITORS_YAML) as f:
+        settings = yaml.safe_load(f).get("settings", {})
+    watchers = sorted(settings.get("watchers") or [])
+    docs = (REPO_ROOT / "docs" / "ntfy.md").read_text()
+    section = docs.split("## Kuma alert routing", 1)[-1].split("\n## ", 1)[0]
+    documented = sorted(re.findall(r"^\| `([^`]+)` \|", section, re.M))
+    if not watchers:
+        failures.append("monitors.yaml has no settings.watchers")
+    if watchers != documented:
+        failures.append(f"docs/ntfy.md watcher table {documented!r} differs from settings.watchers {watchers!r}")
+    if (settings.get("direct_notifications") or []) != ["ntfy - Alerts"]:
+        failures.append("settings.direct_notifications must be exactly ['ntfy - Alerts']")
+    return 1, 1 - bool(failures), failures
+
+
 GROUPS = [
     ("1. unset variable aborts", test_unset_variable_aborts),
     ("2. set-to-empty aborts identically", test_empty_variable_aborts_identically),
@@ -1034,6 +1109,8 @@ GROUPS = [
     ("12. transient timeout is retried", test_transient_login_timeout_is_retried),
     ("13. two extra configs merge in order", test_two_extra_configs_merge_in_order),
     ("14. unresolved var in 2nd extra aborts", test_unresolved_var_in_second_extra_config_aborts),
+    ("15a. alert routing", test_alert_routing),
+    ("15b. watcher table matches docs", test_watcher_table_matches_docs),
 ]
 
 

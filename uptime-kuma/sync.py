@@ -57,6 +57,10 @@ EXIT_UNRESOLVED_ENV = 2
 # provider added in the UI would be attached to every leaf on the next sync
 # (double alerts), one deleted would detach silently (no alerts). Abort instead.
 EXIT_NOTIFICATIONS_DRIFT = 3
+# `settings.watchers` / `settings.direct_notifications` do not describe a
+# routing that can be applied (a watcher that matches no monitor, a direct
+# provider that is not declared). Abort instead of silently paging nobody.
+EXIT_ROUTES_INVALID = 4
 
 
 # `make uk-sync` / `uk-dry-run` / `uk-export` are the supported entrypoints — they
@@ -294,11 +298,56 @@ def apply_provider_plan(api: UptimeKumaApi, plan: list, dry_run: bool):
             api.edit_notification(live_id, applyExisting=False, **params)
 
 
+def leaf_monitor_names(groups: list) -> set:
+    """Names of every non-group monitor in the merged config."""
+    names = set()
+    for item in groups:
+        for monitor in item.get("monitors", []):
+            if monitor.get("type") == "group":
+                names |= leaf_monitor_names([monitor])
+            else:
+                names.add(monitor["name"])
+    return names
+
+
+def plan_routes(config: dict) -> tuple:
+    """Validate the alert routing; returns (direct provider names, watcher names).
+
+    The factory is first: a leaf carries every provider EXCEPT the `direct` ones
+    (`settings.direct_notifications`, the owner's own page), so an alert reaches
+    the factory door and nobody else. Only the monitors in `settings.watchers` —
+    the ones that watch the factory itself — keep every provider, because a dead
+    factory cannot page for itself. A watcher that matches no monitor would drop
+    its page without a sound, so it aborts like a notification-set drift does.
+    """
+    settings = config.get("settings", {})
+    direct = list(settings.get("direct_notifications") or [])
+    watchers = list(settings.get("watchers") or [])
+    problems = []
+    if bool(direct) != bool(watchers):
+        problems.append("settings.direct_notifications and settings.watchers go together: "
+                        "one without the other pages nobody or everybody")
+    declared = settings.get("notifications")
+    if declared is not None:
+        problems += [f"direct notification '{n}' is not in settings.notifications" for n in direct if n not in declared]
+    leaves = leaf_monitor_names(config.get("groups", []))
+    problems += [f"watcher '{w}' matches no monitor in the config" for w in watchers if w not in leaves]
+    problems += [f"watcher '{w}' is listed twice" for w in sorted({w for w in watchers if watchers.count(w) > 1})]
+    if problems:
+        print("\nError: the alert routing is not applicable:", file=sys.stderr)
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        print("Nothing was changed.", file=sys.stderr)
+        sys.exit(EXIT_ROUTES_INVALID)
+    return set(direct), set(watchers)
+
+
 def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delete_orphans: bool = False):
     """Sync monitors from config to Uptime Kuma."""
     defaults = config.get("settings", {}).get("defaults", {})
     cloudflare_header = config.get("settings", {}).get("cloudflare_bypass_header", {})
 
+    direct_names, watchers = plan_routes(config)
     provider_plan = plan_webhook_providers(api, config) + plan_ntfy_providers(api, config)
     notifications = api.get_notifications()
 
@@ -323,7 +372,10 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             sys.exit(EXIT_NOTIFICATIONS_DRIFT)
 
     apply_provider_plan(api, provider_plan, dry_run)
-    notification_ids = [n["id"] for n in api.get_notifications()]
+    live_providers = api.get_notifications()
+    notification_ids = [n["id"] for n in live_providers]
+    # A routed leaf carries the providers that are not direct; a watcher carries all.
+    routed_ids = [n["id"] for n in live_providers if n["name"] not in direct_names]
 
     # Get existing monitors
     existing = {m["name"]: m for m in api.get_monitors()}
@@ -341,7 +393,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
         """
         name = monitor["name"]
         processed_names.add(name)
-        monitor_notifications = notification_ids if notify else []
+        monitor_notifications = (notification_ids if name in watchers else routed_ids) if notify else []
 
         # DB monitors: skip update once they exist — preserves UI-managed
         # connection details (password, host, query). See DB_MONITOR_TYPES.

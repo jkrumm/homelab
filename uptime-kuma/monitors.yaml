@@ -39,6 +39,19 @@ settings:
     # for a monitor routed in the factory's registry and ignores the rest.
     - Factory door
 
+  # Factory first (owner decision 2026-11-07): a leaf carries every provider
+  # except the ones below, so an alert reaches the factory door and nobody else;
+  # an alert the factory has not solved in 30 minutes is forwarded to ntfy by the
+  # factory itself. Only the watchers keep the direct page: a dead factory cannot
+  # page for itself. sync.py aborts (exit 4) when a watcher matches no monitor.
+  # The table in docs/ntfy.md ("Kuma alert routing") must list exactly these;
+  # `make test` fails when it does not.
+  direct_notifications:
+    - ntfy - Alerts
+  watchers:
+    - Software Factory - Push
+    - MacMini Dev Host - Push
+
   # ntfy provider, created by sync.py. Kuma reaches the ntfy container by name over
   # the docker network, so the token never leaves the host; it comes from NTFY_TOKEN.
   ntfy:

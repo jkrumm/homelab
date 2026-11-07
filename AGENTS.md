@@ -355,6 +355,13 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   Providers stay UI-managed, except the ones under `settings.ntfy` (the alert
   provider, token from `NTFY_TOKEN`) and `settings.webhooks`: sync.py creates and
   converges those itself, the token read from the named env var.
+- **Alerts go to the factory door only; the watchers keep the ntfy page.** A leaf
+  carries every provider except `settings.direct_notifications` (`ntfy - Alerts`);
+  only the monitors in `settings.watchers` (the factory's and the mini's own
+  heartbeats) carry all, so a dead factory still pages. The factory forwards an
+  unsolved alert after 30 minutes. sync.py aborts (exit 4) on a watcher that
+  matches no monitor; the table in `docs/ntfy.md` is checked against the list by
+  `make test`; `make uk-dry-run` shows live drift as `[NOTIFY-DRIFT]`.
 - **`--extra-config` is repeatable** (merged in order; a missing file is skipped).
   `make uk-sync` passes homelab-private's `monitors.yaml` plus
   `uptime-kuma/monitors.mini-door.generated.yaml` — the mini-door fragment is generated
