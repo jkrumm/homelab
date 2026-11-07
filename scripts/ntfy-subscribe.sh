@@ -32,7 +32,8 @@ if [ -z "$token" ] && command -v op > /dev/null; then token="$(op read "$TOKEN_R
 # The token goes through a process-substitution header file, never argv
 auth() { curl -fsS --max-time 15 -H @<(printf 'Authorization: Bearer %s\n' "$token") "$@"; }
 
-account_topics() { auth "$base_url/v1/account" | grep -o '"topic":"[^"]*"' | sed 's/"topic":"\(.*\)"/\1/' | sort; }
+# grep exits 1 on an account with no subscriptions; under pipefail that must not abort
+account_topics() { auth "$base_url/v1/account" | { grep -o '"topic":"[^"]*"' || true; } | sed 's/"topic":"\(.*\)"/\1/' | sort; }
 
 topics="$(grep -v -E '^[[:space:]]*(#|$)' "$TOPICS_FILE")"
 have="$(account_topics)"
