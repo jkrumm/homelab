@@ -399,7 +399,19 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
         # connection details (password, host, query). See DB_MONITOR_TYPES.
         if monitor.get("type") in DB_MONITOR_TYPES and name in existing:
             print(f"  [SKIP-DB] {name} (connection details preserved from UI)")
-            return existing[name]["id"]
+            # Only the alert routing converges: edit_monitor merges its kwargs into
+            # the monitor as Kuma holds it, so the UI-managed fields round-trip.
+            monitor_id = existing[name]["id"]
+            live_ids = sorted(existing[name].get("notificationIDList") or [])
+            if live_ids != sorted(monitor_notifications):
+                print(f"  [NOTIFY-DRIFT] {name}: live={live_ids} expected={sorted(monitor_notifications)}")
+                if not dry_run:
+                    try:
+                        api.edit_monitor(monitor_id, notificationIDList=monitor_notifications)
+                        print(f"  [UPDATED] {name} (notifications only)")
+                    except Exception as e:
+                        print(f"  [ERROR] Failed to update notifications of {name}: {e}")
+            return monitor_id
 
         params = build_monitor_params(monitor, defaults, cloudflare_header, parent_id)
 

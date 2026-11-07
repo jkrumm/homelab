@@ -78,6 +78,8 @@ FAKE_KUMA_STATE = {
     "notifications": [],
     "timeouts": [],
     "added": [],
+    "monitors": [],
+    "edited": [],
 }
 
 # Calls sync.py only makes once it is actually mutating/reading live monitor
@@ -100,6 +102,8 @@ def reset_fake_kuma():
     FAKE_KUMA_STATE["notifications"] = []
     FAKE_KUMA_STATE["timeouts"] = []
     FAKE_KUMA_STATE["added"] = []
+    FAKE_KUMA_STATE["monitors"] = []
+    FAKE_KUMA_STATE["edited"] = []
 
 
 def api_touching_calls():
@@ -173,7 +177,7 @@ class FakeUptimeKumaApi:
 
     def get_monitors(self):
         FAKE_KUMA_STATE["calls"].append(("get_monitors",))
-        return []
+        return list(FAKE_KUMA_STATE["monitors"])
 
     def add_monitor(self, **kwargs):
         FAKE_KUMA_STATE["calls"].append(("add_monitor", kwargs.get("name")))
@@ -183,6 +187,7 @@ class FakeUptimeKumaApi:
 
     def edit_monitor(self, monitor_id, **kwargs):
         FAKE_KUMA_STATE["calls"].append(("edit_monitor", monitor_id))
+        FAKE_KUMA_STATE["edited"].append((monitor_id, kwargs))
         return True
 
     def delete_monitor(self, monitor_id):
@@ -254,12 +259,13 @@ def scoped_env(set_vars=None, unset_vars=None, password="test-password"):
 
 
 def run_main(argv, *, set_vars=None, unset_vars=None, password="test-password",
-             login_fail=False, login_transient=0, notifications=None):
+             login_fail=False, login_transient=0, notifications=None, monitors=None):
     """Run sync.main() in-process against the fake API, capturing everything."""
     reset_fake_kuma()
     FAKE_KUMA_STATE["login_fail"] = login_fail
     FAKE_KUMA_STATE["login_transient"] = login_transient
     FAKE_KUMA_STATE["notifications"] = list(notifications or [])
+    FAKE_KUMA_STATE["monitors"] = list(monitors or [])
     old_argv = sys.argv
     stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
     exit_code = 0
@@ -1069,7 +1075,21 @@ def test_alert_routing():
         if rc != 4:
             failures.append(f"direct_notifications without watchers did not abort: rc={rc}")
 
-    return 3, 3 - len(failures), failures
+
+        # An existing DB monitor skips the update but its routing still converges,
+        # through an edit that carries nothing but the provider list.
+        db_cfg = write_yaml(Path(td), "db.yaml", ROUTES_FIXTURE.format(watcher="watcher-mon").replace(
+            "      - name: routed-mon\n        type: http\n        url: http://example.local/\n",
+            "      - name: routed-mon - MySQL\n        type: mysql\n"))
+        live_db = [{"id": 7, "name": "routed-mon - MySQL", "notificationIDList": [2, 3]}]
+        rc, out, err = run_main(["--config", db_cfg, "--dry-run"], notifications=ROUTES_LIVE, monitors=live_db)
+        if rc != 0 or FAKE_KUMA_STATE["edited"] or "[NOTIFY-DRIFT] routed-mon - MySQL" not in out:
+            failures.append(f"dry-run must show DB routing drift and not edit: rc={rc} out={out!r}")
+        rc, out, err = run_main(["--config", db_cfg], notifications=ROUTES_LIVE, monitors=live_db)
+        if rc != 0 or FAKE_KUMA_STATE["edited"] != [(7, {"notificationIDList": [3]})]:
+            failures.append(f"DB monitor routing not converged by a notifications-only edit: edited={FAKE_KUMA_STATE['edited']!r}")
+
+    return 5, 5 - len(failures), failures
 
 
 def test_watcher_table_matches_docs():
