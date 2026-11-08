@@ -12,7 +12,7 @@ set -euo pipefail
 # Configuration
 readonly SCRIPT_NAME="homelab_watchdog"
 readonly LOCK_FILE="/var/run/${SCRIPT_NAME}.lock"
-readonly STATE_DIR="/var/lib/${SCRIPT_NAME}"
+readonly STATE_DIR="${WATCHDOG_STATE_DIR:-/var/lib/${SCRIPT_NAME}}"  # override: tests only
 readonly STATE_FILE="${STATE_DIR}/state"
 readonly LOG_FILE="/var/log/${SCRIPT_NAME}.log"
 readonly QUEUE_FILE="${STATE_DIR}/notification_queue"
@@ -53,31 +53,34 @@ readonly HDD_REOPEN_COOLDOWN=3600
 # Set when e2fsck -p refuses; blocks every automatic mount/reopen until a human clears it
 readonly HDD_FSCK_MARKER="${STATE_DIR}/hdd_fsck_needs_human"
 
-# Create directories with proper permissions
-mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$LOG_FILE")"
-touch "$LOG_FILE" "$QUEUE_FILE"
-
 # --------------------------------------------------
-# Locking mechanism - prevents simultaneous execution
+# Runtime setup - first thing in main, so sourcing this file has no side effects
 # --------------------------------------------------
-exec 200>"$LOCK_FILE"
-if ! flock -n 200; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') Script already running, exiting" | tee -a "$LOG_FILE"
-    exit 1
-fi
+init_runtime() {
+    # Create directories with proper permissions
+    mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$LOG_FILE")"
+    touch "$LOG_FILE" "$QUEUE_FILE"
 
-# Trap to ensure cleanup on exit
-trap 'flock -u 200' EXIT
+    # Locking mechanism - prevents simultaneous execution
+    exec 200>"$LOCK_FILE"
+    if ! flock -n 200; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') Script already running, exiting" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+
+    # Trap to ensure cleanup on exit
+    trap 'flock -u 200' EXIT
+}
 
 # --------------------------------------------------
 # Load and validate credentials
 # --------------------------------------------------
 # Secure credential storage (readonly, not exported to child processes)
-declare -g _CRED_BETTERSTACK=""
-declare -g _CRED_NTFY_TOKEN=""
-declare -g _NTFY_BASE_URL=""
+_CRED_BETTERSTACK=""
+_CRED_NTFY_TOKEN=""
+_NTFY_BASE_URL=""
 readonly NTFY_SERVER_CONFIG="/home/jkrumm/homelab/config/ntfy/server.yml"
-declare -g _CRED_UPTIME_KUMA=""
+_CRED_UPTIME_KUMA=""
 
 load_credentials() {
     if ! command -v op &>/dev/null; then
@@ -152,7 +155,7 @@ flush_notifications() {
            -H "Tags: $tags" \
            -d "$body" \
            "$_NTFY_BASE_URL/alerts" > /dev/null 2>&1; then
-        > "$QUEUE_FILE"  # Clear queue on success
+        : > "$QUEUE_FILE"  # Clear queue on success
         log_quiet "Notifications sent successfully"
     else
         log "Failed to send notifications, keeping in queue"
@@ -168,10 +171,17 @@ send_uptime_kuma_heartbeat() {
 
     local state
     state=$(get_current_state)
-    local msg="state=$state"
+    local status="up" msg="state=$state"
+    if [[ -f "$MANUAL_INTERVENTION_FLAG" ]]; then
+        status="down"
+        msg="state=$state,manual-intervention-required"
+    elif [[ "$state" -ge 3 ]]; then
+        status="down"
+        msg="state=$state,escalation-exhausted"
+    fi
 
-    if curl -s --max-time 10 "http://localhost:3010/api/push/${_CRED_UPTIME_KUMA}?status=up&msg=${msg}&ping=" > /dev/null 2>&1; then
-        log_quiet "Uptime Kuma heartbeat sent (state=$state)"
+    if curl -s --max-time 10 "http://localhost:3010/api/push/${_CRED_UPTIME_KUMA}?status=${status}&msg=${msg}&ping=" > /dev/null 2>&1; then
+        log_quiet "Uptime Kuma heartbeat sent (status=$status, state=$state)"
     else
         log "Failed to send Uptime Kuma heartbeat"
     fi
@@ -241,18 +251,8 @@ check_external_monitor() {
             return 1
         fi
 
-        # Parse JSON response
-        if command -v jq &>/dev/null; then
-            if echo "$resp" | jq -e '.data.attributes.status == "up"' &>/dev/null; then
-                return 0
-            fi
-        else
-            # Fallback to grep if jq not available
-            if echo "$resp" | grep -q '"status":"up"'; then
-                return 0
-            fi
-        fi
-        return 1
+        echo "$resp" | jq -e '.data.attributes.status == "up"' &>/dev/null
+        return $?
     }
 
     # First attempt
@@ -330,44 +330,36 @@ check_internal_monitor() {
             return 1
         fi
 
-        # Check if we got a valid JSON response
-        if ! echo "$resp" | grep -q '"config".*"incidents"'; then
+        # Unreachable or an invalid response is the only failure
+        if ! echo "$resp" | jq -e 'has("config")' &>/dev/null; then
             return 1
         fi
 
-        # Parse JSON response - check for incidents and maintenance
-        if command -v jq &>/dev/null; then
-            # Use jq for proper JSON parsing
-            local incidents_count maintenance_count
-            incidents_count=$(echo "$resp" | jq -r '.incidents | length')
-            maintenance_count=$(echo "$resp" | jq -r '.maintenanceList | length')
+        # Maintenance windows and incidents are informational, never a failure
+        local incidents_count maintenance_count
+        incidents_count=$(echo "$resp" | jq -r '(.incidents // []) | length')
+        maintenance_count=$(echo "$resp" | jq -r '(.maintenanceList // []) | length')
+        if [[ "$incidents_count" != "0" ]]; then
+            log "UptimeKuma info: $incidents_count posted incident(s)"
+        fi
+        if [[ "$maintenance_count" != "0" ]]; then
+            log "UptimeKuma info: $maintenance_count maintenance window(s)"
+        fi
 
-            if [[ "$incidents_count" == "0" && "$maintenance_count" == "0" ]]; then
-                return 0
-            else
-                if [[ "$incidents_count" != "0" ]]; then
-                    log "UptimeKuma reports: INCIDENT DETECTED ($incidents_count active)"
-                fi
-                if [[ "$maintenance_count" != "0" ]]; then
-                    log "UptimeKuma reports: MAINTENANCE ACTIVE ($maintenance_count items)"
-                fi
-                return 1
-            fi
-        else
-            # Fallback to grep if jq not available
-            if echo "$resp" | grep -q '"incidents":\[\]' && echo "$resp" | grep -q '"maintenanceList":\[\]'; then
-                return 0
-            else
-                # Check what's wrong
-                if echo "$resp" | grep -vq '"incidents":\[\]'; then
-                    log "UptimeKuma reports: INCIDENT DETECTED"
-                fi
-                if echo "$resp" | grep -vq '"maintenanceList":\[\]'; then
-                    log "UptimeKuma reports: MAINTENANCE ACTIVE"
-                fi
-                return 1
+        # Per-monitor state is informational too: the status page holds one group
+        # monitor aggregating every child, so a single DOWN child must not restart Docker
+        local beats not_up
+        if beats=$(timeout "$HEALTH_CHECK_TIMEOUT" curl -s \
+                   http://localhost:3010/api/status-page/heartbeat/homelab-watchdog 2>/dev/null); then
+            not_up=$(echo "$beats" | jq -r '
+                (.heartbeatList // {}) | to_entries[]
+                | select((.value | length) > 0 and (.value[-1].status != 1))
+                | "monitor \(.key)=\(.value[-1].status)"' 2>/dev/null | paste -sd, - || true)
+            if [[ -n "$not_up" ]]; then
+                log "UptimeKuma info: latest beat not UP (0 DOWN, 2 PENDING, 3 MAINTENANCE): $not_up"
             fi
         fi
+        return 0
     }
 
     # First attempt
@@ -478,7 +470,8 @@ check_mount_integrity() {
     fi
 
     # Check if mount is accessible and writable
-    local test_file="$HDD_MOUNT_POINT/.healthcheck_$(date +%s)"
+    local test_file
+    test_file="$HDD_MOUNT_POINT/.healthcheck_$(date +%s)"
     if ! touch "$test_file" 2>/dev/null; then
         log "❌ Critical: $HDD_MOUNT_POINT is mounted but not writable (possible I/O error)"
         return 1
@@ -895,22 +888,7 @@ restart_docker_services() {
 
         # Start docker-compose services
         if cd "$HOMELAB_DIR" && op run --env-file="$ENV_TPL" -- docker compose up -d; then
-            local compose_exit_code=$?
-
-            # Check if docker compose succeeded
-            if [[ $compose_exit_code -eq 0 ]]; then
-                log "Docker Compose command completed successfully"
-            else
-                log "Docker Compose exited with code $compose_exit_code"
-
-                # Check if containers are already running (common "failure" case)
-                if docker ps --format "{{.Names}}" | grep -q "caddy"; then
-                    log "Note: Key containers already running - this may be why docker compose reported an issue"
-                else
-                    log "Docker Compose failed and containers are not running"
-                    return 1
-                fi
-            fi
+            log "Docker Compose command completed successfully"
 
             log "Waiting for containers to stabilize..."
             sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
@@ -1029,12 +1007,8 @@ force_docker_cleanup() {
     # Stop all containers gracefully first
     if docker ps -q | grep -q .; then
         log "Stopping all running containers..."
-        docker stop $(docker ps -q) || true
+        docker ps -q | xargs -r docker stop || true
     fi
-
-    # System cleanup (safe - preserves volumes and bind mounts)
-    log "Cleaning up unused Docker resources..."
-    docker system prune -f &>/dev/null || true
 
     # Stop and restart Docker daemon
     systemctl stop docker
@@ -1043,7 +1017,7 @@ force_docker_cleanup() {
     sleep "$DOCKER_RESTART_WAIT"
 
     # Restart services
-    if cd "$HOMELAB_DIR" && docker compose down && op run --env-file="$ENV_TPL" -- docker compose up -d; then
+    if cd "$HOMELAB_DIR" && op run --env-file="$ENV_TPL" -- docker compose up -d; then
         log "Docker services restarted after cleanup, waiting for stabilization..."
         sleep "$DOCKER_COMPOSE_STABILIZE_WAIT"
 
@@ -1411,7 +1385,7 @@ analyze_failure_and_recover() {
         log "🔍 DIAGNOSIS: Docker service failure - containers down"
 
         case "$current_state" in
-            0|1)
+            0|1|2)  # 2 is also where an external-only failure holds the state
                 log "RECOVERY ACTION: Restarting Docker services"
                 notify "🐳 Docker Issue" "Containers down - restarting Docker services"
 
@@ -1445,11 +1419,10 @@ analyze_failure_and_recover() {
         esac
 
     elif $internet_ok && $docker_ok && ! $external_ok && $internal_ok; then
-        # External monitor (BetterStack) down but internal (UptimeKuma) OK.
-        # This is likely transient: BetterStack outage, ISP routing blip, or
-        # Cloudflare tunnel hiccup. Restarting Docker is disproportionate —
-        # try restarting the external access path (cloudflared + caddy) first.
-        log "🔍 DIAGNOSIS: External monitor down, internal healthy — external access path issue"
+        # Everything on the box is healthy and only the external monitor (BetterStack)
+        # reports down: transient, or a monitor/token/Cloudflare-edge problem that no
+        # action on this host can fix. One cloudflared + caddy restart, then hold.
+        log "🔍 DIAGNOSIS: External monitor down, box healthy - external access path or external monitor issue"
 
         case "$current_state" in
             0|1)
@@ -1464,28 +1437,14 @@ analyze_failure_and_recover() {
                     set_state 0
                     return 0
                 else
-                    log "External still down after cloudflared+caddy restart — may be transient, escalating cautiously"
+                    log "External still down after cloudflared+caddy restart - holding at state 2"
                     set_state 2
                     return 1
                 fi
                 ;;
-            2)
-                log "RECOVERY ACTION: Network interface restart (fix routing to outside world)"
-                notify "🔄 Network Routing" "External access still failing — restarting network interface"
-
-                if restart_network_interface; then
-                    notify "✅ Routing Fixed" "Network routing restored"
-                    set_state 0
-                    return 0
-                else
-                    set_state 3
-                    return 1
-                fi
-                ;;
             *)
-                log "RECOVERY ACTION: Escalated recovery (persistent external access failure)"
-                escalated_recovery
-                return $?
+                log "External monitor still reports down while the box is healthy (probably BetterStack, its token or the Cloudflare edge) - no host action, state held at $current_state"
+                return 1
                 ;;
         esac
 
@@ -1501,19 +1460,6 @@ analyze_failure_and_recover() {
 
                 if restart_docker_services; then
                     notify "✅ Access Restored" "Service accessibility restored"
-                    set_state 0
-                    return 0
-                else
-                    set_state 2
-                    return 1
-                fi
-                ;;
-            2)
-                log "RECOVERY ACTION: Network interface restart (fix routing)"
-                notify "🔄 Network Routing" "Restarting network interface to fix routing"
-
-                if restart_network_interface; then
-                    notify "✅ Routing Fixed" "Network routing restored"
                     set_state 0
                     return 0
                 else
@@ -1541,7 +1487,7 @@ escalated_recovery() {
     current_state=$(get_current_state)
 
     case "$current_state" in
-        3)
+        2|3)
             log "ESCALATION: Force Docker cleanup and restart"
             notify "🔄 Deep Cleanup" "Complex failure - performing deep Docker cleanup"
 
@@ -1560,12 +1506,12 @@ escalated_recovery() {
             reboot_system
             ;;
         *)
-            # Start escalated recovery - try network interface restart
-            log "ESCALATION: Starting with network interface restart"
-            notify "🔄 Complex Recovery" "Complex failure detected - restarting network interface"
+            # Start escalated recovery - Docker restart
+            log "ESCALATION: Starting with Docker restart"
+            notify "🔄 Complex Recovery" "Complex failure detected - restarting Docker services"
 
-            if restart_network_interface; then
-                notify "✅ Network Reset" "Network interface restart helped with complex issue"
+            if restart_docker_services; then
+                notify "✅ Services Restored" "Docker restart helped with complex issue"
                 set_state 0
                 return 0
             else
@@ -1677,15 +1623,15 @@ perform_health_checks() {
 # Main execution function
 # --------------------------------------------------
 main() {
+    init_runtime
     log_quiet "=== HomeLab WatchDog Started (PID: $$) ==="
 
     # Load configuration (needed for health checks)
     load_credentials
 
-    # Install jq if not available (for JSON parsing)
     if ! command -v jq &>/dev/null; then
-        log "Installing jq for JSON parsing..."
-        apt-get update &>/dev/null && apt-get install -y jq &>/dev/null || log "Warning: Could not install jq, using fallback parsing"
+        log "ERROR: jq not found - install it (apt-get install jq); the watchdog installs nothing itself"
+        exit 1
     fi
 
     # A reopen killed between stopping and starting Docker (SIGKILL, OOM) leaves it down,
@@ -1753,4 +1699,6 @@ main() {
 # --------------------------------------------------
 # Script execution
 # --------------------------------------------------
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

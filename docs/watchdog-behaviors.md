@@ -24,9 +24,16 @@ The watchdog (`scripts/homelab_watchdog.sh`) runs via cron every 10 minutes and 
 | Mount Integrity       | `mountpoint -q /mnt/hdd` + write test + critical dirs       | Local filesystem |
 | Internet Connectivity | Ping 8.8.8.8, 1.1.1.1, 9.9.9.9                              | Network          |
 | External Monitor      | BetterStack API (monitor 3001641 = UptimeKuma)              | Internet         |
-| Internal Monitor      | UptimeKuma status page (localhost:3010)                     | Docker           |
+| Internal Monitor      | UptimeKuma status page (localhost:3010), needs `jq`         | Docker           |
 | Docker Health         | systemctl + key containers running                          | Docker daemon    |
 | Tailscale Health      | `tailscale status` exit code + retry (independent recovery) | Tailscale        |
+
+**Internal monitor:** down only when Kuma is unreachable or returns an invalid response
+(no `config`). Maintenance windows, posted incidents and non-UP monitor beats (from
+`/api/status-page/heartbeat/homelab-watchdog`) are logged as information and never fail
+the check — the status page holds one group monitor aggregating every child, so an
+unrelated DOWN child must not restart Docker. `jq` is required; if it is missing the
+watchdog logs an error and exits, it installs nothing.
 
 **Key containers checked:** `caddy`, `cloudflared`, `uptime-kuma`
 
@@ -131,7 +138,7 @@ ntfy notifications are queued during outage, flushed when internet returns.
 | State | Action                                         |
 | ----- | ---------------------------------------------- |
 | 0→1   | Restart Docker daemon + `docker compose up -d` |
-| 1→3   | If still failing, aggressive Docker cleanup    |
+| 3     | If still failing, aggressive Docker cleanup (stop containers, restart the daemon, `compose up -d`; no `docker system prune`) |
 | 3→4   | System reboot                                  |
 
 **Recovery:**
@@ -204,7 +211,7 @@ manual intervention. Every HDD-backed service was down for ~40 minutes.
 
 **What fails:**
 
-- External access to public services (glance, immich, uptime, draw, public)
+- External access to public services (glance, immich, uptime)
 - `check_external_monitor` - BetterStack sees UptimeKuma as down
 
 **What keeps working:**
@@ -218,13 +225,15 @@ manual intervention. Every HDD-backed service was down for ~40 minutes.
 
 Docker health check detects cloudflared is down → restarts Docker → cloudflared comes back.
 
-If Docker health passes but BetterStack is down → diagnosed as "monitoring discrepancy":
+If Docker health, internet and the internal monitor pass but BetterStack is down → "external-only failure":
 
-| State | Action                                     |
-| ----- | ------------------------------------------ |
-| 0→1   | Light Docker restart (restart cloudflared) |
-| 2     | Network interface restart                  |
-| 3+    | Escalated recovery                         |
+| State | Action                                                                                                  |
+| ----- | ------------------------------------------------------------------------------------------------------- |
+| 0→1   | Restart `cloudflared caddy` once, re-check; recovered → state 0, still down → state 2                    |
+| 2+    | No host action (no NIC restart, cleanup or reboot), no new notification, state held, run reports failure |
+
+At state 2+ the log says the external monitor still reports down while the box is healthy
+(probably BetterStack, its token or the Cloudflare edge).
 
 ---
 
@@ -267,7 +276,7 @@ If BetterStack is genuinely down but homelab is healthy:
 
 - `check_internal_monitor` passes
 - `check_docker_health` passes
-- Diagnosed as external monitoring issue, not homelab problem
+- Diagnosed as external monitoring issue, not homelab problem: one `cloudflared caddy` restart, then the state is held
 
 ---
 
@@ -328,7 +337,7 @@ This allows self-healing after extended outages without manual intervention.
 | ----- | --------- | ------------------ | -------------------------- |
 | 0     | Healthy   | All checks pass    | None                       |
 | 1     | Warning   | First failure      | Wait/retry, Docker restart |
-| 2     | Degraded  | Persistent failure | Network interface restart  |
+| 2     | Degraded  | Persistent failure | Internet down only: network interface restart; internal/complex: Docker cleanup |
 | 3     | Critical  | Recovery failed    | Aggressive Docker cleanup  |
 | 4     | Emergency | All else failed    | System reboot (max 3/day)  |
 
@@ -414,10 +423,20 @@ The watchdog sends a heartbeat to an Uptime Kuma push monitor on every completed
 
 - Sent on every run completion (healthy or unhealthy)
 - Includes current escalation state in message
-- Gracefully skips if `UPTIME_KUMA_PUSH_TOKEN` not configured
+- Pushes `status=down` when the manual-intervention flag exists or the state is 3 or higher, `status=up` for states 0-2
+- Gracefully skips if the push token (`op://homelab/uptime-kuma/PUSH_TOKEN`) is not readable
 
 **Configuration:**
 
 - Token read live via `op read 'op://homelab/uptime-kuma/PUSH_TOKEN'` (root's
   `OP_SERVICE_ACCOUNT_TOKEN` session, `load_credentials()`) — not a credentials file
 - Push monitor: "HomeLab Watchdog - Push" (interval: 700s, `maxretries: 1`)
+
+---
+
+## Tests
+
+`bash tests/test_watchdog_decisions.sh` sources the watchdog (no side effects, no root) and
+asserts the decision table with recording stubs: external-only failure, internal-only
+escalation without the NIC rung, Docker down, internet down, the real internal-monitor check
+against fixture JSON (maintenance and incidents pass), and the heartbeat status.
