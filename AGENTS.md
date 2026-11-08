@@ -377,8 +377,9 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   redeploy must not page: in-stack HTTP probes (Dozzle, ntfy, Karakeep, S3 Gateway) carry
   `maxretries: 8` (~8 min at the 60 s retry interval). A heartbeat script under `pipefail`
   never pipes into `head -1` (SIGPIPE kills it silently; `tests/test_pipefail_head.sh`).
-- **Every push monitor has `maxretries: 0`** except `Home Line - Watchdog` (2,
-  deliberate) — a retry turns a 10-minute time-to-DOWN into 40. Wiring a brand-new
+- **Push monitors use `maxretries: 1`** with `retry_interval` ≤ 3600 (time-to-DOWN is
+  `interval + maxretries × retry_interval`); the exceptions are `Software Factory - Push`
+  (0) and `Home Line - Watchdog` (2), commented in `monitors.yaml`. Wiring a brand-new
   push monitor end to end is fully agentic; see `docs/decisions.md`.
 
 ---
@@ -456,7 +457,7 @@ make caddy-reload    # Caddy only (after Caddyfile changes)
   miss `op run` and a required secret (see Docker Operations).
 - **`uptime-kuma/sync.py` runs on the homelab server only** — it talks to
   `localhost:3010`; never run it locally or on the VPS. Orphan deletion also needs a TTY,
-  and every push monitor must set `maxretries: 0` (see Uptime Kuma Config-as-Code).
+  and every push monitor sets an explicit `maxretries` (usually 1; see Uptime Kuma Config-as-Code).
 - **The watchdog runs from root's crontab** — not `/etc/cron.d`, not a systemd timer;
   root's `/root/.profile` supplies its `OP_SERVICE_ACCOUNT_TOKEN` (see Watchdog).
 - **Never hardcode tailnet IPs, hosts or secrets** in tracked files — placeholders only.

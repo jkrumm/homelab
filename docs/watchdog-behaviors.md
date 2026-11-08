@@ -420,4 +420,4 @@ The watchdog sends a heartbeat to an Uptime Kuma push monitor on every completed
 
 - Token read live via `op read 'op://homelab/uptime-kuma/PUSH_TOKEN'` (root's
   `OP_SERVICE_ACCOUNT_TOKEN` session, `load_credentials()`) — not a credentials file
-- Push monitor: "HomeLab Watchdog - Push" (interval: 700s, `maxretries: 0`)
+- Push monitor: "HomeLab Watchdog - Push" (interval: 700s, `maxretries: 1`)
