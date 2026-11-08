@@ -80,6 +80,7 @@ FAKE_KUMA_STATE = {
     "added": [],
     "monitors": [],
     "edited": [],
+    "write_fail": False,
 }
 
 # Calls sync.py only makes once it is actually mutating/reading live monitor
@@ -104,6 +105,7 @@ def reset_fake_kuma():
     FAKE_KUMA_STATE["added"] = []
     FAKE_KUMA_STATE["monitors"] = []
     FAKE_KUMA_STATE["edited"] = []
+    FAKE_KUMA_STATE["write_fail"] = False
 
 
 def api_touching_calls():
@@ -137,6 +139,10 @@ class FakeMonitorType:
     PING = "ping"
     PORT = "port"
     DNS = "dns"
+    SQLSERVER = "sqlserver"
+    POSTGRES = "postgres"
+    MONGODB = "mongodb"
+    REDIS = "redis"
 
 
 class FakeUptimeKumaApi:
@@ -181,12 +187,16 @@ class FakeUptimeKumaApi:
 
     def add_monitor(self, **kwargs):
         FAKE_KUMA_STATE["calls"].append(("add_monitor", kwargs.get("name")))
+        if FAKE_KUMA_STATE["write_fail"]:
+            raise FakeUptimeKumaException("fake add_monitor failure")
         # Full params, so a test can assert what build_monitor_params produced.
         FAKE_KUMA_STATE["added"].append(kwargs)
         return {"monitorID": 999}
 
     def edit_monitor(self, monitor_id, **kwargs):
         FAKE_KUMA_STATE["calls"].append(("edit_monitor", monitor_id))
+        if FAKE_KUMA_STATE["write_fail"]:
+            raise FakeUptimeKumaException("fake edit_monitor failure")
         FAKE_KUMA_STATE["edited"].append((monitor_id, kwargs))
         return True
 
@@ -259,13 +269,15 @@ def scoped_env(set_vars=None, unset_vars=None, password="test-password"):
 
 
 def run_main(argv, *, set_vars=None, unset_vars=None, password="test-password",
-             login_fail=False, login_transient=0, notifications=None, monitors=None):
+             login_fail=False, login_transient=0, notifications=None, monitors=None,
+             write_fail=False):
     """Run sync.main() in-process against the fake API, capturing everything."""
     reset_fake_kuma()
     FAKE_KUMA_STATE["login_fail"] = login_fail
     FAKE_KUMA_STATE["login_transient"] = login_transient
     FAKE_KUMA_STATE["notifications"] = list(notifications or [])
     FAKE_KUMA_STATE["monitors"] = list(monitors or [])
+    FAKE_KUMA_STATE["write_fail"] = write_fail
     old_argv = sys.argv
     stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
     exit_code = 0
@@ -1092,6 +1104,75 @@ def test_alert_routing():
     return 5, 5 - len(failures), failures
 
 
+# =============================================================================
+# 16. Sync fidelity: an unmapped type raises instead of becoming HTTP, a failed
+#    write makes the exit code non-zero (after finishing the rest), and a
+#    converged monitor is not edited.
+# =============================================================================
+
+PLAIN_FIXTURE = """\
+settings:
+  defaults: {{}}
+groups:
+  - name: TestGroup
+    monitors:
+      - name: plain-mon
+        type: {mtype}
+        url: http://example.local/
+"""
+
+
+def test_sync_fidelity():
+    failures = []
+    with tempfile.TemporaryDirectory() as td:
+        bad = write_yaml(Path(td), "bad.yaml", PLAIN_FIXTURE.format(mtype="kafka"))
+        rc, out, err = run_main(["--config", bad])
+        if rc == 0 or "plain-mon" not in err or "kafka" not in err or FAKE_KUMA_STATE["added"]:
+            failures.append(f"unknown type must abort naming monitor and type, nothing created: rc={rc} err={err!r}")
+        try:
+            sync.get_monitor_type("nope", "m1")
+            failures.append("get_monitor_type accepted an unknown type")
+        except ValueError as e:
+            if "m1" not in str(e) or "nope" not in str(e):
+                failures.append(f"ValueError lacks monitor/type: {e}")
+        for t in ("postgres", "mongodb", "redis", "mssql"):
+            try:
+                sync.get_monitor_type(t, "m")
+            except ValueError:
+                failures.append(f"DB type {t} must map")
+
+        ok = write_yaml(Path(td), "ok.yaml", PLAIN_FIXTURE.format(mtype="http"))
+        live = [{"id": 1, "name": "TestGroup", "type": "group", "notificationIDList": []},
+                {"id": 2, "name": "plain-mon", "type": "http", "url": "http://example.local/", "notificationIDList": []}]
+        rc, out, err = run_main(["--config", ok], monitors=live, write_fail=True)
+        if rc == 0 or "[ERROR] Failed to update" not in out:
+            failures.append(f"failed edit must exit non-zero: rc={rc} out={out!r}")
+        if len([c for c in FAKE_KUMA_STATE["calls"] if c[0] == "edit_monitor"]) < 2:
+            failures.append("a failed edit must not stop the remaining monitors")
+        rc, out, err = run_main(["--config", ok], write_fail=True)
+        if rc == 0 or "[ERROR] Failed to create" not in out:
+            failures.append(f"failed create must exit non-zero: rc={rc} out={out!r}")
+
+        # Converged monitors (same params as the config builds) are not edited.
+        params = sync.build_monitor_params({"name": "plain-mon", "type": "http", "url": "http://example.local/"}, {}, {}, 1)
+        converged = [{"id": 1, "name": "TestGroup", "type": "group", "interval": 200, "timeout": 90, "maxretries": 3,
+                      "retryInterval": 60, "active": True, "accepted_statuscodes": ["200-299"], "method": "GET",
+                      "resendInterval": 0, "notificationIDList": []},
+                     {**params, "id": 2, "type": "http", "notificationIDList": []}]
+        rc, out, err = run_main(["--config", ok], monitors=converged)
+        if rc != 0 or FAKE_KUMA_STATE["edited"] or "[OK] plain-mon" not in out:
+            failures.append(f"unchanged monitor was edited: rc={rc} edited={FAKE_KUMA_STATE['edited']!r} out={out!r}")
+        drifted = [converged[0], {**converged[1], "interval": 5}]
+        rc, out, err = run_main(["--config", ok, "--dry-run"], monitors=drifted)
+        if "[UPDATE] plain-mon" not in out or FAKE_KUMA_STATE["edited"]:
+            failures.append(f"changed monitor must show [UPDATE] and dry-run must not edit: out={out!r}")
+        rc, out, err = run_main(["--config", ok], monitors=drifted)
+        if [e[0] for e in FAKE_KUMA_STATE["edited"]] != [2]:
+            failures.append(f"only the drifted monitor may be edited: {FAKE_KUMA_STATE['edited']!r}")
+
+    return 8, 8 - len(failures), failures
+
+
 def test_watcher_table_matches_docs():
     import yaml
     failures = []
@@ -1131,6 +1212,7 @@ GROUPS = [
     ("14. unresolved var in 2nd extra aborts", test_unresolved_var_in_second_extra_config_aborts),
     ("15a. alert routing", test_alert_routing),
     ("15b. watcher table matches docs", test_watcher_table_matches_docs),
+    ("16. sync fidelity", test_sync_fidelity),
 ]
 
 

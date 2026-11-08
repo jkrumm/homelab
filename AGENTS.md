@@ -154,7 +154,7 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make uk-sync` / `uk-dry-run` / `uk-export` | Apply / preview / export Uptime Kuma monitors (see below) |
 | `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` + `bash tests/test_setup_cron_replay.sh` + `bash tests/test_pipefail_head.sh` + `bash tests/test_ntfy_topics.sh` — local, no network, no server |
 | `make check`              | All local validation: compose config + YAML/shell lint + `make test` (see Validate) |
-| `make verify`             | Probe production via the Uptime Kuma status page — exit 0 = healthy (see Verify & Monitor) |
+| `make verify`             | Probe production via the Uptime Kuma heartbeat API — exit 0 = every monitor's last beat UP (see Verify & Monitor) |
 | `make version`            | Print the commit sha the server checkout runs (read-only; the software factory's post-deploy check, see `project.yaml`) |
 
 ### How Secrets Work
@@ -190,7 +190,7 @@ ssh homelab "docker compose logs -f <service>"
 
 - **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
 - **Opted-out** (other): `proton-bridge` (local build), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
-- **Auto-update** (global, daily 4AM): everything else, including `caddy`
+- **Auto-update** (global, daily 06:00, after the 03:30 restic backup and the 05:30 unattended-upgrades reboot): everything else, including `caddy`
 
 ---
 
@@ -307,7 +307,7 @@ homelab/
 ├── scripts/                 # Operational scripts
 │   └── homelab_watchdog.sh  # Self-healing health monitor (root crontab, every 10 min)
 ├── config/                  # App configs + extends
-│   ├── glance.yml           # Glance dashboard config
+│   ├── glance.yml           # Glance dashboard config (single-file :ro mount: `make restart svc=glance` after editing)
 │   └── hwaccel.{ml,transcoding}.yml  # Immich GPU acceleration stubs (not active)
 ├── docs/                    # Detailed documentation
 │   ├── backups.md           # Restic design + restore drill
@@ -440,16 +440,21 @@ make caddy-reload    # Caddy only (after Caddyfile changes)
 
 - **Health URL:** `https://uptime.jkrumm.com/status/homelab-watchdog` — the published
   Uptime Kuma status page aggregating the HomeLab stack. Machine-readable form:
-  `https://uptime.jkrumm.com/api/status-page/homelab-watchdog` (`incidents` and
-  `maintenanceList` both empty == healthy).
+  `https://uptime.jkrumm.com/api/status-page/heartbeat/homelab-watchdog` —
+  `heartbeatList` maps monitor id to its beats (`status` 0 DOWN, 1 UP, 2 PENDING,
+  3 MAINTENANCE); the page holds the `HomeLab` group monitor, which aggregates every
+  child. Healthy == the last beat of every listed monitor is UP (3 is fine). Posted
+  incidents / maintenance windows (`/api/status-page/homelab-watchdog`) are
+  informational only, never a health signal.
 - **Kuma monitor:** `HomeLab Watchdog - Push` — the watchdog heartbeat that represents
   this stack on that status page.
 - **OTel `service.name`:** `none` — there is no ClickStack/OTel receiver on HomeLab (the
   receiver is on the VPS only); locally-built services ship an empty
   `OTEL_EXPORTER_OTLP_ENDPOINT` that trips their no-op exporter guard, so nothing here
   emits traces.
-- `make verify` probes the status page and exits non-zero on any active incident or
-  maintenance window.
+- `make verify` (needs `jq`) reads the heartbeat endpoint and exits non-zero when it is
+  unreachable/empty/not JSON or a monitor's last beat is DOWN/PENDING; incidents and
+  maintenance windows only print as a `NOTE:`.
 
 ## Gotchas
 

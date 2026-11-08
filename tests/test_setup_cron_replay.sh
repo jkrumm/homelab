@@ -18,7 +18,11 @@ BLOCK="$(sed -n '/^# Read the current crontab once/,/^# Create watchdog state di
 # Fixtures mirror the definitions above the block in setup.sh.
 USER_HOME="/home/jkrumm"
 WATCHDOG_SCRIPT="$USER_HOME/homelab/scripts/homelab_watchdog.sh"
-CRON_ENTRY="*/10 * * * * [ -r /root/.profile ] && . /root/.profile; $WATCHDOG_SCRIPT >> /var/log/homelab_watchdog.log 2>&1"
+# CRON_ENTRY is taken from setup.sh itself, not restated here, so an incompatible
+# edit of the real entry changes what the cases below replay.
+CRON_ENTRY_DEF="$(grep -m1 '^CRON_ENTRY=' setup.sh)"
+[ -n "$CRON_ENTRY_DEF" ] || { echo "FAIL: could not extract CRON_ENTRY from setup.sh" >&2; exit 1; }
+eval "$CRON_ENTRY_DEF"
 # A pre-guard line: names $WATCHDOG_SCRIPT but is not CRON_ENTRY, so the rewrite
 # must migrate it. An unrelated line that must always survive untouched.
 STALE="*/10 * * * * $WATCHDOG_SCRIPT"

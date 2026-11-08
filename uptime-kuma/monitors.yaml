@@ -199,7 +199,7 @@ groups:
           # failure semantics (silent vs explicit down) are in the script header.
           #
           # The cadence is hourly, so interval 3700 = 3600 + 100s grace. maxretries 1 is
-          # deliberate and the one exception to the maxretries-0 rule: time-to-DOWN is
+          # deliberate (push monitors use maxretries 1, see the push block below): time-to-DOWN is
           # interval + retry_interval = ~2h, the script's own 2h freshness gate, so one
           # late or failed run (a flaky SSH hop) stays PENDING and only two consecutive
           # misses page; an explicit status=down would bypass this grace, so the script
@@ -309,7 +309,7 @@ groups:
           # is missing or truncated, i.e. the DB is unprotected since the last good
           # one — restic still ships whatever is there.
           #
-          # interval 25h + maxretries 0, same sizing as Restic Backup - Push.
+          # interval 25h + maxretries 1, same sizing as Restic Backup - Push.
           # Push URL on the homelab server at ~/.config/uptime-kuma/immich-backup-push-url
           # (chmod 600) — a plain file, not .env.tpl, so no op:// ordering trap and no
           # `op run` dependency for a cron that only reads a directory listing.

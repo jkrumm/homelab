@@ -104,25 +104,88 @@ def load_config(config_path: str, unresolved: set) -> dict:
 DB_MONITOR_TYPES = {"mysql", "mssql", "postgres", "mongodb", "redis"}
 
 
-def get_monitor_type(type_str: str) -> MonitorType:
-    """Convert string type to MonitorType enum."""
+def get_monitor_type(type_str: str, name: str = "?") -> MonitorType:
+    """Convert string type to MonitorType enum.
+
+    An unmapped type raises: silently creating it as HTTP would probe the wrong
+    thing under a name that claims otherwise.
+    """
     type_map = {
         "http": MonitorType.HTTP,
         "keyword": MonitorType.KEYWORD,
         "docker": MonitorType.DOCKER,
         "push": MonitorType.PUSH,
         "mysql": MonitorType.MYSQL,
+        "mssql": MonitorType.SQLSERVER,
+        "postgres": MonitorType.POSTGRES,
+        "mongodb": MonitorType.MONGODB,
+        "redis": MonitorType.REDIS,
         "group": MonitorType.GROUP,
         "ping": MonitorType.PING,
         "port": MonitorType.PORT,
         "dns": MonitorType.DNS,
     }
-    return type_map.get(type_str.lower(), MonitorType.HTTP)
+    monitor_type = type_map.get(str(type_str).lower())
+    if monitor_type is None:
+        raise ValueError(f"monitor '{name}': unsupported type '{type_str}' (supported: {', '.join(sorted(type_map))})")
+    return monitor_type
+
+
+def validate_monitor_types(groups: list):
+    """Raise ValueError naming every monitor with an unmapped type, before any write."""
+    bad = []
+
+    def walk(items):
+        for item in items:
+            for monitor in item.get("monitors", []):
+                try:
+                    get_monitor_type(monitor.get("type", "http"), monitor["name"])
+                except ValueError as e:
+                    bad.append(str(e))
+                if monitor.get("type") == "group":
+                    walk([monitor])
+
+    walk(groups)
+    if bad:
+        raise ValueError("; ".join(bad))
+
+
+def _norm(value):
+    """Normalise a monitor field for comparison: enum -> value, empty -> None, JSON strings parsed."""
+    value = getattr(value, "value", value)
+    if value in (None, "", [], {}):
+        return None
+    if isinstance(value, str) and value[:1] in "{[":
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    return value
+
+
+def monitor_diff(params: dict, live: dict, notification_ids: list) -> list:
+    """Keys whose desired value differs from the live monitor (empty == converged).
+
+    Only keys present in `params` are compared, plus the alert routing and the
+    parent link. A key missing from the live dict counts as None.
+    """
+    diff = []
+    for key, want in params.items():
+        if key == "active":
+            if bool(want) != bool(live.get("active", True)):
+                diff.append(key)
+        elif _norm(want) != _norm(live.get(key)):
+            diff.append(key)
+    if "parent" not in params and _norm(live.get("parent")) is not None:
+        diff.append("parent")
+    if sorted(int(i) for i in (live.get("notificationIDList") or [])) != sorted(notification_ids):
+        diff.append("notificationIDList")
+    return diff
 
 
 def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict, parent_id: int = None) -> dict:
     """Build monitor parameters from YAML config."""
-    monitor_type = get_monitor_type(monitor.get("type", "http"))
+    monitor_type = get_monitor_type(monitor.get("type", "http"), monitor["name"])
     params = {
         "name": monitor["name"],
         "type": monitor_type,
@@ -342,8 +405,14 @@ def plan_routes(config: dict) -> tuple:
     return set(direct), set(watchers)
 
 
-def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delete_orphans: bool = False):
-    """Sync monitors from config to Uptime Kuma."""
+def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delete_orphans: bool = False) -> int:
+    """Sync monitors from config to Uptime Kuma; returns the number of failed writes.
+
+    A failing write is reported and the run goes on, so one bad monitor cannot
+    strand the rest; the caller turns a non-zero count into a non-zero exit.
+    """
+    validate_monitor_types(config.get("groups", []))
+    errors = 0
     defaults = config.get("settings", {}).get("defaults", {})
     cloudflare_header = config.get("settings", {}).get("cloudflare_bypass_header", {})
 
@@ -391,6 +460,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
         dashboard tree, not in the alert stream; the child that actually failed
         is the one that names the fault.
         """
+        nonlocal errors
         name = monitor["name"]
         processed_names.add(name)
         monitor_notifications = (notification_ids if name in watchers else routed_ids) if notify else []
@@ -410,6 +480,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                         api.edit_monitor(monitor_id, notificationIDList=monitor_notifications)
                         print(f"  [UPDATED] {name} (notifications only)")
                     except Exception as e:
+                        errors += 1
                         print(f"  [ERROR] Failed to update notifications of {name}: {e}")
             return monitor_id
 
@@ -420,8 +491,15 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             # attaching them on leaves, DETACHING them on groups, so flipping
             # `notify` in config actually takes effect on an existing monitor)
             monitor_id = existing[name]["id"]
-            if dry_run:
-                print(f"  [UPDATE] {name} (id={monitor_id})")
+            params["notificationIDList"] = monitor_notifications
+            # Skip the edit when nothing differs. The diff includes the alert
+            # routing, the parent link and the pause state, so each of those
+            # still converges; only a no-op edit is dropped.
+            diff = monitor_diff(params, existing[name], monitor_notifications)
+            if not diff:
+                print(f"  [OK] {name} (id={monitor_id})")
+            elif dry_run:
+                print(f"  [UPDATE] {name} (id={monitor_id}): {', '.join(diff)}")
                 # A real run converges this; surface it in the pre-flight so a
                 # UI-side detach/attach is visible before it is silently fixed.
                 live_ids = sorted(existing[name].get("notificationIDList") or [])
@@ -429,9 +507,8 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                     print(f"  [NOTIFY-DRIFT] {name}: live={live_ids} expected={sorted(monitor_notifications)}")
             else:
                 try:
-                    params["notificationIDList"] = monitor_notifications
                     api.edit_monitor(monitor_id, **params)
-                    print(f"  [UPDATED] {name}")
+                    print(f"  [UPDATED] {name}: {', '.join(diff)}")
                     # edit_monitor carries `active` but Kuma does not act on it:
                     # a monitor paused in the UI stayed paused through every
                     # sync (Hermes - HTTP, 2026-09-11, paused since its 404
@@ -446,6 +523,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                         api.pause_monitor(monitor_id)
                         print(f"  [PAUSED] {name}")
                 except Exception as e:
+                    errors += 1
                     print(f"  [ERROR] Failed to update {name}: {e}")
         else:
             # Create new monitor
@@ -460,6 +538,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                     print(f"  [CREATED] {name} (id={result['monitorID']})")
                     return result["monitorID"]
                 except Exception as e:
+                    errors += 1
                     print(f"  [ERROR] Failed to create {name}: {e}")
         return existing.get(name, {}).get("id")
 
@@ -496,23 +575,25 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
         for name in sorted(orphaned):
             print(f"  - {name} (id={existing[name]['id']})")
         if dry_run:
-            return
+            return errors
         if delete_orphans or sys.stdin.isatty():
             if not delete_orphans:
                 print("\nDelete these orphaned monitors? [y/N] ", end="", flush=True)
                 answer = input().strip().lower()
                 if answer != "y":
                     print("  Skipped — monitors left untouched.")
-                    return
+                    return errors
             for name in sorted(orphaned):
                 mid = existing[name]["id"]
                 try:
                     api.delete_monitor(mid)
                     print(f"  Deleted: {name} (id={mid})")
                 except Exception as e:
+                    errors += 1
                     print(f"  Failed to delete {name} (id={mid}): {e}")
         else:
             print("\n  (no interactive terminal — run sync.py directly or use --delete-orphans)")
+    return errors
 
 
 def export_monitors(api: UptimeKumaApi, output_path: str):
@@ -732,7 +813,10 @@ def main():
                 )
                 sys.exit(EXIT_UNRESOLVED_ENV)
 
-            sync_monitors(api, config, dry_run=args.dry_run, delete_orphans=args.delete_orphans)
+            failed = sync_monitors(api, config, dry_run=args.dry_run, delete_orphans=args.delete_orphans)
+            if failed:
+                print(f"\nError: {failed} write(s) failed, see [ERROR] lines above", file=sys.stderr)
+                sys.exit(1)
 
     except Exception as e:
         print(f"Error: {format_error(e)}", file=sys.stderr)

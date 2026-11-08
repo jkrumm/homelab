@@ -56,7 +56,7 @@ help: ## Show all targets
 	@echo ""
 	@echo "  Validation & Health"
 	@echo "    make check               All local validation (compose config + YAML/shell lint + tests)"
-	@echo "    make verify              Probe production via the Uptime Kuma status page (exit 0 = healthy)"
+	@echo "    make verify              Probe production via the Uptime Kuma heartbeat API (exit 0 = every last beat UP)"
 	@echo "    make version             Print the commit sha the server checkout runs"
 	@echo ""
 	@echo "  Immich Stack (manually-managed — Watchtower-excluded)"
@@ -130,16 +130,28 @@ check: test ## Run all local validation: compose config + YAML/shell lint + regr
 	docker compose config --no-interpolate --quiet
 	uv run --no-project --with pyyaml python3 -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" config/glance.yml config/hwaccel.ml.yml config/hwaccel.transcoding.yml config/cloudflared/config.yml uptime-kuma/monitors.yaml $(wildcard uptime-kuma/monitors.mini-door.generated.yaml)
 	@for f in scripts/*.sh setup.sh tests/*.sh; do bash -n "$$f" || exit 1; done
+	shellcheck -S warning scripts/*.sh setup.sh tests/*.sh
 
 # `verify` probes the live, public Uptime Kuma status page — read-only, no SSH,
-# no secrets. Non-zero means the status page is unreachable, or Kuma reports an
-# active incident or maintenance window.
-verify: ## Probe production health via the Uptime Kuma status page (exit 0 = healthy)
-	@resp="$$(curl -fsS --max-time 20 https://uptime.jkrumm.com/api/status-page/homelab-watchdog)"; \
-		if [ $$? -ne 0 ] || [ -z "$$resp" ]; then echo "UNHEALTHY: Uptime Kuma status page unreachable"; exit 1; fi; \
-		echo "$$resp" | grep -q '"incidents":\[\]' || { echo "UNHEALTHY: active Uptime Kuma incident(s)"; exit 1; }; \
-		echo "$$resp" | grep -q '"maintenanceList":\[\]' || { echo "UNHEALTHY: Uptime Kuma maintenance window active"; exit 1; }; \
-		echo "OK: production healthy — no active Uptime Kuma incidents"
+# no secrets. The health signal is the LAST heartbeat of every monitor the page
+# lists (/api/status-page/heartbeat/<slug>; the page holds the "HomeLab" group
+# monitor, whose status aggregates every child). Non-zero means the endpoint is
+# unreachable/empty/not JSON, or a listed monitor's last beat is DOWN (0) or
+# PENDING (2). Maintenance (3), posted incidents and maintenance windows are
+# informational: printed as a NOTE, exit stays 0. Needs jq.
+verify: ## Probe production health via the Uptime Kuma heartbeat API (exit 0 = every monitor's last beat is UP/maintenance)
+	@command -v jq >/dev/null || { echo "UNHEALTHY: jq is required for make verify"; exit 1; }; \
+		resp="$$(curl -fsS --max-time 20 https://uptime.jkrumm.com/api/status-page/heartbeat/homelab-watchdog)"; \
+		if [ $$? -ne 0 ] || [ -z "$$resp" ]; then echo "UNHEALTHY: Uptime Kuma heartbeat endpoint unreachable"; exit 1; fi; \
+		echo "$$resp" | jq -e '(.heartbeatList | type == "object") and (.heartbeatList | length > 0)' >/dev/null 2>&1 \
+			|| { echo "UNHEALTHY: heartbeat endpoint returned non-JSON or an empty heartbeatList"; exit 1; }; \
+		bad="$$(echo "$$resp" | jq -r '.heartbeatList | to_entries[] | (.value | last) as $$b | select($$b == null or $$b.status == 0 or $$b.status == 2) | "\(.key)=\(if $$b == null then "no-beats" elif $$b.status == 0 then "DOWN" else "PENDING" end)"' | paste -sd, -)"; \
+		note="$$(curl -fsS --max-time 20 https://uptime.jkrumm.com/api/status-page/homelab-watchdog 2>/dev/null | jq -r '"incidents=\(.incidents | length) maintenance=\(.maintenanceList | length)"' 2>/dev/null)"; \
+		[ -z "$$note" ] || echo "NOTE: $$note (informational)"; \
+		maint="$$(echo "$$resp" | jq -r '[.heartbeatList | to_entries[] | select((.value | last).status == 3) | .key] | join(",")')"; \
+		[ -z "$$maint" ] || echo "NOTE: monitor(s) in maintenance: $$maint (informational)"; \
+		if [ -n "$$bad" ]; then echo "UNHEALTHY: monitor(s) not UP (id=state): $$bad"; exit 1; fi; \
+		echo "OK: production healthy — last heartbeat of every listed monitor is UP"
 
 # `version` prints the commit sha the server's checkout runs (`make deploy` is a
 # git pull there) — one line, read-only.
@@ -147,8 +159,7 @@ version: ## Print the deployed commit sha (server checkout HEAD, one line)
 	@$(SSH) "$(CD) && git rev-parse HEAD"
 
 # ── Immich Stack (manually-managed, Watchtower-excluded) ─────────────────────
-# Immich server/ML use the rolling `release` tag, so a plain `up -d` won't advance
-# them — pull first. postgres/valkey are digest-pinned; `pull` honours new pins.
+# postgres/valkey are digest-pinned; `pull` honours new pins.
 # See .claude/skills/upgrade-stack for the full upgrade analysis workflow.
 
 # Image tags are explicitly pinned (e.g. immich-server:v3.3.5), so this pulls only what
@@ -213,11 +224,13 @@ uk-export: ## Export current Uptime Kuma monitors to YAML
 # `uv run` builds a throwaway env for it — no repo venv, no borrowed one.
 # The setup.sh cron replay is plain bash: it extracts the watchdog-cron block and
 # replays six seeded crontabs against a stubbed `crontab`.
-test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard) — no network, no server
+# tests/test_watchdog_decisions.sh covers the watchdog's alert decisions.
+test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard + watchdog decisions) — no network, no server
 	uv run tests/test_uptime_kuma_sync_guard.py
 	bash tests/test_setup_cron_replay.sh
 	bash tests/test_pipefail_head.sh
 	bash tests/test_ntfy_topics.sh
+	bash tests/test_watchdog_decisions.sh
 
 # ── ntfy ─────────────────────────────────────────────────────────────────────
 # Subscribes the owner's ntfy account to config/ntfy/topics.txt (ntfy-mac follows the
