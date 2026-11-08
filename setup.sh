@@ -33,7 +33,15 @@ fi
 # System update
 # --------------------------------------------------
 echo "=== Updating system ==="
-apt update && apt upgrade -y
+apt update
+# First run only (marker: the unattended-upgrades drop-in written below). On a
+# configured box `apt upgrade` would also bump the Docker packages that are
+# deliberately upgraded by hand, so re-runs need SETUP_APT_UPGRADE=1.
+if [ "${SETUP_APT_UPGRADE:-0}" = "1" ] || [ ! -f /etc/apt/apt.conf.d/50unattended-upgrades-local ]; then
+  apt upgrade -y
+else
+  echo "Skipping apt upgrade (box already set up; SETUP_APT_UPGRADE=1 to force)"
+fi
 
 # --------------------------------------------------
 # Essential packages
@@ -166,9 +174,9 @@ fi
 # --------------------------------------------------
 echo "=== Configuring UFW ==="
 
-# Reset to clean state for idempotent re-runs
-ufw --force reset
-
+# No `ufw --force reset`: every command below is idempotent (existing rules are
+# skipped), so a re-run never drops the firewall, even briefly. Rules removed from
+# this script must be deleted by hand (`ufw delete`).
 ufw default deny incoming
 ufw default allow outgoing
 
@@ -236,12 +244,12 @@ Unattended-Upgrade::Package-Blacklist {
     "docker-compose-plugin";
 };
 
-// Auto-reboot at 4 AM if kernel update requires it
+// Auto-reboot at 05:30 (after restic 03:30 and immich-backup-check 04:00, before Watchtower 06:00) if kernel update requires it
 Unattended-Upgrade::Automatic-Reboot "true";
-Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+Unattended-Upgrade::Automatic-Reboot-Time "05:30";
 UNATTENDED
 
-echo "Unattended-upgrades configured (Docker blacklisted, auto-reboot at 4 AM)"
+echo "Unattended-upgrades configured (Docker blacklisted, auto-reboot at 05:30)"
 
 
 # --------------------------------------------------

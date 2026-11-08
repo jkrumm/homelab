@@ -35,7 +35,8 @@
 *.tmp
 **/.tmp/**
 
-# Lockfiles for live DBs (we back up the file, lock noise is irrelevant)
+# SQLite shared-memory index and rollback journals (rebuildable). The -wal file is
+# deliberately NOT excluded: it holds committed data of a WAL-mode DB (docs/backups.md)
 *-shm
 *-journal
 

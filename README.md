@@ -111,8 +111,8 @@ Both machines are hardened with identical configurations (applied via `setup.sh`
 | **UFW**                 | Default deny incoming. SSH restricted to Tailscale CGNAT range (`100.64.0.0/10`). HomeLab: Samba bound to the Tailscale IP. VPS: HTTPS + MariaDB open        |
 | **fail2ban**            | Enabled (sshd jail)                                                                                                                                    |
 | **sysctl**              | kptr_restrict=2, dmesg_restrict=1, ptrace_scope=2, rp_filter=1, log_martians=1, send_redirects=0, unprivileged_bpf_disabled=1                          |
-| **unattended-upgrades** | Security updates auto-installed. Docker packages blacklisted. Auto-reboot at 4 AM if kernel update pending                                             |
-| **Docker**              | `no-new-privileges:true` on all containers (except host-network agents). Memory limits on resource-heavy services. JSON log rotation                   |
+| **unattended-upgrades** | Security updates auto-installed. Docker packages blacklisted. Auto-reboot at 05:30 if kernel update pending                                           |
+| **Docker**              | `no-new-privileges:true` only on `docker-socket-proxy-claude`, `ntfy` and `proton-bridge`. Memory limits on resource-heavy services. JSON log rotation |
 | **Hetzner FW**          | VPS only: 2 rules — HTTPS (443) + MariaDB (33306). SSH removed (Tailscale-only access)                                                                 |
 
 **Emergency access:** HomeLab — physical access at remote location. VPS — Hetzner web console (no SSH needed).

@@ -191,7 +191,7 @@ services:
     image: glanceapp/glance
     container_name: glance
     volumes:
-      - ./config:/app/config
+      - ./config/glance.yml:/app/config/glance.yml:ro
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -255,6 +255,7 @@ services:
       - /mnt/hdd/backups:/sources/hermes-backup:ro
       - /mnt/hdd/karakeep/data:/sources/Karakeep:ro
       - /home/jkrumm/ssd/proton-bridge:/sources/ProtonBridge:ro
+      - /home/jkrumm/ssd/versitygw/iam:/sources/VersityGW-IAM:ro
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
     labels:
@@ -265,7 +266,8 @@ services:
       com.centurylinklabs.watchtower.enable: 'true'
 
   watchtower:
-    image: containrrr/watchtower:latest
+    # Maintained fork (containrrr/watchtower archived 2025-12-17). Pinned: Watchtower must not self-update.
+    image: nickfedor/watchtower:1.24.0
     container_name: watchtower
     restart: unless-stopped
     volumes:
@@ -279,9 +281,8 @@ services:
       TZ: Europe/Berlin
       DOCKER_HOST: tcp://docker-socket-proxy-watchtower:2375
       DOCKER_CONFIG: /
-      DOCKER_API_VERSION: '1.44'
       WATCHTOWER_CLEANUP: 'true'
-      WATCHTOWER_SCHEDULE: '0 0 4 * * *'
+      WATCHTOWER_SCHEDULE: '0 0 6 * * *' # after restic (03:30), immich check (04:00), reboot window (05:30)
       WATCHTOWER_NOTIFICATION_URL: 'ntfy://:${NTFY_TOKEN}@ntfy.jkrumm.com/updates?title=Watchtower'
       WATCHTOWER_NOTIFICATIONS_LEVEL: warn
       WATCHTOWER_NO_STARTUP_MESSAGE: 'true'
@@ -305,9 +306,6 @@ services:
     environment:
       - SQLITE_BUSY_TIMEOUT=30000
       - DOCKER_HOST=tcp://docker-socket-proxy:2375
-    # Note: IPv6 not available in Docker bridge network. VPS monitors have
-    # increased retries (3x) to handle intermittent IPv4 timeouts from
-    # Deutsche Telekom routing issues to Cloudflare.
     volumes:
       - /home/jkrumm/ssd/uptime-kuma:/app/data
     depends_on:

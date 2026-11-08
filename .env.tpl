@@ -8,9 +8,6 @@
 # DNS_API_TOKEN (dashboard: dns-acme) = Zone.DNS only — Traefik/Caddy ACME DNS-01.
 # MANAGE_API_TOKEN (dashboard: cf-manage) = DNS + Tunnel + Cache Rules — /cloudflare skill only.
 CLOUDFLARE_API_TOKEN=op://common/cloudflare/DNS_API_TOKEN
-CLOUDFLARE_MANAGE_TOKEN=op://common/cloudflare/MANAGE_API_TOKEN
-CLOUDFLARE_ACCOUNT_ID=op://common/cloudflare/ACCOUNT_ID
-CLOUDFLARE_ZONE_ID=op://common/cloudflare/ZONE_ID_JKRUMM_COM
 CLOUDFLARE_TOKEN=op://homelab/cloudflare-tunnel/TOKEN
 CLOUDFLARE_TUNNEL_ID=op://homelab/config/CLOUDFLARE_TUNNEL_ID
 
@@ -73,7 +70,6 @@ BETTERSTACK_TOKEN=op://homelab/monitoring/BETTERSTACK_TOKEN
 UPTIME_MONITOR_TOKEN=op://homelab/monitoring/UPTIME_MONITOR_TOKEN
 FPP_SERVER_AUTH=op://homelab/monitoring/FPP_SERVER_AUTH
 UPTIME_KUMA_PASSWORD=op://homelab/uptime-kuma/PASSWORD
-UPTIME_KUMA_PUSH_TOKEN=op://homelab/uptime-kuma/PUSH_TOKEN
 
 # --- Network config ---
 HOMELAB_TAILSCALE_IP=op://homelab/config/HOMELAB_TAILSCALE_IP

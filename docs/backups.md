@@ -25,10 +25,21 @@
 | `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | ~118 GB Fuji RAW archive |
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) + `weatherorb-accounts/` hourly VPS DB dumps (see "WeatherOrb account database" below) |
-| `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable) |
+| `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable). Live-DB caveat: see "Karakeep SQLite" below |
 | `/home/jkrumm/ssd/proton-bridge` | `/sources/ProtonBridge` | Proton Bridge vault + gpg keyring + pass store (gluon message cache excluded — re-synced; see `docs/proton-bridge.md`) |
+| `/home/jkrumm/ssd/versitygw/iam` | `/sources/VersityGW-IAM` | VersityGW IAM dir: S3 users + policies (`docs/s3.md`). Object data is not here — it lives in the backed-up trees or is deliberately not backed up |
 
 **Skipped intentionally:** Immich raw Postgres data dir (`Bilder/immich/postgres` — excluded; a filesystem copy of a live PGDATA is not restorable, see "Immich database" below), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*`, `/mnt/hdd/fuji/Videos`, argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
+
+## Karakeep SQLite — accepted risk
+
+Restic copies the live Karakeep SQLite database file-level, no dump. Karakeep is expected to run the
+DB in WAL mode (not verified on the box), so a consistent state is the DB file plus its `-wal` file; both sit in
+the same backed-up directory, and the `*-shm`/`*-journal` excludes only drop the
+rebuildable shared-memory index and rollback journals. **Restore = copy back the whole
+set** (`db.db`, `db.db-wal`), never the main file alone. Residual risk: a copy taken
+mid-checkpoint can be inconsistent; SQLite then reports corruption on open and the
+previous day's snapshot is the fallback. Accepted, no pre-backup dump (not built).
 
 ## Immich database — how it's actually backed up
 
@@ -118,7 +129,9 @@ proven to hold the file's sha256 (weatherorb ADR 0009). The earlier hourly ssh p
   The newest snapshot is the whole truth; nothing merges days.
 - **Where:** `/mnt/hdd/weatherorb-archive` (`WO_ARCHIVE_DEST`) — deliberately outside
   `/mnt/hdd/backups`, so it is **not** restic-backed and has no offsite copy (owner
-  2026-10-22: this HDD is the one copy, ADR 0009).
+  2026-10-22: this HDD is the one copy, ADR 0009). That USB HDD had re-enumeration
+  events on 2026-10-21 and 2026-10-27; ADR 0009 accepted that risk, flagged for the
+  owner to revisit.
 - **Monitoring:** the mini's watchdog (`archive_backlog`) fails when a staged file or a
   manifest snapshot is not confirmed on the bucket in time; nothing on this side pings.
 - **Restore drill:** `scripts/weatherorb-archive-restore-check.sh [<YYYY-MM-DD>]`
