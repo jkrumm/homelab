@@ -199,4 +199,4 @@ restic diff <older-id> <newer-id>
 ## Heartbeat monitoring
 
 - Container `POST_COMMANDS_SUCCESS`/`POST_COMMANDS_FAILURE` push to `${RESTIC_HEARTBEAT_URL}` (UptimeKuma).
-- Monitor: `Restic Backup - Push` in `uptime-kuma/monitors.yaml`, `Infrastructure` subgroup, 25h interval, `maxretries: 0`.
+- Monitor: `Restic Backup - Push` in `uptime-kuma/monitors.yaml`, `Infrastructure` subgroup, 25h interval, `retry_interval: 3600`, `maxretries: 1`.
