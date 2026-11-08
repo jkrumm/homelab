@@ -97,7 +97,7 @@ Watchtower-excluded** — the web app floats on `release` and Watchtower updates
 
 #### karakeep (web app) — NOT in scope (Watchtower-managed)
 
-- **Image**: `ghcr.io/karakeep-app/karakeep:release` (floating tag, auto-updated 04:00)
+- **Image**: `ghcr.io/karakeep-app/karakeep:release` (floating tag, auto-updated 06:00)
 - Listed for context only: the app release is what **drives** which Meili/Chrome versions
   the sidecars must match. Read its release notes when a sidecar bump is needed.
 - **Version source**: https://github.com/karakeep-app/karakeep/releases
