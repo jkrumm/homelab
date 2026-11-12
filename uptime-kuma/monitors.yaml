@@ -444,6 +444,25 @@ groups:
         retry_interval: 600
         maxretries: 1
 
+      # The slow half of the dev-host heartbeat (dotfiles issue 870): the monitor above
+      # now means only "mini unreachable or core dead" (liveness, pushed first), and the
+      # 19 slower components push their verdict here, from the same script and agent
+      # (devhost-health-check.sh, every 300s). A DOWN names the failing component in
+      # the push msg and is a component fault, not a dead box.
+      #
+      # NOT a watcher (settings.watchers): the leaf carries the door provider only, so
+      # an alert files an Issue at the factory and reaches ntfy only through the
+      # factory's 30-minute forward. The mini being down is already paged by the
+      # liveness monitor above.
+      #
+      # Push URL on the mini at ~/.config/uptime-kuma/devhost-detail-push-url (chmod 600);
+      # the script skips this push silently while the file is absent.
+      - name: MacMini Dev Host Detail - Push
+        type: push
+        interval: 600 # 2× the agent's 300s cadence, same as the composite above
+        retry_interval: 600
+        maxretries: 1
+
       # Collie — the phone control surface for the herd on the Mac mini
       # (dotfiles: `make collie-setup`). Its OWN monitor rather than a sixth
       # component of the composite above, because it does not fail with the
