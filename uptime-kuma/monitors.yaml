@@ -51,6 +51,7 @@ settings:
   watchers:
     - Software Factory - Push
     - MacMini Dev Host - Push
+    - MacMini Door - HTTP
 
   # ntfy provider, created by sync.py. Kuma reaches the ntfy container by name over
   # the docker network, so the token never leaves the host; it comes from NTFY_TOKEN.
@@ -443,6 +444,25 @@ groups:
         interval: 600 # 10 min — must exceed the agent's 300s cadence so one skipped run doesn't page
         retry_interval: 600
         maxretries: 1
+
+      # The fast page for a mini that stops answering (dotfiles issue 1105). The push
+      # monitor above needs 20 minutes to reach DOWN (interval 600 + 1 × retry 600) and
+      # never fires on an outage under 10 minutes; the door leaf monitors notice in
+      # ~4 minutes but route to the factory door, and the factory runs on the mini, so
+      # a dead mini would page nobody for 30 minutes. This one pulls the Kuma door's
+      # own liveness (/healthz, no new ACL grant) and is a watcher (settings.watchers):
+      # it pages ntfy directly.
+      # Time to DOWN: interval 60 + maxretries 2 × retry_interval 60 = 3 min of
+      # failures (3-4 min worst case with the 30 s timeout). A planned reboot pages
+      # once, as "unreachable"; the dev-host reboot push says "rebooted".
+      - name: MacMini Door - HTTP
+        type: http
+        url: https://${MINI_TAILSCALE_HOST}:8795/healthz
+        interval: 60
+        timeout: 30
+        maxretries: 2
+        retry_interval: 60
+        accepted_statuscodes: ["200-299"]
 
       # The slow half of the dev-host heartbeat (dotfiles issue 870): the monitor above
       # now means only "mini unreachable or core dead" (liveness, pushed first), and the

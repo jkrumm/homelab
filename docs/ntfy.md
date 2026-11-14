@@ -40,6 +40,11 @@ the direct `alerts` page (provider `ntfy - Alerts`) next to the door:
 |-|-|
 | `Software Factory - Push` | The factory's own verdict: the tick advanced and the queue moved within 30 minutes |
 | `MacMini Dev Host - Push` | The mini itself: herdr-core, sshd, tailscaled, the boot path |
+| `MacMini Door - HTTP` | The mini's Kuma door (`:8795/healthz`) answering: DOWN after about 3 to 4 minutes unreachable or starved (interval 60, 2 retries at 60 s) |
+
+`MacMini Door - HTTP` is the fast page: the push monitor above needs about 20 minutes to
+reach DOWN. A planned reboot pages it once and the message says "unreachable", where the
+dev-host reboot push says "rebooted"; the UP follows when the door is back.
 
 `settings.watchers` in `uptime-kuma/monitors.yaml` is the table's source; `make test` fails when
 the two differ, and `sync.py` aborts when a watcher matches no monitor. Every other leaf carries
