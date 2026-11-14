@@ -767,6 +767,25 @@ groups:
         retry_interval: 900
         maxretries: 1
 
+      # The completeness check of the same captures (make refs-check, hourly on each host over that
+      # host's ledger): up when every expected MOSMIX run is held, down naming the first lost or
+      # at-risk run (and, once a host has started Locationforecast, its first gap). The first lost
+      # hour is gone for good, so a down is not retried: maxretries 0. interval 5400 = the hourly
+      # timer + 10 min random delay + slack.
+      - name: WeatherOrb Refs Check vps - Push
+        type: push
+        interval: 5400
+        timeout: 48
+        retry_interval: 1800
+        maxretries: 0
+
+      - name: WeatherOrb Refs Check homelab - Push
+        type: push
+        interval: 5400
+        timeout: 48
+        retry_interval: 1800
+        maxretries: 0
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
