@@ -747,6 +747,26 @@ groups:
         retry_interval: 3600
         maxretries: 1
 
+      # The WeatherOrb reference captures (weatherorb scripts/v2_refs, units orb-refs-* on the VPS
+      # and here): MOSMIX L, S and SNOW_S as issued, a pass every 15 min on each host. A pass pushes
+      # up with its counts; a refused or dead job goes down or falls silent, and that is weatherorb's
+      # P2 check, routed to it through the factory door. interval 2400 = the 15 min cadence + 4 min
+      # random delay + a long pass. Push URL on each host at
+      # ~/.config/uptime-kuma/weatherorb-refs-mosmix-<role>-push-url (chmod 600).
+      - name: WeatherOrb Refs MOSMIX vps - Push
+        type: push
+        interval: 2400
+        timeout: 48
+        retry_interval: 900
+        maxretries: 1
+
+      - name: WeatherOrb Refs MOSMIX homelab - Push
+        type: push
+        interval: 2400
+        timeout: 48
+        retry_interval: 900
+        maxretries: 1
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
