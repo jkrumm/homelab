@@ -105,6 +105,10 @@ that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy
   the containers (`system.slice`): the stack wins 5:1 under contention, an idle box is unaffected.
   `nice` alone does not cross cgroups. Verify: `systemctl show user.slice -p CPUWeight` = 20
   (setup, rollback and the measurements: `docs/decisions.md`).
+- **Image builds are not in `user.slice`:** BuildKit runs in dockerd (`system.slice`). The
+  user's current buildx builder is `lowprio` (`make builder-setup`; `cpu-shares=20`), so
+  `docker compose build` yields to the stack with no flag — check `docker buildx ls` shows
+  `lowprio*`; never `--builder default` for a build started from an SSH session.
 - **Bulk data does not go through `ssh homelab`:** Tailscale SSH terminates in tailscaled's userspace
   stack, ~0.3 core per 0.5 MB/s. Move files over S3 (`docs/s3.md`) or SMB.
 - Beszel CPU and load alerts go to the `watchdog` topic (priority 2), so a batch job pages no one;

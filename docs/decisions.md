@@ -175,6 +175,31 @@ Without root, the only lever is `taskset -cp 0-1 <pid>` on each worker (leaves c
 free; push 404 latency fell from 4-14 s to 1.7-4.8 s). Kuma itself runs at 30-40% of one core
 (single node thread), so it stays slow-ish under any 4-core saturation.
 
+## Image builds yield to the stack: the `lowprio` builder (2026-11-14, Issue 1148)
+
+Load 28-44 for an hour, CPU pressure 93%, `ntfy /v1/health` 2.7 s (15 s timeout from the mini).
+The `user.slice` weight above was in place (`CPUWeight=20`); the load that remained was an ad-hoc
+`docker compose build --no-cache torrent-app` (a `tsc -b` and a `pip install` at ~50% of a core
+each, 10+ kworkers on dm-crypt) on top of two niced batch jobs. A build is not an SSH-session
+process: BuildKit runs inside dockerd, so its steps sat in `/system.slice/system.slice:docker:<id>`
+at the containers' weight 100 and the `user.slice` weight never reached them.
+
+Fix: `scripts/builder-setup.sh` (`make builder-setup`, also run by `setup.sh`) creates a
+`docker-container` builder `lowprio` with `--driver-opt cpu-shares=20` (cgroup weight 6 against
+100 for every other container, measured) and `default-load=true` (images land in the daemon
+as before), and makes it the user's current builder, so `docker build`, `docker compose build`
+and `buildx bake` from any SSH session or agent use it with no flag. Under contention the stack
+wins ~16:1, an idle host builds at full speed. Verified: a build through it loaded its image
+into the daemon, and a plain `docker compose build` used it. `PRUNE` now caps both builders'
+caches (the old `default` one keeps its history until pruned; the new one has its own, so the
+first build of a service is cold). The builder is a container: Watchtower may recreate it on a
+new `moby/buildkit` tag, which keeps the shares and the cache volume.
+
+Not fixed on purpose: the load *average* of any saturating batch job stays high (it counts every
+runnable task); it already pages no one (`watchdog` topic, Issue 1100). The stack-health signals
+are the Kuma monitors and ntfy latency. Rollback: `docker buildx use default && docker buildx rm
+lowprio`.
+
 ## Beszel alerts: named by system, CPU and load to `watchdog` (2026-11-14, Issue 1100)
 
 19 of 84 messages on `alerts` in 72 hours were Beszel alerts titled only "Beszel". The hub builds

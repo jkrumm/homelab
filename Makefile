@@ -36,10 +36,13 @@ DC := $(OP) docker compose
 # — load-bearing, because some pinned tags no longer resolve upstream and a local
 # copy is the only one left (see karakeep-chrome in .claude/skills/upgrade-stack).
 BUILD_CACHE_MAX := 10GB
-PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
+#
+# Two builders hold cache: `default` (the daemon's own, what every build used before
+# 2026-11-14) and `lowprio` (scripts/builder-setup.sh, the current one), so both are capped.
+PRUNE := docker buildx prune -f --builder default --max-used-space $(BUILD_CACHE_MAX) && docker buildx prune -f --builder lowprio --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -72,6 +75,7 @@ help: ## Show all targets
 	@echo "  Docker Disk Hygiene"
 	@echo "    make docker-df           Show Docker disk usage + free space on /"
 	@echo "    make docker-prune        Bounded cleanup (build targets already do this)"
+	@echo "    make builder-setup       Low-weight buildx builder (image builds yield to the stack)"
 	@echo ""
 	@echo "  Infrastructure"
 	@echo "    make caddy-reload        Force-recreate Caddy (picks up Caddyfile changes)"
@@ -197,6 +201,11 @@ docker-df: ## Show Docker disk usage (images, build cache, volumes) + free space
 
 docker-prune: ## Bounded cleanup: cap build cache at $(BUILD_CACHE_MAX), drop dangling images
 	$(SSH) "$(PRUNE)"
+
+# Image builds run in BuildKit inside system.slice, outside the user.slice weight; this makes
+# a low-weight builder (cpu-shares=20) the host's current one — docs/decisions.md.
+builder-setup: ## Converge the low-weight buildx builder on the server and make it current
+	$(SSH) "$(CD) && git pull && scripts/builder-setup.sh"
 
 # ── Infrastructure ───────────────────────────────────────────────────────────
 
