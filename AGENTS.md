@@ -50,8 +50,8 @@ same physical server.
   reaches into):
   - `.env.tpl` — API tokens for homelab-private services consumed by homelab tools
     (e.g. Glance widgets reaching into the media stack).
-  - `restic-excludes.txt` — path-level excludes (`/mnt/hdd/qbittorrent`, etc.) so
-    homelab-private state is not backed up by the homelab restic job.
+  - `restic-excludes.txt` — glob excludes only (no path-level rules). homelab-private
+    state stays out of the homelab restic job because it is not a restic source.
   - `scripts/homelab_watchdog.sh` — invokes homelab-private's `vpn-cycle.sh` as part
     of post-Docker-restart recovery.
 - These exceptions exist because the integrations are real; new mentions must fall in
@@ -269,7 +269,9 @@ Tailscale IP on `:2376` (read-only, same restrictions; tailnet grant `tag:devhos
 | ------------------ | ------------------------ | ------------------------------------------ |
 | `/home/jkrumm/ssd` | Internal SSD             | Fast storage, databases                    |
 | `/mnt/hdd`         | External HDD (encrypted) | Media, backups, large files, restic cache  |
-| `/mnt/transfer`    | Partition                | Movies (`Filme/`)                          |
+| `/mnt/transfer`    | exFAT partition (`sdb3`, 2.3 TiB) | Second partition of the same physical disk as `/mnt/hdd`; empty since 2026-11-14 (its 2025-01 film copy was retired, `/mnt/hdd/Filme` is the library); partition and mount stay |
+
+Where personal data lives and which job makes each copy: `dotfiles/docs/storage.md` (the map).
 
 Both HDD mounts and the crypttab entry carry `nofail,x-systemd.device-timeout=30s`
 (host config, not in this repo): a missing drive no longer drops boot into the
@@ -286,7 +288,7 @@ emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
 │   │   ├── Bilder/       # Photos (incl. Immich subfolder; ImageShare/ + B2-Mirror/ are
 │   │   │                 # leftovers of the decommissioned image-share — kept, restic-covered)
 │   │   ├── Bücher/       # Calibre library
-│   │   ├── Dokumente/    # Documents — includes Obsidian/ vault sync target
+│   │   ├── Dokumente/    # Documents (the empty Obsidian/ folder is no sync target)
 │   │   ├── Videos/       # Personal videos
 │   │   ├── Public/       # ex-dufs public files (service retired, data kept)
 │   │   └── Dev/          # incl. image-share/ snapshots (decommissioned, kept, restic-covered)
@@ -295,8 +297,9 @@ emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
 
 /mnt/hdd/
 ├── fuji/
-│   ├── RAWs/             # Fuji RAW archive
+│   ├── RAWs/             # Fuji RAW archive (169 GiB)
 │   └── Videos/           # Fuji video archive (not restic-covered, not indexed)
+├── Videos/               # Big personal videos (drone, projects); not restic-covered, mirrored to the mini's external SSD by the ext-mirror job
 ├── restic/cache/         # Restic local cache (~200 MB metadata)
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
