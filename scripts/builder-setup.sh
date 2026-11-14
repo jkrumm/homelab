@@ -6,8 +6,8 @@
 # (config/systemd/user-slice-batch.conf) does not reach them. A `compose build --no-cache`
 # held all 4 cores for minutes (2026-11-14, Issue 1148: load 28-44, ntfy health 2.7 s).
 # A docker-container builder is itself a container, so `cpu-shares=20` gives it cgroup
-# weight 1 against 100 for every other container: under contention the stack wins, an idle
-# host builds at full speed. Rationale and rollback: docs/decisions.md.
+# weight 6 (measured) against 100 for every other container: under contention the stack
+# wins, an idle host builds at full speed. Rationale and rollback: docs/decisions.md.
 #
 # Idempotent; run as the user that runs builds (jkrumm): `make builder-setup`.
 set -euo pipefail
