@@ -39,7 +39,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker builder prune -f --max-used-space $(BUILD_CACHE_MAX) && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -237,6 +237,11 @@ test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron 
 # account). Runs locally: the token comes from secrets-run or op, never the server.
 ntfy-subscribe: ## Subscribe the ntfy account to every topic in config/ntfy/topics.txt (TEST=1 also sends one message per topic)
 	@scripts/ntfy-subscribe.sh $(if $(TEST),--test)
+
+# Converges Beszel's notification routing on the hub (owner -> `alerts`, CPU/load -> `watchdog`).
+# Runs the script on the server, which reads the ntfy token itself (service account).
+beszel-alerts: ## Converge Beszel alert routing: title-less shoutrrr URLs, CPU/load alerts to the watchdog topic
+	@$(SSH) 'bash -lc "bash -s"' < scripts/beszel-alerts.sh
 
 # ── Restic Backup ────────────────────────────────────────────────────────────
 # Backup runs daily at 03:30 inside container (BACKUP_CRON env).

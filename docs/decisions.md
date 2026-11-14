@@ -174,3 +174,27 @@ existing host with `sudo install -D -m 644 ~/homelab/config/systemd/user-slice-b
 Without root, the only lever is `taskset -cp 0-1 <pid>` on each worker (leaves cores 2-3
 free; push 404 latency fell from 4-14 s to 1.7-4.8 s). Kuma itself runs at 30-40% of one core
 (single node thread), so it stays slow-ish under any 4-core saturation.
+
+## Beszel alerts: named by system, CPU and load to `watchdog` (2026-11-14, Issue 1100)
+
+19 of 84 messages on `alerts` in 72 hours were Beszel alerts titled only "Beszel". The hub builds
+its own title ("HomeLab CPU above threshold", "Connection to HomeLab is down 🔴") and appends it
+as the `title` query parameter of the shoutrrr URL; the stored URL already carried
+`?title=Beszel`, which came first and won. The fix is to drop it, not a relay.
+
+The hub keeps one shoutrrr list per hub *user* and has no per-alert routing, so the CPU and load
+alerts that a batch job triggers (CPU 80% for 10 min, LoadAvg5 10 for 10 min) live on a second
+admin user (`beszel-digest@beszel.invalid`, admin because non-admins may not post to the tailnet
+ntfy address) whose URL is `/watchdog?priority=low`. The owner's user keeps temperature, status,
+memory and disk on `alerts`. `scripts/beszel-alerts.sh` (`make beszel-alerts`) converges all of
+it through a throwaway superuser and the hub's REST API: URLs, system membership, and moving any
+CPU/load row the UI added back to the digest user. Idempotent. Rollback: set the owner's
+webhook list back in the UI and delete the digest user.
+
+`tailscaled` at 0.3-0.5 core and Uptime Kuma at 0.25-0.4 core during the run, measured:
+tailscaled spent 29% of a core on 460 KB/s, all of it one Tailscale SSH stream to the MacBook
+(Tailscale SSH terminates in tailscaled's userspace netstack, so every byte is copied and
+encrypted there; a saturated run queue makes each wakeup slower). It is the SSH data stream and
+nothing else, so bulk data goes over S3/SMB, not `ssh homelab`. Kuma (91 monitors, one node
+thread, a 32 MB SQLite) idles near 0.1-0.25 core and climbs when pushes arrive late: retries and
+notifications are extra work, so it amplifies the load it suffers from. No change on either.

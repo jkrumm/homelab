@@ -90,6 +90,26 @@ ssh -t homelab "docker logs -f <service>"   # interactive, needed for a follow t
 fallback: sshd has `AllowTcpForwarding no`); S3 — `https://s3.jkrumm.com`, buckets are
 existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 
+### Batch jobs on the homelab
+
+The box has 4 cores and serves ntfy, Uptime Kuma, Beszel, cloudflared and Tailscale: a batch job
+that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy 1-6 s instead of
+0.06 s, Kuma pushes answering 530/502). Rules for any job started from an SSH session:
+
+- **One batch job at a time**, at most **3 worker processes** (`--workers 3`, `xargs -P3`) —
+  never one per core. Check first: `ssh homelab uptime` shows load above 4 → wait.
+- **Run it detached and bounded:** `nohup nice -n 19 <cmd> > ~/job.log 2>&1 &` and
+  poll the log; a foreground job over SSH also streams its output through `tailscaled`.
+- **The cap that applies:** everything in an SSH session lives in `user.slice`, which
+  `config/systemd/user-slice-batch.conf` sets to `CPUWeight=20` / `IOWeight=20` against 100 for
+  the containers (`system.slice`): the stack wins 5:1 under contention, an idle box is unaffected.
+  `nice` alone does not cross cgroups. Verify: `systemctl show user.slice -p CPUWeight` = 20
+  (setup, rollback and the measurements: `docs/decisions.md`).
+- **Bulk data does not go through `ssh homelab`:** Tailscale SSH terminates in tailscaled's userspace
+  stack, ~0.3 core per 0.5 MB/s. Move files over S3 (`docs/s3.md`) or SMB.
+- Beszel CPU and load alerts go to the `watchdog` topic (priority 2), so a batch job pages no one;
+  a service going down still pages through Kuma.
+
 ---
 
 ## Secrets Management (1Password)
@@ -114,7 +134,7 @@ existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 | `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
 | `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful pull from Garmin's Personal API (in `common/` so VPS service account can read) |
-| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only). Topics, publishers and priorities: `docs/ntfy.md` (`alerts`: Kuma, watchdog, Beszel; `updates`: Watchtower, shoutrrr URL in `docker-compose.yml`). Beszel alerts are set in the Beszel UI as a shoutrrr URL `ntfy://:<token>@<ntfy host>/alerts` — UI-managed, the secret is not in git |
+| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only). Topics, publishers and priorities: `docs/ntfy.md` (`alerts`: Kuma, watchdog, Beszel; `updates`: Watchtower, shoutrrr URL in `docker-compose.yml`). Beszel alert routing is converged by `make beszel-alerts` (`scripts/beszel-alerts.sh`: owner user → shoutrrr URL `ntfy://:<token>@<ntfy host>/alerts`, no `title=` — a static title overrides the hub's "<system> … above threshold"; digest user → `/watchdog?priority=low` for CPU and load alerts) — the secret is not in git |
 | `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
 
 ### Essential Commands
@@ -148,6 +168,7 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make ps` / `make logs svc=<name>` / `make logs-follow svc=<name>` | Show running containers — bounded log tail — follow logs live |
 | `make immich-upgrade`     | Upgrade Immich stack (git pull + pull pinned images + recreate) — tags are explicit, so bump `immich-server` + `immich-machine-learning` in `docker-compose.yml` first, else it's a no-op. Watchtower-excluded, see `/upgrade-stack immich` |
 | `make proton-bridge-deploy` / `-login` / `-restart` / `-logs` | Proton Mail Bridge (IMAP for hello@, Tailscale-only); `-login` is the one-time interactive CLI — `docs/proton-bridge.md` |
+| `make beszel-alerts` | Converge Beszel alert routing on the hub: title-less ntfy URLs (title names the system), CPU/load alerts to `watchdog`; re-run after adding a CPU/load alert in the Beszel UI — `docs/ntfy.md` |
 | `make ntfy-subscribe` | Subscribe the owner's ntfy account to every topic in `config/ntfy/topics.txt` (`TEST=1` sends one message per topic); ntfy-mac follows the account — `docs/ntfy.md` |
 | `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |
 | `make caddy-reload`       | Force-recreate Caddy (after Caddyfile changes)           |
