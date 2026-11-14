@@ -196,5 +196,21 @@ tailscaled spent 29% of a core on 460 KB/s, all of it one Tailscale SSH stream t
 (Tailscale SSH terminates in tailscaled's userspace netstack, so every byte is copied and
 encrypted there; a saturated run queue makes each wakeup slower). It is the SSH data stream and
 nothing else, so bulk data goes over S3/SMB, not `ssh homelab`. Kuma (91 monitors, one node
-thread, a 32 MB SQLite) idles near 0.1-0.25 core and climbs when pushes arrive late: retries and
+thread, a 32 MB SQLite) ran 0.24 core at the time of the check and climbs when pushes arrive late: retries and
 notifications are extra work, so it amplifies the load it suffers from. No change on either.
+
+Proof of the `user.slice` weight (applied 2026-11-14 07:49 with the documented sudo path;
+`systemctl show user.slice -p CPUWeight -p IOWeight` = 20/20). Stress: 4 CPU spinners plus 2
+`dd conv=fsync` writers on `/mnt/hdd`, 75 s, as `jkrumm` over SSH, un-niced, on top of a running
+4-worker corpus job (load 20-35, CPU pressure ~95%). During it `user.slice` held 1.15 cores and
+`system.slice` 2.37. `ntfy /v1/health` through Caddy, measured by a client inside the Caddy
+container so the stress cannot starve the client: run 1 19 of 20 under 0.5 s (max 0.64 s), run 2
+20 of 20 (max 0.40 s); straight to the ntfy container 20 of 20 (max 0.35 s); Kuma pushes 0.12-0.72 s,
+all `{"ok":true}`. Before the weight, with the same stress and the same corpus job, the
+same health check took 2-10 s (0 of 20 under 0.5 s; the 10 s ones were timeouts) and one push 7 s.
+
+Measure from inside `system.slice`, not from the mini or the VPS: both were themselves at load
+17-120 from weatherorb work and added seconds of TLS-handshake time of their own, and a `curl`
+started in the SSH session sits in the starved cgroup (handshakes of 2-7 s). `IOWeight` is
+recorded but inert here: both disks run `mq-deadline`, and the weight needs BFQ or iocost; disk
+contention is still bounded only by the job count (`AGENTS.md` → Batch jobs).
