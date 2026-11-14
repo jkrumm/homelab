@@ -97,6 +97,12 @@ install -D -m 644 "$USER_HOME/homelab/config/systemd/user-slice-batch.conf" \
 systemctl daemon-reload
 echo "user.slice weight lowered (drop-in 50-batch-weight.conf)"
 
+# Image builds run in BuildKit in system.slice, outside the user.slice weight: a low-weight
+# builder is the user's current one (rationale in the script header). Not fatal: a fresh
+# install needs a re-login before the user is in the docker group.
+runuser -u "$USERNAME" -- "$USER_HOME/homelab/scripts/builder-setup.sh" \
+  || echo "builder-setup skipped — run 'make builder-setup' after re-login"
+
 # WeatherOrb archive WORM: seal settled files (rationale in the script header).
 for unit in weatherorb-archive-seal.service weatherorb-archive-seal.timer; do
   install -D -m 644 "$USER_HOME/homelab/config/systemd/$unit" "/etc/systemd/system/$unit"
