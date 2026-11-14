@@ -440,6 +440,12 @@ services:
     environment:
       - REDIS_HOSTNAME=immich_redis
       - TZ=Europe/Berlin
+    # The image's own test (`python3 healthcheck.py`) forks a Python interpreter every 30 s,
+    # ~1 core each while the host is saturated (Issue 1148/1159). Only the cadence is
+    # overridden; the image keeps its test command.
+    healthcheck:
+      interval: 120s
+      timeout: 20s
     deploy:
       resources:
         limits:

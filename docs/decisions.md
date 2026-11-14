@@ -195,6 +195,13 @@ caches (the old `default` one keeps its history until pruned; the new one has it
 first build of a service is cold). The builder is a container: Watchtower may recreate it on a
 new `moby/buildkit` tag, which keeps the shares and the cache volume.
 
+Also in this Issue: `immich_machine_learning` inherits the image's healthcheck (`python3
+healthcheck.py`, 30 s default), a fresh Python interpreter every 30 s that took ~1 core each
+while the host was saturated. `docker-compose.yml` now sets `interval: 120s` / `timeout: 20s`
+and keeps the image's test; confirm with `docker inspect immich_machine_learning --format
+'{{json .Config.Healthcheck}}'`. The rest of the in-stack load at that time came from the
+homelab-private stack and went there as a signal.
+
 Not fixed on purpose: the load *average* of any saturating batch job stays high (it counts every
 runnable task); it already pages no one (`watchdog` topic, Issue 1100). The stack-health signals
 are the Kuma monitors and ntfy latency. Rollback: `docker buildx use default && docker buildx rm
