@@ -153,3 +153,24 @@ stays on `alerts`: it pages, and a second topic for the same reader would only h
 by `make ntfy-subscribe`; ntfy-mac follows the account, the iOS app has no account sync, so its
 eight names are added once by hand. The senders in homelab-private, WeatherOrb and agent-workflows
 move in their own Issues.
+
+## SSH-session jobs yield to the stack: `user.slice` weight (2026-11-14, Issue 1099)
+
+A 4-worker `cut_windows.py` (weatherorb corpus, `nice -n 19`, alone in the SSH session's
+cgroup) held all 4 cores for hours: load 22-29, CPU pressure ~90%, Uptime Kuma's
+`/api/push/*` answering in 4-14 s (the UI root stayed at 0.1 s), push monitors Pending,
+`SQLITE_CONSTRAINT stat_*` noise. `nice` only orders tasks inside one cgroup, and `ionice`
+does not follow dm-crypt's kworkers on `/mnt/hdd`. Containers (system.slice) and SSH jobs
+(user.slice) share the root cgroup at equal weight, so the job got ~half the machine however
+nice it was.
+
+Fix: `config/systemd/user-slice-batch.conf` (installed by `setup.sh` as
+`/etc/systemd/system/user.slice.d/50-batch-weight.conf`) sets `CPUWeight=20` / `IOWeight=20`
+on `user.slice`: under contention the stack wins 5:1, an idle host is unaffected. Apply on an
+existing host with `sudo install -D -m 644 ~/homelab/config/systemd/user-slice-batch.conf
+/etc/systemd/system/user.slice.d/50-batch-weight.conf && sudo systemctl daemon-reload`; verify
+`systemctl show user.slice -p CPUWeight` = 20. Rollback: delete the file, `daemon-reload`.
+
+Without root, the only lever is `taskset -cp 0-1 <pid>` on each worker (leaves cores 2-3
+free; push 404 latency fell from 4-14 s to 1.7-4.8 s). Kuma itself runs at 30-40% of one core
+(single node thread), so it stays slow-ish under any 4-core saturation.

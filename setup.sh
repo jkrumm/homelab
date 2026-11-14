@@ -90,6 +90,13 @@ install -D -m 644 "$USER_HOME/homelab/config/systemd/docker-after-tailscale.conf
 systemctl daemon-reload
 echo "Docker ordered after Tailscale (drop-in 10-after-tailscale.conf)"
 
+# SSH-session jobs (user.slice) yield CPU/disk to the containers (system.slice); nice does
+# not cross cgroups (rationale in the drop-in itself).
+install -D -m 644 "$USER_HOME/homelab/config/systemd/user-slice-batch.conf" \
+  /etc/systemd/system/user.slice.d/50-batch-weight.conf
+systemctl daemon-reload
+echo "user.slice weight lowered (drop-in 50-batch-weight.conf)"
+
 # WeatherOrb archive WORM: seal settled files (rationale in the script header).
 for unit in weatherorb-archive-seal.service weatherorb-archive-seal.timer; do
   install -D -m 644 "$USER_HOME/homelab/config/systemd/$unit" "/etc/systemd/system/$unit"
