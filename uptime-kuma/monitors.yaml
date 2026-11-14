@@ -732,6 +732,21 @@ groups:
         retry_interval: 2100
         maxretries: 1
 
+      # The WeatherOrb V2 site record (weatherorb scripts/v2_sites/record.sh under
+      # com.jkrumm.orb.site-record on the Mac mini, every 3 h; its fetch and cut run on
+      # the VPS). Each pass pushes up, or status=down with the reason: a failed step, a
+      # file failing two passes in a row, a model directory without a new run for 24 h,
+      # a day over the 2 GiB cap, the HDD under 2 TB free. That down is weatherorb's P2
+      # check (09-ops 4.3) and IS routed to weatherorb through the factory door: it files
+      # an Issue. interval 21600 = the 3 h cadence + a pass of up to 3 h. Push URL on the
+      # mini at ~/.config/uptime-kuma/weatherorb-site-record-push-url (chmod 600).
+      - name: WeatherOrb Site Record - Push
+        type: push
+        interval: 21600
+        timeout: 48
+        retry_interval: 3600
+        maxretries: 1
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
