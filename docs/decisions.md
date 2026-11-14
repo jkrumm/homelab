@@ -197,8 +197,9 @@ new `moby/buildkit` tag, which keeps the shares and the cache volume.
 
 Also in this Issue: `immich_machine_learning` inherits the image's healthcheck (`python3
 healthcheck.py`, 30 s default), a fresh Python interpreter every 30 s that took ~1 core each
-while the host was saturated. `docker-compose.yml` now sets `interval: 120s` / `timeout: 20s`
-and keeps the image's test; confirm with `docker inspect immich_machine_learning --format
+while the host was saturated. `docker-compose.yml` now sets `interval: 120s` / `timeout: 60s`
+(Issue 1193: runs took 7-22 s at load 15 on 4 cores, so the first 20 s was one slow fork
+from flapping `unhealthy`, which kept Kuma red 07:43-12:11 UTC) and keeps the image's test; confirm with `docker inspect immich_machine_learning --format
 '{{json .Config.Healthcheck}}'`. The rest of the in-stack load at that time came from the
 homelab-private stack and went there as a signal.
 

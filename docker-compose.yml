@@ -445,7 +445,7 @@ services:
     # overridden; the image keeps its test command.
     healthcheck:
       interval: 120s
-      timeout: 20s
+      timeout: 60s
     deploy:
       resources:
         limits:
