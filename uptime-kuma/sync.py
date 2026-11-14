@@ -163,7 +163,7 @@ def _norm(value):
     return value
 
 
-def monitor_diff(params: dict, live: dict, notification_ids: list) -> list:
+def monitor_diff(params: dict, live: dict, notification_ids: list, want_active=None) -> list:
     """Keys whose desired value differs from the live monitor (empty == converged).
 
     Only keys present in `params` are compared, plus the alert routing and the
@@ -176,6 +176,10 @@ def monitor_diff(params: dict, live: dict, notification_ids: list) -> list:
                 diff.append(key)
         elif _norm(want) != _norm(live.get(key)):
             diff.append(key)
+    # Push monitors carry no `active` in params (see build_monitor_params); their
+    # pause state is declared explicitly and passed in.
+    if want_active is not None and "active" not in params and bool(want_active) != bool(live.get("active", True)):
+        diff.append("active")
     if "parent" not in params and _norm(live.get("parent")) is not None:
         diff.append("parent")
     if sorted(int(i) for i in (live.get("notificationIDList") or [])) != sorted(notification_ids):
@@ -195,7 +199,9 @@ def build_monitor_params(monitor: dict, defaults: dict, cloudflare_header: dict,
         "retryInterval": monitor.get("retry_interval", defaults.get("retry_interval", 60)),
     }
 
-    # 'active' parameter not supported for push monitors in uptime-kuma-api
+    # 'active' parameter not supported for push monitors in uptime-kuma-api; a
+    # push monitor's declared `active` is converged by pause/resume instead
+    # (process_monitor).
     if monitor_type != MonitorType.PUSH:
         params["active"] = monitor.get("active", True)
     # Push monitors CAN be created from here — proven 2026-07-28, when this
@@ -485,6 +491,10 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             return monitor_id
 
         params = build_monitor_params(monitor, defaults, cloudflare_header, parent_id)
+        # Pause state: every non-push monitor declares it through params; a push
+        # monitor only when its YAML says `active` explicitly, so a push monitor
+        # without the key is left as Kuma holds it.
+        want_active = params.get("active", monitor.get("active"))
 
         if name in existing:
             # Update existing monitor (also converges the notification providers —
@@ -495,7 +505,7 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             # Skip the edit when nothing differs. The diff includes the alert
             # routing, the parent link and the pause state, so each of those
             # still converges; only a no-op edit is dropped.
-            diff = monitor_diff(params, existing[name], monitor_notifications)
+            diff = monitor_diff(params, existing[name], monitor_notifications, want_active)
             if not diff:
                 print(f"  [OK] {name} (id={monitor_id})")
             elif dry_run:
@@ -514,7 +524,6 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                     # sync (Hermes - HTTP, 2026-09-11, paused since its 404
                     # days). Pause state is its own pair of calls, so converge
                     # it explicitly. Push monitors never carry `active` (above).
-                    want_active = params.get("active")
                     is_active = bool(existing[name].get("active", True))
                     if want_active is True and not is_active:
                         api.resume_monitor(monitor_id)
@@ -536,6 +545,9 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                     create_params["notificationIDList"] = monitor_notifications
                     result = api.add_monitor(**create_params)
                     print(f"  [CREATED] {name} (id={result['monitorID']})")
+                    if want_active is False:
+                        api.pause_monitor(result["monitorID"])
+                        print(f"  [PAUSED] {name}")
                     return result["monitorID"]
                 except Exception as e:
                     errors += 1

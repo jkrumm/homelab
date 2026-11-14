@@ -698,8 +698,14 @@ groups:
       # op://mini/weatherorb/uptime-kuma from the mini's secrets cache
       # when the env var is absent (see check.py), so that 1Password item is
       # the URL's durable home once seeded.
+      # PAUSED while weatherorb V1 is frozen: its `make down` disables the nine
+      # launchd labels while ops/V1_FROZEN exists (weatherorb 69cf4a07), so this
+      # heartbeat stops by design. Remove `active: false` when weatherorb's
+      # ops/V1_FROZEN is gone or V2 brings its own watchdog. Deliberately not
+      # routed to weatherorb: an alert there would start an incident lead.
       - name: WeatherOrb Watchdog - Push
         type: push
+        active: false
         interval: 2100
         timeout: 48
         retry_interval: 2100
@@ -713,8 +719,14 @@ groups:
       # warden's second signal if that issue path breaks. Same 2100 s / maxretries 0
       # sizing as the liveness monitor → time-to-DOWN 35 min. Push URL on the mini at
       # ~/.config/uptime-kuma/weatherorb-degraded-push-url (chmod 600) — plain file.
+      # PAUSED while weatherorb V1 is frozen: its `make down` disables the nine
+      # launchd labels while ops/V1_FROZEN exists (weatherorb 69cf4a07), so this
+      # heartbeat stops by design. Remove `active: false` when weatherorb's
+      # ops/V1_FROZEN is gone or V2 brings its own watchdog. Deliberately not
+      # routed to weatherorb: an alert there would start an incident lead.
       - name: WeatherOrb Watchdog - Degraded
         type: push
+        active: false
         interval: 2100
         timeout: 48
         retry_interval: 2100

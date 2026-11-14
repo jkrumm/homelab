@@ -200,6 +200,14 @@ class FakeUptimeKumaApi:
         FAKE_KUMA_STATE["edited"].append((monitor_id, kwargs))
         return True
 
+    def pause_monitor(self, monitor_id):
+        FAKE_KUMA_STATE["calls"].append(("pause_monitor", monitor_id))
+        return True
+
+    def resume_monitor(self, monitor_id):
+        FAKE_KUMA_STATE["calls"].append(("resume_monitor", monitor_id))
+        return True
+
     def delete_monitor(self, monitor_id):
         FAKE_KUMA_STATE["calls"].append(("delete_monitor", monitor_id))
         return True
@@ -1173,6 +1181,67 @@ def test_sync_fidelity():
     return 8, 8 - len(failures), failures
 
 
+PUSH_FIXTURE = """\
+settings:
+  defaults: {{}}
+groups:
+  - name: TestGroup
+    monitors:
+      - name: push-mon
+        type: push
+{extra}"""
+
+
+def test_push_pause_state():
+    failures = []
+    with tempfile.TemporaryDirectory() as td:
+        paused = write_yaml(Path(td), "paused.yaml", PUSH_FIXTURE.format(extra="        active: false\n"))
+        plain = write_yaml(Path(td), "plain.yaml", PUSH_FIXTURE.format(extra=""))
+        group = {"id": 1, "name": "TestGroup", "type": "group", "notificationIDList": []}
+
+        def live(active):
+            return [group, {"id": 2, "name": "push-mon", "type": "push", "active": active, "notificationIDList": []}]
+
+        def calls(kind):
+            return [c for c in FAKE_KUMA_STATE["calls"] if c[0] == kind]
+
+        run_main(["--config", paused], monitors=live(True))
+        if calls("pause_monitor") != [("pause_monitor", 2)]:
+            failures.append(f"`active: false` push monitor was not paused: {FAKE_KUMA_STATE['calls']!r}")
+        run_main(["--config", paused, "--dry-run"], monitors=live(True))
+        if calls("pause_monitor"):
+            failures.append("dry-run must not pause")
+        rc, out, err = run_main(["--config", paused, "--dry-run"], monitors=live(True))
+        if "[UPDATE] push-mon" not in out or "active" not in out:
+            failures.append(f"pending pause must show in the dry-run: out={out!r}")
+        run_main(["--config", paused], monitors=live(False))
+        if calls("pause_monitor") or calls("resume_monitor"):
+            failures.append("an already paused push monitor must not be paused or resumed again")
+        run_main(["--config", paused])
+        if calls("pause_monitor") != [("pause_monitor", 999)]:
+            failures.append(f"a new `active: false` push monitor must be created, then paused: {FAKE_KUMA_STATE['calls']!r}")
+        # Without the key a push monitor keeps whatever state Kuma holds.
+        run_main(["--config", plain], monitors=live(False))
+        if calls("resume_monitor") or calls("pause_monitor"):
+            failures.append("a push monitor without `active` must keep its live pause state")
+
+    with open(MAIN_MONITORS_YAML) as f:
+        import yaml
+        cfg = yaml.safe_load(f)
+    found = {}
+    def walk(node):
+        for m in node.get("monitors", []):
+            found[m["name"]] = m
+            walk(m)
+    for g in cfg["groups"]:
+        found[g["name"]] = g
+        walk(g)
+    for n in ("WeatherOrb Watchdog - Push", "WeatherOrb Watchdog - Degraded"):
+        if found.get(n, {}).get("active") is not False:
+            failures.append(f"{n} must be declared `active: false` while weatherorb V1 is frozen")
+    return 7, 7 - len(failures), failures
+
+
 def test_watcher_table_matches_docs():
     import yaml
     failures = []
@@ -1213,6 +1282,7 @@ GROUPS = [
     ("15a. alert routing", test_alert_routing),
     ("15b. watcher table matches docs", test_watcher_table_matches_docs),
     ("16. sync fidelity", test_sync_fidelity),
+    ("17. push pause state", test_push_pause_state),
 ]
 
 

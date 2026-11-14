@@ -396,6 +396,9 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
 - **Orphan deletion needs a TTY**, and `make uk-sync` (`ssh` without `-t`) has none —
   it only lists them. To actually delete, run `sync.py --delete-orphans` by hand on
   homelab after a dry-run shows *only* the monitors you mean to drop.
+- **`active: false` pauses a monitor**, push monitors included (converged through
+  pause/resume; a push monitor without the key keeps its live state). The two
+  `WeatherOrb Watchdog` monitors are paused while weatherorb's `ops/V1_FROZEN` exists.
 - **`--export` flattens to top-level groups only** — a monitor nested in a subgroup
   never appears in the `.exported` file; read it with `api.get_monitor(<id>)`.
 - **Groups never notify; a group flip in Kuma's event list is dashboard-only.** A planned
