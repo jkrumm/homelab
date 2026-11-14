@@ -373,6 +373,8 @@ was absent: `sudo ~/homelab/scripts/hdd-mountpoint-guard.sh`, then `make up`.
 
 ## Mount the `TRANSFER` Partition
 
+> State on the host (2026-11-14): exFAT on `sdb3`, the second partition of the HDD's physical disk, empty since 2026-11-14 (a stale 2025-01 copy of `Filme/` was retired). Nothing depends on it; `/mnt/hdd/Filme` is the film library. The steps below are how it was set up (the live fstab line carries `nofail,x-systemd.device-timeout=30s`).
+
 1. Create the mount point:
 
    ```bash
