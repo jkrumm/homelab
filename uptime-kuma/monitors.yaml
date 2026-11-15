@@ -812,6 +812,25 @@ groups:
         retry_interval: 1800
         maxretries: 0
 
+      # The Locationforecast capture of the same row (long-running loop, one request at a time): the
+      # loop pushes up every 5 min while it runs; a 403 or 429 from MET Norway pushes down and the
+      # loop waits 30 min, and a dead host goes silent. interval 900 = three pushes. weatherorb's P2
+      # check, routed to it through the factory door. Push URL on each host at
+      # ~/.config/uptime-kuma/weatherorb-refs-locationforecast-<role>-push-url (chmod 600).
+      - name: WeatherOrb Refs Locationforecast vps - Push
+        type: push
+        interval: 900
+        timeout: 48
+        retry_interval: 300
+        maxretries: 1
+
+      - name: WeatherOrb Refs Locationforecast homelab - Push
+        type: push
+        interval: 900
+        timeout: 48
+        retry_interval: 300
+        maxretries: 1
+
       # The WIS2 SYNOP capture (weatherorb scripts/v2_wis2, units orb-wis2-* on the VPS and here): every
       # notification of the core SYNOP topic and its objects as published, one subscriber per host on its
       # own Global Broker. make wis2-check runs every 10 min on each host (a 15 min silence cannot be seen by
