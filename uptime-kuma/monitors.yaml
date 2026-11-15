@@ -786,6 +786,38 @@ groups:
         retry_interval: 1800
         maxretries: 0
 
+      # The WeatherOrb truth captures (weatherorb scripts/v2_truth, units orb-truth-* on the VPS):
+      # DWD and MeteoSwiss 10-minute `now` files hourly (:05 and :09, plus a late pass at 23:55 / 23:59 UTC),
+      # each pass pushes up with its counts, down when it could list nothing or was refused. A `now` file
+      # holds the current UTC day, so one missed pass loses nothing the next does not recover: one retry.
+      # interval 5400 = the hourly timer + a long pass + slack. That down is weatherorb's P2 check, routed
+      # to it through the factory door. Push URL on the VPS at
+      # ~/.config/uptime-kuma/weatherorb-truth-<job>-vps-push-url (chmod 600). The Météo-France monitor is
+      # created once the owner's API key is in place (a monitor with no heartbeat would only page).
+      - name: WeatherOrb Truth DWD10 vps - Push
+        type: push
+        interval: 5400
+        timeout: 48
+        retry_interval: 1800
+        maxretries: 1
+
+      - name: WeatherOrb Truth MeteoSwiss vps - Push
+        type: push
+        interval: 5400
+        timeout: 48
+        retry_interval: 1800
+        maxretries: 1
+
+      # The completeness check of the truth captures (make truth-check, hourly at :35 on the VPS): up when every
+      # pass and document of every judged hour is in the ledger, down naming the first missing hour. The first lost
+      # hour of Météo-France's 24 h window is gone for good: no retry.
+      - name: WeatherOrb Truth Check vps - Push
+        type: push
+        interval: 5400
+        timeout: 48
+        retry_interval: 1800
+        maxretries: 0
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
