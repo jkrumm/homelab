@@ -858,10 +858,13 @@ groups:
       # limit; that down is weatherorb's P2 check, routed to it through the factory door, and a missing heartbeat (a dead host)
       # raises it by the monitor's own interval. Push URL at ~/.config/uptime-kuma/weatherorb-clocks-<job>-<host>-push-url
       # (chmod 600) on the host that runs the job (vps; the audit: mini, weatherorb-clocks-audit-push-url).
+      # PAUSED while WeatherOrb V2 is in concept (2026-11-15): the VPS timers orb-clocks-* and the mini job
+      # clocks-audit are disabled, so no heartbeat comes by design. Restart = remove `active: false` from the four.
       # Margin: weekly, Mondays 06:20 UTC + up to 10 min. interval 626400 = 7 days + 6 h.
       - name: WeatherOrb Clock Register Margin - Push
         active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
+        active: false
         interval: 626400
         timeout: 48
         retry_interval: 21600
@@ -871,6 +874,7 @@ groups:
       - name: WeatherOrb Clock Register Listing - Push
         active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
+        active: false
         interval: 97200
         timeout: 48
         retry_interval: 10800
@@ -880,6 +884,7 @@ groups:
       - name: WeatherOrb Clock Register Coverage - Push
         active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
+        active: false
         interval: 97200
         timeout: 48
         retry_interval: 10800
@@ -889,6 +894,7 @@ groups:
       - name: WeatherOrb Clock Register Audit - Push
         active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
+        active: false
         interval: 626400
         timeout: 48
         retry_interval: 21600
