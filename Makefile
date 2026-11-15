@@ -59,7 +59,7 @@ help: ## Show all targets
 	@echo ""
 	@echo "  Validation & Health"
 	@echo "    make check               All local validation (compose config + YAML/shell lint + tests)"
-	@echo "    make verify              Probe production via the Uptime Kuma heartbeat API (exit 0 = every last beat UP)"
+	@echo "    make verify              Probe production: status page + every active Kuma monitor via Argo (exit 0 = none DOWN)"
 	@echo "    make version             Print the commit sha the server checkout runs"
 	@echo ""
 	@echo "  Proton Bridge (IMAP for hello@, Tailscale-only — docs/proton-bridge.md):"
@@ -142,7 +142,12 @@ check: test ## Run all local validation: compose config + YAML/shell lint + regr
 # unreachable/empty/not JSON, or a listed monitor's last beat is DOWN (0) or
 # PENDING (2). Maintenance (3), posted incidents and maintenance windows are
 # informational: printed as a NOTE, exit stays 0. Needs jq.
-verify: ## Probe production health via the Uptime Kuma heartbeat API (exit 0 = every monitor's last beat is UP/maintenance)
+#
+# That page lists only the HomeLab group, so it then runs scripts/verify-monitors.sh:
+# every active non-group monitor in Kuma, from Argo on this host (no socket.io, which
+# times out under load) — non-zero when any is DOWN. It needs the mini (Argo
+# on 127.0.0.1, token via secrets-run); `ARGO_TOKEN`/`ARGO_URL` override.
+verify: ## Probe production health: status page + every active Kuma monitor via Argo (exit 0 = none DOWN)
 	@command -v jq >/dev/null || { echo "UNHEALTHY: jq is required for make verify"; exit 1; }; \
 		resp="$$(curl -fsS --max-time 20 https://uptime.jkrumm.com/api/status-page/heartbeat/homelab-watchdog)"; \
 		if [ $$? -ne 0 ] || [ -z "$$resp" ]; then echo "UNHEALTHY: Uptime Kuma heartbeat endpoint unreachable"; exit 1; fi; \
@@ -154,7 +159,8 @@ verify: ## Probe production health via the Uptime Kuma heartbeat API (exit 0 = e
 		maint="$$(echo "$$resp" | jq -r '[.heartbeatList | to_entries[] | select((.value | last).status == 3) | .key] | join(",")')"; \
 		[ -z "$$maint" ] || echo "NOTE: monitor(s) in maintenance: $$maint (informational)"; \
 		if [ -n "$$bad" ]; then echo "UNHEALTHY: monitor(s) not UP (id=state): $$bad"; exit 1; fi; \
-		echo "OK: production healthy — last heartbeat of every listed monitor is UP"
+		echo "OK: status page — last heartbeat of every listed monitor is UP"; \
+		bash scripts/verify-monitors.sh
 
 # `version` prints the commit sha the server's checkout runs (`make deploy` is a
 # git pull there) — one line, read-only.
@@ -223,11 +229,12 @@ uk-export: ## Export current Uptime Kuma monitors to YAML
 # replays six seeded crontabs against a stubbed `crontab`.
 # tests/test_watchdog_decisions.sh covers the watchdog's alert decisions.
 # tests/test_watchdog_thermal.sh covers the CPU temperature alert hysteresis.
-test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard + watchdog decisions + thermal hysteresis) — no network, no server
+test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard + verify-monitors fixtures + watchdog decisions + thermal hysteresis) — no network, no server
 	uv run tests/test_uptime_kuma_sync_guard.py
 	bash tests/test_setup_cron_replay.sh
 	bash tests/test_pipefail_head.sh
 	bash tests/test_ntfy_topics.sh
+	bash tests/test_verify_monitors.sh
 	bash tests/test_watchdog_decisions.sh
 	bash tests/test_watchdog_thermal.sh
 

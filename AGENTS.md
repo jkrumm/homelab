@@ -177,7 +177,7 @@ op run --env-file=.env.tpl -- env | grep RESTIC
 | `make uk-sync` / `uk-dry-run` / `uk-export` | Apply / preview / export Uptime Kuma monitors (see below) |
 | `make test`               | `uv run tests/test_uptime_kuma_sync_guard.py` + `bash tests/test_setup_cron_replay.sh` + `bash tests/test_pipefail_head.sh` + `bash tests/test_ntfy_topics.sh` — local, no network, no server |
 | `make check`              | All local validation: compose config + YAML/shell lint + `make test` (see Validate) |
-| `make verify`             | Probe production via the Uptime Kuma heartbeat API — exit 0 = every monitor's last beat UP (see Verify & Monitor) |
+| `make verify`             | Probe production: status page + every active Kuma monitor via Argo — exit 0 = none DOWN (see Verify & Monitor) |
 | `make version`            | Print the commit sha the server checkout runs (read-only; the software factory's post-deploy check, see `project.yaml`) |
 
 ### How Secrets Work
@@ -392,6 +392,13 @@ ssh homelab "cd ~/homelab && op run --env-file=.env.tpl -- uptime-kuma/.venv/bin
   unsolved alert after 30 minutes. sync.py aborts (exit 4) on a watcher that
   matches no monitor; the table in `docs/ntfy.md` is checked against the list by
   `make test`; `make uk-dry-run` shows live drift as `[NOTIFY-DRIFT]`.
+- **The monitor name is the identity.** sync.py aborts (exit 5, dry-run too) before any
+  write when Kuma already holds two monitors with one name, and re-reads the list right
+  before every add, refusing (`[ERROR] ... already exists`, exit 1) one whose name has
+  appeared. A slow Kuma acks an add late and a retry doubled four monitors on 2026-11-15
+  (the duplicate whose push token no host uses stays DOWN). A duplicate already live: keep
+  the one whose token is in the host's `~/.config/uptime-kuma/*-push-url`, delete the
+  other (`api.delete_monitor`, `--timeout 240` under load), then re-run.
 - **`--extra-config` is repeatable** (merged in order; a missing file is skipped).
   `make uk-sync` passes homelab-private's `monitors.yaml` plus
   `uptime-kuma/monitors.mini-door.generated.yaml` — the mini-door fragment is generated
@@ -452,7 +459,7 @@ mutation, so it is safe to run anywhere. Run it before handing a change over:
 
 ```bash
 make check   # compose config + YAML parse + shell syntax + regression suite (non-zero on failure)
-make test    # the regression suite alone (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard)
+make test    # the regression suite alone (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard + verify-monitors fixtures + sync no-duplicate-add)
 ```
 
 `make check` is the authoritative gate — a non-zero exit means the change is not ready.
@@ -487,7 +494,13 @@ make caddy-reload    # Caddy only (after Caddyfile changes)
   emits traces.
 - `make verify` (needs `jq`) reads the heartbeat endpoint and exits non-zero when it is
   unreachable/empty/not JSON or a monitor's last beat is DOWN/PENDING; incidents and
-  maintenance windows only print as a `NOTE:`.
+  maintenance windows only print as a `NOTE:`. It then runs `scripts/verify-monitors.sh`:
+  every **active non-group** monitor in Kuma, because the status page lists only the
+  HomeLab group. The list comes from Argo on the mini (`GET 127.0.0.1:7737/api/uptime-kuma/monitors`,
+  bearer `op://common/api/SECRET` via `secrets-run`; `ARGO_TOKEN`/`ARGO_URL` override), not
+  socket.io, which times out under load. Any DOWN (status 0) fails and is listed; a push
+  monitor with no beat yet (`lastBeatAt` null) is not yet due, PENDING is a `NOTE:`.
+  It therefore runs only where Argo is (the mini); an unreachable Argo is UNHEALTHY, not skipped.
 
 ## Gotchas
 
