@@ -217,7 +217,10 @@ services:
   # safety; manual prune via `make restic-prune` from Mac with master key
   # (op://Private/Backblaze B2). See AGENTS.md "Backups" for the full design.
   restic-backup:
-    image: mazzolino/restic:latest
+    # Digest-pinned (restic 0.19.1, image built 2026-07-07): the one container holding the
+    # offsite copy changes only when this line does. Bump deliberately: pull the new tag,
+    # run scripts/restic-check.sh and scripts/restic-restore-check.sh, then edit the digest.
+    image: mazzolino/restic@sha256:84a18b739c15216b07dcb9e14985437d49b7a3a68ef8ce48c1323b9f59bf794e
     container_name: restic-backup
     hostname: homelab
     restart: unless-stopped
@@ -257,6 +260,7 @@ services:
       - /mnt/hdd/karakeep/data:/sources/Karakeep:ro
       - /home/jkrumm/ssd/proton-bridge:/sources/ProtonBridge:ro
       - /home/jkrumm/ssd/versitygw/iam:/sources/VersityGW-IAM:ro
+      - /home/jkrumm/backups:/sources/home-backups:ro # age-encrypted 1Password exports (opbackup) + immich-pre-upgrade dumps
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
     labels:
@@ -264,7 +268,7 @@ services:
       glance.name: Restic Backup
       glance.icon: si:restic
       glance.hide: false
-      com.centurylinklabs.watchtower.enable: 'true'
+      com.centurylinklabs.watchtower.enable: 'false' # digest-pinned, bumped by hand
 
   watchtower:
     # Maintained fork (containrrr/watchtower archived 2025-12-17). Pinned: Watchtower must not self-update.

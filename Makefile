@@ -42,7 +42,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker buildx prune -f --builder default --max-used-space $(BUILD_CACHE_MAX) && { docker buildx prune -f --builder lowprio --max-used-space $(BUILD_CACHE_MAX) || true; } && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-run restic-prune restic-init _check-op-local test check verify version
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-check-subset restic-drill _restic-idle restic-run restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -89,7 +89,9 @@ help: ## Show all targets
 	@echo "    make restic-logs         Follow restic-backup logs"
 	@echo "    make restic-snapshots    List snapshots in the B2 repo"
 	@echo "    make restic-stats        Show repo size + dedup stats"
-	@echo "    make restic-check        Verify repo integrity (read structure only)"
+	@echo "    make restic-check        Weekly structure check now (pings its Kuma monitor)"
+	@echo "    make restic-check-subset Read-back check of this half-month's 1/24 of the pack data"
+	@echo "    make restic-drill        Restore drill: sample from the newest B2 snapshot, sha256 vs live"
 	@echo "    make restic-prune        ⚠ Run on YOUR MAC with admin key — quarterly cleanup"
 	@echo ""
 	@echo "  Tests (local Mac, no server needed)"
@@ -98,13 +100,13 @@ help: ## Show all targets
 
 # ── Stack Operations ─────────────────────────────────────────────────────────
 
-deploy: ## Full deploy: git pull + recreate all services with secrets
+deploy: _restic-idle ## Full deploy: git pull + recreate all services with secrets
 	$(SSH) "$(CD) && git pull && $(DC) up -d --remove-orphans"
 
-up: ## Start or recreate all services with secrets
+up: _restic-idle ## Start or recreate all services with secrets
 	$(SSH) "$(CD) && $(DC) up -d --remove-orphans"
 
-restart: ## Force-recreate a single service: make restart svc=<name>
+restart: _restic-idle ## Force-recreate a single service: make restart svc=<name>
 	@[ -n "$(svc)" ] || { echo "ERROR: Specify service — make restart svc=<name>"; exit 1; }
 	$(SSH) "$(CD) && $(DC) up -d --force-recreate $(svc)"
 
@@ -255,10 +257,22 @@ beszel-alerts: ## Converge Beszel alert routing: title-less shoutrrr URLs, CPU/l
 # ── Restic Backup ────────────────────────────────────────────────────────────
 # Backup runs daily at 03:30 inside container (BACKUP_CRON env).
 # Forget runs after each backup. Prune is MANUAL — see restic-prune below.
+# The weekly/half-monthly checks and the restore drill run from the jkrumm crontab
+# (docs/backups.md), through `docker exec`, because the image runs one cron job per container.
+
+# A deploy that recreates restic-backup kills a running backup or check mid-run
+# (2026-11-15: the 03:30 run died to a recreate and produced no snapshot, leaving a stale
+# repo lock the append-only key cannot remove). Any `restic` process in the container
+# refuses the deploy; `make deploy FORCE=1` overrides it.
+_restic-idle:
+	@if $(SSH) "docker exec restic-backup pgrep -x restic > /dev/null 2>&1"; then \
+		if [ -n "$(FORCE)" ]; then echo "WARNING: restic is running in restic-backup; FORCE=1 set, going on"; \
+		else echo "ERROR: restic is running in restic-backup (backup, check or drill) — a recreate would kill it. Wait for it, or FORCE=1."; exit 1; fi; \
+	fi
 
 RESTIC_REPO := s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic
 
-restic-deploy: ## Deploy / refresh the restic-backup container
+restic-deploy: _restic-idle ## Deploy / refresh the restic-backup container
 	$(SSH) "$(CD) && git pull && $(DC) up -d restic-backup"
 
 restic-run: ## Trigger an unscheduled backup now (runs in foreground)
@@ -273,8 +287,14 @@ restic-snapshots: ## List snapshots in the B2 repo
 restic-stats: ## Show repo size + deduplication stats
 	$(SSH) "$(CD) && $(DC) exec restic-backup restic stats --mode raw-data"
 
-restic-check: ## Verify repo metadata integrity (no data download)
-	$(SSH) "$(CD) && $(DC) exec restic-backup restic check"
+restic-check: ## Weekly structure check now (restic check --no-lock, pings the Kuma monitor)
+	$(SSH) "$(CD) && scripts/restic-check.sh weekly"
+
+restic-check-subset: ## Read-back check of this half-month's 1/24 of the pack data (pings the Kuma monitor)
+	$(SSH) "$(CD) && scripts/restic-check.sh subset"
+
+restic-drill: ## Restore drill: sample from the newest B2 snapshot, sha256 vs the live files (pings the Kuma monitor)
+	$(SSH) "$(CD) && scripts/restic-restore-check.sh"
 
 # ⚠ Runs LOCALLY on your Mac with the MASTER B2 key (op://Private/Backblaze B2).
 # Shared backup key in common/backblaze-s3 has no delete perms by design.
