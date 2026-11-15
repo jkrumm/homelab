@@ -190,6 +190,32 @@ groups:
             retry_interval: 3600
             maxretries: 1
 
+          # Restic proves itself (docs/backups.md "Verification"): three jobs in the jkrumm
+          # crontab, each pushing to its own monitor. Push URLs in
+          # ~/.config/uptime-kuma/restic-{check-weekly,check-subset,restore-drill}-push-url.
+          # Uptime Kuma caps an interval at 24 days, so the "monthly" jobs run on the 1st
+          # and 15th (24 read-back slices a year) and the interval is 20 days.
+          - name: Restic Check Weekly - Push
+            type: push
+            interval: 691200 # 8d — Sunday 10:00 structure check + 1d grace
+            timeout: 48
+            retry_interval: 3600
+            maxretries: 1
+
+          - name: Restic Read Check - Push
+            type: push
+            interval: 1728000 # 20d — 1st and 15th 10:00, `--read-data-subset=N/24`
+            timeout: 48
+            retry_interval: 3600
+            maxretries: 1
+
+          - name: Restic Restore Drill - Push
+            type: push
+            interval: 1728000 # 20d — 1st and 15th 12:00, sample restored from B2 and sha256-compared
+            timeout: 48
+            retry_interval: 3600
+            maxretries: 1
+
           # WeatherOrb account DB (passkeys, sessions, favourites — lives on the VPS,
           # weatherorb ADR 0013). A backup heartbeat of the homelab's HDD/restic
           # path, so it sits beside Restic Backup - Push, not under Immich (it was
