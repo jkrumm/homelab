@@ -264,3 +264,16 @@ wins; an idle host backs up at full speed. Applied live with `docker update --cp
 (no restart, so the running backup survived); ntfy health fell to 0.24-1.3 s while both jobs
 still ran. Not fixed on purpose: the load *average* of a saturating batch job stays high and
 pages no one (`watchdog` topic). Rollback: remove the line, `make up`.
+
+### Follow-up: a hard quota, `cpus: 1` (2026-11-15, Issue 1396)
+
+Same alert, load 18-41 for 7+ hours (PSI `cpu some` 95%, ntfy health 0.8-1.0 s). The weight
+did not hold: shares only order contenders, every restic thread stays runnable and counts in the
+load average. That night the box ran the daily backup, two manual `backup` + `restic check
+--read-data-subset` proofs (Issue 1183, `docker exec`, `system.slice`) and the new WeatherOrb WIS2
+subscriber (~1 core, 60% of it system time, filed as a signal for that repo). `cpus: 1` (cgroup
+`cpu.max 100000 100000`) bounds backup, check and restore drill together; restic fell from 40-157% to
+~25% CPU and a throttled thread leaves the run queue. Applied live with `docker update --cpus 1`
+(the running check survived). A full backup now takes longer; nothing waits on it. Not fixed here:
+the subscriber and `tailscaled` (~1 core, `tx` 1.8 MB/s) still hold the box above 12 while they
+run. Rollback: remove the `cpus:` line, `make up`.

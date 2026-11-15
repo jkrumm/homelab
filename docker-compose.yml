@@ -225,6 +225,7 @@ services:
     hostname: homelab
     restart: unless-stopped
     cpu_shares: 20 # batch job: yields to ntfy/Kuma/cloudflared under contention (docs/decisions.md, Issue 1330)
+    cpus: 1 # hard quota (backup, check and restore drill alike): weight alone left it 4 runnable threads on 4 cores (Issue 1396)
     environment:
       RESTIC_REPOSITORY: s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic
       RESTIC_PASSWORD: ${RESTIC_PASSWORD}
