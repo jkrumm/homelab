@@ -697,6 +697,7 @@ groups:
       # an Issue. interval 21600 = the 3 h cadence + a pass of up to 3 h. Push URL on the
       # mini at ~/.config/uptime-kuma/weatherorb-site-record-push-url (chmod 600).
       - name: WeatherOrb Site Record - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 21600
         timeout: 48
@@ -717,6 +718,7 @@ groups:
         maxretries: 1
 
       - name: WeatherOrb Refs MOSMIX homelab - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 2400
         timeout: 48
@@ -729,6 +731,7 @@ groups:
       # hour is gone for good, so a down is not retried: maxretries 0. interval 5400 = the hourly
       # timer + 10 min random delay + slack.
       - name: WeatherOrb Refs Check vps - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 5400
         timeout: 48
@@ -736,6 +739,7 @@ groups:
         maxretries: 0
 
       - name: WeatherOrb Refs Check homelab - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 5400
         timeout: 48
@@ -755,6 +759,7 @@ groups:
         maxretries: 1
 
       - name: WeatherOrb Refs Locationforecast homelab - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 900
         timeout: 48
@@ -777,6 +782,7 @@ groups:
         maxretries: 0
 
       - name: WeatherOrb WIS2 Check homelab - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 1800
         timeout: 48
@@ -791,6 +797,7 @@ groups:
       # door. Push URL on each host at ~/.config/uptime-kuma/weatherorb-census-check-<role>-push-url
       # (chmod 600).
       - name: WeatherOrb Arrival Census vps - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 5400
         timeout: 48
@@ -798,6 +805,7 @@ groups:
         maxretries: 0
 
       - name: WeatherOrb Arrival Census homelab - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 5400
         timeout: 48
@@ -852,6 +860,7 @@ groups:
       # (chmod 600) on the host that runs the job (vps; the audit: mini, weatherorb-clocks-audit-push-url).
       # Margin: weekly, Mondays 06:20 UTC + up to 10 min. interval 626400 = 7 days + 6 h.
       - name: WeatherOrb Clock Register Margin - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 626400
         timeout: 48
@@ -860,6 +869,7 @@ groups:
 
       # Bucket listing: daily 03:10 UTC. interval 97200 = 1 day + 3 h.
       - name: WeatherOrb Clock Register Listing - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 97200
         timeout: 48
@@ -868,6 +878,7 @@ groups:
 
       # Holdout coverage: daily 04:10 UTC, a run of minutes. interval 97200 = 1 day + 3 h.
       - name: WeatherOrb Clock Register Coverage - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 97200
         timeout: 48
@@ -876,6 +887,7 @@ groups:
 
       # Installed-job audit on the mini: weekly, Mondays 07:05 local. interval 626400 = 7 days + 6 h.
       - name: WeatherOrb Clock Register Audit - Push
+        active: false  # paused 2026-11-15: WeatherOrb V1 frozen during the V2 rewrite
         type: push
         interval: 626400
         timeout: 48
