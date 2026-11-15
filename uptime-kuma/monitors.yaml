@@ -774,7 +774,12 @@ groups:
       # 10 min timer + 2 min random delay + a run + slack; a dead host goes silent and that raises it. This is
       # weatherorb's P2 check, routed to it through the factory door. Push URL on each host at
       # ~/.config/uptime-kuma/weatherorb-wis2-check-<role>-push-url (chmod 600).
+      # PAUSED 2026-11-15: this VPS check also judges the homelab subscriber, which stopped with the V1
+      # freeze (push msg: "SILENT homelab: no notification since 12:42Z"), so it is DOWN by design and held
+      # make verify red. Remove `active: false` when weatherorb V2 brings its WIS2 capture back or the check
+      # stops counting the homelab host.
       - name: WeatherOrb WIS2 Check vps - Push
+        active: false
         type: push
         interval: 1800
         timeout: 48
