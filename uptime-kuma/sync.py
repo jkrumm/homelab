@@ -61,6 +61,11 @@ EXIT_NOTIFICATIONS_DRIFT = 3
 # routing that can be applied (a watcher that matches no monitor, a direct
 # provider that is not declared). Abort instead of silently paging nobody.
 EXIT_ROUTES_INVALID = 4
+# Kuma already holds two monitors with one name. The name is the identity this
+# script converges on, so with a duplicate it cannot tell which one to edit;
+# abort instead of adding to the mess (2026-11-15: a sync against a CPU-starved
+# Kuma created four Clock Register monitors twice).
+EXIT_DUPLICATE_MONITORS = 5
 
 
 # `make uk-sync` / `uk-dry-run` / `uk-export` are the supported entrypoints — they
@@ -411,6 +416,27 @@ def plan_routes(config: dict) -> tuple:
     return set(direct), set(watchers)
 
 
+def index_monitors_by_name(monitors: list) -> dict:
+    """Map name to monitor; exit EXIT_DUPLICATE_MONITORS when a name occurs twice."""
+    by_name = {}
+    duplicates = {}
+    for m in monitors:
+        if m["name"] in by_name:
+            duplicates.setdefault(m["name"], [by_name[m["name"]]["id"]]).append(m["id"])
+        by_name.setdefault(m["name"], m)
+    if duplicates:
+        print("\nError: Uptime Kuma holds duplicate monitor names:", file=sys.stderr)
+        for name, ids in sorted(duplicates.items()):
+            print(f"  - {name} (ids {', '.join(str(i) for i in ids)})", file=sys.stderr)
+        print(
+            "Nothing was changed. Keep the one whose push token / URL is in use, delete\n"
+            "the others in the Uptime Kuma UI (or api.delete_monitor), then re-run.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_DUPLICATE_MONITORS)
+    return by_name
+
+
 def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delete_orphans: bool = False) -> int:
     """Sync monitors from config to Uptime Kuma; returns the number of failed writes.
 
@@ -446,14 +472,15 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
             )
             sys.exit(EXIT_NOTIFICATIONS_DRIFT)
 
+    # Read once before any write: a duplicate name aborts here, dry-run included.
+    existing = index_monitors_by_name(api.get_monitors())
+
     apply_provider_plan(api, provider_plan, dry_run)
     live_providers = api.get_notifications()
     notification_ids = [n["id"] for n in live_providers]
     # A routed leaf carries the providers that are not direct; a watcher carries all.
     routed_ids = [n["id"] for n in live_providers if n["name"] not in direct_names]
 
-    # Get existing monitors
-    existing = {m["name"]: m for m in api.get_monitors()}
     processed_names = set()
 
     def process_monitor(monitor: dict, parent_id: int = None, notify: bool = True):
@@ -540,6 +567,14 @@ def sync_monitors(api: UptimeKumaApi, config: dict, dry_run: bool = False, delet
                 print(f"  [CREATE] {name}")
             else:
                 try:
+                    # The name is the identity: re-read right before the add, so a
+                    # slow Kuma that finished an earlier add after its ack timed out
+                    # (or another writer) cannot get a second monitor of this name.
+                    already = next((m for m in api.get_monitors() if m["name"] == name), None)
+                    if already is not None:
+                        errors += 1
+                        print(f"  [ERROR] Not creating {name}: it already exists (id={already['id']}); re-run")
+                        return already["id"]
                     # 'active' not supported on add_monitor, only edit_monitor
                     create_params = {k: v for k, v in params.items() if k != "active"}
                     create_params["notificationIDList"] = monitor_notifications

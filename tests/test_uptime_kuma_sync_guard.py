@@ -1260,6 +1260,55 @@ def test_watcher_table_matches_docs():
     return 1, 1 - bool(failures), failures
 
 
+def test_no_duplicate_adds():
+    """The name is the identity: a duplicate name already live aborts (exit 5,
+    nothing written, dry-run too); a monitor that appears between the first
+    read and the add is not added a second time."""
+    failures = []
+    fixture = PLAIN_FIXTURE.format(mtype="http")
+    with tempfile.TemporaryDirectory() as td:
+        cfg = write_yaml(Path(td), "monitors.yaml", fixture)
+
+        dup = [{"id": 1, "name": "plain-mon"}, {"id": 2, "name": "plain-mon"}]
+        for extra in ([], ["--dry-run"]):
+            rc, out, err = run_main(["--config", cfg] + extra, monitors=dup)
+            writes = [c for c in FAKE_KUMA_STATE["calls"] if c[0] in ("add_monitor", "edit_monitor", "delete_monitor", "add_notification")]
+            if rc != 5 or writes or "plain-mon (ids 1, 2)" not in err:
+                failures.append(f"duplicate live name {extra}: rc={rc} writes={writes!r} err={err!r}")
+
+        # Present in the list from the second read on (the first read is the sync's snapshot).
+        reads = {"n": 0}
+        original = FakeUptimeKumaApi.get_monitors
+
+        def racing_get_monitors(self):
+            reads["n"] += 1
+            result = original(self)
+            if reads["n"] >= 2:
+                result.append({"id": 77, "name": "plain-mon"})
+            return result
+
+        FakeUptimeKumaApi.get_monitors = racing_get_monitors
+        try:
+            rc, out, err = run_main(["--config", cfg])
+        finally:
+            FakeUptimeKumaApi.get_monitors = original
+        added = [c for c in FAKE_KUMA_STATE["calls"] if c == ("add_monitor", "plain-mon")]
+        if added:
+            failures.append(f"monitor added although its name appeared before the add: {added!r}")
+        if rc != 1 or "already exists (id=77)" not in out:
+            failures.append(f"a refused add must be loud: rc={rc} out={out!r}")
+
+        rc, out, err = run_main(["--config", cfg])
+        if rc != 0 or [c for c in FAKE_KUMA_STATE["calls"] if c[0] == "add_monitor"] != [("add_monitor", "TestGroup"), ("add_monitor", "plain-mon")]:
+            failures.append(f"an absent monitor must still be created: rc={rc} calls={FAKE_KUMA_STATE['calls']!r}")
+
+        live = [{"id": 5, "name": "TestGroup"}, {"id": 6, "name": "plain-mon"}]
+        rc, out, err = run_main(["--config", cfg], monitors=live)
+        if any(c[0] == "add_monitor" for c in FAKE_KUMA_STATE["calls"]):
+            failures.append(f"existing names must add nothing: {FAKE_KUMA_STATE['calls']!r}")
+    return 5, 5 - len(failures), failures
+
+
 GROUPS = [
     ("1. unset variable aborts", test_unset_variable_aborts),
     ("2. set-to-empty aborts identically", test_empty_variable_aborts_identically),
@@ -1283,6 +1332,7 @@ GROUPS = [
     ("15b. watcher table matches docs", test_watcher_table_matches_docs),
     ("16. sync fidelity", test_sync_fidelity),
     ("17. push pause state", test_push_pause_state),
+    ("18. no duplicate adds", test_no_duplicate_adds),
 ]
 
 
