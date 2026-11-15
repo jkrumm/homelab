@@ -900,6 +900,21 @@ groups:
         retry_interval: 21600
         maxretries: 0
 
+      # The WeatherOrb capture relay (weatherorb scripts/capture_relay/relay.sh under the launchd job
+      # com.jkrumm.orb.capture-relay on the mini, every 6 h; weatherorb Issue 1400): it relays the VPS and
+      # HomeLab captures to each other. A pass pushes up, or status=down with the reason: a failed step, a
+      # non-twin ingest flag, or a VPS with under 20 GB free. That down is weatherorb's P2 check, routed to
+      # it through the factory door (source kuma; the route is weatherorb's to set). interval 25200 = 7 h:
+      # a pass every 6 h plus a long first pass. One retry. Push URL on the mini at
+      # ~/.config/uptime-kuma/weatherorb-capture-relay-push-url (chmod 600); without that file relay.sh only
+      # logs the result to ~/Library/Logs/orb-capture-relay.log.
+      - name: WeatherOrb Capture Relay - Push
+        type: push
+        interval: 25200
+        timeout: 48
+        retry_interval: 3600
+        maxretries: 1
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
