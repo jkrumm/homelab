@@ -260,15 +260,19 @@ files under `/sources`, removes the directory and pushes the status:
 
 ### Prune — how to read when it is due
 
-Prune is manual with the master key (`make restic-prune`, from the Mac). Compare what the
-repository holds with what the newest snapshot alone needs:
+Prune is manual with the master key (`make restic-prune`, from the Mac). Ask the repository
+what a prune would reclaim; a dry run reads only, takes no lock and needs no master key:
 
 ```bash
-make restic-stats                                              # repo raw-data (everything B2 holds)
-ssh homelab docker exec restic-backup restic stats --mode raw-data latest   # the newest snapshot's share
+ssh homelab docker exec restic-backup restic prune --dry-run --no-lock   # "unused size after prune"
 ```
 
-2026-11-15: repo 460.9 GiB raw-data against 365.0 GiB for the newest snapshot, a ratio of 1.26, and `restic check` reports "307 additional files … likely contain duplicate data". The rule: **prune when the repo is more than ~1.25× the newest snapshot**, i.e. a quarter of B2 is forgotten data. It is due now. The date of the last prune is not recorded anywhere; the owner records it here after the next run (`Last prune: <date>`).
+**Prune when the unused share passes ~5%** (restic's own repack threshold). Do not compare the
+repo with the newest snapshot: the repo holds 30 snapshots (2026-11-15), so it is always
+larger than one snapshot, and that ratio (1.26 on 2026-11-15) said nothing about forgotten data.
+
+Last prune: 2026-11-15, with the master key after the two stale locks were removed. A dry run
+afterwards: nothing to repack or delete, 5.6 GiB (1.2%) unused of 466.6 GiB.
 
 ## Heartbeat monitoring
 
