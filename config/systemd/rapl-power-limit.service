@@ -1,0 +1,19 @@
+# Installed by setup.sh / scripts/host-tuning.sh as /etc/systemd/system/rapl-power-limit.service.
+# The N100 is a 6 W part but firmware sets the package limits to 20 W (long term) and 25 W
+# (short term). With the host saturated all day and the cooler unable to remove that heat, the
+# package sits at 94-96 C and intel_pstate clamps every core to 200 MHz (4.1 M throttle events
+# since boot, 2026-11-15), inflating every job's CPU time up to 17x. A lower limit makes the
+# clock steady below the thermal wall instead of oscillating. Rollback: systemctl disable --now
+# rapl-power-limit.service, then write 20000000 / 25000000 back to the two files below.
+[Unit]
+Description=Cap the CPU package power limit below the thermal wall
+ConditionPathExists=/sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# microwatts: long term 8 W, short term 10 W
+ExecStart=/bin/sh -c 'echo 8000000 > /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw && echo 10000000 > /sys/class/powercap/intel-rapl:0/constraint_1_power_limit_uw'
+
+[Install]
+WantedBy=multi-user.target

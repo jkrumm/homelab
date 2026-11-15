@@ -312,6 +312,28 @@ clean `systemd-reboot` at 04:00:25 (previous reboots: 13 Nov, 16 Oct and 10 Oct,
 `/etc/apt/apt.conf.d/50unattended-upgrades-local` (written 2026-02-07) still says `04:00` because
 `setup.sh` was not re-run: the reboot lands on the 04:00 `immich-backup-check` cron.
 
+## Homelab CPU saturation: what was cut, what needs root (2026-11-15, Issue 1411)
+
+Symptom: the mini's heartbeat pushes to the Kuma endpoint timed out (`curl: (28)`, 199 lines in two
+days), load 11-25 on 4 cores. The cause is the throttle in the section above, not a runaway
+service: at 200 MHz every job costs up to 17x the CPU time, so ~3 cores of ordinary load saturate
+the host. Measured 2026-11-15 12:20 UTC: `orb-capture-wis2-subscriber` ~1.2 cores (already capped
+to 1.5 CPUs by WeatherOrb's own compose, not this repo's), Uptime Kuma 0.5-0.9 core (106 monitors,
+32 MB DB, no leak: the node main thread runs the checks, just slowly), `tailscaled` 0.7 core
+(Tailscale SSH sessions from leads), plus `runc init` bursts of up to 150% CPU.
+
+The exec churn was countable: `docker events` over 45 s showed 8 filebrowser healthcheck execs, 6
+each for watchtower, shelfmark, karakeep and gluetun, 3 each for the 60 s/30 s checks. filebrowser's
+image checks every **5 s**; its interval is now 60 s in the compose file (the test stays the
+image's). The 30 s checks of the other images are left alone: they are a twelfth of the churn.
+
+Needs root, not done by the lead (sudo asks a password): `sudo ~/homelab/scripts/host-tuning.sh`
+installs `rapl-power-limit.service` (package limits 20 W/25 W to 8 W/10 W, rollback in the unit)
+and sets the unattended-upgrades reboot to 05:30. Success criteria after it: the cores hold above
+700 MHz, `sar -u` idle above 0 %, the package under 85 C, the devhost-health log with no `curl: (28)`
+over a day. If 8 W is too tight (nothing completes), raise the unit's two numbers; a heatsink/fan
+check by hand is still the real fix for a cooler that cannot remove 6 W.
+
 ## Immich retired (2026-11-15, Issue 1201)
 
 The owner is fully on Shutterflow, which owns the photo library and its B2 sync, so Immich (four

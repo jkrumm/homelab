@@ -335,7 +335,8 @@ homelab/
 ├── packages/
 │   └── proton-bridge/       # Proton Mail Bridge image (Dockerfile, entrypoint, bridge.pol)
 ├── scripts/                 # Operational scripts
-│   └── homelab_watchdog.sh  # Self-healing health monitor (root crontab, every 10 min)
+│   ├── homelab_watchdog.sh  # Self-healing health monitor (root crontab, every 10 min)
+│   └── host-tuning.sh       # Root, idempotent: RAPL package power cap + unattended-upgrades reboot time (`sudo` by hand; setup.sh calls it)
 ├── config/                  # App configs + extends
 │   └── glance.yml           # Glance dashboard config (single-file :ro mount: `make restart svc=glance` after editing)
 ├── docs/                    # Detailed documentation

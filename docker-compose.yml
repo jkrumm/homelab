@@ -377,6 +377,12 @@ services:
       - /mnt/hdd/filebrowser:/config
     networks:
       - cloudflared
+    # The image's own check runs every 5 s: a `runc init` + shell every 5 s on a host whose cores
+    # throttle to 200 MHz was the biggest single source of exec churn (Issue 1411). Only the
+    # interval is overridden; the test comes from the image.
+    healthcheck:
+      interval: 60s
+      start_period: 10s
     labels:
       glance.name: Filebrowser
       glance.icon: si:files

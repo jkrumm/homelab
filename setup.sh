@@ -111,6 +111,9 @@ systemctl daemon-reload
 systemctl enable --now weatherorb-archive-seal.timer
 echo "WeatherOrb archive seal timer enabled"
 
+# Package power cap (rationale in the unit) and the unattended-upgrades reboot time.
+"$USER_HOME/homelab/scripts/host-tuning.sh"
+
 # --------------------------------------------------
 # 1Password CLI
 # --------------------------------------------------
