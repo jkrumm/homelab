@@ -163,7 +163,7 @@ Usually resolves at state 1 (simple Docker restart).
 
 **What keeps working:**
 
-- SSD-based services (UptimeKuma, Immich, Karakeep)
+- SSD-based services (UptimeKuma, Karakeep)
 - Caddy, cloudflared, Glance (no HDD dependency)
 
 **Watchdog behavior:**
@@ -214,7 +214,7 @@ manual intervention. Every HDD-backed service was down for ~40 minutes.
 
 **What fails:**
 
-- External access to public services (glance, immich, uptime)
+- External access to public services (glance, uptime)
 - `check_external_monitor` - BetterStack sees UptimeKuma as down
 
 **What keeps working:**

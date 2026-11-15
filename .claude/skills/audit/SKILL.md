@@ -132,14 +132,14 @@ ssh homelab "apt list --upgradable 2>/dev/null | grep -v '^Listing'"
 
 **Thresholds:**
 
-- WARN: Watchtower logs show available updates for opted-out containers (immich), any apt upgradable packages
+- WARN: Watchtower logs show available updates for opted-out containers (karakeep sidecars), any apt upgradable packages
 - INFO: Watchtower auto-updated containers (expected behavior)
 - INFO: "Scheduling first run" line with next run time — normal after a restart, note the scheduled time
 
 ### Phase 7: Recent Errors (Log Scan)
 
 ```bash
-ssh homelab "for svc in caddy cloudflared immich_server; do echo \"=== \$svc ===\"; docker logs \$svc --tail=20 2>&1 | grep -iE 'error|fatal|panic|crash|exception' | grep -v 'context canceled' | tail -5; done"
+ssh homelab "for svc in caddy cloudflared karakeep; do echo \"=== \$svc ===\"; docker logs \$svc --tail=20 2>&1 | grep -iE 'error|fatal|panic|crash|exception' | grep -v 'context canceled' | tail -5; done"
 ```
 
 ```bash
@@ -243,7 +243,7 @@ Private: <state / no log accessible>
 ## Recommendations
 - [CRITICAL] <finding> → <proposed fix>
 - [WARN] <finding> → <proposed fix>
-- (if Watchtower shows updates for opted-out containers) Run `/upgrade-stack` for manually-managed containers: immich
+- (if Watchtower shows updates for opted-out containers) Run `/upgrade-stack` for manually-managed containers: karakeep sidecars
 ```
 
 ---

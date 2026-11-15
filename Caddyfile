@@ -10,10 +10,6 @@ glance.jkrumm.com, http://glance.jkrumm.com {
 	reverse_proxy glance:8080
 }
 
-immich.jkrumm.com, http://immich.jkrumm.com {
-	reverse_proxy immich-server:2283
-}
-
 uptime.jkrumm.com, http://uptime.jkrumm.com {
 	reverse_proxy uptime-kuma:3001
 }

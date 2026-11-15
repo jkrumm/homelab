@@ -110,7 +110,6 @@ services:
       - caddy
       - glance
       - uptime-kuma
-      - immich-server
     networks:
       - cloudflared
     labels:
@@ -199,8 +198,6 @@ services:
     networks:
       - cloudflared
       - socket-proxy
-    environment:
-      - IMMICH_API_KEY=${IMMICH_API_KEY}
     depends_on:
       - docker-socket-proxy
     restart: unless-stopped
@@ -261,7 +258,7 @@ services:
       - /mnt/hdd/karakeep/data:/sources/Karakeep:ro
       - /home/jkrumm/ssd/proton-bridge:/sources/ProtonBridge:ro
       - /home/jkrumm/ssd/versitygw/iam:/sources/VersityGW-IAM:ro
-      - /home/jkrumm/backups:/sources/home-backups:ro # age-encrypted 1Password exports (opbackup) + immich-pre-upgrade dumps
+      - /home/jkrumm/backups:/sources/home-backups:ro # age-encrypted 1Password exports (opbackup)
       - /mnt/hdd/restic/cache:/cache
       - ./restic-excludes.txt:/excludes.txt:ro
     labels:
@@ -288,7 +285,7 @@ services:
       DOCKER_HOST: tcp://docker-socket-proxy-watchtower:2375
       DOCKER_CONFIG: /
       WATCHTOWER_CLEANUP: 'true'
-      WATCHTOWER_SCHEDULE: '0 0 6 * * *' # after restic (03:30), immich check (04:00), reboot window (05:30)
+      WATCHTOWER_SCHEDULE: '0 0 6 * * *' # after restic (03:30), reboot window (05:30)
       WATCHTOWER_NOTIFICATION_URL: 'ntfy://:${NTFY_TOKEN}@ntfy.jkrumm.com/updates?title=Watchtower'
       WATCHTOWER_NOTIFICATIONS_LEVEL: warn
       WATCHTOWER_NO_STARTUP_MESSAGE: 'true'
@@ -368,140 +365,6 @@ services:
       glance.hide: true
       com.centurylinklabs.watchtower.enable: 'false'
 
-  immich-server:
-    container_name: immich_server
-    image: ghcr.io/immich-app/immich-server:v3.3.5
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: '50m'
-        max-file: '5'
-    extends:
-      file: config/hwaccel.transcoding.yml
-      service: quicksync
-    volumes:
-      # DO NOT change this to :/data to "match upstream" (upstream moved to
-      # ${UPLOAD_LOCATION}:/data). The DB stores absolute asset paths under
-      # /usr/src/app/upload. detectMediaLocation() picks between /data (always
-      # present, the image declares VOLUME /data) and /usr/src/app/upload; today
-      # both exist and it tie-breaks to ours. Drop this mount and it resolves to
-      # /data, onBootstrap sees a changed location, its guard passes, and it runs
-      # migrateFilePaths() — a bulk rewrite of every asset path row.
-      # See server/src/services/storage.service.ts and docs/src/pages/errors.md.
-      - /home/jkrumm/ssd/SSD/Bilder/immich/upload:/usr/src/app/upload
-      - /etc/localtime:/etc/localtime:ro
-      # External library - read-only mount for Fuji photos
-      - /home/jkrumm/ssd/SSD/Bilder/Fuji:/mnt/media/fuji:ro
-    # No host port: Caddy and Glance reach immich-server over Docker networks, so a
-    # published 2283 would only add a LAN door.
-    networks:
-      - cloudflared
-      - immich
-    environment:
-      # Inert here: upstream treats UPLOAD_LOCATION as a *host* path, and the
-      # server reads IMMICH_MEDIA_LOCATION. Kept anyway — deleting it buys
-      # nothing and costs a server recreate.
-      - UPLOAD_LOCATION=/usr/src/app/upload
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=${POSTGRES_DB_PASSWORD}
-      - DB_DATABASE_NAME=immich
-      - DB_HOSTNAME=immich_postgres
-      - REDIS_HOSTNAME=immich_redis
-      - TZ=Europe/Berlin
-    # Bare list form, matching upstream — not drift. It only means
-    # "started", so this races postgres on a cold `compose up`; immich-server
-    # retries its DB connection, which is upstream's own posture. Upgrading to
-    # `condition: service_healthy` on both is a real improvement *over* upstream
-    # (both dependencies do have working healthchecks — see immich_postgres
-    # below), but it recreates immich_server and makes it fail closed if postgres
-    # ever reports a checksum failure. Note it would not help after a host
-    # reboot: the daemon's restart policy starts containers without re-evaluating
-    # depends_on conditions.
-    depends_on:
-      - immich_redis
-      - immich_postgres
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-    labels:
-      glance.name: Immich
-      glance.icon: si:immich
-      glance.url: https://immich.jkrumm.com
-      glance.hide: false
-      com.centurylinklabs.watchtower.enable: 'false' # managed by /upgrade-stack immich
-
-  immich-machine-learning:
-    container_name: immich_machine_learning
-    image: ghcr.io/immich-app/immich-machine-learning:v3.3.5-openvino
-    restart: unless-stopped
-    extends:
-      file: config/hwaccel.ml.yml
-      service: openvino
-    volumes:
-      - model-cache:/cache
-    networks:
-      - immich
-    environment:
-      - REDIS_HOSTNAME=immich_redis
-      - TZ=Europe/Berlin
-    # The image's own test (`python3 healthcheck.py`) forks a Python interpreter every 30 s,
-    # ~1 core each while the host is saturated (Issue 1148/1159). Only the cadence is
-    # overridden; the image keeps its test command.
-    healthcheck:
-      interval: 120s
-      timeout: 60s
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-    labels:
-      glance.hide: true
-      com.centurylinklabs.watchtower.enable: 'false' # managed by /upgrade-stack immich
-
-  immich_redis:
-    container_name: immich_redis
-    image: docker.io/valkey/valkey:9@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d
-    restart: unless-stopped
-    healthcheck:
-      test: redis-cli ping | grep -q PONG || exit 1
-    networks:
-      - immich
-    labels:
-      glance.hide: true
-      com.centurylinklabs.watchtower.enable: 'false' # digest-pinned, managed by /upgrade-stack immich
-
-  immich_postgres:
-    # NOTE: no `healthcheck:` key here on purpose — this service IS health-probed.
-    # The image ships its own: CMD-SHELL /usr/local/bin/healthcheck.sh
-    # (interval 300s, start_period 300s, start_interval 5s), and compose inherits
-    # an image HEALTHCHECK unless you set `disable: true`. That script runs
-    # pg_isready AND asserts SUM(checksum_failures)=0 — the counterpart to
-    # POSTGRES_INITDB_ARGS: '--data-checksums' below. A hand-rolled `pg_isready`
-    # would override it and silently discard corruption detection. Do not add one.
-    #
-    # Avoid editing anything inside this block at all: any change here (even a
-    # label) alters the service config hash and recreates the one container whose
-    # state you least want recreated. That also rules out adding upstream's
-    # cosmetic `healthcheck: {disable: false}` — a pure no-op at recreate cost.
-    container_name: immich_postgres
-    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
-    restart: unless-stopped
-    shm_size: 128mb
-    environment:
-      POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD}
-      POSTGRES_USER: postgres
-      POSTGRES_DB: immich
-      POSTGRES_INITDB_ARGS: '--data-checksums'
-    volumes:
-      - /home/jkrumm/ssd/SSD/Bilder/immich/postgres:/var/lib/postgresql/data
-    networks:
-      - immich
-    labels:
-      glance.hide: true
-      com.centurylinklabs.watchtower.enable: 'false' # digest-pinned, managed by /upgrade-stack immich
-
   filebrowser:
     image: filebrowser/filebrowser:latest
     container_name: filebrowser
@@ -521,7 +384,7 @@ services:
       glance.hide: false
 
   # S3 front over existing directories (VersityGW posix backend): buckets are the bind
-  # mounts below, objects stay plain files — Samba, restic and Immich read the same tree.
+  # mounts below, objects stay plain files — Samba and restic read the same tree.
   # Tailscale-only via Caddy (s3.jkrumm.com). Users/keys live in the internal IAM dir;
   # the gateway root itself holds nothing but the bucket mount points.
   versitygw:
@@ -758,14 +621,11 @@ services:
       com.centurylinklabs.watchtower.enable: 'false' # local build, not from registry
 
 volumes:
-  model-cache:
   caddy_data:
   caddy_config:
 
 networks:
   cloudflared:
-    driver: bridge
-  immich:
     driver: bridge
   beszel:
     driver: bridge

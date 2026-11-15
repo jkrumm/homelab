@@ -12,9 +12,7 @@ CLOUDFLARE_TOKEN=op://homelab/cloudflare-tunnel/TOKEN
 CLOUDFLARE_TUNNEL_ID=op://homelab/config/CLOUDFLARE_TUNNEL_ID
 
 # --- Infrastructure ---
-POSTGRES_DB_PASSWORD=op://homelab/postgres/PASSWORD
 SAMBA_PASSWORD=op://homelab/samba/PASSWORD
-IMMICH_API_KEY=op://homelab/immich/API_KEY
 
 # --- VersityGW (S3 over existing dirs, Tailscale-only) ---
 # Root key is server-only; client keys (s3-admin = MacBook, s3-agent = mini) are

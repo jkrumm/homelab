@@ -37,7 +37,7 @@ If you add a new monitor type that isn't in the table, add a row here in the sam
 Top-level groups (`groups[].name`) and subgroups (`type: group`) **never** carry a type suffix. They name a category, not a check:
 
 - `HomeLab`, `Local`, `VPS`, `FreePlanningPoker`, `Hermes Agent`, `Websites` — top-level
-- `Networking`, `Monitoring`, `Infra`, `Services`, `Files`, `Media`, `Immich`, `Infrastructure` — subgroups
+- `Networking`, `Monitoring`, `Infra`, `Services`, `Files`, `Media`, `Infrastructure` — subgroups
 
 `Local` holds push heartbeats kept alive by a manual/local operation (not HomeLab
 server health), so a miss there doesn't make HomeLab look offline.
@@ -47,7 +47,7 @@ server health), so a miss there doesn't make HomeLab look offline.
 - Use the canonical service name as the subject (`Glance`, `Caddy`, `Watchtower`).
 - A service with multiple checks gets the same subject across them: `Glance - Docker` + `Glance - HTTP`, `API - Docker` + `API - HTTP`.
 - Backup heartbeats put `Backup` in the subject, type suffix stays `Push`: `Postgres - Backup - Push`, `Restic Backup - Push`, `1Password Backup - Push`. **Never** use `- Backup` as the type suffix — `Backup` describes what's tracked, `Push` describes how.
-- **Don't repeat the parent group name in the subject.** The parent group already provides that scope in the UI, so a prefix like `VPS Postgres ...` inside the `VPS` group is decorative noise. Inside `VPS > Infra` use `Postgres - Backup - Push` and `Postgres - DB - Push`, not `VPS Postgres Backup - Push`. Same for `HomeLab > Immich` etc.
+- **Don't repeat the parent group name in the subject.** The parent group already provides that scope in the UI, so a prefix like `VPS Postgres ...` inside the `VPS` group is decorative noise. Inside `VPS > Infra` use `Postgres - Backup - Push` and `Postgres - DB - Push`, not `VPS Postgres Backup - Push`. Same for `HomeLab > Media` etc.
 - Exception — keep a namespace prefix when the parent is a *flat* group containing multiple distinct services that share an external identity. `FreePlanningPoker` children all use `FPP - <service> - <type>` (e.g. `FPP - Frontend - HTTP`, `FPP - DB - MySQL`) because they're a tightly-related family rendered flat, not split into subgroups. The last ` - ` still wins as the type separator.
 
 ## Examples

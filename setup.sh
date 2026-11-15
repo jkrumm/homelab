@@ -257,7 +257,7 @@ Unattended-Upgrade::Package-Blacklist {
     "docker-compose-plugin";
 };
 
-// Auto-reboot at 05:30 (after restic 03:30 and immich-backup-check 04:00, before Watchtower 06:00) if kernel update requires it
+// Auto-reboot at 05:30 (after restic 03:30, before Watchtower 06:00) if kernel update requires it
 Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-Time "05:30";
 UNATTENDED

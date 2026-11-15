@@ -130,7 +130,6 @@ that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy
 | --------------------------------- | ------------------------------------------------------- |
 | `common/cloudflare/DNS_API_TOKEN` | Caddy DNS-01 ACME challenge                             |
 | `homelab/cloudflare-tunnel/TOKEN` | Cloudflare tunnel authentication                        |
-| `homelab/postgres/PASSWORD`       | Immich PostgreSQL                                       |
 | `homelab/samba/PASSWORD`          | Samba file share auth                                   |
 | `homelab/restic/PASSWORD`         | Restic repo password (NEVER changes after init)         |
 | `homelab/restic/HEARTBEAT_URL`    | UptimeKuma push URL for restic backup heartbeat         |
@@ -138,7 +137,6 @@ that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy
 | `Private/Backblaze B2/MASTER_*`   | B2 master key — manual use only, `make restic-prune`/`init` from Mac |
 | `homelab/versitygw-root/*`        | S3 gateway root key — server-only; creates the IAM users |
 | `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
-| `homelab/immich/API_KEY`          | Immich API for Glance widget                            |
 | `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful pull from Garmin's Personal API (in `common/` so VPS service account can read) |
 | `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only). Topics, publishers and priorities: `docs/ntfy.md` (`alerts`: Kuma, watchdog, Beszel; `updates`: Watchtower, shoutrrr URL in `docker-compose.yml`). Beszel alert routing is converged by `make beszel-alerts` (`scripts/beszel-alerts.sh`: owner user → shoutrrr URL `ntfy://:<token>@<ntfy host>/alerts`, no `title=` — a static title overrides the hub's "<system> … above threshold"; digest user → `/watchdog?priority=low` for CPU and load alerts) — the secret is not in git |
 | `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
@@ -147,8 +145,7 @@ that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy
 
 ```bash
 op run --env-file=.env.tpl -- docker compose up -d
-op read "op://homelab/postgres/PASSWORD"
-op run --env-file=.env.tpl -- env | grep POSTGRES
+op run --env-file=.env.tpl -- env | grep RESTIC
 ```
 
 ### Security Rules
@@ -172,7 +169,6 @@ op run --env-file=.env.tpl -- env | grep POSTGRES
 | `make up` / `make down`   | Start/recreate — stop all services                       |
 | `make restart svc=<name>` | Force-recreate a single service                          |
 | `make ps` / `make logs svc=<name>` / `make logs-follow svc=<name>` | Show running containers — bounded log tail — follow logs live |
-| `make immich-upgrade`     | Upgrade Immich stack (git pull + pull pinned images + recreate) — tags are explicit, so bump `immich-server` + `immich-machine-learning` in `docker-compose.yml` first, else it's a no-op. Watchtower-excluded, see `/upgrade-stack immich` |
 | `make proton-bridge-deploy` / `-login` / `-restart` / `-logs` | Proton Mail Bridge (IMAP for hello@, Tailscale-only); `-login` is the one-time interactive CLI — `docs/proton-bridge.md` |
 | `make beszel-alerts` | Converge Beszel alert routing on the hub: title-less ntfy URLs (title names the system), CPU/load alerts to `watchdog`; re-run after adding a CPU/load alert in the Beszel UI — `docs/ntfy.md` |
 | `make ntfy-subscribe` | Subscribe the owner's ntfy account to every topic in `config/ntfy/topics.txt` (`TEST=1` sends one message per topic); ntfy-mac follows the account — `docs/ntfy.md` |
@@ -207,16 +203,15 @@ ssh homelab "docker compose logs -f <service>"
 
 ```
 1. docker-socket-proxy (monitoring services depend on this)
-2. immich_redis, immich_postgres (databases)
-3. caddy (reverse proxy - cloudflared depends on this)
-4. All other services
-5. cloudflared (depends on caddy + public services - starts last)
+2. caddy (reverse proxy - cloudflared depends on this)
+3. All other services
+4. cloudflared (depends on caddy + public services - starts last)
 ```
 
 ### Container Updates (Watchtower)
 
-- **Opted-out** (manual via `/upgrade-stack`): `immich-server`, `immich-machine-learning`, `immich_redis`, `immich_postgres`
-- **Opted-out** (other): `proton-bridge` (local build), `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Opted-out** (manual via `/upgrade-stack`): `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags)
+- **Opted-out** (other): `proton-bridge` (local build), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
 - **Auto-update** (global, daily 06:00, after the 03:30 restic backup and the 05:30 unattended-upgrades reboot): everything else, including `caddy`
 
 ---
@@ -244,9 +239,9 @@ Cloudflare DNS-01 challenge (`caddy-dns/cloudflare`, baked into the prebuilt
 Private-service DNS is a grey-cloud (DNS-only) Cloudflare A record pointing at the
 HomeLab Tailscale IP. Full rationale: `docs/decisions.md`.
 
-8 Docker bridge networks (`docker-compose.yml` → `networks:`): `cloudflared`, `immich`,
+8 Docker bridge networks (`docker-compose.yml` → `networks:`): `cloudflared`,
 `beszel`, `socket-proxy`, `socket-proxy-watchtower`, `socket-proxy-claude`,
-`watchtower-egress`, `karakeep-internal`.
+`watchtower-egress`, `proton-bridge`, `karakeep-internal`.
 
 **Tailnet:** `dinosaur-sole.ts.net`. Device IPs are placeholders in every tracked file —
 resolve the real ones via `tailscale status` or the admin console, never hardcode them here.
@@ -285,10 +280,10 @@ emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
 ```
 /home/jkrumm/
 ├── homelab/              # This repository
-├── backups/              # age-encrypted 1Password exports (1password/) + immich-pre-upgrade dumps — restic source home-backups
+├── backups/              # age-encrypted 1Password exports (1password/) only — restic source home-backups
 ├── ssd/
 │   ├── SSD/
-│   │   ├── Bilder/       # Photos (incl. Immich subfolder; ImageShare/ + B2-Mirror/ are
+│   │   ├── Bilder/       # Photos (ImageShare/ + B2-Mirror/ are
 │   │   │                 # leftovers of the decommissioned image-share — kept, restic-covered)
 │   │   ├── Bücher/       # Calibre library
 │   │   ├── Dokumente/    # Documents (the empty Obsidian/ folder is no sync target)
@@ -342,8 +337,7 @@ homelab/
 ├── scripts/                 # Operational scripts
 │   └── homelab_watchdog.sh  # Self-healing health monitor (root crontab, every 10 min)
 ├── config/                  # App configs + extends
-│   ├── glance.yml           # Glance dashboard config (single-file :ro mount: `make restart svc=glance` after editing)
-│   └── hwaccel.{ml,transcoding}.yml  # Immich GPU acceleration stubs (not active)
+│   └── glance.yml           # Glance dashboard config (single-file :ro mount: `make restart svc=glance` after editing)
 ├── docs/                    # Detailed documentation
 │   ├── backups.md           # Restic design, verification schedules, restore drill
 │   ├── s3.md                # VersityGW S3 gateway — bucket map, IAM users, client setup
@@ -510,7 +504,6 @@ make caddy-reload    # Caddy only (after Caddyfile changes)
 | Service not accessible | Check cloudflared | `docker logs cloudflared`             |
 | Container crash loop   | Check logs        | `docker logs --tail=100 <container>`  |
 | HDD not mounted        | Check encryption  | `sudo cryptsetup status encrypted_partition && mount \| grep hdd` |
-| Immich ML slow         | Check GPU         | Not active on this server (CPU-mode only) — `docker logs immich_machine_learning` |
 
 ```bash
 ssh homelab "df -h && free -h && uptime"          # system resources
@@ -529,8 +522,6 @@ ssh homelab "dmesg | tail -50"
 
 | Service       | Limit | Reserved |
 | ------------- | ----- | -------- |
-| Immich Server | 4G    | -        |
-| Immich ML     | 4G    | -        |
 | UptimeKuma    | 1G    | 512M     |
 
 ### Log Rotation
@@ -538,7 +529,6 @@ ssh homelab "dmesg | tail -50"
 | Service             | Max Size | Max Files |
 | ------------------- | -------- | --------- |
 | docker-socket-proxy | 10m      | 2         |
-| Immich Server       | 50m      | 5         |
 
 ---
 

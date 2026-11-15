@@ -54,13 +54,12 @@ When running this skill, I will check:
 ### Multi-Component Stack Detection
 
 - [ ] Services with `com.centurylinklabs.watchtower.enable: "false"`
-- [ ] Group services by prefix (`immich_*`)
+- [ ] Group services by prefix (`karakeep*`)
 - [ ] Check if stack exists in `.claude/skills/upgrade-stack/SKILL.md`
 - [ ] Prompt to add new stacks to /upgrade-stack
 
 **Current stacks in /upgrade-stack:**
 
-- Immich (server, ML, postgres, redis)
 - Karakeep sidecars (`karakeep-chrome`, `karakeep-meili`)
 
 Caddy is Watchtower-managed and out of scope.
@@ -153,7 +152,6 @@ Scan and identify changes:
 
 ### Multi-Component Stack Check
 
-✅ Immich: 4 services, already in /upgrade-stack
 ✅ Karakeep sidecars: 2 services, already in /upgrade-stack
 ⚠️ NEW: <stack-name> detected (N services with watchtower opted-out)
 → Prompt: Add <stack-name> to /upgrade-stack?
