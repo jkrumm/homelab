@@ -877,6 +877,15 @@ groups:
         retry_interval: 1800
         maxretries: 1
 
+      # Météo-France's 24-hour package observations (weatherorb scripts/v2_truth/meteofrance.py, every 6 h at :20 UTC,
+      # a pass of about 9 min under the API's 100 requests per minute). interval 28800 = the 6 h cadence + a long pass + slack.
+      - name: WeatherOrb Truth Meteofrance vps - Push
+        type: push
+        interval: 28800
+        timeout: 48
+        retry_interval: 3600
+        maxretries: 1
+
       # The completeness check of the truth captures (make truth-check, hourly at :35 on the VPS): up when every
       # pass and document of every judged hour is in the ledger, down naming the first missing hour. The first lost
       # hour of Météo-France's 24 h window is gone for good: no retry.
