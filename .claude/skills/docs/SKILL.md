@@ -60,8 +60,10 @@ When running this skill, I will check:
 
 **Current stacks in /upgrade-stack:**
 
-- Caddy (custom local build, `docker compose build`)
 - Immich (server, ML, postgres, redis)
+- Karakeep sidecars (`karakeep-chrome`, `karakeep-meili`)
+
+Caddy is Watchtower-managed and out of scope.
 
 ### Documentation Sync
 
@@ -152,7 +154,7 @@ Scan and identify changes:
 ### Multi-Component Stack Check
 
 ✅ Immich: 4 services, already in /upgrade-stack
-✅ Caddy: 1 service (custom build), already in /upgrade-stack
+✅ Karakeep sidecars: 2 services, already in /upgrade-stack
 ⚠️ NEW: <stack-name> detected (N services with watchtower opted-out)
 → Prompt: Add <stack-name> to /upgrade-stack?
 
@@ -263,7 +265,7 @@ After updates:
 
 ### With /upgrade-stack
 
-- Detects new stacks with WUD notify-only or ignore labels
+- Detects new stacks with `com.centurylinklabs.watchtower.enable: "false"` labels
 - Prompts to add to `.claude/skills/upgrade-stack/SKILL.md`
 - Updates "Manually-Managed Containers" section automatically
 
