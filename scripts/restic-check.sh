@@ -24,6 +24,7 @@
 #     0 10 1,15 * *  /home/jkrumm/homelab/scripts/restic-check.sh subset >> /home/jkrumm/logs/restic-check.log 2>&1
 set -euo pipefail
 
+command -v jq > /dev/null || { echo "restic-check: jq missing" >&2; exit 2; }
 CONTAINER="${RESTIC_CONTAINER:-restic-backup}"
 CONFIG_DIR="${HOME}/.config/uptime-kuma"
 mode="${1:-}"
@@ -72,6 +73,27 @@ secs=$(( $(date +%s) - start ))
 if [ "$rc" -ne 0 ]; then
   log "FAIL: restic check exit $rc after ${secs}s"
   heartbeat down "restic check exit ${rc} (${args[*]:-structure}): $(tail -n 3 "$out" | tr '\n' ' ' | cut -c1-200)"
+  exit 1
+fi
+
+# A lock older than STALE_LOCK_H is a leftover of a killed run (a live backup refreshes its
+# lock every few minutes). It makes the nightly `restic forget` fail with "repo already
+# locked" ("Forget failed" in the backup log, backup still exits 0), so retention silently
+# stops. The append-only key cannot remove it: `make restic-unlock` from the Mac does.
+STALE_LOCK_H="${STALE_LOCK_H:-36}"
+now="$(date +%s)"
+stale=0
+for id in $(docker exec "$CONTAINER" restic list locks --no-lock 2>/dev/null); do
+  t="$(docker exec "$CONTAINER" restic cat lock "$id" --no-lock 2>/dev/null | jq -r '.time // empty')"
+  [ -n "$t" ] || continue
+  if [ $(( now - $(date -d "$t" +%s) )) -gt $(( STALE_LOCK_H * 3600 )) ]; then
+    log "stale repo lock ${id:0:8} from $t"
+    stale=$((stale + 1))
+  fi
+done
+if [ "$stale" -gt 0 ]; then
+  log "FAIL: $stale stale repo lock(s) older than ${STALE_LOCK_H}h — nightly forget is blocked; run 'make restic-unlock' from the Mac"
+  heartbeat down "$stale stale repo lock(s): nightly forget blocked, run make restic-unlock from the Mac"
   exit 1
 fi
 

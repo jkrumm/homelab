@@ -42,7 +42,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker buildx prune -f --builder default --max-used-space $(BUILD_CACHE_MAX) && { docker buildx prune -f --builder lowprio --max-used-space $(BUILD_CACHE_MAX) || true; } && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-check-subset restic-drill _restic-idle restic-run restic-prune restic-init _check-op-local test check verify version
+.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-check-subset restic-drill _restic-idle restic-run restic-unlock restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -92,6 +92,7 @@ help: ## Show all targets
 	@echo "    make restic-check        Weekly structure check now (pings its Kuma monitor)"
 	@echo "    make restic-check-subset Read-back check of this half-month's 1/24 of the pack data"
 	@echo "    make restic-drill        Restore drill: sample from the newest B2 snapshot, sha256 vs live"
+	@echo "    make restic-unlock       ⚠ Run on YOUR MAC with admin key — remove stale repo locks"
 	@echo "    make restic-prune        ⚠ Run on YOUR MAC with admin key — quarterly cleanup"
 	@echo ""
 	@echo "  Tests (local Mac, no server needed)"
@@ -305,6 +306,14 @@ restic-prune: _check-op-local ## ⚠ Run from Mac with master key — quarterly 
 	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm </dev/null)" \
 	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm </dev/null)" \
 	 restic -r $(RESTIC_REPO) prune
+
+# Stale locks (a backup killed by a recreate or reboot) block the nightly `forget`; the
+# append-only key cannot delete them. Needs the master key, so it is a Mac-side target.
+restic-unlock: _check-op-local ## ⚠ Run from Mac with master key — remove stale repo locks
+	@AWS_ACCESS_KEY_ID="$$(op read 'op://Private/Backblaze B2/MASTER_KEY_ID' --account tkrumm </dev/null)" \
+	 AWS_SECRET_ACCESS_KEY="$$(op read 'op://Private/Backblaze B2/MASTER_APP_KEY' --account tkrumm </dev/null)" \
+	 RESTIC_PASSWORD="$$(op read 'op://homelab/restic/PASSWORD' --account tkrumm </dev/null)" \
+	 restic -r $(RESTIC_REPO) unlock
 
 restic-init: _check-op-local ## ⚠ Run ONCE from Mac with master key — initialise repo
 	@echo "Initialising restic repo at $(RESTIC_REPO)"

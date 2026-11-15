@@ -174,6 +174,7 @@ proven to hold the file's sha256 (weatherorb ADR 0009). The earlier hourly ssh p
 | `make restic-check` | Weekly structure check now, pings its Kuma monitor | Mac → SSH (container key) |
 | `make restic-check-subset` | This half-month's `--read-data-subset=N/24` read-back, pings its monitor | Mac → SSH (container key) |
 | `make restic-drill` | Restore drill from B2, pings its monitor | Mac → SSH (container key) |
+| `make restic-unlock` | ⚠ Remove stale repo locks (run before a prune, and whenever the checks report them) | Mac (admin key) |
 | `make restic-prune` | ⚠ Quarterly: reclaim space from forgotten snapshots | Mac (admin key) |
 | `make restic-logs` | Tail container logs | Mac → SSH |
 
@@ -242,8 +243,13 @@ interval at 20 days and the slices at 24 a year.
 mid-run (a deploy recreating the container, a reboot) leaves its lock file in the repo for
 good, and a plain `restic check` wants an exclusive lock that any leftover lock refuses
 (`repo already locked by PID 188 … 4h43m ago`, 2026-11-15, two stale locks). `check` only
-reads and prune is a manual master-key job, so reading unlocked is safe. The stale locks
-are removed by `restic unlock` with the master key, together with the next prune.
+reads and prune is a manual master-key job, so reading unlocked is safe. Stale locks also
+block the nightly `restic forget` ("Forget failed" in the container log while the backup
+still exits 0), so retention silently stops until someone runs `make restic-unlock` (Mac,
+master key). Both checks therefore fail — `down` push, `FAIL: … stale repo lock` in the log —
+when a lock is older than 36 h. 2026-11-15: two stale locks (03:45 and 04:59), both from
+killed runs that day, blocked `forget`; the deploy guard (`_restic-idle` in the Makefile)
+exists so a deploy no longer kills a running backup.
 
 **Failures are visible** in the job log (`~/logs/restic-check.log`,
 `~/logs/restic-restore-check.log`, `FAIL:` lines carry the restic output) and as a `down`
