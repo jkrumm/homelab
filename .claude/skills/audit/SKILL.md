@@ -73,7 +73,7 @@ Check both watchdogs.
 ssh homelab "docker logs homelab-watchdog-logs --tail=50 2>&1"
 ```
 
-Infer the escalation level from the most recent `Uptime Kuma heartbeat sent (state=X)` line. Detect `manual_intervention_required` if the phrase appears.
+Infer the escalation level from the `state=` value on the most recent `Uptime Kuma heartbeat sent (status=X, state=Y)` line. Detect `manual_intervention_required` if the phrase appears.
 
 **Private stack watchdog** — dynamically find the watchdog log container in homelab-private:
 
