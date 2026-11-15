@@ -556,12 +556,14 @@ Then `op run --env-file=.env.tpl -- docker compose up -d`.
 
 `restic-backup` (`mazzolino/restic`) runs daily at 03:30 local and pushes
 content-addressed encrypted snapshots of `/sources/*` to Backblaze B2. Full design
-(sources, retention, two-key model, restore drill): **`docs/backups.md`**.
+(sources, retention, two-key model, verification schedules, restore drill): **`docs/backups.md`**.
 
 ```bash
 make restic-snapshots   # list snapshots in B2
 make restic-stats       # repo size + dedup stats
-make restic-check       # metadata integrity (no data download)
+make restic-check       # weekly structure check now (restic check --no-lock)
+make restic-check-subset # this half-month's read-back slice (1/24 of the pack data)
+make restic-drill       # restore drill: sample from the newest B2 snapshot, sha256 vs live
 make restic-run         # trigger an unscheduled backup
 make restic-logs        # follow container logs
 make restic-prune       # quarterly, from your Mac, uses the master B2 key

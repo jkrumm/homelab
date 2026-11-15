@@ -1,9 +1,9 @@
 # Backups (Restic → Backblaze B2)
 
 **Repo:** `s3:https://s3.eu-central-003.backblazeb2.com/jkrumm/backups/homelab/restic`
-**Schedule:** Daily 03:30 (container cron, `BACKUP_CRON` env)
+**Schedules:** backup daily 03:30 (container cron, `BACKUP_CRON`); integrity check weekly; read-back check and restore drill twice a month — the three verification jobs are under "Verification" below
 **Retention (forget, automated):** `keep-daily 14, keep-weekly 8, keep-monthly 12, keep-yearly 5`
-**Container:** `mazzolino/restic` — see `restic-backup` service in `docker-compose.yml`
+**Container:** `mazzolino/restic`, pinned by digest (restic 0.19.1, built 2026-07-07) — see `restic-backup` service in `docker-compose.yml`. Watchtower skips it (`watchtower.enable: false`); bump the digest by hand after a check and a drill pass on the new image.
 **Excludes:** `restic-excludes.txt` at repo root
 
 > ⚠ **Editing the excludes file requires `make restic-deploy`.** It is bind-mounted as a
@@ -23,11 +23,14 @@
 | `/home/jkrumm/ssd/SSD/Videos` | `/sources/Videos` | |
 | `/home/jkrumm/ssd/SSD/Public` | `/sources/Public` | Ex-dufs public files (service retired 2026-10-19, data kept) |
 | `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
-| `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | 169 GiB Fuji RAW archive |
+| `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | 169 GiB, 6,320-file Fuji RAW archive (1,549 RAWs / 43 GiB left it on 2026-11-14 on purpose: culled in Shutterflow, removed by an owner session) |
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) + `weatherorb-accounts/` hourly VPS DB dumps (see "WeatherOrb account database" below) |
 | `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable). Live-DB caveat: see "Karakeep SQLite" below |
 | `/home/jkrumm/ssd/proton-bridge` | `/sources/ProtonBridge` | Proton Bridge vault + gpg keyring + pass store (gluon message cache excluded — re-synced; see `docs/proton-bridge.md`) |
+| `/home/jkrumm/backups` | `/sources/home-backups` | Age-encrypted 1Password vault exports (`1password/`, rsynced from the MacBook by the opbackup job, dotfiles `scripts/backup-1password.py`) — the recovery root for every other secret — plus `immich-pre-upgrade/` dumps. Before this mount they existed only on the HomeLab's internal SSD |
 | `/home/jkrumm/ssd/versitygw/iam` | `/sources/VersityGW-IAM` | VersityGW IAM dir: S3 users + policies (`docs/s3.md`). Object data is not here — it lives in the backed-up trees or is deliberately not backed up |
+
+**Excludes worth knowing:** `*.tmp` also drops `Bilder/HANDY 2/Camera/VID_20200726_133912.mp4.tmp` (1.27 GiB). It is not a video: `ffprobe` reports `moov atom not found` (a recording cut short, the `mdat` atom runs into junk), so it stays unrenamed and unbacked on purpose; the pattern is not loosened.
 
 **Skipped intentionally:** Immich raw Postgres data dir (`Bilder/immich/postgres` — excluded; a filesystem copy of a live PGDATA is not restorable, see "Immich database" below), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*` (empty since 2026-11-14), `/mnt/hdd/fuji/Videos`, `/mnt/hdd/Videos` (big personal videos, local mirror on the mini only), argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
 
@@ -168,7 +171,9 @@ proven to hold the file's sha256 (weatherorb ADR 0009). The earlier hourly ssh p
 | `make restic-run` | Trigger unscheduled backup now | Mac → SSH |
 | `make restic-snapshots` | List snapshots | Mac → SSH (container key) |
 | `make restic-stats` | Repo size + dedup ratio | Mac → SSH (container key) |
-| `make restic-check` | Verify metadata integrity | Mac → SSH (container key) |
+| `make restic-check` | Weekly structure check now, pings its Kuma monitor | Mac → SSH (container key) |
+| `make restic-check-subset` | This half-month's `--read-data-subset=N/24` read-back, pings its monitor | Mac → SSH (container key) |
+| `make restic-drill` | Restore drill from B2, pings its monitor | Mac → SSH (container key) |
 | `make restic-prune` | ⚠ Quarterly: reclaim space from forgotten snapshots | Mac (admin key) |
 | `make restic-logs` | Tail container logs | Mac → SSH |
 
@@ -205,9 +210,73 @@ ssh homelab "sha256sum /home/jkrumm/ssd/SSD/Dokumente/<path>"
 restic diff <older-id> <newer-id>
 ```
 
-**Validated 2026-05-04** with snapshot `49918079` (234 GiB / 82,274 files): three test files (text, JSON, SQLite binary) restored from B2 to Mac and SHA-256 matched the homelab originals exactly. `restic check` reported no errors. Restore of all 3 small files completed in <1 second.
+**Automated since 2026-11-15** by `scripts/restic-restore-check.sh` (see "Verification"); the manual drill below stays the laptop-side proof. **Validated by hand 2026-05-04** with snapshot `49918079` (234 GiB / 82,274 files): three test files (text, JSON, SQLite binary) restored from B2 to Mac and SHA-256 matched the homelab originals exactly. `restic check` reported no errors. Restore of all 3 small files completed in <1 second.
 
 `restic diff <id1> <id2>` and `restic ls <id> <path>` both work the same way — useful for finding when a file was deleted or modified.
+
+## Verification — the repository proves it can be read back
+
+The image runs one cron job per container, so the three verification jobs are in the
+`jkrumm` crontab on the HomeLab and reach restic through `docker exec restic-backup`
+(the container's append-only key reads B2). Each pushes to its own Kuma monitor
+(`Infrastructure` subgroup, push URL in `~/.config/uptime-kuma/<name>-push-url`, chmod 600):
+
+| Job | Schedule (server time) | What it does | Monitor |
+| - | - | - | - |
+| `scripts/restic-check.sh weekly` | Sunday 10:00 | `restic check --no-lock`: index, snapshots and trees; ~40 s | `Restic Check Weekly - Push`, 8 d |
+| `scripts/restic-check.sh subset` | 1st and 15th, 10:00 | the same plus `--read-data-subset=N/24` — N walks 1..24 over a year, so every pack is downloaded and hashed once a year (~16 GiB per run) | `Restic Read Check - Push`, 20 d |
+| `scripts/restic-restore-check.sh` | 1st and 15th, 12:00 | restore drill, below | `Restic Restore Drill - Push`, 20 d |
+
+```
+# crontab -e (jkrumm) — the repo documents these, setup.sh installs only the root watchdog
+0 10 * * 0    /home/jkrumm/homelab/scripts/restic-check.sh weekly >> /home/jkrumm/logs/restic-check.log 2>&1
+0 10 1,15 * * /home/jkrumm/homelab/scripts/restic-check.sh subset >> /home/jkrumm/logs/restic-check.log 2>&1
+0 12 1,15 * * /home/jkrumm/homelab/scripts/restic-restore-check.sh >> /home/jkrumm/logs/restic-restore-check.log 2>&1
+```
+
+Why twice a month and not monthly: Uptime Kuma caps a monitor interval at 24 days, so a
+monthly push monitor would sit PENDING for a week every month. Half-monthly runs keep the
+interval at 20 days and the slices at 24 a year.
+
+**`--no-lock` is deliberate.** The append-only key cannot delete, so a backup killed
+mid-run (a deploy recreating the container, a reboot) leaves its lock file in the repo for
+good, and a plain `restic check` wants an exclusive lock that any leftover lock refuses
+(`repo already locked by PID 188 … 4h43m ago`, 2026-11-15, two stale locks). `check` only
+reads and prune is a manual master-key job, so reading unlocked is safe. The stale locks
+are removed by `restic unlock` with the master key, together with the next prune.
+
+**Failures are visible** in the job log (`~/logs/restic-check.log`,
+`~/logs/restic-restore-check.log`, `FAIL:` lines carry the restic output) and as a `down`
+push with the reason in the monitor message; a job that does not run at all stops the
+heartbeat, and the monitor goes DOWN after its interval plus one retry.
+
+### Restore drill
+
+`scripts/restic-restore-check.sh` restores a sample of the newest `homelab` snapshot
+straight from B2 into a temp directory in the container, compares sha256 with the live
+files under `/sources`, removes the directory and pushes the status:
+
+- sample: 3 files per source (files up to 64 MiB, no glob characters in the name), picked
+  by a shuffle seeded with the date (`DRILL_SEED=<text>` replays a run);
+- plus the newest Immich database dump in the snapshot (`gzip -t` and the
+  `PostgreSQL database dump complete` trailer). No dump in the snapshot is a note, not a
+  failure, so the job survives the Immich retirement;
+- a live file changed after the snapshot or gone from the live tree is skipped and named;
+  any other difference, a missing restored file or fewer than 10 compared files exits
+  non-zero and pushes `down`;
+- `DRILL_TAMPER=1` flips a restored byte first: the proof that a mismatch is caught.
+
+### Prune — how to read when it is due
+
+Prune is manual with the master key (`make restic-prune`, from the Mac). Compare what the
+repository holds with what the newest snapshot alone needs:
+
+```bash
+make restic-stats                                              # repo raw-data (everything B2 holds)
+ssh homelab docker exec restic-backup restic stats --mode raw-data latest   # the newest snapshot's share
+```
+
+2026-11-15: repo 460.9 GiB raw-data against 365.0 GiB for the newest snapshot, a ratio of 1.26, and `restic check` reports "307 additional files … likely contain duplicate data". The rule: **prune when the repo is more than ~1.25× the newest snapshot**, i.e. a quarter of B2 is forgotten data. It is due now. The date of the last prune is not recorded anywhere; the owner records it here after the next run (`Last prune: <date>`).
 
 ## Heartbeat monitoring
 

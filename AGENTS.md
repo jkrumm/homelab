@@ -283,6 +283,7 @@ emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
 ```
 /home/jkrumm/
 ├── homelab/              # This repository
+├── backups/              # age-encrypted 1Password exports (1password/) + immich-pre-upgrade dumps — restic source home-backups
 ├── ssd/
 │   ├── SSD/
 │   │   ├── Bilder/       # Photos (incl. Immich subfolder; ImageShare/ + B2-Mirror/ are
@@ -312,7 +313,11 @@ emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
 ## Backups
 
 Restic → Backblaze B2, daily 03:30, two-key ransomware-safe pattern, Mac-side restore
-drill. Full design + operations + restore commands: **`docs/backups.md`**. Also pulled
+drill. The image is digest-pinned; a weekly `restic check`, a half-monthly read-back
+(`--read-data-subset=N/24`) and a half-monthly restore drill from B2 run from the jkrumm
+crontab, each with a Kuma push monitor. `make deploy`/`up`/`restart` refuse while a restic
+process runs in the container (`FORCE=1` overrides): a recreate kills a running backup.
+Full design + operations + restore commands: **`docs/backups.md`**. Also pulled
 hourly from the VPS (jkrumm crontab, :25): the WeatherOrb account DB dumps,
 `scripts/weatherorb-accounts-pull.sh`. The WeatherOrb archive is pushed by the Mac mini
 to the `weatherorb-archive` bucket, i.e. `/mnt/hdd/weatherorb-archive` (outside restic —
@@ -338,7 +343,7 @@ homelab/
 │   ├── glance.yml           # Glance dashboard config (single-file :ro mount: `make restart svc=glance` after editing)
 │   └── hwaccel.{ml,transcoding}.yml  # Immich GPU acceleration stubs (not active)
 ├── docs/                    # Detailed documentation
-│   ├── backups.md           # Restic design + restore drill
+│   ├── backups.md           # Restic design, verification schedules, restore drill
 │   ├── s3.md                # VersityGW S3 gateway — bucket map, IAM users, client setup
 │   ├── proton-bridge.md     # Proton Bridge image decision, login steps, restore
 │   ├── decisions.md         # Durable rationale (build-cache, push monitors, Tailscale/Caddy)
