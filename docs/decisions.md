@@ -357,3 +357,33 @@ B2 listing needs the masters key, which the mini's secrets cache does not hold (
 so nothing in those two directories was touched. `docs/backups.md` tracks the state. The `.env.tpl` refs
 `homelab/immich/API_KEY` and `homelab/postgres/PASSWORD` are unused now; their 1Password items can go.
 Rollback of the service is the final dump plus the pinned image digest in its README.
+
+## The box's CPU budget is written, not enforced per container (2026-11-15, Issue 1464)
+
+Trigger: load 22.8, CPU PSI `some` avg300 81%, Kuma unable to answer a socket.io login in 60 s
+(12:37 UTC). `sar -q` shows load 22-29 from 09:00 to 12:30 and 0.22 at 13:00: the saturation was
+WeatherOrb V1 (WIS2 subscriber ~1 core, locationforecast, the corpus tar-over-ssh stream through
+`tailscaled`), stopped for the V2 rewrite; Issues 1404 and 1405 were cancelled with it. Nothing
+homelab-owned was among the top consumers once it stopped.
+
+Measured after the stop (13:00-13:11 UTC): `sar -u` 29% user + 9% system over the first
+minutes, then `top` 80% idle; `pidstat -u 60`: smbd 12.5%, Kuma 8.6%, tailscaled 4.8%,
+cloudflared 1%, ntfy 0.3% of one core; `docker stats` no container above 11%. Load 0.49 /
+1.25 / 6.74, PSI `some` avg10 0.3-0.8%, avg300 falling 2.9 -> 2.3 (the tail of the saturated
+window). Per-cgroup `cpu.stat` since boot: Kuma 9500 s of 102000 s total in `system.slice`
+(the next is Karakeep 2370 s); `restic-backup` 1385 s with 2807 throttled periods, i.e. the
+Issue 1396 quota is doing its job. Window is 11 minutes, not the hour the Issue asks for: the
+24 h acceptance (PSI avg300 < 40%, load < 6, no timeout DOWN on a homelab-hosted push monitor)
+is counted from the AGENTS.md budget going live.
+
+Decision per the owner's re-scope (PSI under 40%, no starving consumer): ship the budget in
+`AGENTS.md` -> *CPU budget* (core reserve 1 core, guests <= 1.5 cores total / 1 each / 3
+workers, how a guest declares it) and add no new enforcement. The existing levers already cover
+the batch classes: `user.slice` weight 20 (SSH jobs), `lowprio` builder (builds), `restic-backup`
+`cpu_shares: 20` + `cpus: 1`. A guest container is limited by its own repo's compose file; there
+is no guest slice because nothing deploys here to use one. Not covered by any limit, on purpose:
+`tailscaled` carrying bulk SSH data and dm-crypt kworkers (above). Rollback: none; documentation
+only.
+
+`make verify` at 13:12 UTC listed `MacMini Drift - Push` DOWN, a Mac mini job, not homelab-hosted
+and not CPU-related; left to its owner.
