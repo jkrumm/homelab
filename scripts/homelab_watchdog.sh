@@ -52,6 +52,16 @@ readonly HDD_REOPEN_STAMP="${STATE_DIR}/hdd_reopen_attempted"
 readonly HDD_REOPEN_COOLDOWN=3600
 # Set when e2fsck -p refuses; blocks every automatic mount/reopen until a human clears it
 readonly HDD_FSCK_MARKER="${STATE_DIR}/hdd_fsck_needs_human"
+# CPU package temperature, with hysteresis (Beszel's alert has none and paged on every 0.5 °C
+# move around 90). One sample per run; the mean of the last THERMAL_SAMPLES (30 min at the
+# 10-min cron) raises one alert at >= THERMAL_HOT_MC and one recovery at < THERMAL_CLEAR_MC.
+# Millidegrees, as the kernel reports them. The N100 throttles near 94 °C, so a mean of 90 is "pinned".
+readonly THERMAL_HWMON_ROOT="${WATCHDOG_HWMON_ROOT:-/sys/class/hwmon}"  # override: tests only
+readonly THERMAL_SAMPLES_FILE="${STATE_DIR}/thermal_samples"
+readonly THERMAL_ALARM_FILE="${STATE_DIR}/thermal_alarm"
+readonly THERMAL_SAMPLES=3
+readonly THERMAL_HOT_MC=90000
+readonly THERMAL_CLEAR_MC=85000
 
 # --------------------------------------------------
 # Runtime setup - first thing in main, so sourcing this file has no side effects
@@ -1030,6 +1040,46 @@ force_docker_cleanup() {
     fi
 }
 
+# CPU package temperature in millidegrees (the coretemp hwmon's `Package id 0`), empty if unreadable
+read_package_temp() {
+    local dir
+    for dir in "$THERMAL_HWMON_ROOT"/hwmon*; do
+        [[ "$(cat "$dir/name" 2>/dev/null)" == "coretemp" ]] || continue
+        cat "$dir/temp1_input" 2>/dev/null || true
+        return 0
+    done
+}
+
+# Hysteresis alert on the mean of the last THERMAL_SAMPLES readings: one notification when it
+# reaches THERMAL_HOT_MC, one when it is back under THERMAL_CLEAR_MC, nothing in between.
+# Never fails the run: a missing sensor or a short window just does nothing.
+check_thermal() {
+    local temp
+    temp="$(read_package_temp)"
+    [[ "$temp" =~ ^[0-9]+$ ]] || return 0
+
+    local samples
+    samples="$( { cat "$THERMAL_SAMPLES_FILE" 2>/dev/null || true; echo "$temp"; } | tail -n "$THERMAL_SAMPLES")"
+    printf '%s\n' "$samples" > "$THERMAL_SAMPLES_FILE"
+
+    local count
+    count="$(wc -l <<<"$samples")"
+    ((count >= THERMAL_SAMPLES)) || return 0  # a fresh boot or state dir: wait for a full window
+
+    local sum=0 s
+    while read -r s; do sum=$((sum + s)); done <<<"$samples"
+    local mean=$((sum / count))
+
+    if [[ ! -f "$THERMAL_ALARM_FILE" ]] && ((mean >= THERMAL_HOT_MC)); then
+        touch "$THERMAL_ALARM_FILE"
+        notify "🌡️ HomeLab CPU hot" "package averaged $((mean / 1000)) °C over $((count * 10)) min (alert at $((THERMAL_HOT_MC / 1000)), clears below $((THERMAL_CLEAR_MC / 1000)))"
+    elif [[ -f "$THERMAL_ALARM_FILE" ]] && ((mean < THERMAL_CLEAR_MC)); then
+        rm -f "$THERMAL_ALARM_FILE"
+        notify "🌡️ HomeLab CPU cool again" "package averaged $((mean / 1000)) °C over $((count * 10)) min"
+    fi
+    return 0
+}
+
 check_reboot_limits() {
     local today
     today=$(date +%Y-%m-%d)
@@ -1633,6 +1683,9 @@ main() {
         log "ERROR: jq not found - install it (apt-get install jq); the watchdog installs nothing itself"
         exit 1
     fi
+
+    # Before any early return below, so every path flushes what it queues
+    check_thermal
 
     # A reopen killed between stopping and starting Docker (SIGKILL, OOM) leaves it down,
     # and no later step restarts it while the HDD is absent. The flock rules out a reopen

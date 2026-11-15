@@ -113,6 +113,8 @@ that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy
   stack, ~0.3 core per 0.5 MB/s. Move files over S3 (`docs/s3.md`) or SMB.
 - Beszel CPU and load alerts go to the `watchdog` topic (priority 2), so a batch job pages no one;
   a service going down still pages through Kuma.
+- CPU temperature is the watchdog's alert (`check_thermal`: 30-min mean, hot at 90 °C, clear below 85 °C),
+  not a Beszel alert; `make beszel-alerts` deletes a Temperature row added in the hub UI.
 
 ---
 

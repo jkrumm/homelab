@@ -237,12 +237,14 @@ uk-export: ## Export current Uptime Kuma monitors to YAML
 # The setup.sh cron replay is plain bash: it extracts the watchdog-cron block and
 # replays six seeded crontabs against a stubbed `crontab`.
 # tests/test_watchdog_decisions.sh covers the watchdog's alert decisions.
-test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard + watchdog decisions) — no network, no server
+# tests/test_watchdog_thermal.sh covers the CPU temperature alert hysteresis.
+test: ## Run the local regression suite (uptime-kuma sync guard + setup.sh cron replay + pipefail-head guard + ntfy topic guard + watchdog decisions + thermal hysteresis) — no network, no server
 	uv run tests/test_uptime_kuma_sync_guard.py
 	bash tests/test_setup_cron_replay.sh
 	bash tests/test_pipefail_head.sh
 	bash tests/test_ntfy_topics.sh
 	bash tests/test_watchdog_decisions.sh
+	bash tests/test_watchdog_thermal.sh
 
 # ── ntfy ─────────────────────────────────────────────────────────────────────
 # Subscribes the owner's ntfy account to config/ntfy/topics.txt (ntfy-mac follows the

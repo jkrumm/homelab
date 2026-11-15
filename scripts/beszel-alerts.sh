@@ -5,10 +5,13 @@
 # notification title is built by the hub ("<system> CPU above threshold"). A static
 # `?title=Beszel` on the URL is appended first and wins, which is what made every alert read
 # "Beszel" with no host (2026-11-14). So:
-#   * the owner's user pages `alerts` with a title-less URL (temperature, status, memory, disk),
+#   * the owner's user pages `alerts` with a title-less URL (status, memory, disk),
 #   * a second admin user (non-admins may not reach the tailnet ntfy) owns the CPU and load
 #     alerts and posts them to `watchdog` at priority 2 — a batch job is not an outage.
 # Re-run after adding a CPU/load alert in the Beszel UI: it moves such rows to the digest user.
+# Temperature is not a Beszel alert at all: the hub compares one running mean to one value, so a
+# package pinned at 90 C paged on every 0.5 C move (2026-11-15). The watchdog alerts with
+# hysteresis (check_thermal); this script deletes any Temperature row the UI re-adds.
 # Needs jq, curl, docker and `op` (service account) or NTFY_TOKEN in the environment.
 set -euo pipefail
 
@@ -90,6 +93,13 @@ jq -c --argjson names "$DIGEST_ALERTS" \
     fi
     api DELETE "alerts/records/$(jq -r .id <<<"$row")" >/dev/null
     echo "moved $name on $sys to the digest user"
+  done
+
+# Temperature rows (any user): the watchdog owns that alert.
+api GET "alerts/records?perPage=500&filter=$(by name Temperature)" | jq -r '.items[] | "\(.id) \(.system)"' |
+  while read -r id sys; do
+    api DELETE "alerts/records/$id" >/dev/null
+    echo "deleted Temperature alert on $sys (the watchdog alerts with hysteresis)"
   done
 
 echo "beszel alerts: owner -> alerts, digest (CPU/load) -> watchdog"
