@@ -17,7 +17,10 @@ install -D -m 644 "$REPO/config/systemd/$UNIT" "/etc/systemd/system/$UNIT"
 systemctl daemon-reload
 systemctl enable "$UNIT"
 systemctl restart "$UNIT"
-echo "package power limit: long $(cat "$LIMITS/constraint_0_power_limit_uw") uW, short $(cat "$LIMITS/constraint_1_power_limit_uw") uW"
+# A host without RAPL: the unit is condition-skipped, nothing to report.
+if [ -r "$LIMITS/constraint_0_power_limit_uw" ]; then
+  echo "package power limit: long $(cat "$LIMITS/constraint_0_power_limit_uw") uW, short $(cat "$LIMITS/constraint_1_power_limit_uw") uW"
+fi
 
 UU=/etc/apt/apt.conf.d/50unattended-upgrades-local
 if [ -f "$UU" ] && grep -q 'Automatic-Reboot-Time "04:00"' "$UU"; then
