@@ -17,7 +17,7 @@
 
 | Path | Mounts as | Note |
 | - | - | - |
-| `/home/jkrumm/ssd/SSD/Bilder` | `/sources/Bilder` | All photos incl. Immich subfolder — originals + Immich's nightly DB dumps (see below) |
+| `/home/jkrumm/ssd/SSD/Bilder` | `/sources/Bilder` | Photo originals (Shutterflow owns the library and its B2 sync) |
 | `/home/jkrumm/ssd/SSD/Dokumente` | `/sources/Dokumente` | Documents, tax, studies; `Obsidian/` is an empty folder, not a sync target |
 | `/home/jkrumm/ssd/SSD/Bücher` | `/sources/Buecher` | |
 | `/home/jkrumm/ssd/SSD/Videos` | `/sources/Videos` | |
@@ -27,12 +27,12 @@
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) + `weatherorb-accounts/` hourly VPS DB dumps (see "WeatherOrb account database" below) |
 | `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable). Live-DB caveat: see "Karakeep SQLite" below |
 | `/home/jkrumm/ssd/proton-bridge` | `/sources/ProtonBridge` | Proton Bridge vault + gpg keyring + pass store (gluon message cache excluded — re-synced; see `docs/proton-bridge.md`) |
-| `/home/jkrumm/backups` | `/sources/home-backups` | Age-encrypted 1Password vault exports (`1password/`, rsynced from the MacBook by the opbackup job, dotfiles `scripts/backup-1password.py`) — the recovery root for every other secret — plus `immich-pre-upgrade/` dumps. Before this mount they existed only on the HomeLab's internal SSD |
+| `/home/jkrumm/backups` | `/sources/home-backups` | Age-encrypted 1Password vault exports (`1password/`, rsynced from the MacBook by the opbackup job, dotfiles `scripts/backup-1password.py`) — the recovery root for every other secret. Before this mount they existed only on the HomeLab's internal SSD |
 | `/home/jkrumm/ssd/versitygw/iam` | `/sources/VersityGW-IAM` | VersityGW IAM dir: S3 users + policies (`docs/s3.md`). Object data is not here — it lives in the backed-up trees or is deliberately not backed up |
 
 **Excludes worth knowing:** `*.tmp` also drops `Bilder/HANDY 2/Camera/VID_20200726_133912.mp4.tmp` (1.27 GiB). It is not a video: `ffprobe` reports `moov atom not found` (a recording cut short, the `mdat` atom runs into junk), so it stays unrenamed and unbacked on purpose; the pattern is not loosened.
 
-**Skipped intentionally:** Immich raw Postgres data dir (`Bilder/immich/postgres` — excluded; a filesystem copy of a live PGDATA is not restorable, see "Immich database" below), UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*` (empty since 2026-11-14), `/mnt/hdd/fuji/Videos`, `/mnt/hdd/Videos` (big personal videos, local mirror on the mini only), argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
+**Skipped intentionally:** UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*` (empty since 2026-11-14), `/mnt/hdd/fuji/Videos`, `/mnt/hdd/Videos` (big personal videos, local mirror on the mini only), argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
 
 ## Karakeep SQLite — accepted risk
 
@@ -44,35 +44,21 @@ set** (`db.db`, `db.db-wal`), never the main file alone. Residual risk: a copy t
 mid-checkpoint can be inconsistent; SQLite then reports corruption on open and the
 previous day's snapshot is the fallback. Accepted, no pre-backup dump (not built).
 
-## Immich database — how it's actually backed up
+## Immich (retired 2026-11-15)
 
-The Immich DB is **not** covered by copying its data directory (that dir is excluded).
-It is covered by **Immich's built-in automatic database backup**, which is enabled by
-default and needs no cron of ours:
+Immich is gone; the owner is fully on Shutterflow. One final `pg_dump` is kept at
+`/mnt/hdd/backups/immich-final/immich-db-final-<ts>-v3.3.5-pg14.sql.gz` with a `README`
+beside it (Immich v3.3.5, the pinned VectorChord Postgres 14 image, restore recipe). It sits
+inside the restic source `/mnt/hdd/backups` (`/sources/hermes-backup`), so it goes offsite
+with the nightly run, and the restore drill still gzip-tests it from the snapshot. Restic
+excludes nothing Immich-specific any more. The uploaded original moved to
+`Bilder/Anderes/Immich-Upload/`.
 
-- Immich runs `pg_dump` nightly at 02:00 and writes
-  `immich-db-backup-<ts>-v<immich>-pg<ver>.sql.gz` to `upload/backups/`.
-- Retention: last 14 dumps (Administration → Settings → Backup).
-- That path sits inside the restic-backed `Bilder` tree and is deliberately **not**
-  excluded → every dump goes offsite to B2 with the nightly 03:30 restic run.
-- **Immich pushes nothing**, so `scripts/immich-backup-check.sh` (jkrumm crontab,
-  04:00) proves the newest dump is <26h old, gzip-valid and carries pg_dump's
-  "dump complete" trailer, then pings `Immich Backup - Push` (id=228). Push URL
-  in `~/.config/uptime-kuma/immich-backup-push-url` (chmod 600) — the plain-file
-  convention, never `.env.tpl`.
-
-**Why this matters:** the photo originals are recoverable on their own, but the DB is
-what holds albums, folder structure, sharing/partner permissions, people/face names,
-favorites and metadata edits — none of which can be reconstructed from the image files.
-The dumps are the only thing protecting that.
-
-**Restore / rollback.** Immich downgrades are unsupported and schema migrations are
-irreversible, so reverting a version means restoring a dump, not re-pinning an image:
-either Administration → Maintenance → Restore database backup (v3+, creates a restore
-point first), or the CLI path — stop the stack, wipe `Bilder/immich/postgres`, bring up
-a clean stack on the dump's Immich version, then pipe the dump into `psql`. The dump
-filename records the Immich + Postgres version it came from. Restoring needs the
-VectorChord-enabled Postgres image (the one pinned in `docker-compose.yml`).
+**Stale photo copies (`Bilder/Fuji`, `Bilder/Staging`).** Both are the pre-Shutterflow copy of the
+finals (Shutterflow's B2 masters prefix is their home, `docs/storage.md` in dotfiles). They are
+deleted only per file, after sha256 (the migration's recorded value) and B2's own sha1 both match an
+object under `shutterflow/prod/masters/`. Until then they stay on disk and in restic. State
+2026-11-15: both untouched, the match is waiting for read access to the masters key.
 
 ## WeatherOrb account database — pulled from the VPS
 
@@ -264,9 +250,9 @@ files under `/sources`, removes the directory and pushes the status:
 
 - sample: 3 files per source (files up to 64 MiB, no glob characters in the name), picked
   by a shuffle seeded with the date (`DRILL_SEED=<text>` replays a run);
-- plus the newest Immich database dump in the snapshot (`gzip -t` and the
-  `PostgreSQL database dump complete` trailer). No dump in the snapshot is a note, not a
-  failure, so the job survives the Immich retirement;
+- plus the final Immich database dump in the snapshot (`DUMP_GLOB`, default
+  `immich-db-final-*.sql.gz`: `gzip -t` and the `PostgreSQL database dump complete`
+  trailer). No dump in the snapshot is a note, not a failure;
 - a live file changed after the snapshot or gone from the live tree is skipped and named;
   any other difference, a missing restored file or fewer than 10 compared files exits
   non-zero and pushes `down`;

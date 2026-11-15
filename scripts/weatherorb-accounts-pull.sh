@@ -20,7 +20,7 @@
 # this side keeps KEEP_DAYS.
 #
 # Plain user cron, no `op run`. Push URL from a chmod-600 file, same convention
-# as immich-backup-check.sh — never .env.tpl. Missing file = warning, no ping.
+# as the other cron heartbeats — never .env.tpl. Missing file = warning, no ping.
 # Restore drill: scripts/weatherorb-accounts-restore-check.sh.
 #
 #   crontab (jkrumm):  25 * * * * /home/jkrumm/homelab/scripts/weatherorb-accounts-pull.sh >> /home/jkrumm/logs/weatherorb-accounts-pull.log 2>&1

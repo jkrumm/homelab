@@ -1,3 +1,0 @@
-# Stub — OpenVINO ML acceleration not used on this server
-services:
-  openvino: {}

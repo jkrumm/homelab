@@ -218,8 +218,7 @@ groups:
 
           # WeatherOrb account DB (passkeys, sessions, favourites — lives on the VPS,
           # weatherorb ADR 0013). A backup heartbeat of the homelab's HDD/restic
-          # path, so it sits beside Restic Backup - Push, not under Immich (it was
-          # filed there by mistake and paged Immich's group on every flap).
+          # path, so it sits beside Restic Backup - Push.
           # scripts/weatherorb-accounts-pull.sh (jkrumm crontab, hourly :25, after the
           # VPS pg_dump at :15) rsyncs the dumps home over Tailscale SSH, proves the
           # newest is <2h old and `pg_restore --list`-clean, and pings status=up; the
@@ -277,75 +276,6 @@ groups:
             url: http://versitygw:7070/_/health
             interval: 187
             maxretries: 8 # rides out a planned redeploy, see Dozzle - HTTP
-
-      # --- Immich subgroup ---
-      - name: Immich
-        type: group
-        interval: 220
-        monitors:
-          - name: Immich Server - Docker
-            type: docker
-            docker_container: immich_server
-            interval: 165
-            timeout: 120
-            maxretries: 5
-
-          - name: Immich ML - Docker
-            type: docker
-            docker_container: immich_machine_learning
-            interval: 170
-            timeout: 120
-            maxretries: 5
-
-          - name: Immich Redis - Docker
-            type: docker
-            docker_container: immich_redis
-            interval: 175
-            timeout: 120
-            maxretries: 5
-
-          - name: Immich Postgres - Docker
-            type: docker
-            docker_container: immich_postgres
-            interval: 180
-            timeout: 120
-            maxretries: 5
-
-          - name: Immich - HTTP
-            type: http
-            url: https://immich.jkrumm.com/api/server/ping
-            interval: 185
-            cloudflare_bypass: true
-            accepted_statuscodes: ['200-299']
-
-          - name: Immich - Uptime
-            type: http
-            url: https://uptime.betterstack.com/api/v2/monitors/3069484
-            interval: 140
-            timeout: 120
-            maxretries: 5
-            headers:
-              Authorization: 'Bearer ${BETTERSTACK_API_KEY}'
-
-          # Immich's built-in nightly pg_dump (02:00, Administration → Settings →
-          # Backup) is the ONLY copy of albums, people, sharing and metadata edits
-          # (see AGENTS.md "Immich database"). Immich itself pushes nothing, so
-          # scripts/immich-backup-check.sh (jkrumm crontab, daily 04:00) verifies
-          # the newest dump is <26h old, gzip-valid and carries pg_dump's "dump
-          # complete" trailer, and pings this only then. DOWN = last night's dump
-          # is missing or truncated, i.e. the DB is unprotected since the last good
-          # one — restic still ships whatever is there.
-          #
-          # interval 25h + maxretries 1, same sizing as Restic Backup - Push.
-          # Push URL on the homelab server at ~/.config/uptime-kuma/immich-backup-push-url
-          # (chmod 600) — a plain file, not .env.tpl, so no op:// ordering trap and no
-          # `op run` dependency for a cron that only reads a directory listing.
-          - name: Immich Backup - Push
-            type: push
-            interval: 90000
-            timeout: 48
-            retry_interval: 3600
-            maxretries: 1
 
       # --- ntfy subgroup (push notifications, Tailscale-only) ---
       - name: ntfy

@@ -311,3 +311,27 @@ clean `systemd-reboot` at 04:00:25 (previous reboots: 13 Nov, 16 Oct and 10 Oct,
 `setup.sh` says 05:30 since `cff58a2` ("de-collide 04:00"), but the host's
 `/etc/apt/apt.conf.d/50unattended-upgrades-local` (written 2026-02-07) still says `04:00` because
 `setup.sh` was not re-run: the reboot lands on the 04:00 `immich-backup-check` cron.
+
+## Immich retired (2026-11-15, Issue 1201)
+
+The owner is fully on Shutterflow, which owns the photo library and its B2 sync, so Immich (four
+containers, a 2.7 GB model cache, 1.1 GiB of thumbnails, a nightly dump check, 21 monitor lines)
+had no job left. It held 3,314 external assets from the read-only `Bilder/Fuji` copy plus one
+upload; the metadata that ended with it: 2 albums, 2 shared links, 100 unnamed face clusters,
+5 memories, 9 tags, no favourites.
+
+Kept: one final `pg_dump` plus README under `/mnt/hdd/backups/immich-final/` (restic source
+`hermes-backup`; the restore drill gzip-tests it from the snapshot) and the one uploaded original in
+`Bilder/Anderes/Immich-Upload/`. Gone: the containers, images, `model-cache` volume, `immich`
+network, Caddy route (DNS is the `*.jkrumm.com` wildcard), Glance widget, `make immich-upgrade`, the
+Kuma group and its Better Stack twin, the dump-check cron and push-URL file, the `**/immich/**`
+restic excludes, `Bilder/immich` and the three older dumps. VersityGW stays: it serves Shutterflow's
+RAW backup, WeatherOrb's archive and the agents, none of it Immich.
+
+The stale `Bilder/Fuji` (3,535 files) and `Bilder/Staging` (951) copies are deleted only where
+Shutterflow's B2 masters prefix provably holds the same bytes (the migration's recorded sha256 plus
+B2's own sha1, matched by content). The local sha256/sha1 manifest of all 4,486 files exists; the
+B2 listing needs the masters key, which the mini's secrets cache does not hold (reseal request open),
+so nothing in those two directories was touched. `docs/backups.md` tracks the state. The `.env.tpl` refs
+`homelab/immich/API_KEY` and `homelab/postgres/PASSWORD` are unused now; their 1Password items can go.
+Rollback of the service is the final dump plus the pinned image digest in its README.

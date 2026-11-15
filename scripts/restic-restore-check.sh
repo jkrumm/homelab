@@ -16,7 +16,8 @@
 #      skipped and named; any other difference fails the run.
 #   5. the newest DUMP_GLOB database dump in the snapshot is restored too: `gzip -t`
 #      and pg_dump's "dump complete" trailer. No such dump in the snapshot is a note,
-#      not a failure (the Immich stack is being retired).
+#      not a failure. Default: the final Immich dump kept after the
+#      retirement (/mnt/hdd/backups/immich-final).
 #   6. the temp dir is removed, status pushed: up only if every check passed and at
 #      least MIN_VERIFIED files were compared.
 #
@@ -33,7 +34,7 @@ SAMPLE_PER_SOURCE="${SAMPLE_PER_SOURCE:-3}"
 MAX_FILE_MIB="${MAX_FILE_MIB:-64}"
 MIN_VERIFIED="${MIN_VERIFIED:-10}"
 DRILL_SEED="${DRILL_SEED:-$(date +%Y-%m-%d)}"
-DUMP_GLOB="${DUMP_GLOB:-immich-db-backup-*.sql.gz}"
+DUMP_GLOB="${DUMP_GLOB:-immich-db-final-*.sql.gz}"
 PUSH_FILE="${HOME}/.config/uptime-kuma/restic-restore-drill-push-url"
 
 log() { echo "$(date -Iseconds) restic-restore-check $*"; }

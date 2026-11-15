@@ -15,7 +15,7 @@
 # so reading unlocked is safe.
 #
 # Push URLs: chmod-600 plain files, never .env.tpl (same convention as
-# immich-backup-check.sh):
+# the other cron heartbeats):
 #   ~/.config/uptime-kuma/restic-check-weekly-push-url
 #   ~/.config/uptime-kuma/restic-check-subset-push-url
 #

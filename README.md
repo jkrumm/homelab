@@ -28,7 +28,6 @@ a fresh server up from scratch.
 12. [Setup UptimeKuma](#setup-uptimekuma)
 13. [Setup Restic Backup](#setup-restic-backup)
 14. [Setup HomeLab self-healing watchdog](#setup-homelab-self-healing-watchdog)
-15. [Setup Immich](#setup-immich)
 
 ---
 
@@ -39,7 +38,7 @@ a fresh server up from scratch.
 │                        HomeLab (Ubuntu 24.04)                        │
 │  Public:   Internet → Cloudflare CDN → CF Tunnel → caddy:80 → app    │
 │  Private:  Tailscale device → caddy:443 (HTTPS, Let's Encrypt) → app │
-│  25 containers · Storage: internal SSD + encrypted external HDD      │
+│  21 containers · Storage: internal SSD + encrypted external HDD      │
 │  Watchdog: self-healing monitor (root cron, every 10 min)            │
 ├──────────────────────────────────────────────────────────────────────┤
 │                   VPS (Hetzner ARM64, Ubuntu 22.04)                  │
@@ -60,7 +59,6 @@ a fresh server up from scratch.
 | Service     | URL                                                | Purpose            |
 | ----------- | --------------------------------------------------- | ------------------- |
 | Glance      | [glance.jkrumm.com](https://glance.jkrumm.com)       | Home dashboard      |
-| Immich      | [immich.jkrumm.com](https://immich.jkrumm.com)       | Photo management    |
 | UptimeKuma  | [uptime.jkrumm.com](https://uptime.jkrumm.com)       | Status page         |
 
 #### HomeLab — Private (Tailscale devices only, via Caddy HTTPS `:443`)
@@ -82,7 +80,7 @@ challenge). Full network topology and the Caddy dual-http/https detail:
 #### HomeLab — Internal (no direct web access)
 
 Caddy, Cloudflared, three docker-socket-proxy variants (monitoring / Watchtower / argo; Argo now queries it from the Mac mini),
-Watchtower, Samba, Beszel Agent, Immich ML/Postgres/Redis, Restic Backup (daily 03:30
+Watchtower, Samba, Beszel Agent, Restic Backup (daily 03:30
 cron), watchdog log sidecars. See `AGENTS.md` → Repository Structure for the full
 compose service list.
 
@@ -657,45 +655,3 @@ tail -f /var/log/homelab_watchdog.log                      # follow logs
 ```
 
 Failure scenarios, escalation states, and recovery design: **`docs/watchdog-behaviors.md`**.
-
-## Setup Immich
-
-[Immich](https://immich.app/) is a self-hosted photo and video backup solution.
-
-### Directory Structure
-
-```bash
-mkdir -p /home/jkrumm/ssd/SSD/Bilder/immich/{upload,postgres}
-sudo chown -R 1000:1000 /home/jkrumm/ssd/SSD/Bilder/immich
-sudo chmod -R 755 /home/jkrumm/ssd/SSD/Bilder/immich
-```
-
-### Hardware Acceleration
-
-**Not active** on this server. `config/hwaccel.ml.yml` and `config/hwaccel.transcoding.yml`
-are stubs — required by the `extends:` directives in `docker-compose.yml` but provide no
-device mounts. Immich runs CPU-mode inference and transcoding. To enable, replace the
-stubs with device config from the [official Immich hwaccel docs](https://immich.app/docs/features/ml-hardware-acceleration).
-
-### Initial Setup
-
-1. Ensure `POSTGRES_DB_PASSWORD` is set in 1Password (`homelab/postgres/PASSWORD`).
-2. **First-time or after a PostgreSQL major upgrade:** clear the data directory:
-   ```bash
-   sudo rm -rf /home/jkrumm/ssd/SSD/Bilder/immich/postgres/*
-   ```
-3. Start the services:
-   ```bash
-   op run --env-file=.env.tpl -- docker compose up -d immich-server immich-machine-learning immich_redis immich_postgres
-   ```
-4. Access at `https://immich.jkrumm.com`, create the admin account on first visit.
-
-### Configuration
-
-- **Machine Learning:** Administration → Machine Learning — verify the ML service is
-  connected, enable Smart Search / People Recognition as needed.
-- **External Library (read-only Fuji photos):** `/home/jkrumm/ssd/SSD/Bilder/Fuji` is
-  mounted read-only at `/mnt/media/fuji`. Administration → External Libraries → Create
-  Library, import path `/mnt/media/fuji` (container path, not host path), then Scan.
-  External-library photos carry a folder-icon badge and can't be modified from Immich.
-- **Restore / rollback / DB backup mechanics:** `docs/backups.md` → Immich database.

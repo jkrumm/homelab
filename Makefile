@@ -42,7 +42,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker buildx prune -f --builder default --max-used-space $(BUILD_CACHE_MAX) && { docker buildx prune -f --builder lowprio --max-used-space $(BUILD_CACHE_MAX) || true; } && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow immich-upgrade caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-check-subset restic-drill _restic-idle restic-run restic-unlock restic-prune restic-init _check-op-local test check verify version
+.PHONY: help deploy up restart down ps logs logs-follow caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-check-subset restic-drill _restic-idle restic-run restic-unlock restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -61,10 +61,6 @@ help: ## Show all targets
 	@echo "    make check               All local validation (compose config + YAML/shell lint + tests)"
 	@echo "    make verify              Probe production via the Uptime Kuma heartbeat API (exit 0 = every last beat UP)"
 	@echo "    make version             Print the commit sha the server checkout runs"
-	@echo ""
-	@echo "  Immich Stack (manually-managed — Watchtower-excluded)"
-	@echo "    make immich-upgrade      git pull + pull pinned images + recreate Immich stack"
-	@echo "                             (bump the image tags in docker-compose.yml first)"
 	@echo ""
 	@echo "  Proton Bridge (IMAP for hello@, Tailscale-only — docs/proton-bridge.md):"
 	@echo "    make proton-bridge-deploy   Full deploy: git pull + rebuild (no cache) + up"
@@ -135,7 +131,7 @@ logs-follow: ## Follow a service's logs live: make logs-follow svc=<name>
 # locally; the structure is still fully validated.
 check: test ## Run all local validation: compose config + YAML/shell lint + regression suite
 	docker compose config --no-interpolate --quiet
-	uv run --no-project --with pyyaml python3 -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" config/glance.yml config/hwaccel.ml.yml config/hwaccel.transcoding.yml config/cloudflared/config.yml uptime-kuma/monitors.yaml $(wildcard uptime-kuma/monitors.mini-door.generated.yaml)
+	uv run --no-project --with pyyaml python3 -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" config/glance.yml config/cloudflared/config.yml uptime-kuma/monitors.yaml $(wildcard uptime-kuma/monitors.mini-door.generated.yaml)
 	@for f in scripts/*.sh setup.sh tests/*.sh; do bash -n "$$f" || exit 1; done
 	shellcheck -S warning scripts/*.sh setup.sh tests/*.sh
 
@@ -164,17 +160,6 @@ verify: ## Probe production health via the Uptime Kuma heartbeat API (exit 0 = e
 # git pull there) — one line, read-only.
 version: ## Print the deployed commit sha (server checkout HEAD, one line)
 	@$(SSH) "$(CD) && git rev-parse HEAD"
-
-# ── Immich Stack (manually-managed, Watchtower-excluded) ─────────────────────
-# postgres/valkey are digest-pinned; `pull` honours new pins.
-# See .claude/skills/upgrade-stack for the full upgrade analysis workflow.
-
-# Image tags are explicitly pinned (e.g. immich-server:v3.3.5), so this pulls only what
-# docker-compose.yml names — bump both tags (server + ML) there first or it's a no-op.
-# Take a verified DB dump before major bumps: downgrades are unsupported and migrations
-# are irreversible. See AGENTS.md "Immich database" + /upgrade-stack immich.
-immich-upgrade: ## Upgrade Immich stack: git pull + pull pinned images + recreate (bump tags in docker-compose.yml first)
-	$(SSH) "$(CD) && git pull && $(DC) pull immich-server immich-machine-learning immich_redis immich_postgres && $(DC) up -d immich-server immich-machine-learning immich_redis immich_postgres"
 
 # ── Proton Bridge ────────────────────────────────────────────────────────────
 proton-bridge-deploy: ## Full deploy: git pull + rebuild proton-bridge (no cache) + up
