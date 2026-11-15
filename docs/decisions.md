@@ -247,3 +247,20 @@ Measure from inside `system.slice`, not from the mini or the VPS: both were them
 started in the SSH session sits in the starved cgroup (handshakes of 2-7 s). `IOWeight` is
 recorded but inert here: both disks run `mq-deadline`, and the weight needs BFQ or iocost; disk
 contention is still bounded only by the job count (`AGENTS.md` → Batch jobs).
+
+## The restic backup yields to the stack: `cpu_shares: 20` (2026-11-15, Issue 1330)
+
+Beszel "load above 3 per thread" (15.5 on 4 threads, 15 min). Two jobs held the box: a niced
+corpus `verify_cold.py` from an SSH session (already inside `user.slice`, weight 20, one process,
+within the Batch jobs rules) and the daily 03:30 `restic-backup` run (127-157% CPU for 17+ min
+against its usual 11 min, from `restic backup` hashing and chunking 382 GiB). Restic is a
+container, so it sits in `system.slice` at the same weight 100 as ntfy, Kuma and cloudflared:
+the `user.slice` weight never reached it. `sar -q` shows the same pattern on 2026-11-14 (load 13
+at the 02:40 UTC start, 23 at 03:10) and `ntfy /v1/health` took 1.0-2.7 s instead of 0.06 s.
+
+Fix: `cpu_shares: 20` on `restic-backup` (cgroup weight 6 against 39 for a default container,
+measured via `cpu.weight`; the same value as the `lowprio` builder). Under contention the stack
+wins; an idle host backs up at full speed. Applied live with `docker update --cpu-shares 20`
+(no restart, so the running backup survived); ntfy health fell to 0.24-1.3 s while both jobs
+still ran. Not fixed on purpose: the load *average* of a saturating batch job stays high and
+pages no one (`watchdog` topic). Rollback: remove the line, `make up`.
