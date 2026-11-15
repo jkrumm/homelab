@@ -277,3 +277,37 @@ subscriber (~1 core, 60% of it system time, filed as a signal for that repo). `c
 (the running check survived). A full backup now takes longer; nothing waits on it. Not fixed here:
 the subscriber and `tailscaled` (~1 core, `tx` 1.8 MB/s) still hold the box above 12 while they
 run. Rollback: remove the `cpus:` line, `make up`.
+
+## CPU temperature: a watchdog alert with hysteresis, not Beszel (2026-11-15, Issue 1383)
+
+Beszel's Temperature alert compares one running mean (15 min) to one value (90 °C) and notifies on
+every change of side. The package sat at 90 °C, so `alerts` heard "below 89.80", "above 90.33",
+"below 89.93", "above 90.47" within 15 hours. Beszel has no hysteresis, so the alert moved to
+`check_thermal` in `scripts/homelab_watchdog.sh` (root cron, every 10 min): one sample per run of
+the coretemp package, the mean of the last three (30 min), one notification at >= 90 °C and one
+at < 85 °C, nothing between; `tests/test_watchdog_thermal.sh` pins it. `make beszel-alerts` deletes
+any Temperature row the UI re-adds. Rollback: re-add the alert in the Beszel UI and drop the
+`check_thermal` call in `main`.
+
+Why the package sits at 90 °C (measured 09:40-09:50 UTC): `intel_pstate` runs the four N100 cores
+at **200 MHz** (below the 700 MHz minimum, 6% of the 3.4 GHz maximum) at 94-96 °C, with the kernel
+logging "Package temperature is above threshold, cpu clock is throttled" and 4.1 M package
+throttle events since boot; `coretemp` crit is 105 °C. `sar -u` over the morning: 0.5% idle, 55%
+user, 44% system. The box is saturated all day (load 17 average, PSI `cpu some` 90%), so it
+generates heat at the power limit (`intel-rapl` long term 20 W, short term 25 W, for a 6 W part)
+and the thermal control clamps the clock instead: every job's CPU time is inflated up to 17x,
+which is also why the load average reads 20-27. The consumers are the ones already measured:
+the WeatherOrb WIS2 subscriber (~1 core), `tailscaled` (0.7 core, a stream of Tailscale SSH
+sessions from leads on the mini), Uptime Kuma (0.2-0.7 core) and the corpus verify job. Not
+fixed here: a lower package power limit (so it holds ~1.5 GHz instead of oscillating to 200 MHz),
+cleaning the heatsink/fan and a BIOS fan curve (ACPI reports "No valid trip points", no fan is
+OS-controlled) are root or hands-on steps; the watchdog alert now tells the owner when it is a
+sustained condition.
+
+The 05:03 CET restart (04:00 UTC) was the planned unattended-upgrades reboot, not a fault: a
+`libc6` upgrade on 2026-11-14 06:34 UTC left `/var/run/reboot-required`, the unattended-upgrades log
+says "Reboot scheduled for Sun 2026-11-15 04:00:00 UTC", and the previous boot's journal ends in a
+clean `systemd-reboot` at 04:00:25 (previous reboots: 13 Nov, 16 Oct and 10 Oct, all at 04:00 UTC).
+`setup.sh` says 05:30 since `cff58a2` ("de-collide 04:00"), but the host's
+`/etc/apt/apt.conf.d/50unattended-upgrades-local` (written 2026-02-07) still says `04:00` because
+`setup.sh` was not re-run: the reboot lands on the 04:00 `immich-backup-check` cron.

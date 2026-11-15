@@ -27,6 +27,7 @@ The watchdog (`scripts/homelab_watchdog.sh`) runs via cron every 10 minutes and 
 | Internal Monitor      | UptimeKuma status page (localhost:3010), needs `jq`         | Docker           |
 | Docker Health         | systemctl + key containers running                          | Docker daemon    |
 | Tailscale Health      | `tailscale status` exit code + retry (independent recovery) | Tailscale        |
+| CPU Temperature      | coretemp package, mean of the last 3 runs; ntfy at >= 90 °C, again at < 85 °C | Local sysfs |
 
 **Internal monitor:** down only when Kuma is unreachable or returns an invalid response
 (no `config`). Maintenance windows, posted incidents and non-UP monitor beats (from
@@ -38,6 +39,8 @@ watchdog logs an error and exits, it installs nothing.
 **Key containers checked:** `caddy`, `cloudflared`, `uptime-kuma`
 
 **Critical HDD directories checked:** `/mnt/hdd/beszel`
+
+**CPU temperature:** `check_thermal` runs first in every watchdog run, on every path (it never fails the run). It appends the coretemp package reading to `thermal_samples` in the state dir, keeps the last three, and queues one "CPU hot" notification when their mean reaches 90 °C and one "cool again" when it falls below 85 °C. Fewer than three samples (fresh state dir, a reboot does not clear them) and an unreadable sensor do nothing. Beszel no longer alerts on temperature (no hysteresis; `docs/decisions.md`).
 
 ---
 
