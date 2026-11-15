@@ -845,6 +845,43 @@ groups:
         retry_interval: 1800
         maxretries: 0
 
+      # The WeatherOrb clock register (weatherorb registry/clocks, scripts/v2_clocks; units orb-clocks-* on the VPS and the
+      # launchd job com.jkrumm.orb.clocks-audit on the mini). Each job pushes up with its counts, down naming what crossed its
+      # limit; that down is weatherorb's P2 check, routed to it through the factory door, and a missing heartbeat (a dead host)
+      # raises it by the monitor's own interval. Push URL at ~/.config/uptime-kuma/weatherorb-clocks-<job>-<host>-push-url
+      # (chmod 600) on the host that runs the job (vps; the audit: mini, weatherorb-clocks-audit-push-url).
+      # Margin: weekly, Mondays 06:20 UTC + up to 10 min. interval 626400 = 7 days + 6 h.
+      - name: WeatherOrb Clock Register Margin - Push
+        type: push
+        interval: 626400
+        timeout: 48
+        retry_interval: 21600
+        maxretries: 0
+
+      # Bucket listing: daily 03:10 UTC. interval 97200 = 1 day + 3 h.
+      - name: WeatherOrb Clock Register Listing - Push
+        type: push
+        interval: 97200
+        timeout: 48
+        retry_interval: 10800
+        maxretries: 0
+
+      # Holdout coverage: daily 04:10 UTC, a run of minutes. interval 97200 = 1 day + 3 h.
+      - name: WeatherOrb Clock Register Coverage - Push
+        type: push
+        interval: 97200
+        timeout: 48
+        retry_interval: 10800
+        maxretries: 0
+
+      # Installed-job audit on the mini: weekly, Mondays 07:05 local. interval 626400 = 7 days + 6 h.
+      - name: WeatherOrb Clock Register Audit - Push
+        type: push
+        interval: 626400
+        timeout: 48
+        retry_interval: 21600
+        maxretries: 0
+
   # ============================================
   # Hermes Agent — runs locally on Mac Mini, not on HomeLab.
   # Push monitors fed by hermes-agent/scripts/{hermes-liveness,hermes-backup}.sh
