@@ -26,13 +26,14 @@
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | 169 GiB, 6,320-file Fuji RAW archive (1,549 RAWs / 43 GiB left it on 2026-11-14 on purpose: culled in Shutterflow, removed by an owner session) |
 | `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) + `weatherorb-accounts/` hourly VPS DB dumps (see "WeatherOrb account database" below) |
 | `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable). Live-DB caveat: see "Karakeep SQLite" below |
+| `/mnt/hdd/Hörbücher/{config,metadata}` | `/sources/Hoerbuecher-state/{config,metadata}` | Audiobook player state, about 23 MiB: users, listening progress, its own daily DB backups under `metadata/backups`. The 25 GiB library itself is skipped (re-acquirable) |
 | `/home/jkrumm/ssd/proton-bridge` | `/sources/ProtonBridge` | Proton Bridge vault + gpg keyring + pass store (gluon message cache excluded — re-synced; see `docs/proton-bridge.md`) |
 | `/home/jkrumm/backups` | `/sources/home-backups` | Age-encrypted 1Password vault exports (`1password/`, rsynced from the MacBook by the opbackup job, dotfiles `scripts/backup-1password.py`) — the recovery root for every other secret. Before this mount they existed only on the HomeLab's internal SSD |
 | `/home/jkrumm/ssd/versitygw/iam` | `/sources/VersityGW-IAM` | VersityGW IAM dir: S3 users + policies (`docs/s3.md`). Object data is not here — it lives in the backed-up trees or is deliberately not backed up |
 
 **Excludes worth knowing:** `*.tmp` also drops `Bilder/HANDY 2/Camera/VID_20200726_133912.mp4.tmp` (1.27 GiB). It is not a video: `ffprobe` reports `moov atom not found` (a recording cut short, the `mdat` atom runs into junk), so it stays unrenamed and unbacked on purpose; the pattern is not loosened.
 
-**Skipped intentionally:** UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, all homelab-private container state, `/mnt/hdd/Filme`, `/mnt/transfer/*` (empty since 2026-11-14), `/mnt/hdd/fuji/Videos`, `/mnt/hdd/Videos` (big personal videos, local mirror on the mini only), argo SQLite (lives on VPS — backed up alongside VPS Postgres dump cron).
+**Skipped intentionally:** UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, homelab-private container state (except the audiobook state above), `/mnt/hdd/Filme`, `/mnt/hdd/Hörbücher/library` and `podcasts` (only its state above is kept), `/mnt/transfer/*` (empty since 2026-11-14), `/mnt/hdd/fuji/Videos`, `/mnt/hdd/Videos` (big personal videos, local mirror on the mini only). Argo needs no source of its own: its `shared` Postgres DB on the mini is dumped nightly into `/mnt/hdd/backups/vps-mini-postgres/` (inside `hermes-backup`), and the VPS-era cutover dump sits in `/mnt/hdd/backups/argo-cutover-final/` (moved from `~/argo-backups` on 2026-11-16).
 
 ## Karakeep SQLite — accepted risk
 

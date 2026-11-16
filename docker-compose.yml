@@ -256,6 +256,8 @@ services:
       - /mnt/hdd/fuji/RAWs:/sources/Fuji-RAWs:ro
       - /mnt/hdd/backups:/sources/hermes-backup:ro
       - /mnt/hdd/karakeep/data:/sources/Karakeep:ro
+      - /mnt/hdd/Hörbücher/config:/sources/Hoerbuecher-state/config:ro
+      - /mnt/hdd/Hörbücher/metadata:/sources/Hoerbuecher-state/metadata:ro
       - /home/jkrumm/ssd/proton-bridge:/sources/ProtonBridge:ro
       - /home/jkrumm/ssd/versitygw/iam:/sources/VersityGW-IAM:ro
       - /home/jkrumm/backups:/sources/home-backups:ro # age-encrypted 1Password exports (opbackup)
