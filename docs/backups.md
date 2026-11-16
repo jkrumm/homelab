@@ -56,9 +56,27 @@ excludes nothing Immich-specific any more. The uploaded original moved to
 
 **Stale photo copies (`Bilder/Fuji`, `Bilder/Staging`).** Both are the pre-Shutterflow copy of the
 finals (Shutterflow's B2 masters prefix is their home, `docs/storage.md` in dotfiles). They are
-deleted only per file, after sha256 (the migration's recorded value) and B2's own sha1 both match an
-object under `shutterflow/prod/masters/`. Until then they stay on disk and in restic. State
-2026-11-15: both untouched, the match is waiting for read access to the masters key.
+deleted only per file, after size and B2's own sha1 both match an object under
+`shutterflow/prod/masters/` (by content, never by name; the listing carried no recorded sha256, so
+sha1 plus size is the proof). Every deleted file stays in restic snapshot `b852a0f9` (5 yearly).
+
+State 2026-11-16: **2,722 files deleted, all in `Fuji/`; 1,764 kept** (`Fuji` 813, `Staging` 951).
+The per-file verdict for all 4,486 is `fuji-staging-b2-match-20261116.tsv` beside the dump, with
+`match-sha1.py` (the matcher and deleter) and the local manifest `fuji-staging-local-hashes.tsv`.
+Kept, and why:
+
+| Kept | Files | Reason |
+|-|-|-|
+| `.photo-edit` sidecars | 47 (46 Fuji, 1 Staging) | not a master, Shutterflow never holds them |
+| `.DS_Store` | 1 | Finder junk |
+| JPGs, name not in B2 | 1,100 | Shutterflow never received them |
+| JPGs, name and size equal a B2 object that has no sha1 | 320 | B2 recorded no sha1 for that object (no `largeFileSha1` either), so the bytes cannot be proven from the listing |
+| JPGs, same size but sha1 differs | 271 | the B2 copy is different bytes |
+| JPGs, size differs | 25 | the B2 copy is different bytes |
+
+`Staging` proved nothing: all 951 stay. To retire the 320 unprovable ones, relist B2 with
+`fileInfo.sha256` (the migration's recorded value) and rerun `match-b2.py`; the 1,100 + 296 that
+differ stay until the owner decides they are disposable.
 
 ## WeatherOrb account database — pulled from the VPS
 

@@ -351,10 +351,10 @@ restic excludes, `Bilder/immich` and the three older dumps. VersityGW stays: it 
 RAW backup, WeatherOrb's archive and the agents, none of it Immich.
 
 The stale `Bilder/Fuji` (3,535 files) and `Bilder/Staging` (951) copies are deleted only where
-Shutterflow's B2 masters prefix provably holds the same bytes (the migration's recorded sha256 plus
-B2's own sha1, matched by content). The local sha256/sha1 manifest of all 4,486 files exists; the
-B2 listing needs the masters key, which the mini's secrets cache does not hold (reseal request open),
-so nothing in those two directories was touched. `docs/backups.md` tracks the state. The `.env.tpl` refs
+Shutterflow's B2 masters prefix provably holds the same bytes (B2's own sha1 plus size, matched by
+content; the listing carried no recorded sha256). Done 2026-11-16: 2,722 files deleted (all `Fuji`),
+1,764 kept with their reasons in `docs/backups.md`; the masters key never entered the mini's cache
+(the listing was produced from the MacBook and removed after the match). The `.env.tpl` refs
 `homelab/immich/API_KEY` and `homelab/postgres/PASSWORD` are unused now; their 1Password items can go.
 Rollback of the service is the final dump plus the pinned image digest in its README.
 
