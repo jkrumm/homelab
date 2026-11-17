@@ -5,9 +5,8 @@ deploy:
   targets:
     - { name: homelab, host: homelab, verify: make verify }
   hold: 0m
-  migrations: []
 ship:
-  - { paths: ["**"], via: push }
+  - { via: push }
 leads: 4 # ships by push, no merge window to serialise on; shared files settle in the lead's rebase before push
 signals:
   github:
