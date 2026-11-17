@@ -62,6 +62,12 @@ AUDIOBOOKSHELF_URL=http://audiobookshelf
 # --- Notification URLs (contain push tokens in path) ---
 VPN_WATCHDOG_PUSH_URL=op://homelab/config/VPN_WATCHDOG_PUSH_URL
 
+# --- Host metrics agent (host-agent, host-probe → ClickStack on the VPS) ---
+# HyperDX ingestion key (public by design, same value browser bundles embed): authorizes OTLP writes to
+# otel.jkrumm.com, nothing else. Copy of op://vps/argo/HYPERDX_API_KEY_PROD: the homelab's service account cannot read
+# the vps vault. Rotation: docs/host-agent.md.
+HOST_AGENT_OTLP_KEY=op://common/hyperdx/INGEST_KEY
+
 # --- Monitoring (scripts: watchdog, sync.py, monitors.yaml) ---
 BETTERSTACK_API_KEY=op://homelab/monitoring/BETTERSTACK_API_KEY
 BETTERSTACK_TOKEN=op://homelab/monitoring/BETTERSTACK_TOKEN

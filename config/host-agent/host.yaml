@@ -1,0 +1,110 @@
+# host-agent, host half: CPU, memory, load, swap, disks, filesystems and network of this machine, into the estate's
+# ClickStack (the VPS). Same scrapers and intervals as the VPS one (vps repo, agent/config/host.yaml).
+# Runs with the HOST network namespace (network_mode: host): the network scraper reads /proc/net/dev, which shows the
+# namespace of the reading process, so a bridge container would report its own eth0. The host filesystem is mounted
+# read-only at /hostfs; root_path makes every scraper read it from there. Container metrics are the other half
+# (host-probe.yaml): docker_stats needs the bridge network to reach the socket proxy by name.
+# No temperature: the 0.165.0 hostmetrics receiver has no hardware scraper (research: the Issue assumed one). The
+# watchdog keeps reading coretemp (scripts/homelab_watchdog.sh, check_thermal).
+# Per-host values come from the environment (docker-compose.yml):
+#   AGENT_OTLP_ENDPOINT  https://otel.<domain>, ClickStack's authed OTLP/HTTP tier
+#   AGENT_OTLP_KEY       the HyperDX ingestion key (op://common/hyperdx/INGEST_KEY)
+
+extensions:
+  # The exporter queue lives on disk: samples collected while the line or ClickStack is down survive a restart.
+  file_storage/queue:
+    directory: /var/lib/host-agent/queue
+    create_directory: true
+
+receivers:
+  host_metrics/fast:
+    collection_interval: 30s
+    root_path: /hostfs
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.time:
+            enabled: false
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      load: {}
+      paging:
+        metrics:
+          system.paging.utilization:
+            enabled: true
+      network:
+        # Physical interfaces and tailscale0 only: one veth per container and one bridge per compose network are noise.
+        exclude:
+          interfaces: ["^veth", "^br-", "^docker", "^lo$"]
+          match_type: regexp
+        metrics:
+          system.network.packets:
+            enabled: false
+  host_metrics/slow:
+    collection_interval: 60s
+    root_path: /hostfs
+    scrapers:
+      disk:
+        include:
+          devices: ["^sd[a-z]+$", "^vd[a-z]+$", "^nvme[0-9]+n[0-9]+$"]
+          match_type: regexp
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, procfs, pstore, rpc_pipefs, securityfs, selinuxfs, squashfs, sysfs, tracefs, tmpfs]
+          match_type: strict
+        exclude_mount_points:
+          mount_points: ["/dev/*", "/proc/*", "/sys/*", "/run/*", "/var/lib/docker/*", "/var/lib/containers/*", "/snap/*"]
+          match_type: regexp
+      processes: {}
+      system: {}
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 96
+    spike_limit_mib: 24
+  batch:
+    timeout: 15s
+  resource:
+    attributes:
+      - { key: host.name, value: homelab, action: upsert }
+      - { key: service.name, value: host-agent, action: upsert }
+      - { key: service.namespace, value: infra, action: upsert }
+      - { key: deployment.environment.name, value: prod, action: upsert }
+
+exporters:
+  otlphttp/clickstack:
+    endpoint: ${env:AGENT_OTLP_ENDPOINT}
+    headers:
+      authorization: ${env:AGENT_OTLP_KEY}
+    # Never give up on a batch (max_elapsed_time 0): the queue on disk holds it until ClickStack is back, and the
+    # samples keep the timestamps they were collected with.
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 60s
+      max_elapsed_time: 0s
+    sending_queue:
+      enabled: true
+      storage: file_storage/queue
+      queue_size: 5000
+
+service:
+  extensions: [file_storage/queue]
+  telemetry:
+    metrics:
+      level: none
+    logs:
+      level: info
+  pipelines:
+    metrics:
+      receivers: [host_metrics/fast, host_metrics/slow]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/clickstack]

@@ -167,6 +167,20 @@ groups:
             timeout: 120
             maxretries: 5
 
+          - name: Host Agent - Docker
+            type: docker
+            docker_container: host-agent
+            interval: 145
+            timeout: 120
+            maxretries: 5
+
+          - name: Host Probe - Docker
+            type: docker
+            docker_container: host-probe
+            interval: 148
+            timeout: 120
+            maxretries: 5
+
           - name: Restic Backup - Docker
             type: docker
             docker_container: restic-backup

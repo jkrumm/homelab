@@ -9,6 +9,7 @@
 | `make restart svc=<name>` | Force-recreate a single service                          |
 | `make ps` / `make logs svc=<name>` / `make logs-follow svc=<name>` | Show running containers — bounded log tail — follow logs live |
 | `make proton-bridge-deploy` / `-login` / `-restart` / `-logs` | Proton Mail Bridge (IMAP for hello@, Tailscale-only); `-login` is the one-time interactive CLI — `docs/proton-bridge.md` |
+| `make host-agent-deploy` | Build on the server and force-recreate `host-agent` + `host-probe` (metrics agent) after a change to `config/host-agent/` or `packages/host-agent/` — `docs/host-agent.md` |
 | `make beszel-alerts` | Converge Beszel alert routing on the hub: title-less ntfy URLs (title names the system), CPU/load alerts to `watchdog`; re-run after adding a CPU/load alert in the Beszel UI — `docs/ntfy.md` |
 | `make ntfy-subscribe` | Subscribe the owner's ntfy account to every topic in `config/ntfy/topics.txt` (`TEST=1` sends one message per topic); ntfy-mac follows the account — `docs/ntfy.md` |
 | `make docker-df` / `docker-prune` | Disk usage — bounded cleanup (see `docs/decisions.md`) |

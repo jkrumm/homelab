@@ -186,6 +186,85 @@ services:
     labels:
       glance.hide: true
 
+  # host-agent and host-probe — host and container metrics into the estate's ClickStack (the VPS), in two containers like the
+  # VPS pair (docs/host-agent.md). A slim OpenTelemetry Collector built from packages/host-agent (Issue 2055's agent; the vps repo
+  # publishes no image). host-agent shares the host network namespace because the network scraper reads /proc/net/dev, which
+  # shows the namespace of the reading process, and mounts the host filesystem read-only for the filesystem and disk scrapers.
+  # host-probe runs on a bridge network because docker_stats reaches the read-only socket proxy by name (never the raw
+  # socket). Both send OTLP/HTTP with the ingestion key to otel.jkrumm.com; the exporter queue is on a volume, so a line
+  # outage loses nothing and the samples keep their timestamps. Built on the server (`make host-agent-deploy`, lowprio
+  # builder), never pulled; Watchtower ignores them. cpus/cpu_shares: a guest of the 4-core box (docs/ssh-and-batch.md).
+  host-agent:
+    build:
+      context: packages/host-agent
+    image: host-agent:0.165.0
+    container_name: host-agent
+    restart: unless-stopped
+    network_mode: host
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    cpu_shares: 20
+    environment:
+      AGENT_OTLP_ENDPOINT: https://otel.jkrumm.com
+      AGENT_OTLP_KEY: ${HOST_AGENT_OTLP_KEY}
+    volumes:
+      - ./config/host-agent/host.yaml:/etc/host-agent/config.yaml:ro
+      - type: bind
+        source: /
+        target: /hostfs
+        read_only: true
+        bind:
+          propagation: rslave
+      - host-agent-queue:/var/lib/host-agent
+    logging:
+      driver: json-file
+      options:
+        max-size: '5m'
+        max-file: '2'
+    labels:
+      glance.hide: true
+      com.centurylinklabs.watchtower.enable: 'false'
+
+  host-probe:
+    build:
+      context: packages/host-agent
+    image: host-agent:0.165.0
+    container_name: host-probe
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.5
+    cpu_shares: 20
+    networks:
+      - host-agent-egress
+      - socket-proxy
+    environment:
+      AGENT_OTLP_ENDPOINT: https://otel.jkrumm.com
+      AGENT_OTLP_KEY: ${HOST_AGENT_OTLP_KEY}
+      DOCKER_ENDPOINT: tcp://docker-socket-proxy:2375
+    volumes:
+      - ./config/host-agent/probe.yaml:/etc/host-agent/config.yaml:ro
+      - host-probe-queue:/var/lib/host-agent
+    depends_on:
+      - docker-socket-proxy
+    logging:
+      driver: json-file
+      options:
+        max-size: '5m'
+        max-file: '2'
+    labels:
+      glance.hide: true
+      com.centurylinklabs.watchtower.enable: 'false'
+
   glance:
     image: glanceapp/glance
     container_name: glance
@@ -631,6 +710,8 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  host-agent-queue: # persistent exporter queue of host-agent
+  host-probe-queue: # persistent exporter queue of host-probe
 
 networks:
   cloudflared:
@@ -640,6 +721,8 @@ networks:
   socket-proxy:
     driver: bridge
     internal: true # No external access needed
+  host-agent-egress:
+    driver: bridge # host-probe's way out to the ClickStack ingest; the socket proxy network is internal
   socket-proxy-watchtower:
     driver: bridge
     internal: true # No external access needed

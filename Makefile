@@ -42,7 +42,7 @@ BUILD_CACHE_MAX := 10GB
 PRUNE := docker buildx prune -f --builder default --max-used-space $(BUILD_CACHE_MAX) && { docker buildx prune -f --builder lowprio --max-used-space $(BUILD_CACHE_MAX) || true; } && docker image prune -f
 
 .DEFAULT_GOAL := help
-.PHONY: help deploy up restart down ps logs logs-follow caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-check-subset restic-drill _restic-idle restic-run restic-unlock restic-prune restic-init _check-op-local test check verify version
+.PHONY: help deploy up restart down ps logs logs-follow caddy-reload ntfy-subscribe beszel-alerts uk-sync uk-dry-run uk-export proton-bridge-deploy host-agent-deploy proton-bridge-login proton-bridge-restart proton-bridge-logs docker-prune docker-df builder-setup restic-deploy restic-logs restic-snapshots restic-stats restic-check restic-check-subset restic-drill _restic-idle restic-run restic-unlock restic-prune restic-init _check-op-local test check verify version
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -64,6 +64,7 @@ help: ## Show all targets
 	@echo ""
 	@echo "  Proton Bridge (IMAP for hello@, Tailscale-only — docs/proton-bridge.md):"
 	@echo "    make proton-bridge-deploy   Full deploy: git pull + rebuild (no cache) + up"
+	@echo "    make host-agent-deploy      Build + recreate host-agent and host-probe (metrics agent, docs/host-agent.md)"
 	@echo "    make proton-bridge-login    Interactive Bridge CLI (login, change mode, info) — one-time"
 	@echo "    make proton-bridge-restart  Restart container only"
 	@echo "    make proton-bridge-logs     Follow proton-bridge logs"
@@ -168,6 +169,12 @@ version: ## Print the deployed commit sha (server checkout HEAD, one line)
 	@$(SSH) "$(CD) && git rev-parse HEAD"
 
 # ── Proton Bridge ────────────────────────────────────────────────────────────
+# host-agent and host-probe are built on the server from packages/host-agent (the vps repo publishes no image).
+# A first `make deploy` builds them too; this target is for a config or version change: the config files are
+# bind-mounted, so `up -d` alone keeps the old one running. The build uses the lowprio builder (no flag).
+host-agent-deploy: ## Build + force-recreate host-agent and host-probe (after a change to config/host-agent/ or packages/host-agent/)
+	$(SSH) "$(CD) && git pull && $(DC) up -d --build --force-recreate --no-deps host-agent host-probe && $(PRUNE)"
+
 proton-bridge-deploy: ## Full deploy: git pull + rebuild proton-bridge (no cache) + up
 	$(SSH) "$(CD) && git pull && mkdir -p ~/ssd/proton-bridge && $(DC) build --no-cache proton-bridge && $(DC) up -d proton-bridge && $(PRUNE)"
 

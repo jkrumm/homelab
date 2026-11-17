@@ -80,7 +80,8 @@ challenge). Full network topology and the Caddy dual-http/https detail:
 #### HomeLab — Internal (no direct web access)
 
 Caddy, Cloudflared, three docker-socket-proxy variants (monitoring / Watchtower / argo; Argo now queries it from the Mac mini),
-Watchtower, Samba, Beszel Agent, Restic Backup (daily 03:30
+Watchtower, Samba, Beszel Agent, host-agent and host-probe (metrics into ClickStack on the VPS,
+`docs/host-agent.md`), Restic Backup (daily 03:30
 cron), watchdog log sidecars. See `docs/repository-structure.md` for the full
 compose service list.
 

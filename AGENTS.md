@@ -110,7 +110,8 @@ or `make caddy-reload`; each `git pull`s on the server and applies with secrets 
   to beats, `status` 0 DOWN, 1 UP, 2 PENDING, 3 MAINTENANCE). Healthy means the last beat of every
   listed monitor is UP (3 is fine); incidents and maintenance windows are informational only.
 - **Kuma monitor:** `HomeLab Watchdog - Push`.
-- **OTel `service.name`:** `none`; there is no OTel receiver on HomeLab.
+- **OTel `service.name`:** `host-agent` (host metrics) and `host-probe` (container metrics), `host.name=homelab`, sent
+  to ClickStack on the VPS (`docs/host-agent.md`: two containers, key, queue, footprint, Beszel parity). No receiver runs here.
 - `make verify` (needs `jq`) checks the status page, then `scripts/verify-monitors.sh` checks every
   active non-group monitor through Argo on the mini (`127.0.0.1:7737/api/uptime-kuma/monitors`,
   bearer `op://common/api/SECRET` via `secrets-run`). Any DOWN fails; PENDING is a `NOTE:`. It runs
