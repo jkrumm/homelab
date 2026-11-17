@@ -24,7 +24,7 @@
 | `/home/jkrumm/ssd/SSD/Public` | `/sources/Public` | Ex-dufs public files (service retired 2026-10-19, data kept) |
 | `/home/jkrumm/ssd/SSD/Dev` | `/sources/Dev` | Static files (no node_modules) |
 | `/mnt/hdd/fuji/RAWs` | `/sources/Fuji-RAWs` | 169 GiB, 6,320-file Fuji RAW archive (1,549 RAWs / 43 GiB left it on 2026-11-14 on purpose: culled in Shutterflow, removed by an owner session) |
-| `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) + `weatherorb-accounts/` hourly VPS DB dumps (see "WeatherOrb account database" below) |
+| `/mnt/hdd/backups` | `/sources/hermes-backup` | Daily Hermes Agent backup (Mac Mini → SSH-pushed) + `weatherorb-accounts/` retired V1 DB dumps (see "WeatherOrb account database" below) |
 | `/mnt/hdd/karakeep/data` | `/sources/Karakeep` | Karakeep SQLite DB + crawled assets (Meili index excluded — rebuildable). Live-DB caveat: see "Karakeep SQLite" below |
 | `/mnt/hdd/Hörbücher/{config,metadata}` | `/sources/Hoerbuecher-state/{config,metadata}` | Audiobook player state, about 23 MiB: users, listening progress, its own daily DB backups under `metadata/backups`. The 25 GiB library itself is skipped (re-acquirable) |
 | `/home/jkrumm/ssd/proton-bridge` | `/sources/ProtonBridge` | Proton Bridge vault + gpg keyring + pass store (gluon message cache excluded — re-synced; see `docs/proton-bridge.md`) |
@@ -68,42 +68,14 @@ deleted, and rotating restic snapshots alone would have aged them out. They were
 snapshot `fd58b298` into `/mnt/hdd/backups/photo-edit-sidecars-20261116/` (824 MiB), which the
 `hermes-backup` source keeps in every snapshot.
 
-## WeatherOrb account database — pulled from the VPS
+## WeatherOrb account database — retired
 
-The WeatherOrb account DB (users, passkeys, sessions, favourites, settings) lives on the
-VPS (weatherorb ADR 0013). Its dumps are pulled home so the data exists off the VPS:
-
-- **VPS side (not this repo):** an hourly cron at :15 writes verified
-  `pg_dump --format=custom` files `weatherorb_accounts-<UTC %Y%m%dT%H%MZ>.dump` to
-  `/var/backups/weatherorb-accounts/` (newest 48 kept), readable only by the
-  unprivileged user `wo-backup`.
-- **Pull:** `scripts/weatherorb-accounts-pull.sh` (jkrumm crontab, hourly at :25) runs
-  `rsync -a` (no `--delete`) as `wo-backup@vps` over Tailscale SSH (MagicDNS host `vps`;
-  a tailnet grant for exactly that user) into `/mnt/hdd/backups/weatherorb-accounts/`.
-  It then proves the newest local dump is <2 h old and passes `pg_restore --list`
-  (one-shot `postgres:18` container), deletes local dumps older than 14 days, and pings
-  `WeatherOrb Accounts Backup - Push`: `status=up` on success. A failed rsync still runs the freshness and
-  `pg_restore --list` checks on the dumps already held: if they are fresh and valid the run exits nonzero with
-  no ping, so the monitor's `maxretries: 1` keeps one missed run PENDING and only two
-  consecutive misses page; a missing, stale or corrupt dump pings `status=down` and pages
-  at once, whatever the cause of the failed pull. A persistent pull fault (revoked key,
-  full disk) therefore pages within ~2 h, never silently.
-- **Offsite:** `/mnt/hdd/backups` is a restic source (table above) and
-  `restic-excludes.txt` has no rule for this subdirectory, so the dumps ship to B2 with
-  the nightly 03:30 run.
-- **Push URL:** `~/.config/uptime-kuma/weatherorb-accounts-push-url` (chmod 600) on the
-  homelab server — the plain-file convention, never `.env.tpl`. Without the file the
-  script logs a warning and skips the ping.
-- **Restore drill:** `scripts/weatherorb-accounts-restore-check.sh [dump]` restores the
-  newest local dump into a throwaway `postgres:18` container (random password generated
-  at runtime, container always removed) and prints row counts for `"user"`, `passkey`,
-  `session`, `favourite`, `user_settings` plus the newest `"user".created_at`. Run it by
-  hand, or weekly from cron.
-
-```
-# crontab -e (jkrumm) — the repo documents these, setup.sh installs only the root watchdog
-25 * * * * /home/jkrumm/homelab/scripts/weatherorb-accounts-pull.sh >> /home/jkrumm/logs/weatherorb-accounts-pull.log 2>&1
-```
+The V1 account DB lived on the VPS and its hourly dumps were pulled here (hourly cron, Kuma push
+monitor `WeatherOrb Accounts Backup - Push`). V1 was taken off the VPS on 2026-11-17 and the
+database dropped (3 synthetic API-key identities, no real user), so the pull, its cron entry and
+its monitor are gone. The last dumps stay in `/mnt/hdd/backups/weatherorb-accounts/` (a restic
+source, nothing prunes them any more); `scripts/weatherorb-accounts-restore-check.sh [dump]` still
+restores one into a throwaway `postgres:18` container. Delete the directory when the owner says so.
 
 ## WeatherOrb archive — pushed from the mini
 

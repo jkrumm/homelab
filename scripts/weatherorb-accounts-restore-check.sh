@@ -2,7 +2,7 @@
 # WeatherOrb account-DB restore drill — proves the newest pulled dump restores.
 #
 # Takes the newest weatherorb_accounts-*.dump from the local pull directory
-# (scripts/weatherorb-accounts-pull.sh), restores it into a throwaway postgres
+# (pulled hourly until 2026-11-17, when V1 left the VPS), restores it into a throwaway postgres
 # container with a password generated at runtime, and prints row counts plus the
 # newest signup. The output is the evidence that "a dump restored on the
 # homelab". The container (and its tmpfs data dir) is always removed on exit.

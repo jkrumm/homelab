@@ -41,6 +41,6 @@ emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
 ├── restic/cache/         # Restic local cache (~200 MB metadata)
 ├── beszel/               # Metrics data
 ├── filebrowser/          # FileBrowser config
-├── backups/              # FPP MySQL hourly dump + weatherorb-accounts/ (hourly VPS pg_dump pull) (restic source)
+├── backups/              # FPP MySQL hourly dump + weatherorb-accounts/ (retired V1 DB dumps, no longer pulled) (restic source)
 └── weatherorb-archive/   # S3 bucket the Mac mini pushes to (sha256-verified, write-once, files sealed chattr +i; NOT restic-backed)
 ```
