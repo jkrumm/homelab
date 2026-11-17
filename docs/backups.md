@@ -55,29 +55,18 @@ with the nightly run, and the restore drill still gzip-tests it from the snapsho
 excludes nothing Immich-specific any more. The uploaded original moved to
 `Bilder/Anderes/Immich-Upload/`.
 
-**Stale photo copies (`Bilder/Fuji`, `Bilder/Staging`).** Both are the pre-Shutterflow copy of the
-finals (Shutterflow's B2 masters prefix is their home, `docs/storage.md` in dotfiles). They are
-deleted only per file, after size and B2's own sha1 both match an object under
-`shutterflow/prod/masters/` (by content, never by name; the listing carried no recorded sha256, so
-sha1 plus size is the proof). Every deleted file stays in restic snapshot `b852a0f9` (5 yearly).
+**Stale photo copies (`Bilder/Fuji`, `Bilder/Staging`): gone since 2026-11-16.** Both were the
+pre-Shutterflow copy of the finals (Shutterflow's B2 masters prefix is their home, `docs/storage.md`
+in dotfiles). 2,722 `Fuji/` files went first, each proven by size plus B2's sha1 against an object
+under `shutterflow/prod/masters/` (verdicts in `fuji-staging-b2-match-20261116.tsv` beside the dump,
+with `match-sha1.py` and `fuji-staging-local-hashes.tsv`). The MacBook Shutterflow operator deleted
+the remaining 1,764 on 2026-11-16 ~23:55, with a per-file proof: the library (exact bytes or identical
+image data), or a culled JPG whose RAF is on `HDD/fuji/RAWs`.
 
-State 2026-11-16: **2,722 files deleted, all in `Fuji/`; 1,764 kept** (`Fuji` 813, `Staging` 951).
-The per-file verdict for all 4,486 is `fuji-staging-b2-match-20261116.tsv` beside the dump, with
-`match-sha1.py` (the matcher and deleter) and the local manifest `fuji-staging-local-hashes.tsv`.
-Kept, and why:
-
-| Kept | Files | Reason |
-|-|-|-|
-| `.photo-edit` sidecars | 47 (46 Fuji, 1 Staging) | not a master, Shutterflow never holds them |
-| `.DS_Store` | 1 | Finder junk |
-| JPGs, name not in B2 | 1,100 | Shutterflow never received them |
-| JPGs, name and size equal a B2 object that has no sha1 | 320 | B2 recorded no sha1 for that object (no `largeFileSha1` either), so the bytes cannot be proven from the listing |
-| JPGs, same size but sha1 differs | 271 | the B2 copy is different bytes |
-| JPGs, size differs | 25 | the B2 copy is different bytes |
-
-`Staging` proved nothing: all 951 stay. To retire the 320 unprovable ones, relist B2 with
-`fileInfo.sha256` (the migration's recorded value) and rerun `match-b2.py`; the 1,100 + 296 that
-differ stay until the owner decides they are disposable.
+The 47 `.photo-edit` sidecars had no other copy left once Shutterflow's migration archive was
+deleted, and rotating restic snapshots alone would have aged them out. They were restored from
+snapshot `fd58b298` into `/mnt/hdd/backups/photo-edit-sidecars-20261116/` (824 MiB), which the
+`hermes-backup` source keeps in every snapshot.
 
 ## WeatherOrb account database — pulled from the VPS
 
