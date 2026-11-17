@@ -1,6 +1,6 @@
 # host-agent, container half: container.* metrics through the read-only docker-socket-proxy (never the raw socket).
 # Same docker_stats set as the VPS (vps repo, agent/config/vps-probe.yaml), without the HTTP and ICMP checks.
-# Runs on the bridge network (socket-proxy, plus the default network for the line out): docker_stats reaches the proxy
+# Runs on the bridge network (`socket-proxy`, plus `host-agent-egress` for the line out): docker_stats reaches the proxy
 # by name. Host metrics are the other half (host.yaml). Environment (docker-compose.yml):
 #   AGENT_OTLP_ENDPOINT, AGENT_OTLP_KEY as in host.yaml
 #   DOCKER_ENDPOINT     tcp://docker-socket-proxy:2375

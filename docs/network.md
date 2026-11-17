@@ -21,16 +21,16 @@ Cloudflare DNS-01 challenge (`caddy-dns/cloudflare`, baked into the prebuilt
 Private-service DNS is a grey-cloud (DNS-only) Cloudflare A record pointing at the
 HomeLab Tailscale IP. Full rationale: `docs/decisions.md`.
 
-8 Docker bridge networks (`docker-compose.yml` → `networks:`): `cloudflared`,
-`beszel`, `socket-proxy`, `socket-proxy-watchtower`, `socket-proxy-claude`,
-`watchtower-egress`, `proton-bridge`, `karakeep-internal`.
+9 Docker bridge networks (`docker-compose.yml` → `networks:`): `cloudflared`,
+`beszel`, `socket-proxy`, `host-agent-egress` (host-probe's way out to ClickStack), `socket-proxy-watchtower`,
+`socket-proxy-claude`, `watchtower-egress`, `proton-bridge`, `karakeep-internal`.
 
 **Tailnet:** `dinosaur-sole.ts.net`. Device IPs are placeholders in every tracked file —
 resolve the real ones via `tailscale status` or the admin console, never hardcode them here.
 
 ## Docker socket security
 
-Monitoring services (Glance, Dozzle, Beszel-Agent, UptimeKuma) access Docker via
+Monitoring services (Glance, Dozzle, Beszel-Agent, host-probe, UptimeKuma) access Docker via
 `docker-socket-proxy` (`tcp://docker-socket-proxy:2375`) instead of a direct socket mount —
 read-only (CONTAINERS, IMAGES, INFO, NETWORKS, VOLUMES; POST/BUILD/EXEC blocked), on an
 internal network with no external access. **Exceptions:** Watchtower gets a dedicated

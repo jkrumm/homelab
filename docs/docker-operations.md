@@ -51,6 +51,6 @@ ssh homelab "docker compose logs -f <service>"
 ## Container updates (Watchtower)
 
 - **Opted-out** (manual via `/upgrade-stack`): `karakeep-chrome` + `karakeep-meili` (upstream-pinned tags)
-- **Opted-out** (other): `proton-bridge` (local build), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
+- **Opted-out** (other): `proton-bridge` and `host-agent` + `host-probe` (local builds), `docker-socket-proxy-watchtower`, `dozzle-watchdog-logs` (sidecar), `watchtower` itself
 - **Auto-update** (global, daily 06:00, after the 03:30 restic backup and the 05:30 unattended-upgrades reboot): everything else, including `caddy`
 

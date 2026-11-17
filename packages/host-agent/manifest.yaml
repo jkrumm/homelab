@@ -3,7 +3,7 @@
 # Slim OpenTelemetry Collector for host monitoring, built with ocb (the OpenTelemetry Collector Builder).
 # Measured 2026-11-17 (collector 0.165.0, host metrics at 30 s, idle): contrib distribution 359 MB binary / 180 MB RSS,
 # core distribution 171 MB / 79 MB, this manifest 45 MB / 40 MB. Every module is pinned to the same release; bump
-# them together (the version below, the module versions, OCB_VERSION in the Dockerfile and build.sh).
+# them together (the version below, the module versions, OCB_VERSION in the Dockerfile; the vps repo's build.sh is not copied).
 dist:
   name: host-agent
   description: Host, container and reachability metrics agent

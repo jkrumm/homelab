@@ -22,7 +22,9 @@ missing. To bump the collector: change the version in `manifest.yaml`, `Dockerfi
 then `make host-agent-deploy`; keep it in step with the vps repo.
 
 **Limits.** `mem_limit: 128m`, `cpus: 0.5`, `cpu_shares: 20` (a guest of the 4-core box, `docs/ssh-and-batch.md`), a
-`memory_limiter` at 96 MiB, no capability, read-only root filesystem.
+`memory_limiter` at 96 MiB, no capability, read-only root filesystem. `host-agent` binds the whole host root read-only because
+the filesystem scraper needs each mount point (`/`, `/mnt/hdd`) under `/hostfs`; a narrower bind would hide the HDD mount. The
+process runs as an unprivileged user, so only world-readable files are reachable.
 
 **Where it sends.** OTLP/HTTP to `https://otel.jkrumm.com`, ClickStack's authed tier, with the ingestion key in the
 `authorization` header (`HOST_AGENT_OTLP_KEY` ← `op://common/hyperdx/INGEST_KEY`). The key only authorizes writes and is the value
