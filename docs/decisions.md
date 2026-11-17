@@ -246,7 +246,7 @@ Measure from inside `system.slice`, not from the mini or the VPS: both were them
 17-120 from weatherorb work and added seconds of TLS-handshake time of their own, and a `curl`
 started in the SSH session sits in the starved cgroup (handshakes of 2-7 s). `IOWeight` is
 recorded but inert here: both disks run `mq-deadline`, and the weight needs BFQ or iocost; disk
-contention is still bounded only by the job count (`AGENTS.md` → Batch jobs).
+contention is still bounded only by the job count (`docs/ssh-and-batch.md` → Batch jobs).
 
 ## The restic backup yields to the stack: `cpu_shares: 20` (2026-11-15, Issue 1330)
 
@@ -377,7 +377,7 @@ Issue 1396 quota is doing its job. Window is 11 minutes, not the hour the Issue 
 is counted from the AGENTS.md budget going live.
 
 Decision per the owner's re-scope (PSI under 40%, no starving consumer): ship the budget in
-`AGENTS.md` -> *CPU budget* (core reserve 1 core, guests <= 1.5 cores total / 1 each / 3
+`docs/ssh-and-batch.md` -> *CPU budget* (core reserve 1 core, guests <= 1.5 cores total / 1 each / 3
 workers, how a guest declares it) and add no new enforcement. The existing levers already cover
 the batch classes: `user.slice` weight 20 (SSH jobs), `lowprio` builder (builds), `restic-backup`
 `cpu_shares: 20` + `cpus: 1`. A guest container is limited by its own repo's compose file; there

@@ -1,0 +1,25 @@
+# Secrets: key 1Password paths
+
+## Key Secrets
+
+| 1Password Path                    | Purpose                                                 |
+| --------------------------------- | ------------------------------------------------------- |
+| `common/cloudflare/DNS_API_TOKEN` | Caddy DNS-01 ACME challenge                             |
+| `homelab/cloudflare-tunnel/TOKEN` | Cloudflare tunnel authentication                        |
+| `homelab/samba/PASSWORD`          | Samba file share auth                                   |
+| `homelab/restic/PASSWORD`         | Restic repo password (NEVER changes after init)         |
+| `homelab/restic/HEARTBEAT_URL`    | UptimeKuma push URL for restic backup heartbeat         |
+| `common/backblaze-s3/*`           | B2 append-only key — shared by homelab restic + VPS pg-dump (no delete perms) |
+| `Private/Backblaze B2/MASTER_*`   | B2 master key — manual use only, `make restic-prune`/`init` from Mac |
+| `homelab/versitygw-root/*`        | S3 gateway root key — server-only; creates the IAM users |
+| `homelab/s3-admin/*`, `homelab/s3-agent/*` | S3 client keys (MacBook admin / mini agents) — `docs/s3.md` |
+| `common/garmin-collector/PUSH_URL`| UptimeKuma push URL — argo's garmin-sync cron pushes after each successful pull from Garmin's Personal API (in `common/` so VPS service account can read) |
+| `common/ntfy/{TOKEN,PASSWORD,PASSWORD_HASH}` | ntfy: `tk_` client token (macOS/iOS clients, publishers), admin login, its bcrypt hash — provisioned via env on start (`config/ntfy/server.yml`). Hash is written from the MacBook (service account is read-only). Topics, publishers and priorities: `docs/ntfy.md` (`alerts`: Kuma, watchdog, Beszel; `updates`: Watchtower, shoutrrr URL in `docker-compose.yml`). Beszel alert routing is converged by `make beszel-alerts` (`scripts/beszel-alerts.sh`: owner user → shoutrrr URL `ntfy://:<token>@<ntfy host>/alerts`, no `title=` — a static title overrides the hub's "<system> … above threshold"; digest user → `/watchdog?priority=low` for CPU and load alerts) — the secret is not in git |
+| `homelab/monitoring/BETTERSTACK_TOKEN`, `homelab/uptime-kuma/PUSH_TOKEN` | Watchdog's own credentials (`op read` at runtime — never a file) |
+
+## Essential commands
+
+```bash
+op run --env-file=.env.tpl -- docker compose up -d
+op run --env-file=.env.tpl -- env | grep RESTIC
+```
