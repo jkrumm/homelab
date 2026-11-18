@@ -18,8 +18,8 @@ service; one cannot do both. The HTTP and ICMP checks of the VPS probe are not r
 **Image.** The vps repo publishes no image, so it is built on the server from `packages/host-agent` (`Dockerfile` and
 `manifest.yaml` copied unchanged from the vps repo's `agent/`). `make host-agent-deploy` builds (the `lowprio` builder, a
 first build is several minutes of one slow core) and recreates both; a plain `make deploy` builds them only when the image is
-missing. To bump the collector: change the version in `manifest.yaml`, `Dockerfile` and the `image:` tag in `docker-compose.yml`,
-then `make host-agent-deploy`; keep it in step with the vps repo.
+missing. To bump the collector: change the version in `manifest.yaml`, `Dockerfile`, the `image:` tag in `docker-compose.yml` and the
+`service.version` lines in `config/host-agent/host.yaml` and `probe.yaml`, then `make host-agent-deploy`; keep it in step with the vps repo.
 
 **Limits.** `mem_limit: 128m`, `cpus: 0.5`, `cpu_shares: 20` (a guest of the 4-core box, `docs/ssh-and-batch.md`), a
 `memory_limiter` at 96 MiB, no capability, read-only root filesystem. `host-agent` binds the whole host root read-only because
