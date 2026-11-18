@@ -66,7 +66,8 @@ VPN_WATCHDOG_PUSH_URL=op://homelab/config/VPN_WATCHDOG_PUSH_URL
 # HyperDX ingestion key (public by design, same value browser bundles embed): authorizes OTLP writes to
 # otel.jkrumm.com, nothing else. Copy of op://vps/argo/HYPERDX_API_KEY_PROD: the homelab's service account cannot read
 # the vps vault. Rotation: docs/host-agent.md.
-HOST_AGENT_OTLP_KEY=op://common/hyperdx/INGEST_KEY
+# By item ID: the name `hyperdx` also matches 15 archived duplicates of the one-click create, and `op` then refuses the name.
+HOST_AGENT_OTLP_KEY=op://common/owrvh2jm2kj4hgf6eki5wr3eoy/INGEST_KEY
 
 # --- Monitoring (scripts: watchdog, sync.py, monitors.yaml) ---
 BETTERSTACK_API_KEY=op://homelab/monitoring/BETTERSTACK_API_KEY
