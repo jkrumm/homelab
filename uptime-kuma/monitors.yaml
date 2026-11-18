@@ -837,6 +837,7 @@ groups:
       # Mondays 06:40 UTC): it pushes up with the tripwire counts and down naming the tripwires that fired.
       # That down is weatherorb's check, routed to it through the factory door. interval 626400 = 7 days + 6 h.
       # Push URL on the VPS at ~/.config/uptime-kuma/weatherorb-tripwires-vps-push-url (chmod 600).
+      # No retry (maxretries 0): a weekly job has no next pass to wait for, a missed run is the signal.
       - name: WeatherOrb Tripwires vps - Push
         type: push
         interval: 626400
