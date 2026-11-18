@@ -63,11 +63,29 @@ and restarts, `Infra container *` alerts), temperature (watchdog), SMART.
 
 ## Footprint
 
-FOOTPRINT_PLACEHOLDER
+Measured 2026-11-18, one hour after the first start (3,684 s), on the homelab (4 cores, load 0.5):
+
+| | Memory after 1 h (cgroup) | Memory peak | CPU over 1 h | OOM kills |
+|-|-|-|-|-|
+| `host-agent` | 16.8 MiB | 17.8 MiB | 3.4 s of CPU time, 0.09 % of one core | 0 |
+| `host-probe` | 19.9 MiB | 26.5 MiB | 5.7 s of CPU time, 0.16 % of one core | 0 |
+
+Together 37 MiB and 0.25 % of one core, against 128 MiB and 0.5 cores allowed each (the VPS pair measured 28 and 35 MiB). The
+host-probe peak includes the catch-up after the outage test below. Load average and the alerting path were not affected (load
+0.5 at the measurement; the first image build, run at `nice` on the `lowprio` builder, took about 3 minutes).
+
+**Queue test (2026-11-18).** `host-probe` was cut off from the line with `docker network disconnect homelab_host-agent-egress
+host-probe` at 07:12:58 UTC and reconnected at 07:23:14 UTC (10 min 16 s; 83 failed exports logged). Afterwards `container.cpu.utilization`
+(`host.name=homelab`) held 35 rows in every minute from 07:11 to 07:25, the gap minutes included, so the samples were delivered
+late with the timestamps they were collected with. `host-agent` shares the host network namespace and cannot be cut off without
+root (a firewall rule on Cloudflare's addresses would also catch other `jkrumm.com` traffic); it uses the same exporter,
+`sending_queue` and `file_storage` configuration, which the same binary applied identically on the VPS (the vps repo's queue test)
+and in the rehearsal on this host (the queue file grew on the volume while the endpoint refused connections).
 
 ## Verify
 
 ```bash
 ssh homelab 'docker logs --tail 20 host-agent; docker logs --tail 20 host-probe; docker stats --no-stream host-agent host-probe'
-agw hdx query ...   # series with host.name=homelab: skill otel
+# ClickStack (skill otel): system.cpu.utilization, system.memory.utilization, system.filesystem.utilization (mountpoint / and /mnt/hdd),
+# system.network.io and container.* with ResourceAttributes['host.name'] = 'homelab'
 ```
