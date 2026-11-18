@@ -833,6 +833,17 @@ groups:
         retry_interval: 1800
         maxretries: 0
 
+      # The WeatherOrb weekly tripwire job (weatherorb ops/v2/tripwires/run.sh, unit orb-tripwires on the VPS,
+      # Mondays 06:40 UTC): it pushes up with the tripwire counts and down naming the tripwires that fired.
+      # That down is weatherorb's check, routed to it through the factory door. interval 626400 = 7 days + 6 h.
+      # Push URL on the VPS at ~/.config/uptime-kuma/weatherorb-tripwires-vps-push-url (chmod 600).
+      - name: WeatherOrb Tripwires vps - Push
+        type: push
+        interval: 626400
+        timeout: 48
+        retry_interval: 21600
+        maxretries: 0
+
       # The WeatherOrb clock register (weatherorb registry/clocks, scripts/v2_clocks; units orb-clocks-* on the VPS and the
       # launchd job com.jkrumm.orb.clocks-audit on the mini). Each job pushes up with its counts, down naming what crossed its
       # limit; that down is weatherorb's P2 check, routed to it through the factory door, and a missing heartbeat (a dead host)
