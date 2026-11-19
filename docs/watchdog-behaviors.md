@@ -21,7 +21,7 @@ The watchdog (`scripts/homelab_watchdog.sh`) runs via cron every 10 minutes and 
 
 | Check                 | Method                                                      | Depends On       |
 | --------------------- | ----------------------------------------------------------- | ---------------- |
-| Mount Integrity       | `mountpoint -q /mnt/hdd` + write test + critical dirs       | Local filesystem |
+| Mount Integrity       | `mountpoint -q /mnt/hdd` + write test                      | Local filesystem |
 | Internet Connectivity | Ping 8.8.8.8, 1.1.1.1, 9.9.9.9                              | Network          |
 | External Monitor      | BetterStack API (monitor 3001641 = UptimeKuma)              | Internet         |
 | Internal Monitor      | UptimeKuma status page (localhost:3010), needs `jq`         | Docker           |
