@@ -33,7 +33,7 @@
 
 **Excludes worth knowing:** `*.tmp` also drops `Bilder/HANDY 2/Camera/VID_20200726_133912.mp4.tmp` (1.27 GiB). It is not a video: `ffprobe` reports `moov atom not found` (a recording cut short, the `mdat` atom runs into junk), so it stays unrenamed and unbacked on purpose; the pattern is not loosened.
 
-**Skipped intentionally:** UptimeKuma data (IaC), Caddy/Beszel/Dozzle/FileBrowser state, homelab-private container state (except the audiobook state above), `/mnt/hdd/Filme`, `/mnt/hdd/Hörbücher/library` and `podcasts` (only its state above is kept), `/mnt/transfer/*` (empty since 2026-11-14), `/mnt/hdd/fuji/Videos`, `/mnt/hdd/Videos` (big personal videos, local mirror on the mini only). Argo needs no source of its own: its `shared` Postgres DB on the mini is dumped nightly into `/mnt/hdd/backups/vps-mini-postgres/` (inside `hermes-backup`), and the VPS-era cutover dump sits in `/mnt/hdd/backups/argo-cutover-final/` (moved from `~/argo-backups` on 2026-11-16).
+**Skipped intentionally:** UptimeKuma data (IaC), Caddy/Dozzle/FileBrowser state, homelab-private container state (except the audiobook state above), `/mnt/hdd/Filme`, `/mnt/hdd/Hörbücher/library` and `podcasts` (only its state above is kept), `/mnt/transfer/*` (empty since 2026-11-14), `/mnt/hdd/fuji/Videos`, `/mnt/hdd/Videos` (big personal videos, local mirror on the mini only). Argo needs no source of its own: its `shared` Postgres DB on the mini is dumped nightly into `/mnt/hdd/backups/vps-mini-postgres/` (inside `hermes-backup`), and the VPS-era cutover dump sits in `/mnt/hdd/backups/argo-cutover-final/` (moved from `~/argo-backups` on 2026-11-16).
 
 ## Karakeep SQLite — accepted risk
 

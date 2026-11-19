@@ -52,7 +52,7 @@ readonly HDD_REOPEN_STAMP="${STATE_DIR}/hdd_reopen_attempted"
 readonly HDD_REOPEN_COOLDOWN=3600
 # Set when e2fsck -p refuses; blocks every automatic mount/reopen until a human clears it
 readonly HDD_FSCK_MARKER="${STATE_DIR}/hdd_fsck_needs_human"
-# CPU package temperature, with hysteresis (Beszel's alert has none and paged on every 0.5 °C
+# CPU package temperature, with hysteresis (a plain threshold pages on every 0.5 °C
 # move around 90). One sample per run; the mean of the last THERMAL_SAMPLES (30 min at the
 # 10-min cron) raises one alert at >= THERMAL_HOT_MC and one recovery at < THERMAL_CLEAR_MC.
 # Millidegrees, as the kernel reports them. The N100 throttles near 94 °C, so a mean of 90 is "pinned".
@@ -487,18 +487,6 @@ check_mount_integrity() {
         return 1
     fi
     rm -f "$test_file" 2>/dev/null
-
-    # Check critical directories exist
-    local critical_dirs=(
-        "$HDD_MOUNT_POINT/beszel"
-    )
-
-    for dir in "${critical_dirs[@]}"; do
-        if [[ ! -d "$dir" ]]; then
-            log "❌ Critical directory missing: $dir"
-            return 1
-        fi
-    done
 
     # Only log success when verbose logging is requested
     if [[ "$verbose" == "true" ]]; then

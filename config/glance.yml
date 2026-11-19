@@ -186,7 +186,6 @@ pages:
             repositories:
               - linuxserver/docker-[redacted]
               - glanceapp/glance
-              - henrygd/beszel
               - mietzen/porkbun-ddns
               - louislam/uptime-kuma
 
@@ -212,12 +211,4 @@ pages:
         widgets:
           - type: iframe
             source: https://dozzle.jkrumm.com/
-            height: 900
-
-  - name: Infrastructure
-    columns:
-      - size: full
-        widgets:
-          - type: iframe
-            source: https://beszel.jkrumm.com/
             height: 900

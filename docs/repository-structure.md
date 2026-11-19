@@ -21,7 +21,7 @@ homelab/
 │   ├── backups.md           # Restic design, verification schedules, restore drill
 │   ├── s3.md                # VersityGW S3 gateway — bucket map, IAM users, client setup
 │   ├── proton-bridge.md     # Proton Bridge image decision, login steps, restore
-│   ├── host-agent.md        # Host and container metrics into ClickStack: design, footprint, Beszel parity
+│   ├── host-agent.md        # Host and container metrics into ClickStack: design, footprint, parity with the retired Beszel alerts
 │   ├── decisions.md         # Durable rationale (build-cache, push monitors, Tailscale/Caddy)
 │   └── watchdog-behaviors.md
 └── uptime-kuma/             # Monitor config-as-code

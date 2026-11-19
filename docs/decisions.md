@@ -101,8 +101,8 @@ phase landed; these three decisions are the parts worth keeping:
   the HTTP→HTTPS redirect, so cloudflared can connect via `http://caddy:80` without a 301.
   Caddy site blocks default to HTTPS-only, so the `http://` variant must be added
   explicitly per block — it is not implied by disabling the redirect.
-- **Grey-cloud A records for private services.** DNS for Tailscale-only services (Beszel,
-  Dozzle, FileBrowser, Karakeep) is a Cloudflare A record in DNS-only
+- **Grey-cloud A records for private services.** DNS for Tailscale-only services (Dozzle,
+  FileBrowser, Karakeep) is a Cloudflare A record in DNS-only
   mode (grey cloud) pointing at the HomeLab Tailscale IP — unreachable from the public
   internet, resolves instantly for any Tailscale device.
 - **DNS-01 for TLS.** Caddy obtains Let's Encrypt certs via the Cloudflare DNS-01 challenge
@@ -210,6 +210,8 @@ lowprio`.
 
 ## Beszel alerts: named by system, CPU and load to `watchdog` (2026-11-14, Issue 1100)
 
+*Superseded 2026-11-19: Beszel is removed (see "Beszel removed" below); history only.*
+
 19 of 84 messages on `alerts` in 72 hours were Beszel alerts titled only "Beszel". The hub builds
 its own title ("HomeLab CPU above threshold", "Connection to HomeLab is down 🔴") and appends it
 as the `title` query parameter of the shoutrrr URL; the stored URL already carried
@@ -279,6 +281,8 @@ the subscriber and `tailscaled` (~1 core, `tx` 1.8 MB/s) still hold the box abov
 run. Rollback: remove the `cpus:` line, `make up`.
 
 ## CPU temperature: a watchdog alert with hysteresis, not Beszel (2026-11-15, Issue 1383)
+
+*Still current: the watchdog owns CPU temperature. The Beszel parts below are history (Beszel removed 2026-11-19).*
 
 Beszel's Temperature alert compares one running mean (15 min) to one value (90 °C) and notifies on
 every change of side. The package sat at 90 °C, so `alerts` heard "below 89.80", "above 90.33",
@@ -387,3 +391,27 @@ only.
 
 `make verify` at 13:12 UTC listed `MacMini Drift - Push` DOWN, a Mac mini job, not homelab-hosted
 and not CPU-related; left to its owner.
+
+## Beszel removed: ClickStack for everything but CPU temperature (2026-11-19, Issue 2102)
+
+Owner decision 2026-11-17: Beszel is discontinued. Every machine it watched reports host and container metrics to
+ClickStack (`docs/host-agent.md`, Issue 2092) with infra alerts routed to the factory door, and the VPS and Mac mini agents
+were already gone. Removed here: the `beszel` and `beszel-agent` services and network, the `beszel.jkrumm.com` Caddy route,
+`scripts/beszel-alerts.sh` with `make beszel-alerts`, the two Kuma monitors, the Glance iframe and release entry, and the
+watchdog's critical-directory check (the Beszel directory was its only entry; the HDD check keeps mount, writability and I/O).
+
+**Checked before removal** (2026-11-19 21:07 UTC, ClickStack, `host.name=homelab`): `system.cpu.utilization`,
+`system.memory.utilization`, `system.filesystem.utilization`, `system.cpu.load_average.5m`, `system.network.io`,
+`system.cpu.logical.count`, `container.cpu.utilization`, `container.memory.percent` and `container.restarts` had samples in
+every one of the last 1440 minutes (no gap, no zero row). The alerts `homelab host silent < 1 sample (10m)`,
+`Infra memory >= 90% (15m)`, `Infra filesystem >= 85% (15m)` and `Infra load5 per core >= 8 (30m)` (all grouped by or
+filtered to `host.name`, state OK) cover `homelab`.
+
+**Who owns what now.** CPU temperature stays with the watchdog (`check_thermal`, unchanged). Status, memory, disk and
+load come from ClickStack. **The CPU 80 % / LoadAvg5 digest on the low-priority `watchdog` topic has no replacement:**
+ClickStack has a `CPU utilisation` tile but no CPU alert, and its load alert is a stuck-box page (>= 8 per core for 30 min,
+to the factory door), not a digest. A batch job that fills the box now pages no one, which was the point of the digest.
+
+**Data.** `/mnt/hdd/beszel` is moved aside as `/mnt/hdd/beszel.retired-2026`, not deleted; it can be deleted after
+2026-12-19 (30 days). Rollback: move the directory back, restore the two compose services, the Caddy block and the Kuma
+monitors from git history, `make up`.

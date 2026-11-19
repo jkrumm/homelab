@@ -17,13 +17,6 @@ uptime.jkrumm.com, http://uptime.jkrumm.com {
 # === PRIVATE SERVICES (Tailscale only, HTTPS enforced) ===
 # HTTP requests are permanently redirected to HTTPS
 
-beszel.jkrumm.com {
-	reverse_proxy beszel:8090
-}
-http://beszel.jkrumm.com {
-	redir https://{host}{uri} permanent
-}
-
 dozzle.jkrumm.com {
 	reverse_proxy dozzle:8081
 }

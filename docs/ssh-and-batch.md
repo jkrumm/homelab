@@ -6,7 +6,7 @@ existing folders (`docs/s3.md`). Agents use S3, never an SMB mount.
 
 ## Batch jobs on the homelab
 
-The box has 4 cores and serves ntfy, Uptime Kuma, Beszel, cloudflared and Tailscale: a batch job
+The box has 4 cores and serves ntfy, Uptime Kuma, cloudflared and Tailscale: a batch job
 that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy 1-6 s instead of
 0.06 s, Kuma pushes answering 530/502). Rules for any job started from an SSH session:
 
@@ -25,10 +25,9 @@ that holds every core takes the alerting path down (2026-11-14: load 20-37, ntfy
   `lowprio*`; never `--builder default` for a build started from an SSH session.
 - **Bulk data does not go through `ssh homelab`:** Tailscale SSH terminates in tailscaled's userspace
   stack, ~0.3 core per 0.5 MB/s. Move files over S3 (`docs/s3.md`) or SMB.
-- Beszel CPU and load alerts go to the `watchdog` topic (priority 2), so a batch job pages no one;
-  a service going down still pages through Kuma.
-- CPU temperature is the watchdog's alert (`check_thermal`: 30-min mean, hot at 90 °C, clear below 85 °C),
-  not a Beszel alert; `make beszel-alerts` deletes a Temperature row added in the hub UI.
+- A batch job pages no one on CPU: there is no CPU digest (Beszel is gone, `docs/decisions.md`), the ClickStack
+  alert `Infra load5 per core >= 8 (30m)` only fires on a stuck box, and a service going down still pages through Kuma.
+- CPU temperature is the watchdog's alert (`check_thermal`: 30-min mean, hot at 90 °C, clear below 85 °C).
 
 ## CPU budget — size a workload against this before it lands here
 
@@ -39,7 +38,7 @@ behind it: `docs/decisions.md`.
 
 | Holder | Budget | Why |
 |-|-|-|
-| Core services: ntfy, Uptime Kuma, cloudflared, Caddy, tailscaled, dockerd, Beszel | **reserved: 1 core**, never limited | Idle they use ~0.25; Kuma climbs to 0.4 when pushes arrive late and tailscaled to 0.3-0.75 while it carries an SSH stream. They must win contention, not share it |
+| Core services: ntfy, Uptime Kuma, cloudflared, Caddy, tailscaled, dockerd | **reserved: 1 core**, never limited | Idle they use ~0.25; Kuma climbs to 0.4 when pushes arrive late and tailscaled to 0.3-0.75 while it carries an SSH stream. They must win contention, not share it |
 | Homelab-owned services (Samba, Karakeep, Jellyfin, torrent stack, ...) | share the rest at default weight | Quiet use ~0.3 combined; no per-service cap until one starves a core service |
 | **Guest workloads** (another repo's containers or jobs deployed here) | **all guests together <= 1.5 cores sustained, any one <= 1 core, <= 3 worker processes** | Leaves >= 1 of 4 threads idle; the 2026-11-14/15 incidents were each one guest at 1-4 cores |
 

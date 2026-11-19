@@ -153,20 +153,6 @@ groups:
             timeout: 120
             maxretries: 5
 
-          - name: Beszel - Docker
-            type: docker
-            docker_container: beszel
-            interval: 136
-            timeout: 120
-            maxretries: 5
-
-          - name: Beszel Agent - Docker
-            type: docker
-            docker_container: beszel-agent
-            interval: 139
-            timeout: 120
-            maxretries: 5
-
           - name: Host Agent - Docker
             type: docker
             docker_container: host-agent

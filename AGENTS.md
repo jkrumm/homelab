@@ -27,7 +27,7 @@ block direct SSH; emergency access is physical or the Hetzner console). Use `ssh
 command follows a stream. Files: Samba (`smb://samba.jkrumm.com`) for people, S3
 (`https://s3.jkrumm.com`, `docs/s3.md`) for agents, never an SMB mount.
 
-The box has 4 slow cores (N100 under a RAPL cap) and also serves ntfy, Uptime Kuma, Beszel,
+The box has 4 slow cores (N100 under a RAPL cap) and also serves ntfy, Uptime Kuma,
 cloudflared and Tailscale: a batch job that holds every core takes alerting down (load 20-37 and
 Kuma pushes answering 530/502 on 2026-11-14). For any job started from an SSH session:
 
@@ -111,7 +111,7 @@ or `make caddy-reload`; each `git pull`s on the server and applies with secrets 
   listed monitor is UP (3 is fine); incidents and maintenance windows are informational only.
 - **Kuma monitor:** `HomeLab Watchdog - Push`.
 - **OTel `service.name`:** `host-agent` (host metrics) and `host-probe` (container metrics), `host.name=homelab`, sent
-  to ClickStack on the VPS (`docs/host-agent.md`: two containers, key, queue, footprint, Beszel parity). No receiver runs here.
+  to ClickStack on the VPS (`docs/host-agent.md`: two containers, key, queue, footprint, parity with the retired Beszel alerts). No receiver runs here.
 - `make verify` (needs `jq`) checks the status page, then `scripts/verify-monitors.sh` checks every
   active non-group monitor through Argo on the mini (`127.0.0.1:7737/api/uptime-kuma/monitors`,
   bearer `op://common/api/SECRET` via `secrets-run`). Any DOWN fails; PENDING is a `NOTE:`. It runs

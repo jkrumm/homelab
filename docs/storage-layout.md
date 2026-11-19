@@ -39,7 +39,7 @@ emergency shell (2026-10-21). With the HDD absent, the immutable bare `/mnt/hdd`
 │   └── Videos/           # Fuji video archive (not restic-covered, not indexed)
 ├── Videos/               # Big personal videos (drone, projects); not restic-covered, mirrored to the mini's external SSD by the ext-mirror job
 ├── restic/cache/         # Restic local cache (~200 MB metadata)
-├── beszel/               # Metrics data
+├── beszel.retired-2026/  # Beszel hub data, retired 2026-11-19 (Issue 2102); delete after 2026-12-19
 ├── filebrowser/          # FileBrowser config
 ├── backups/              # FPP MySQL hourly dump + weatherorb-accounts/ (retired V1 DB dumps, no longer pulled) (restic source)
 └── weatherorb-archive/   # S3 bucket the Mac mini pushes to (sha256-verified, write-once, files sealed chattr +i; NOT restic-backed)

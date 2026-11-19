@@ -3,7 +3,7 @@
 `host-agent` and `host-probe` put the homelab's host and container metrics into the estate's ClickStack on the VPS
 (`host.name=homelab`, `service.namespace=infra`, `deployment.environment.name=prod`). They run the agent of the vps repo
 (Issue 2055: a slim OpenTelemetry Collector built with ocb, collector 0.165.0; design and measurements on the VPS in that
-repo's `docs/observability.md` → Host agent). Beszel keeps running next to them until the parity below is judged enough.
+repo's `docs/observability.md` → Host agent). They replaced Beszel (removed 2026-11-19, Issue 2102); the parity below is what the owner accepted.
 
 | Container | Network | `service.name` | Collects | Config |
 |-|-|-|-|-|
@@ -44,19 +44,19 @@ filesystem, load, memory, network, nfs, paging, process(es), system), so CPU tem
 HDD), plus `/boot`, `/boot/efi` and `/mnt/transfer`. If the HDD is unmounted the series for it stops, which is what the
 watchdog's remount logic already acts on.
 
-## Against Beszel
+## Against Beszel (retired)
 
-The Beszel alerts live in the hub (`scripts/beszel-alerts.sh` routes them: status, memory, disk to `alerts`; CPU and the load
-alerts to the `watchdog` digest). The ClickStack side is alerts and tiles in the vps repo (`Infra - Hosts`); the homelab rows
-need `host.name` filters there (signal filed, see below).
+Beszel (hub and agent) was removed on 2026-11-19 (Issue 2102). Its alerts map onto alerts and tiles in the vps repo
+(`Infra - Hosts` dashboard); checked before the removal: the last 24 h of `system.*` and `container.*` series with
+`host.name=homelab` had samples in all 1440 minutes, and the memory, filesystem, load and host-silent alerts cover `homelab`.
 
 | Beszel alert | ClickHouse metric | Covered by |
 |-|-|-|
 | Status (system down) | `system.cpu.utilization`, any `host.name=homelab` sample | `homelab host silent < 1 sample (10m)`, added in the vps repo |
 | Memory | `system.memory.utilization`, `state=used` | `Infra memory >= 90% (15m)`, grouped by host |
 | Disk | `system.filesystem.utilization` per `system.filesystem.mountpoint` (`/`, `/mnt/hdd`) | `Infra filesystem >= 85% (15m)`, grouped by host and mount |
-| CPU 80 % for 10 min (digest) | `system.cpu.utilization`, states other than `idle` | tile `CPU utilisation`, no alert (Beszel's was a digest, not a page) |
-| LoadAvg5 | `system.cpu.load_average.5m` / `system.cpu.logical.count` | `Infra load5 per core >= 4 (15m)` |
+| CPU 80 % for 10 min (digest) | `system.cpu.utilization`, states other than `idle` | tile `CPU utilisation`, **no alert and no replacement**: the low-priority `watchdog` digest is gone |
+| LoadAvg5 | `system.cpu.load_average.5m` / `system.cpu.logical.count` | `Infra load5 per core >= 8 (30m)` (pages through the factory door; a stuck-box alert, not the old `watchdog` digest) |
 
 Not in ClickStack: container `status` beyond running (`container.state.health.status` and `container.restarts` cover health
 and restarts, `Infra container *` alerts), temperature (watchdog), SMART.

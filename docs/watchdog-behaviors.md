@@ -38,7 +38,7 @@ watchdog logs an error and exits, it installs nothing.
 
 **Key containers checked:** `caddy`, `cloudflared`, `uptime-kuma`
 
-**Critical HDD directories checked:** `/mnt/hdd/beszel`
+**Critical HDD directories checked:** none (the HDD check is mount, writability and I/O only; the only directory it used to check, the Beszel data directory, was retired with Beszel, Issue 2102)
 
 **CPU temperature:** `check_thermal` runs first in every watchdog run, on every path (it never fails the run). It appends the coretemp package reading to `thermal_samples` in the state dir, keeps the last three, and queues one "CPU hot" notification when their mean reaches 90 °C and one "cool again" when it falls below 85 °C. Fewer than three samples (fresh state dir, a reboot does not clear them) and an unreadable sensor do nothing. Beszel no longer alerts on temperature (no hysteresis; `docs/decisions.md`).
 
@@ -220,7 +220,7 @@ manual intervention. Every HDD-backed service was down for ~40 minutes.
 **What keeps working:**
 
 - All containers running locally
-- Private Tailscale services (beszel, dozzle, etc.) — unaffected
+- Private Tailscale services (dozzle, etc.) — unaffected
 - `check_docker_health` catches cloudflared down (it's in key_containers)
 - `check_internal_monitor` passes (localhost access)
 
@@ -289,7 +289,7 @@ If BetterStack is genuinely down but homelab is healthy:
 
 - All 7 private services unreachable from Tailscale devices
 - SSH via `ssh homelab` (Tailscale IP) fails
-- Cross-machine connections (Dozzle hub → VPS agent, Beszel hub → VPS agent)
+- Cross-machine connections (Dozzle hub → VPS agent)
 
 **What the watchdog detects:**
 

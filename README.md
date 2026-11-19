@@ -23,11 +23,10 @@ a fresh server up from scratch.
 7. [Reusing an Existing Encrypted HDD](#reusing-an-existing-encrypted-hdd)
 8. [Mount the TRANSFER Partition](#mount-the-transfer-partition)
 9. [File Access](#file-access)
-10. [Setup Beszel](#setup-beszel)
-11. [Setup Dozzle](#setup-dozzle)
-12. [Setup UptimeKuma](#setup-uptimekuma)
-13. [Setup Restic Backup](#setup-restic-backup)
-14. [Setup HomeLab self-healing watchdog](#setup-homelab-self-healing-watchdog)
+10. [Setup Dozzle](#setup-dozzle)
+11. [Setup UptimeKuma](#setup-uptimekuma)
+12. [Setup Restic Backup](#setup-restic-backup)
+13. [Setup HomeLab self-healing watchdog](#setup-homelab-self-healing-watchdog)
 
 ---
 
@@ -48,7 +47,6 @@ a fresh server up from scratch.
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Cross-Machine Links                           │
 │  Dozzle hub (HomeLab) ←→ Dozzle agent (VPS)  via Tailscale           │
-│  Beszel hub (HomeLab) ←→ Beszel agent (VPS)  via Tailscale           │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,7 +63,6 @@ a fresh server up from scratch.
 
 | Service          | URL                                              | Purpose                                                       |
 | ---------------- | ------------------------------------------------ | -------------------------------------------------------------- |
-| Beszel           | [beszel.jkrumm.com](https://beszel.jkrumm.com)   | System metrics                                                |
 | Dozzle           | [dozzle.jkrumm.com](https://dozzle.jkrumm.com)   | Container logs                                                |
 | FileBrowser      | [files.jkrumm.com](https://files.jkrumm.com)     | File management                                               |
 | S3 (VersityGW)   | [s3.jkrumm.com](https://s3.jkrumm.com)           | S3 API over existing folders — agents, rclone, presigned links (`docs/s3.md`) |
@@ -80,7 +77,7 @@ challenge). Full network topology and the Caddy dual-http/https detail:
 #### HomeLab — Internal (no direct web access)
 
 Caddy, Cloudflared, three docker-socket-proxy variants (monitoring / Watchtower / argo; Argo now queries it from the Mac mini),
-Watchtower, Samba, Beszel Agent, host-agent and host-probe (metrics into ClickStack on the VPS,
+Watchtower, Samba, host-agent and host-probe (metrics into ClickStack on the VPS,
 `docs/host-agent.md`), Restic Backup (daily 03:30
 cron), watchdog log sidecars. See `docs/repository-structure.md` for the full
 compose service list.
@@ -451,16 +448,6 @@ keeps SMB off the LAN. There is no SSH-tunnel fallback (`AllowTcpForwarding no`)
 
 **Filebrowser** for web upload/browse and links from notes; **Samba** for Finder mounts and bulk
 human work; **S3** for anything scripted or agent-driven.
-
-## Setup Beszel
-
-1. Create a specific folder for Beszel data on the HDD:
-   ```bash
-   sudo mkdir -p /mnt/hdd/beszel
-   sudo chown -R 1000:1000 /mnt/hdd/beszel
-   chmod 755 /mnt/hdd/beszel
-   ```
-2. Access at `https://beszel.jkrumm.com` — username jkrumm, password in 1Password.
 
 ## Setup Dozzle
 

@@ -1,7 +1,7 @@
 name: homelab
 
 services:
-  # Read-only socket proxy for monitoring services (Glance, Dozzle, Beszel, UptimeKuma)
+  # Read-only socket proxy for monitoring services (Glance, Dozzle, UptimeKuma)
   # POST=0 — no write operations possible
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
@@ -149,42 +149,6 @@ services:
       glance.icon: si:protondrive
       glance.url: https://files.jkrumm.com
       glance.hide: false
-
-  beszel:
-    image: henrygd/beszel
-    container_name: beszel
-    restart: unless-stopped
-    networks:
-      - cloudflared
-      - beszel
-    volumes:
-      - /mnt/hdd/beszel:/beszel_data
-    labels:
-      glance.name: Beszel
-      glance.icon: si:graylog
-      glance.url: https://beszel.jkrumm.com
-      glance.hide: false
-
-  beszel-agent:
-    image: 'henrygd/beszel-agent'
-    container_name: beszel-agent
-    restart: unless-stopped
-    ports:
-      - '${HOMELAB_TAILSCALE_IP}:45876:45876'
-    networks:
-      - beszel
-      - socket-proxy
-    volumes:
-      - /mnt/hdd/.beszel:/extra-filesystems/hdd:ro
-    environment:
-      PORT: 45876
-      KEY: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInimIOc9SESgXhpaYcyJWwf/JZmP7WSvHtdqhPqMZEf'
-      FILESYSTEMS: /sda/sda3
-      DOCKER_HOST: tcp://docker-socket-proxy:2375
-    depends_on:
-      - docker-socket-proxy
-    labels:
-      glance.hide: true
 
   # host-agent and host-probe — host and container metrics into the estate's ClickStack (the VPS), in two containers like the
   # VPS pair (docs/host-agent.md). A slim OpenTelemetry Collector built from packages/host-agent (Issue 2055's agent; the vps repo
@@ -715,8 +679,6 @@ volumes:
 
 networks:
   cloudflared:
-    driver: bridge
-  beszel:
     driver: bridge
   socket-proxy:
     driver: bridge
