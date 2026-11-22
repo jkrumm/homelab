@@ -1099,6 +1099,15 @@ groups:
         headers:
           Authorization: 'Bearer ${FPP_SERVER_AUTH}'
 
+      # v9 beta host (vps Issue 3041). No container sits behind the route until the first
+      # fpp-api image is rolled out: keep paused, remove active: false once /api/health answers 200.
+      - name: FPP Next - HTTP
+        type: http
+        url: https://next.free-planning-poker.com/api/health
+        ip_family: 6
+        cloudflare_bypass: true
+        active: false
+
       - name: FPP - Analytics - HTTP
         type: keyword
         url: https://analytics.free-planning-poker.com/health
