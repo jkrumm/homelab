@@ -41,6 +41,8 @@ the direct `alerts` page (provider `ntfy - Alerts`) next to the door:
 | `Software Factory - Push` | The factory's own verdict: the tick advanced and the queue moved within 30 minutes |
 | `MacMini Dev Host - Push` | The mini itself: herdr-core, sshd, tailscaled, the boot path |
 | `MacMini Door - HTTP` | The mini's Kuma door (`:8795/healthz`) answering: DOWN after about 3 to 4 minutes unreachable or starved (interval 60, 2 retries at 60 s) |
+| `Home Line - Push` | The home internet line (linewatch on the mini): the factory sits behind that line, so the door cannot carry this alert |
+| `Home Line - Watchdog` | linewatch watchdog out of ladder or latched: same reason, it fires during a home-line outage |
 
 `MacMini Door - HTTP` is the fast page: the push monitor above needs about 20 minutes to
 reach DOWN. A planned reboot pages it once and the message says "unreachable", where the

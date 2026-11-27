@@ -52,6 +52,10 @@ settings:
     - Software Factory - Push
     - MacMini Dev Host - Push
     - MacMini Door - HTTP
+    # The factory runs on the mini behind the home line, so a home-line alert routed
+    # to the door can never arrive (2026-11-27: ETIMEDOUT for 4h44m, nobody paged).
+    - Home Line - Push
+    - Home Line - Watchdog
 
   # ntfy provider, created by sync.py. Kuma reaches the ntfy container by name over
   # the docker network, so the token never leaves the host; it comes from NTFY_TOKEN.
